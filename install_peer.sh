@@ -36,8 +36,14 @@ mkdir -p "$INSTALL_DIR"
 tar -xzf "$TMP_ARCHIVE" -C "$HOME/dev"
 rm -f "$TMP_ARCHIVE"
 
-# 3. Make python connection script executable
+# 3. Make executables runnable and install global `tincan` CLI
 chmod +x "$INSTALL_DIR/connect_peer.py"
+chmod +x "$INSTALL_DIR/tincan_cli.py"
+
+mkdir -p "$HOME/.local/bin"
+ln -sf "$INSTALL_DIR/tincan_cli.py" "$HOME/.local/bin/tincan"
+chmod +x "$HOME/.local/bin/tincan"
+echo "[+] Linked global 'tincan' command -> $HOME/.local/bin/tincan"
 
 # 4. Install the "connect-peer" natural language skill into Antigravity
 echo "[+] Registering 'connect-peer' natural language skill..."

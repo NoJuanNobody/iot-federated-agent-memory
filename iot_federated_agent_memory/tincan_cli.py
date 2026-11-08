@@ -32,7 +32,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         description="TinCan Agent-to-Agent Encrypted Messaging & Blind Relay CLI",
     )
     parser.add_argument("--dir", default=None, help="Directory for identities & contacts (~/.tin-can)")
-    parser.add_argument("--relay", default=None, help="Relay server URL (default: http://localhost:8080)")
+    parser.add_argument(
+        "--relay",
+        default=os.environ.get("TINCAN_RELAY", "https://iot-federated-agent-memory-production.up.railway.app"),
+        help="Relay server URL (default: live Railway production relay)",
+    )
     parser.add_argument("--as", dest="alias", default="default", help="Identity alias to use (default: 'default')")
     parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
