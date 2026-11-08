@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Install Peer Mesh & Register "connect-peer" Natural Language Skill
-# Usage: curl -sSL https://raw.githubusercontent.com/NoJuanNobody/iot-federated-agent-memory/main/install_peer.sh | bash
+# Usage: curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash
+# Or: wget -qO- https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash
 # Or run locally: ./install_peer.sh
 # ==============================================================================
 
 set -e
 
-REPO_URL="https://github.com/NoJuanNobody/iot-federated-agent-memory.git"
+RELAY_URL="${RELAY_URL:-https://iot-federated-agent-memory-production.up.railway.app}"
 INSTALL_DIR="$HOME/dev/iot-federated-agent-memory"
 SKILLS_DIR="$HOME/.gemini/config/skills/connect-peer"
 AGENTS_SKILLS_DIR="$HOME/.agents/skills/connect-peer"
@@ -19,14 +20,21 @@ echo "=========================================================="
 # 1. Ensure dev directory exists
 mkdir -p "$HOME/dev"
 
-# 2. Clone or pull latest repository
-if [ -d "$INSTALL_DIR/.git" ]; then
-    echo "[+] Updating existing repository in $INSTALL_DIR..."
-    git -C "$INSTALL_DIR" pull --rebase origin main || true
+# 2. Download and unpack project bundle from live Railway relay (no GitHub account required)
+echo "[+] Fetching project bundle from $RELAY_URL..."
+TMP_ARCHIVE=$(mktemp /tmp/iot_bundle_XXXXXX.tar.gz)
+if command -v curl >/dev/null 2>&1; then
+    curl -sSL "$RELAY_URL/download/bundle.tar.gz" -o "$TMP_ARCHIVE"
+elif command -v wget >/dev/null 2>&1; then
+    wget -qO "$TMP_ARCHIVE" "$RELAY_URL/download/bundle.tar.gz"
 else
-    echo "[+] Cloning repository to $INSTALL_DIR..."
-    git clone "$REPO_URL" "$INSTALL_DIR"
+    echo "[-] Error: Neither curl nor wget found on this system."
+    exit 1
 fi
+
+mkdir -p "$INSTALL_DIR"
+tar -xzf "$TMP_ARCHIVE" -C "$HOME/dev"
+rm -f "$TMP_ARCHIVE"
 
 # 3. Make python connection script executable
 chmod +x "$INSTALL_DIR/connect_peer.py"

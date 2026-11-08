@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
+import io
 import json
 import os
+import tarfile
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
 from iot_federated_agent_memory.scale import IoTFederatedMemoryScale
@@ -46,6 +48,38 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             self._send_json(relay.get_active_streams())
         elif parsed.path == "/api/providers":
             self._send_json({k: {"lab": v.lab_id, "credits": v.available_credits, "model": v.model_alias} for k, v in router.providers.items()})
+        elif parsed.path == "/install.sh":
+            install_script_path = os.path.join(os.path.dirname(__file__), "install_peer.sh")
+            if os.path.exists(install_script_path):
+                with open(install_script_path, "rb") as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/x-shellscript; charset=utf-8")
+                self.send_header("Content-Length", str(len(content)))
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(content)
+            else:
+                self.send_response(404)
+                self.end_headers()
+        elif parsed.path == "/download/bundle.tar.gz":
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            buf = io.BytesIO()
+            with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+                def exclude_cruft(tarinfo):
+                    name = tarinfo.name
+                    if ".git" in name or "__pycache__" in name or ".pytest_cache" in name or ".worktrees" in name:
+                        return None
+                    return tarinfo
+                tar.add(base_dir, arcname="iot-federated-agent-memory", filter=exclude_cruft)
+            archive_data = buf.getvalue()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/gzip")
+            self.send_header("Content-Disposition", 'attachment; filename="iot-federated-agent-memory.tar.gz"')
+            self.send_header("Content-Length", str(len(archive_data)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(archive_data)
         else:
             self.send_response(404)
             self.end_headers()
