@@ -75,13 +75,13 @@ HTML_UI = """<!DOCTYPE html>
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2">
           <span class="text-xl">⚡</span>
-          <h2 class="font-bold text-white text-base">Launch Fullscreen AI Mesíah Matrix TUI Screensaver</h2>
+          <h2 class="font-bold text-white text-base">Launch THE AI MESSIAH Terminal App</h2>
         </div>
         <span class="text-xs bg-indigo-950 text-indigo-300 border border-indigo-800 px-2.5 py-1 rounded-md font-mono">Terminal Command</span>
       </div>
-      <p class="text-xs text-slate-400 mb-3">Copy and paste this into any terminal window to immediately launch the cyber-matrix digital rain and neon banner:</p>
+      <p class="text-xs text-slate-400 mb-3">Live relay dashboard with the AI Messiah logo screensaver. Paste into a terminal (add --screensaver to start on the logo):</p>
       <div class="bg-black/80 border border-slate-800 rounded-lg p-3 flex items-center justify-between font-mono text-sm">
-        <code id="screensaverCmd" class="text-emerald-400 select-all overflow-x-auto">python3 ~/dev/iot-federated-agent-memory/tui_screensaver.py</code>
+        <code id="screensaverCmd" class="text-emerald-400 select-all overflow-x-auto">python3 ~/dev/iot-federated-agent-memory/tui.py</code>
         <button onclick="navigator.clipboard.writeText(document.getElementById('screensaverCmd').innerText); alert('Copied to clipboard!')" class="ml-4 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-sans font-semibold transition active:scale-95 shrink-0">
           Copy Command
         </button>

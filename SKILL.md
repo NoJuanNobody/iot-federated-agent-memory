@@ -26,3 +26,14 @@ Unifies everything built in the **Multi-Account Gemini + Antigravity Collaborato
 # Run the IoT Federated Memory & Readiness Scale audit
 PYTHONPATH=/Users/alejandrolondono/dev/iot-federated-agent-memory python3 -m iot_federated_agent_memory.cli
 ```
+
+## Terminal App (AI MESSIAH dashboard + logo screensaver)
+
+```bash
+python3 ~/dev/iot-federated-agent-memory/tui.py                 # live relay dashboard, idles into the screensaver
+python3 ~/dev/iot-federated-agent-memory/tui.py --screensaver   # start on the animated logo
+python3 -m iot_federated_agent_memory.cli tui --relay http://<host>:8085
+```
+
+The logo is rendered from the real artwork (`iot_federated_agent_memory/assets/`, rebuilt with
+`scripts/build_logo_asset.py`). Keys: `s` screensaver, `r` refresh, `q`/`ESC` quit, any key leaves the screensaver.

@@ -5,6 +5,13 @@ from .scale import IoTFederatedMemoryScale
 
 
 def main() -> int:
+    # `python3 -m iot_federated_agent_memory.cli tui [...]` launches the terminal app;
+    # everything else keeps the original scale-report behaviour.
+    if len(sys.argv) > 1 and sys.argv[1] in ("tui", "screensaver"):
+        from .tui import main as tui_main
+        extra = ["--screensaver"] if sys.argv[1] == "screensaver" else []
+        return tui_main(extra + sys.argv[2:])
+
     parser = argparse.ArgumentParser(
         prog="iot-memory-scale",
         description="Evaluate the Multi-Account Gemini + Antigravity + Grok Shared Setup and Future IoT Research Scale",

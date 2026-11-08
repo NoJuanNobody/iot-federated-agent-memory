@@ -39,10 +39,13 @@ def main():
 
     print(f"[*] Booting Peer Agent Client: {args.display_name} ({args.peer_id})...")
     
-    # Render animated ASCII screensaver banner
-    screensaver_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "screensaver.py")
-    if os.path.isfile(screensaver_path):
-        os.system(f"python3 '{screensaver_path}' 2.0")
+    # Animated AI MESSIAH logo splash (skipped automatically when not on a TTY).
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    try:
+        from iot_federated_agent_memory.tui import splash
+        splash(2.5, relay=args.relay)
+    except Exception as exc:
+        print(f"[!] splash skipped: {exc}")
 
     status = check_status(args.relay)
     if not status:
