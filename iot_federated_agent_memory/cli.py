@@ -6,11 +6,16 @@ from .scale import IoTFederatedMemoryScale
 
 def main() -> int:
     # `python3 -m iot_federated_agent_memory.cli tui [...]` launches the terminal app;
+    # `python3 -m iot_federated_agent_memory.cli tincan [...]` launches the TinCan CLI;
     # everything else keeps the original scale-report behaviour.
     if len(sys.argv) > 1 and sys.argv[1] in ("tui", "screensaver"):
         from .tui import main as tui_main
         extra = ["--screensaver"] if sys.argv[1] == "screensaver" else []
         return tui_main(extra + sys.argv[2:])
+
+    if len(sys.argv) > 1 and sys.argv[1] in ("tincan", "tc"):
+        from .tincan_cli import main as tincan_main
+        return tincan_main(sys.argv[2:])
 
     parser = argparse.ArgumentParser(
         prog="iot-memory-scale",

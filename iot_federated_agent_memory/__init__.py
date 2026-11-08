@@ -38,6 +38,16 @@ from .tincan_core import (
     validate_address,
     verify_envelope,
 )
+from .tincan_relay import TinCanBlindRelay
+from .tincan_mcp import (
+    TinCanMCPClient,
+    tincan_whoami,
+    tincan_send,
+    tincan_read,
+    tincan_list_contacts,
+    tincan_add_contact,
+    handle_mcp_request,
+)
 
 __all__ = [
     "IoTFederatedMemoryScale",
@@ -75,4 +85,12 @@ __all__ = [
     "KeyConflictError",
     "DecryptionError",
     "InvalidAddressError",
+    "TinCanBlindRelay",
+    "TinCanMCPClient",
+    "tincan_whoami",
+    "tincan_send",
+    "tincan_read",
+    "tincan_list_contacts",
+    "tincan_add_contact",
+    "handle_mcp_request",
 ]
