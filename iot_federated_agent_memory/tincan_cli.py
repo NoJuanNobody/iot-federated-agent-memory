@@ -88,6 +88,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     agent_p.add_argument("prompt", help="Prompt question for the agent")
     agent_p.add_argument("--model", default="gemini-brain", help="Model alias to use")
 
+    # actions / accessibility queue
+    act_p = subparsers.add_parser("actions", help="List and review incoming actions queued for approval (Accessibility Gate)")
+    act_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    run_act_p = subparsers.add_parser("trigger", help="Approve and trigger an incoming queued action (e.g. 'tincan trigger 1')")
+    run_act_p.add_argument("action", help="Sequence number or action ID to execute")
+    run_act_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    dismiss_act_p = subparsers.add_parser("dismiss", help="Dismiss a queued action without executing")
+    dismiss_act_p.add_argument("action", help="Sequence number or action ID to dismiss")
+
     # serve
     serve_parser = subparsers.add_parser("serve", help="Run local standalone TinCan Blind Relay")
     serve_parser.add_argument("--port", type=int, default=8080, help="Port to listen on (default: 8080)")
@@ -165,6 +176,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.command == "read":
         try:
+            from .tincan_actions import enqueue_action
             msgs = client.tincan_read(since_seq=args.since, timeout=args.timeout)
             if args.json:
                 print(json.dumps(msgs, indent=2))
@@ -177,12 +189,64 @@ def main(argv: Optional[List[str]] = None) -> int:
                     speak_badge = " [TTS requested]" if m.get("speak") else ""
                     print(f"[{m.get('seq')}] From: {sender_label} ({ver_badge}){speak_badge}")
                     print(f"    {m.get('message')}")
+
+                    # Automatically enqueue actionable requests into the Accessibility Gate
+                    msg_txt = m.get("message", "")
+                    if any(keyword in msg_txt.lower() for keyword in ["open", "run", "launch", "execute", "start"]):
+                        act = enqueue_action(
+                            seq=m.get("seq", 0),
+                            sender=m.get("sender", ""),
+                            sender_alias=m.get("sender_alias"),
+                            command_text=msg_txt,
+                            config_dir=args.dir,
+                        )
+                        print(f"    \033[33m⚡ Queued in Accessibility Gate [seq {m.get('seq')}]. Run 'tincan trigger {m.get('seq')}' to execute.\033[0m")
             return 0
         except Exception as exc:
             if args.json:
                 print(json.dumps({"error": str(exc)}, indent=2))
             else:
                 print(f"[-] Read failed: {exc}", file=sys.stderr)
+            return 1
+
+    if args.command == "actions":
+        from .tincan_actions import load_pending_actions
+        actions = load_pending_actions(args.dir)
+        if args.json:
+            print(json.dumps(actions, indent=2))
+        else:
+            pending = [a for a in actions if a.get("status") == "pending_approval"]
+            if not pending:
+                print("No pending actions awaiting approval.")
+            else:
+                print("\033[1;36m=== Pending Inbound Actions (Accessibility Gate) ===\033[0m")
+                for a in pending:
+                    print(f"[{a['seq']}] From {a['sender_alias']}: \"{a['command']}\"")
+                    print(f"    -> Run: \033[1;32mtincan trigger {a['seq']}\033[0m to approve & execute")
+        return 0
+
+    if args.command == "trigger":
+        from .tincan_actions import execute_action
+        try:
+            res = execute_action(args.action, args.dir)
+            if args.json:
+                print(json.dumps(res, indent=2))
+            else:
+                print(f"\033[1;32m✓ Action triggered:\033[0m {res['command']}")
+                print(f"  Result: {res.get('result')}")
+            return 0
+        except Exception as exc:
+            print(f"[-] Trigger error: {exc}", file=sys.stderr)
+            return 1
+
+    if args.command == "dismiss":
+        from .tincan_actions import dismiss_action
+        try:
+            res = dismiss_action(args.action, args.dir)
+            print(f"[+] Dismissed action {res['seq']}")
+            return 0
+        except Exception as exc:
+            print(f"[-] Error: {exc}", file=sys.stderr)
             return 1
 
     if args.command in ("start", "screensaver"):
