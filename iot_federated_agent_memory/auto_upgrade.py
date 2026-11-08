@@ -32,6 +32,11 @@ def should_check_for_update(meta_file: str) -> bool:
 
 def check_and_auto_upgrade(relay_url: str, config_dir: Optional[str] = None, force: bool = False) -> bool:
     """Query relay version; if remote commit differs from local commit, trigger background upgrade."""
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if not force and os.path.isdir(os.path.join(repo_root, ".git")):
+        # Do not clobber a developer's git working tree automatically
+        return False
+
     meta_file = get_local_version_file(config_dir)
 
     if not force and not should_check_for_update(meta_file):

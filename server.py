@@ -92,17 +92,96 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 }, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/webrtc/register":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                peer_id = data.get("peer_id")
+                display_name = data.get("display_name") or peer_id or "Peer"
+                if not peer_id:
+                    self._send_json({"error": "Missing 'peer_id'"}, 400)
+                    return
+                session = relay.register_peer(
+                    peer_id=peer_id,
+                    display_name=display_name,
+                    udp_address=data.get("udp_address", self.client_address[0] if self.client_address else "127.0.0.1"),
+                    udp_port=int(data.get("udp_port", 50000)),
+                    room=data.get("room", "main"),
+                    has_video=bool(data.get("has_video", True)),
+                    has_audio=bool(data.get("has_audio", True)),
+                    has_screen=bool(data.get("has_screen", False)),
+                )
+                self._send_json({
+                    "status": "registered",
+                    "peer_id": session.peer_id,
+                    "room": session.room,
+                    "peers": relay.get_room_peers(session.room),
+                }, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/webrtc/signal":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                sender_id = data.get("from") or data.get("sender_id")
+                receiver_id = data.get("to") or data.get("receiver_id") or "*"
+                signal_type = data.get("type") or data.get("signal_type")
+                payload = data.get("payload") or {}
+                room = data.get("room", "main")
+                if not sender_id or not signal_type:
+                    self._send_json({"error": "Missing 'from' or 'type'"}, 400)
+                    return
+                msg = relay.exchange_signal(
+                    sender_id=sender_id,
+                    receiver_id=receiver_id,
+                    signal_type=signal_type,
+                    sdp_or_candidate=payload,
+                    room=room,
+                )
+                self._send_json({"status": "signaled", "signal": msg}, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/webrtc/leave":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                peer_id = data.get("peer_id")
+                room = data.get("room", "main")
+                if not peer_id:
+                    self._send_json({"error": "Missing 'peer_id'"}, 400)
+                    return
+                left = relay.leave_peer(peer_id)
+                relay.exchange_signal(peer_id, "*", "hangup", {"peer_id": peer_id}, room=room)
+                self._send_json({"status": "left", "peer_id": peer_id, "removed": left}, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
         else:
             self.send_response(404)
             self.end_headers()
 
     def do_GET(self):
         parsed = urlparse(self.path)
-        if parsed.path == "/" or parsed.path == "/health":
+        if parsed.path in ("/", "/health", "/call"):
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.end_headers()
             self.wfile.write(HTML_UI.encode("utf-8"))
+        elif parsed.path == "/api/webrtc/signals":
+            query = parse_qs(parsed.query)
+            peer_id = query.get("peer_id", query.get("peer", [None]))[0]
+            room = query.get("room", ["main"])[0]
+            since_str = query.get("since_seq", query.get("since", ["0"]))[0]
+            try:
+                since_seq = int(since_str)
+            except ValueError:
+                since_seq = 0
+            if not peer_id:
+                self._send_json({"error": "Missing 'peer_id' query parameter"}, 400)
+                return
+            self._send_json(relay.poll_signals(receiver_id=peer_id, room=room, since_seq=since_seq), 200)
         elif parsed.path == "/api/status":
             audit = scale.evaluate_current_and_future()
             self._send_json({
@@ -312,28 +391,294 @@ HTML_UI = """<!DOCTYPE html>
       </div>
     </div>
 
-    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-      <h2 class="font-semibold text-slate-200 mb-4">Active UDP Screenshare Channels</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="p-4 bg-slate-800/60 rounded-lg border border-slate-700">
-          <div class="flex justify-between items-center">
-            <span class="font-semibold text-white">Mac Studio (M1 Max)</span>
-            <span class="text-xs bg-emerald-900 text-emerald-300 px-2 py-0.5 rounded">UDP: 50004</span>
-          </div>
-          <p class="text-xs text-slate-400 mt-2">Streaming live desktop & terminal canvas</p>
+    <div id="call" class="bg-slate-900 border border-cyan-800/70 rounded-xl p-5 space-y-4 shadow-2xl">
+      <div class="flex flex-wrap justify-between items-center gap-3">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <span>📹</span> Live WebRTC Video, Voice &amp; Screenshare Studio
+          </h2>
+          <p class="text-xs text-slate-400">Peer-to-peer encrypted WebRTC camera, microphone voice calling, and H.264 desktop screenshare</p>
         </div>
-        <div class="p-4 bg-slate-800/60 rounded-lg border border-slate-700">
-          <div class="flex justify-between items-center">
-            <span class="font-semibold text-white">Collaborator MacBook</span>
-            <span class="text-xs bg-cyan-900 text-cyan-300 px-2 py-0.5 rounded">UDP: 50006</span>
+        <div class="flex items-center gap-2 text-xs font-mono">
+          <span class="text-slate-400">Room:</span>
+          <input id="roomInput" type="text" value="main" class="bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-cyan-300 w-28">
+          <button onclick="copyInviteLink()" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded text-slate-200 transition">
+            Copy Invite Link
+          </button>
+          <span id="callStatusBadge" class="px-2.5 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700">Idle</span>
+        </div>
+      </div>
+
+      <!-- Control Bar -->
+      <div class="flex flex-wrap gap-2">
+        <button onclick="startCall('video')" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition active:scale-95">
+          🎥 Start Video + Voice
+        </button>
+        <button onclick="startCall('voice')" class="px-3.5 py-2 bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold rounded-lg transition active:scale-95">
+          🎙️ Voice-Only Call
+        </button>
+        <button onclick="startScreenShare()" class="px-3.5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold rounded-lg transition active:scale-95">
+          🖥️ Share Screen
+        </button>
+        <button id="muteBtn" onclick="toggleMute()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition">
+          🔇 Mute Mic
+        </button>
+        <button id="camBtn" onclick="toggleCamera()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition">
+          📷 Toggle Cam
+        </button>
+        <button onclick="hangupCall()" class="px-3.5 py-2 bg-rose-700 hover:bg-rose-600 text-white text-xs font-semibold rounded-lg transition ml-auto">
+          ⏹ End Call
+        </button>
+      </div>
+
+      <!-- Video / Audio Viewports -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="relative bg-black rounded-lg border border-slate-800 overflow-hidden aspect-video flex items-center justify-center">
+          <video id="localVideo" autoplay playsinline muted class="w-full h-full object-cover"></video>
+          <div class="absolute bottom-2 left-2 px-2 py-0.5 bg-black/75 rounded text-xs font-mono text-emerald-300 border border-emerald-900">
+            Local (<span id="localPeerLabel">you</span>)
           </div>
-          <p class="text-xs text-slate-400 mt-2">Connected peer view with shared input channel</p>
+        </div>
+        <div class="relative bg-black rounded-lg border border-slate-800 overflow-hidden aspect-video flex items-center justify-center">
+          <video id="remoteVideo" autoplay playsinline class="w-full h-full object-cover"></video>
+          <div class="absolute bottom-2 left-2 px-2 py-0.5 bg-black/75 rounded text-xs font-mono text-cyan-300 border border-cyan-900">
+            Remote Peer (<span id="remotePeerLabel">waiting for peer...</span>)
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Peers in Room -->
+      <div class="pt-2 border-t border-slate-800/80">
+        <div class="text-xs font-semibold text-slate-400 mb-2">Active Room &amp; UDP Streams</div>
+        <div id="roomPeersGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono">
+          <div class="p-3 bg-slate-800/60 rounded-lg border border-slate-700 flex justify-between items-center">
+            <span class="text-white">Mac Studio (M1 Max)</span>
+            <span class="bg-emerald-900 text-emerald-300 px-2 py-0.5 rounded">UDP: 50004</span>
+          </div>
+          <div class="p-3 bg-slate-800/60 rounded-lg border border-slate-700 flex justify-between items-center">
+            <span class="text-white">Collaborator MacBook</span>
+            <span class="bg-cyan-900 text-cyan-300 px-2 py-0.5 rounded">UDP: 50006</span>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
   <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const myPeerId = urlParams.get('peer') || ('peer-' + Math.random().toString(36).substring(2, 8));
+    const initialRoom = urlParams.get('room') || 'main';
+    document.getElementById('roomInput').value = initialRoom;
+    document.getElementById('localPeerLabel').innerText = myPeerId;
+
+    let pc = null;
+    let localStream = null;
+    let lastSignalSeq = 0;
+    let pollTimer = null;
+    let isMuted = false;
+    let isCamOff = false;
+
+    const rtcConfig = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    };
+
+    function setCallStatus(text, tone = 'slate') {
+      const badge = document.getElementById('callStatusBadge');
+      badge.innerText = text;
+      badge.className = `px-2.5 py-1 rounded border text-xs font-mono bg-${tone}-950 text-${tone}-300 border-${tone}-800`;
+    }
+
+    function copyInviteLink() {
+      const room = document.getElementById('roomInput').value.trim() || 'main';
+      const inviteUrl = `${window.location.origin}/?room=${encodeURIComponent(room)}#call`;
+      navigator.clipboard.writeText(inviteUrl);
+      alert('Copied WebRTC room invite link: ' + inviteUrl);
+    }
+
+    async function sendSignal(type, payload, to = '*') {
+      const room = document.getElementById('roomInput').value.trim() || 'main';
+      await fetch('/api/webrtc/signal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: myPeerId, to, room, type, payload })
+      });
+    }
+
+    function ensurePeerConnection() {
+      if (pc) return pc;
+      pc = new RTCPeerConnection(rtcConfig);
+      pc.onicecandidate = (ev) => {
+        if (ev.candidate) {
+          sendSignal('candidate', { candidate: ev.candidate });
+        }
+      };
+      pc.ontrack = (ev) => {
+        const remoteVideo = document.getElementById('remoteVideo');
+        if (ev.streams && ev.streams[0]) {
+          remoteVideo.srcObject = ev.streams[0];
+          setCallStatus('Connected (Live Media)', 'emerald');
+        }
+      };
+      if (localStream) {
+        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+      }
+      return pc;
+    }
+
+    async function startCall(mode = 'video') {
+      try {
+        const room = document.getElementById('roomInput').value.trim() || 'main';
+        setCallStatus('Requesting mic/cam...', 'amber');
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: mode === 'video',
+          audio: true
+        });
+        document.getElementById('localVideo').srcObject = localStream;
+
+        await fetch('/api/webrtc/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            peer_id: myPeerId,
+            display_name: myPeerId,
+            room,
+            has_video: mode === 'video',
+            has_audio: true,
+            has_screen: false
+          })
+        });
+
+        ensurePeerConnection();
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await sendSignal('offer', { sdp: pc.localDescription });
+        setCallStatus('Calling room ' + room + '...', 'cyan');
+        if (!pollTimer) pollTimer = setInterval(pollSignals, 1200);
+      } catch (err) {
+        setCallStatus('Media error: ' + err.message, 'rose');
+      }
+    }
+
+    async function startScreenShare() {
+      try {
+        const room = document.getElementById('roomInput').value.trim() || 'main';
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        localStream = screenStream;
+        document.getElementById('localVideo').srcObject = screenStream;
+
+        await fetch('/api/webrtc/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            peer_id: myPeerId,
+            display_name: myPeerId + ' (Screen)',
+            room,
+            has_video: true,
+            has_audio: true,
+            has_screen: true
+          })
+        });
+
+        ensurePeerConnection();
+        const videoTrack = screenStream.getVideoTracks()[0];
+        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (sender && videoTrack) {
+          await sender.replaceTrack(videoTrack);
+        } else {
+          screenStream.getTracks().forEach(t => pc.addTrack(t, screenStream));
+        }
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await sendSignal('offer', { sdp: pc.localDescription });
+        setCallStatus('Sharing Screen in ' + room, 'cyan');
+        if (!pollTimer) pollTimer = setInterval(pollSignals, 1200);
+      } catch (err) {
+        setCallStatus('Screenshare error: ' + err.message, 'rose');
+      }
+    }
+
+    function toggleMute() {
+      if (!localStream) return;
+      isMuted = !isMuted;
+      localStream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
+      document.getElementById('muteBtn').innerText = isMuted ? '🔊 Unmute Mic' : '🔇 Mute Mic';
+    }
+
+    function toggleCamera() {
+      if (!localStream) return;
+      isCamOff = !isCamOff;
+      localStream.getVideoTracks().forEach(t => { t.enabled = !isCamOff; });
+      document.getElementById('camBtn').innerText = isCamOff ? '📷 Cam On' : '📷 Toggle Cam';
+    }
+
+    async function hangupCall() {
+      const room = document.getElementById('roomInput').value.trim() || 'main';
+      if (localStream) {
+        localStream.getTracks().forEach(t => t.stop());
+        localStream = null;
+      }
+      if (pc) {
+        pc.close();
+        pc = null;
+      }
+      document.getElementById('localVideo').srcObject = null;
+      document.getElementById('remoteVideo').srcObject = null;
+      document.getElementById('remotePeerLabel').innerText = 'waiting for peer...';
+      await fetch('/api/webrtc/leave', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ peer_id: myPeerId, room })
+      });
+      setCallStatus('Call Ended', 'slate');
+    }
+
+    async function pollSignals() {
+      try {
+        const room = document.getElementById('roomInput').value.trim() || 'main';
+        const res = await fetch(`/api/webrtc/signals?peer_id=${encodeURIComponent(myPeerId)}&room=${encodeURIComponent(room)}&since_seq=${lastSignalSeq}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.latest_seq && data.latest_seq > lastSignalSeq) {
+          lastSignalSeq = data.latest_seq;
+        }
+        if (data.peers) {
+          const grid = document.getElementById('roomPeersGrid');
+          grid.innerHTML = data.peers.map(p => `
+            <div class="p-3 bg-slate-800/60 rounded-lg border border-slate-700 flex justify-between items-center">
+              <span class="text-white">${p.display_name}</span>
+              <span class="bg-emerald-900 text-emerald-300 px-2 py-0.5 rounded">${p.has_screen ? 'SCREEN' : (p.has_video ? 'VIDEO+VOICE' : 'VOICE')} · UDP:${p.udp_port}</span>
+            </div>
+          `).join('');
+        }
+        for (const sig of (data.signals || [])) {
+          document.getElementById('remotePeerLabel').innerText = sig.from;
+          if (sig.type === 'offer' && sig.payload && sig.payload.sdp) {
+            ensurePeerConnection();
+            await pc.setRemoteDescription(new RTCSessionDescription(sig.payload.sdp));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            await sendSignal('answer', { sdp: pc.localDescription }, sig.from);
+            setCallStatus('Connected with ' + sig.from, 'emerald');
+          } else if (sig.type === 'answer' && sig.payload && sig.payload.sdp && pc) {
+            await pc.setRemoteDescription(new RTCSessionDescription(sig.payload.sdp));
+            setCallStatus('Connected with ' + sig.from, 'emerald');
+          } else if (sig.type === 'candidate' && sig.payload && sig.payload.candidate && pc) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(sig.payload.candidate));
+            } catch (e) {}
+          } else if (sig.type === 'hangup') {
+            document.getElementById('remoteVideo').srcObject = null;
+            document.getElementById('remotePeerLabel').innerText = 'peer hung up';
+            setCallStatus('Peer disconnected', 'amber');
+          }
+        }
+      } catch (e) {}
+    }
+
+    pollTimer = setInterval(pollSignals, 2000);
     async function loadAnalytics() {
       try {
         const res = await fetch('/api/models/analytics');

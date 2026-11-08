@@ -57,7 +57,26 @@ def main(argv: Optional[List[str]] = None) -> int:
     read_parser = subparsers.add_parser("read", help="Fetch and decrypt inbox messages")
     read_parser.add_argument("--since", type=int, default=0, help="Fetch messages after this sequence number")
     read_parser.add_argument("--timeout", type=float, default=0.0, help="Long-poll timeout in seconds")
+    read_parser.add_argument("--speak", action="store_true", help="Speak all unread messages aloud via TTS")
+    read_parser.add_argument("--no-speak", action="store_true", help="Disable automatic TTS vocalization")
     read_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # say (local + remote voice TTS)
+    say_p = subparsers.add_parser("say", help="Speak text aloud via Kokoro TTS and optionally send spoken message to a peer")
+    say_p.add_argument("text", help="Text to vocalize")
+    say_p.add_argument("--voice", default=None, help="Optional voice name (e.g. bella, michael)")
+    say_p.add_argument("--to", default=None, help="Optional recipient alias or tc: address to also send spoken message")
+    say_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # call / video (live WebRTC video, voice & screenshare room)
+    for call_cmd in ("call", "video"):
+        call_p = subparsers.add_parser(call_cmd, help="Launch live WebRTC Video, Voice & Screenshare call room")
+        call_p.add_argument("recipient", nargs="?", default=None, help="Optional contact alias or tc: address to invite")
+        call_p.add_argument("--room", default="main", help="WebRTC room name (default: main)")
+        call_p.add_argument("--voice-only", action="store_true", help="Start in voice-only microphone mode")
+        call_p.add_argument("--screen", action="store_true", help="Start with desktop screenshare enabled")
+        call_p.add_argument("--no-browser", action="store_true", help="Do not automatically open local browser")
+        call_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
     # contacts
     contacts_p = subparsers.add_parser("contacts", help="List pinned contacts")
@@ -177,6 +196,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.command == "read":
         try:
             from .tincan_actions import enqueue_action
+            from .tincan_voice import speak_text
             msgs = client.tincan_read(since_seq=args.since, timeout=args.timeout)
             if args.json:
                 print(json.dumps(msgs, indent=2))
@@ -186,13 +206,17 @@ def main(argv: Optional[List[str]] = None) -> int:
                 for m in msgs:
                     sender_label = m.get("sender_alias") or m.get("sender")
                     ver_badge = "✓ verified" if m.get("verified") else "✗ unverified"
-                    speak_badge = " [TTS requested]" if m.get("speak") else ""
+                    should_speak = (bool(m.get("speak")) or bool(args.speak)) and not bool(args.no_speak)
+                    speak_badge = " [🔊 TTS spoken]" if should_speak else (" [TTS requested]" if m.get("speak") else "")
                     print(f"[{m.get('seq')}] From: {sender_label} ({ver_badge}){speak_badge}")
                     print(f"    {m.get('message')}")
 
-                    # Automatically enqueue actionable requests into the Accessibility Gate
                     msg_txt = m.get("message", "")
-                    if any(keyword in msg_txt.lower() for keyword in ["open", "run", "launch", "execute", "start"]):
+                    if should_speak and msg_txt:
+                        speak_text(f"Message from {sender_label}: {msg_txt}", background=True)
+
+                    # Automatically enqueue actionable requests into the Accessibility Gate
+                    if any(keyword in msg_txt.lower() for keyword in ["open", "run", "launch", "execute", "start", "call", "join"]):
                         act = enqueue_action(
                             seq=m.get("seq", 0),
                             sender=m.get("sender", ""),
@@ -208,6 +232,98 @@ def main(argv: Optional[List[str]] = None) -> int:
             else:
                 print(f"[-] Read failed: {exc}", file=sys.stderr)
             return 1
+
+    if args.command == "say":
+        from .tincan_voice import speak_text
+        tts_res = speak_text(args.text, voice=args.voice, background=True)
+        send_res = None
+        if args.to:
+            try:
+                send_res = client.tincan_send(recipient_address=args.to, message=args.text, speak=True)
+            except Exception as exc:
+                send_res = {"error": str(exc)}
+        out = {"tts": tts_res, "sent": send_res}
+        if args.json:
+            print(json.dumps(out, indent=2))
+        else:
+            print(f"\033[1;32m🔊 Spoken via {tts_res.get('engine')}:\033[0m \"{args.text}\"")
+            if send_res:
+                if "error" in send_res:
+                    print(f"[-] Remote send failed: {send_res['error']}", file=sys.stderr)
+                else:
+                    print(f"[+] Sent vocalized envelope to {args.to} (seq {send_res.get('seq')})")
+        return 0
+
+    if args.command in ("call", "video"):
+        import subprocess
+        import urllib.parse
+        import urllib.request
+
+        room = args.room or "main"
+        mode = "screen" if args.screen else ("voice" if args.voice_only else "video")
+        peer_id = f"{args.alias}-{os.uname().nodename.split('.')[0]}"
+        relay_base = args.relay.rstrip("/")
+        call_url = f"{relay_base}/?room={urllib.parse.quote(room)}&peer={urllib.parse.quote(peer_id)}&mode={mode}#call"
+
+        # Register peer session on relay WebRTC room
+        reg_payload = {
+            "peer_id": peer_id,
+            "display_name": f"{args.alias} ({os.uname().nodename.split('.')[0]})",
+            "room": room,
+            "has_video": not args.voice_only,
+            "has_audio": True,
+            "has_screen": bool(args.screen),
+        }
+        try:
+            req = urllib.request.Request(
+                f"{relay_base}/api/webrtc/register",
+                data=json.dumps(reg_payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=5.0) as resp:
+                json.loads(resp.read().decode("utf-8"))
+        except Exception:
+            pass
+
+        invite_res = None
+        if args.recipient:
+            try:
+                invite_msg = f"Incoming TinCan {mode.upper()} Call in room '{room}'! Open {call_url} to join."
+                invite_res = client.tincan_send(
+                    recipient_address=args.recipient,
+                    message=invite_msg,
+                    speak=True,
+                )
+            except Exception as exc:
+                invite_res = {"error": str(exc)}
+
+        if not args.no_browser and sys.platform == "darwin":
+            try:
+                subprocess.run(["open", call_url], check=False)
+            except Exception:
+                pass
+
+        result_info = {
+            "status": "call_ready",
+            "room": room,
+            "mode": mode,
+            "peer_id": peer_id,
+            "call_url": call_url,
+            "invite": invite_res,
+        }
+        if args.json:
+            print(json.dumps(result_info, indent=2))
+        else:
+            print(f"\033[1;36m📹 TinCan Live WebRTC {mode.upper()} Room Ready:\033[0m")
+            print(f"  Room:     {room}")
+            print(f"  Join URL: {call_url}")
+            if invite_res:
+                if "error" in invite_res:
+                    print(f"  Invite:   [-] Failed to notify {args.recipient}: {invite_res['error']}")
+                else:
+                    print(f"  Invite:   ✓ Sent encrypted + spoken call invite to {args.recipient} (seq {invite_res.get('seq')})")
+        return 0
 
     if args.command == "actions":
         from .tincan_actions import load_pending_actions

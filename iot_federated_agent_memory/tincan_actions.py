@@ -78,6 +78,8 @@ def execute_action(action_id_or_seq: str, config_dir: Optional[str] = None) -> D
     status = "completed"
 
     # Smart command mapping for accessibility triggers
+    import re
+    url_match = re.search(r"https?://[^\s\"'>]+", cmd_text)
     if "open gemini" in cmd_text.lower():
         # Open Gemini web interface or local client
         if sys.platform == "darwin":
@@ -85,6 +87,13 @@ def execute_action(action_id_or_seq: str, config_dir: Optional[str] = None) -> D
             result_output = "Opened https://gemini.google.com in default browser"
         else:
             result_output = "Platform trigger dispatched for Gemini"
+    elif url_match:
+        target_url = url_match.group(0)
+        if sys.platform == "darwin":
+            subprocess.run(["open", target_url])
+            result_output = f"Opened {target_url} in default browser"
+        else:
+            result_output = f"Dispatched browser open for {target_url}"
     else:
         result_output = f"Acknowledged command: {cmd_text}"
 
