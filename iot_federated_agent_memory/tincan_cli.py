@@ -96,8 +96,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     if not args.command:
-        parser.print_help()
-        return 0
+        # Default bare command: launch the interactive screensaver / live mesh TUI
+        from .tui import main as tui_main
+        return tui_main(["--screensaver", "--relay", args.relay])
 
     if args.command == "mcp":
         client = TinCanMCPClient(relay_url=args.relay, config_dir=args.dir, alias=args.alias)
