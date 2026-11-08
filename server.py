@@ -149,6 +149,21 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             address = query.get("address", query.get("addr", [None]))[0]
             res = tincan_relay.whoami(address)
             self._send_json(res)
+        elif parsed.path == "/api/version":
+            commit_hash = "2f7faf2"
+            try:
+                import subprocess
+                out = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=os.path.dirname(__file__)).decode().strip()
+                if out:
+                    commit_hash = out
+            except Exception:
+                pass
+            self._send_json({
+                "service": "tincan",
+                "commit": commit_hash,
+                "version": "2.1.0",
+                "relay_url": "https://iot-federated-agent-memory-production.up.railway.app",
+            })
         elif parsed.path == "/install.sh":
             install_script_path = os.path.join(os.path.dirname(__file__), "install_peer.sh")
             if os.path.exists(install_script_path):

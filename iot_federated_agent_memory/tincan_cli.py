@@ -98,6 +98,14 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     args = parser.parse_args(argv)
 
+    # Check for silent auto-upgrade in background if needed (non-blocking)
+    if args.command != "upgrade":
+        try:
+            from .auto_upgrade import check_and_auto_upgrade
+            check_and_auto_upgrade(args.relay, config_dir=args.dir, force=False)
+        except Exception:
+            pass
+
     if not args.command:
         # Default bare command: launch the interactive screensaver / live mesh TUI
         from .tui import main as tui_main
