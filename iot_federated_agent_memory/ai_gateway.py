@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.request
 from dataclasses import dataclass, asdict
 from typing import Any, Dict, List, Optional
@@ -18,6 +19,11 @@ class LabProviderConfig:
     api_key_env: str
     available_credits: float
     is_active: bool
+    total_calls: int = 0
+    total_prompt_tokens: int = 0
+    total_completion_tokens: int = 0
+    total_tokens: int = 0
+    total_cost: float = 0.0
 
 
 class DynamicAIGatewayRouter:
@@ -76,14 +82,28 @@ class DynamicAIGatewayRouter:
         primary = self.providers.get(requested_alias)
         if primary and primary.is_active and primary.available_credits >= estimated_cost:
             primary.available_credits -= estimated_cost
-            self.routing_log.append({"alias": requested_alias, "lab": primary.lab_id, "cost": estimated_cost, "status": "routed"})
+            self.routing_log.append({
+                "timestamp": time.time(),
+                "alias": requested_alias,
+                "lab": primary.lab_id,
+                "model": primary.model_alias,
+                "cost": estimated_cost,
+                "status": "routed",
+            })
             return primary
 
         # Fallback to any active provider with available credit balance
         for alias, config in self.providers.items():
             if config.is_active and config.available_credits >= estimated_cost:
                 config.available_credits -= estimated_cost
-                self.routing_log.append({"alias": requested_alias, "fallback_to": alias, "lab": config.lab_id, "status": "fallback"})
+                self.routing_log.append({
+                    "timestamp": time.time(),
+                    "alias": requested_alias,
+                    "fallback_to": alias,
+                    "lab": config.lab_id,
+                    "model": config.model_alias,
+                    "status": "fallback",
+                })
                 return config
 
         raise RuntimeError("All AI lab subscription credit pools are exhausted.")
@@ -93,6 +113,67 @@ class DynamicAIGatewayRouter:
             self.providers[alias].model_alias = new_model
             if new_endpoint:
                 self.providers[alias].endpoint = new_endpoint
+
+    def set_model(self, alias: str, new_model: str, display_name: Optional[str] = None) -> LabProviderConfig:
+        """Set or update model name for a provider alias."""
+        if alias not in self.providers:
+            # Create custom provider slot
+            self.providers[alias] = LabProviderConfig(
+                lab_id="custom",
+                display_name=display_name or alias,
+                model_alias=new_model,
+                endpoint=self.OPENROUTER_ENDPOINT,
+                api_key_env="OPENROUTER_API_KEY",
+                available_credits=50.0,
+                is_active=True,
+            )
+        else:
+            self.providers[alias].model_alias = new_model
+            if display_name:
+                self.providers[alias].display_name = display_name
+        return self.providers[alias]
+
+    def record_usage(
+        self,
+        alias: str,
+        prompt_tokens: int,
+        completion_tokens: int,
+        total_tokens: int,
+        cost: float = 0.0,
+    ) -> None:
+        if alias in self.providers:
+            provider = self.providers[alias]
+            provider.total_calls += 1
+            provider.total_prompt_tokens += prompt_tokens
+            provider.total_completion_tokens += completion_tokens
+            provider.total_tokens += total_tokens
+            provider.total_cost += cost
+
+    def get_analytics(self) -> Dict[str, Any]:
+        """Aggregate usage analytics across all models."""
+        total_calls = sum(p.total_calls for p in self.providers.values())
+        total_tokens = sum(p.total_tokens for p in self.providers.values())
+        total_spend = sum(p.total_cost for p in self.providers.values())
+        return {
+            "total_calls": total_calls,
+            "total_tokens": total_tokens,
+            "total_spend_usd": round(total_spend, 6),
+            "providers": {
+                k: {
+                    "display_name": p.display_name,
+                    "model": p.model_alias,
+                    "total_calls": p.total_calls,
+                    "prompt_tokens": p.total_prompt_tokens,
+                    "completion_tokens": p.total_completion_tokens,
+                    "total_tokens": p.total_tokens,
+                    "cost_usd": round(p.total_cost, 6),
+                    "remaining_credits": round(p.available_credits, 4),
+                    "is_active": p.is_active,
+                }
+                for k, p in self.providers.items()
+            },
+            "recent_routing_log": self.routing_log[-20:],
+        }
 
     def dispatch_completion(
         self,
@@ -107,6 +188,7 @@ class DynamicAIGatewayRouter:
 
         if not api_key:
             # Simulated offline response if no API key is injected
+            self.record_usage(alias, 10, 32, 42, 0.0)
             return {
                 "id": f"sim-{alias}",
                 "model": config.model_alias,
@@ -139,4 +221,11 @@ class DynamicAIGatewayRouter:
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            data = json.loads(resp.read().decode("utf-8"))
+            usage = data.get("usage", {})
+            prompt_toks = usage.get("prompt_tokens", 0)
+            comp_toks = usage.get("completion_tokens", 0)
+            total_toks = usage.get("total_tokens", prompt_toks + comp_toks)
+            cost = usage.get("cost", 0.0)
+            self.record_usage(alias, prompt_toks, comp_toks, total_toks, cost)
+            return data

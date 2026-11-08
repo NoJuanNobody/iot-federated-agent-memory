@@ -72,6 +72,26 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json(completion, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/models/set":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                alias = data.get("alias")
+                new_model = data.get("model")
+                display_name = data.get("display_name")
+                if not alias or not new_model:
+                    self._send_json({"error": "Missing 'alias' or 'model'"}, 400)
+                    return
+                updated_config = router.set_model(alias, new_model, display_name)
+                self._send_json({
+                    "status": "updated",
+                    "alias": alias,
+                    "model": updated_config.model_alias,
+                    "display_name": updated_config.display_name,
+                }, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
         else:
             self.send_response(404)
             self.end_headers()
@@ -97,7 +117,9 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         elif parsed.path == "/api/streams":
             self._send_json(relay.get_active_streams())
         elif parsed.path == "/api/providers":
-            self._send_json({k: {"lab": v.lab_id, "credits": v.available_credits, "model": v.model_alias} for k, v in router.providers.items()})
+            self._send_json(router.get_analytics()["providers"])
+        elif parsed.path == "/api/models/analytics":
+            self._send_json(router.get_analytics())
         elif parsed.path == "/api/tincan/inbox":
             query = parse_qs(parsed.query)
             address = query.get("address", query.get("addr", [None]))[0]
@@ -232,6 +254,49 @@ HTML_UI = """<!DOCTYPE html>
       </div>
     </div>
 
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+      <div class="flex justify-between items-center">
+        <div>
+          <h2 class="text-lg font-bold text-white">AI Model Gateway &amp; Usage Tracking</h2>
+          <p class="text-xs text-slate-400">Live token metrics, spend per provider, and hot-swappable model configurations</p>
+        </div>
+        <div id="analyticsHeader" class="text-right text-xs font-mono text-emerald-400">
+          Loading metrics...
+        </div>
+      </div>
+
+      <!-- Live Provider Cards Grid -->
+      <div id="providerCards" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Injected via JavaScript -->
+      </div>
+
+      <!-- Set / Change Model Form -->
+      <div class="bg-slate-950/70 border border-slate-800 rounded-lg p-4">
+        <h3 class="text-sm font-semibold text-slate-200 mb-2">Configure / Swap Model Target</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
+          <div>
+            <label class="block text-slate-400 mb-1">Target Alias</label>
+            <select id="aliasSelect" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white font-mono">
+              <option value="gemini-brain">gemini-brain</option>
+              <option value="claude-brain">claude-brain</option>
+              <option value="grok-brain">grok-brain</option>
+              <option value="openai-brain">openai-brain</option>
+            </select>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-slate-400 mb-1">OpenRouter Model ID</label>
+            <input type="text" id="modelInput" placeholder="e.g. meta-llama/llama-3.3-70b-instruct" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white font-mono placeholder:text-slate-600">
+          </div>
+          <div class="flex items-end">
+            <button onclick="updateModel()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded px-3 py-1.5 transition active:scale-95">
+              Update Model
+            </button>
+          </div>
+        </div>
+        <p id="updateFeedback" class="text-xs mt-2 font-mono hidden"></p>
+      </div>
+    </div>
+
     <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
       <h2 class="font-semibold text-slate-200 mb-4">Active UDP Screenshare Channels</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -252,6 +317,73 @@ HTML_UI = """<!DOCTYPE html>
       </div>
     </div>
   </div>
+
+  <script>
+    async function loadAnalytics() {
+      try {
+        const res = await fetch('/api/models/analytics');
+        const data = await res.json();
+        document.getElementById('analyticsHeader').innerText = 
+          `Total Calls: ${data.total_calls} | Tokens: ${data.total_tokens} | Spend: $${data.total_spend_usd.toFixed(4)}`;
+        
+        const container = document.getElementById('providerCards');
+        container.innerHTML = '';
+        for (const [alias, info] of Object.entries(data.providers)) {
+          const card = document.createElement('div');
+          card.className = 'p-3 bg-slate-800/60 rounded-lg border border-slate-700/80 space-y-1.5 font-mono text-xs';
+          card.innerHTML = `
+            <div class="flex justify-between items-center">
+              <span class="font-bold text-white">${alias}</span>
+              <span class="text-xs bg-indigo-950 text-indigo-300 px-2 py-0.5 rounded border border-indigo-800">${info.display_name}</span>
+            </div>
+            <div class="text-slate-300 truncate"><span class="text-slate-500">Model:</span> ${info.model}</div>
+            <div class="grid grid-cols-3 gap-1 pt-1 text-slate-400 border-t border-slate-700/50">
+              <div><span class="text-slate-500">Calls:</span> <span class="text-white">${info.total_calls}</span></div>
+              <div><span class="text-slate-500">Tokens:</span> <span class="text-white">${info.total_tokens}</span></div>
+              <div><span class="text-slate-500">Cost:</span> <span class="text-emerald-400">$${info.cost_usd.toFixed(4)}</span></div>
+            </div>
+          `;
+          container.appendChild(card);
+        }
+      } catch (e) {
+        console.error('Failed to load analytics', e);
+      }
+    }
+
+    async function updateModel() {
+      const alias = document.getElementById('aliasSelect').value;
+      const model = document.getElementById('modelInput').value.trim();
+      const fb = document.getElementById('updateFeedback');
+      if (!model) {
+        fb.innerText = 'Please enter a valid model identifier';
+        fb.className = 'text-xs mt-2 font-mono text-red-400';
+        return;
+      }
+      try {
+        const res = await fetch('/api/models/set', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({alias, model})
+        });
+        const resp = await res.json();
+        if (res.ok) {
+          fb.innerText = `✓ Updated ${resp.alias} -> ${resp.model}`;
+          fb.className = 'text-xs mt-2 font-mono text-emerald-400';
+          document.getElementById('modelInput').value = '';
+          loadAnalytics();
+        } else {
+          fb.innerText = `Error: ${resp.error}`;
+          fb.className = 'text-xs mt-2 font-mono text-red-400';
+        }
+      } catch (err) {
+        fb.innerText = `Request failed: ${err.message}`;
+        fb.className = 'text-xs mt-2 font-mono text-red-400';
+      }
+    }
+
+    loadAnalytics();
+    setInterval(loadAnalytics, 5000);
+  </script>
 </body>
 </html>
 """
