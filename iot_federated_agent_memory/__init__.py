@@ -1,3 +1,42 @@
 from .scale import IoTFederatedMemoryScale, ScaleDimension
+from .tincan_core import (
+    ContactBook,
+    DecryptionError,
+    InvalidAddressError,
+    KeyConflictError,
+    TinCanIdentity,
+    address_to_curve25519_pubkey,
+    address_to_verify_key,
+    decode_address,
+    encode_address,
+    generate_identity,
+    open_payload,
+    open_payload_bytes,
+    pubkey_to_address,
+    seal_payload,
+    sign_envelope,
+    validate_address,
+    verify_envelope,
+)
 
-__all__ = ["IoTFederatedMemoryScale", "ScaleDimension"]
+__all__ = [
+    "IoTFederatedMemoryScale",
+    "ScaleDimension",
+    "TinCanIdentity",
+    "generate_identity",
+    "encode_address",
+    "decode_address",
+    "validate_address",
+    "pubkey_to_address",
+    "address_to_verify_key",
+    "address_to_curve25519_pubkey",
+    "seal_payload",
+    "open_payload",
+    "open_payload_bytes",
+    "sign_envelope",
+    "verify_envelope",
+    "ContactBook",
+    "KeyConflictError",
+    "DecryptionError",
+    "InvalidAddressError",
+]
