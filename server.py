@@ -3,17 +3,19 @@ import io
 import json
 import os
 import tarfile
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse
+from http.server import ThreadingHTTPServer as HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlparse, parse_qs
 from iot_federated_agent_memory.scale import IoTFederatedMemoryScale
 from iot_federated_agent_memory.webrtc_relay import WebRTCSignalingRelay
 from iot_federated_agent_memory.ai_gateway import DynamicAIGatewayRouter
+from iot_federated_agent_memory.tincan_relay import TinCanBlindRelay
 
 PORT = int(os.environ.get("PORT", 8080))
 
 relay = WebRTCSignalingRelay()
 router = DynamicAIGatewayRouter()
 scale = IoTFederatedMemoryScale()
+tincan_relay = TinCanBlindRelay()
 
 # Register seed peers for live dashboard
 relay.register_peer("peer-primary-mac", "Mac Studio (M1 Max)", "192.168.1.100", 50004)
@@ -24,8 +26,34 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.end_headers()
         self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.end_headers()
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/tincan/send":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                payload = json.loads(post_data.decode("utf-8"))
+                result = tincan_relay.send(payload)
+                self._send_json(result, 200)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        else:
+            self.send_response(404)
+            self.end_headers()
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -43,11 +71,41 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 "composite_score": audit["composite_iot_scale_score"],
                 "active_webrtc_streams": relay.get_active_streams(),
                 "ai_providers": {k: v.available_credits for k, v in router.providers.items()},
+                "tincan_relay": tincan_relay.get_stats(),
             })
         elif parsed.path == "/api/streams":
             self._send_json(relay.get_active_streams())
         elif parsed.path == "/api/providers":
             self._send_json({k: {"lab": v.lab_id, "credits": v.available_credits, "model": v.model_alias} for k, v in router.providers.items()})
+        elif parsed.path == "/api/tincan/inbox":
+            query = parse_qs(parsed.query)
+            address = query.get("address", query.get("addr", [None]))[0]
+            since_seq_str = query.get("since_seq", query.get("since", ["0"]))[0]
+            timeout_str = query.get("timeout", ["0.0"])[0]
+            try:
+                since_seq = int(since_seq_str)
+            except ValueError:
+                since_seq = 0
+            try:
+                timeout = float(timeout_str)
+            except ValueError:
+                timeout = 0.0
+
+            if not address:
+                self._send_json({"error": "Missing 'address' or 'addr' query parameter"}, 400)
+                return
+            try:
+                res = tincan_relay.inbox(address, since_seq=since_seq, timeout=timeout)
+                self._send_json(res)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as exc:
+                self._send_json({"error": str(exc)}, 500)
+        elif parsed.path == "/api/tincan/whoami":
+            query = parse_qs(parsed.query)
+            address = query.get("address", query.get("addr", [None]))[0]
+            res = tincan_relay.whoami(address)
+            self._send_json(res)
         elif parsed.path == "/install.sh":
             install_script_path = os.path.join(os.path.dirname(__file__), "install_peer.sh")
             if os.path.exists(install_script_path):
@@ -122,7 +180,7 @@ HTML_UI = """<!DOCTYPE html>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
       <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
         <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">Readiness Tier</h2>
         <div class="text-xl font-bold text-white mt-2">L5: Autonomous Cognitive Mesh</div>
@@ -137,6 +195,11 @@ HTML_UI = """<!DOCTYPE html>
         <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">AI Credit Pool</h2>
         <div class="text-xl font-bold text-indigo-400 mt-2">4 Funded Labs</div>
         <div class="text-xs text-slate-400 mt-1">Claude, Grok, Gemini, OpenAI</div>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
+        <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">TinCan Blind Relay</h2>
+        <div class="text-xl font-bold text-amber-400 mt-2">Sealed Delivery</div>
+        <div class="text-xs text-slate-400 mt-1">X25519 Ciphertext Mailboxes</div>
       </div>
     </div>
 
