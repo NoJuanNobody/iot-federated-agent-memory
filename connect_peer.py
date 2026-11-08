@@ -38,6 +38,12 @@ def main():
     args = parser.parse_args()
 
     print(f"[*] Booting Peer Agent Client: {args.display_name} ({args.peer_id})...")
+    
+    # Render animated ASCII screensaver banner
+    screensaver_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "screensaver.py")
+    if os.path.isfile(screensaver_path):
+        os.system(f"python3 '{screensaver_path}' 2.0")
+
     status = check_status(args.relay)
     if not status:
         sys.exit(1)
