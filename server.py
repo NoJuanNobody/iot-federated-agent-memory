@@ -300,28 +300,79 @@ HTML_UI = """<!DOCTYPE html>
       </div>
     </header>
 
-    <div class="bg-slate-900 border border-indigo-900/60 rounded-xl p-5 shadow-2xl">
-      <div class="flex items-center justify-between mb-3">
-        <div class="flex items-center gap-2">
-          <span class="text-xl">⚡</span>
-          <h2 class="font-bold text-white text-base">One-Line Curl Commands</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <!-- Left: Quickstart & One-Line Curl Commands -->
+      <div class="lg:col-span-7 bg-slate-900 border border-indigo-900/60 rounded-xl p-5 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">⚡</span>
+            <h2 class="font-bold text-white text-base">Quickstart &amp; One-Line Curl Commands</h2>
+          </div>
+          <span class="text-xs bg-indigo-950 text-indigo-300 border border-indigo-800 px-2.5 py-1 rounded-md font-mono">Instant Terminal Access</span>
         </div>
-        <span class="text-xs bg-indigo-950 text-indigo-300 border border-indigo-800 px-2.5 py-1 rounded-md font-mono">Instant Terminal Access</span>
-      </div>
-      <p class="text-xs text-slate-400 mb-2">1. Install and setup peer mesh &amp; TinCan tools (no account needed):</p>
-      <div class="bg-black/80 border border-slate-800 rounded-lg p-3 flex items-center justify-between font-mono text-sm mb-3">
-        <code id="installCmd" class="text-emerald-400 select-all overflow-x-auto">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code>
-        <button onclick="navigator.clipboard.writeText(document.getElementById('installCmd').innerText); alert('Copied install command!')" class="ml-4 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-sans font-semibold transition active:scale-95 shrink-0">
-          Copy Curl
-        </button>
+
+        <div>
+          <p class="text-xs text-slate-400 mb-2">1. Install &amp; setup peer mesh + TinCan CLI (no account needed):</p>
+          <div class="bg-black/80 border border-slate-800 rounded-lg p-3 flex items-center justify-between font-mono text-sm">
+            <code id="installCmd" class="text-emerald-400 select-all overflow-x-auto">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code>
+            <button onclick="navigator.clipboard.writeText(document.getElementById('installCmd').innerText); alert('Copied install command!')" class="ml-4 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-sans font-semibold transition active:scale-95 shrink-0">
+              Copy Curl
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <p class="text-xs text-slate-400 mb-2">2. Live AI Model Prompt over OpenRouter Gateway (Gemini 2.5, Claude, Grok, GPT-4o):</p>
+          <div class="bg-black/80 border border-slate-800 rounded-lg p-3 flex items-center justify-between font-mono text-sm">
+            <code id="chatCmd" class="text-cyan-400 select-all overflow-x-auto">curl -s -X POST https://iot-federated-agent-memory-production.up.railway.app/api/chat -H "Content-Type: application/json" -d '{"prompt":"Hello world!"}'</code>
+            <button onclick="navigator.clipboard.writeText(document.getElementById('chatCmd').innerText); alert('Copied chat curl command!')" class="ml-4 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-sans font-semibold transition active:scale-95 shrink-0">
+              Copy Curl
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-amber-400">TinCan Voice, Video &amp; Mesh Cheat Sheet</h3>
+            <span class="text-[11px] font-mono text-slate-400">Watch the @nojuannobody walkthrough →</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 font-mono text-xs">
+            <div class="p-2 bg-slate-900 rounded border border-slate-800">
+              <div class="text-slate-400 text-[10px]">Speak + Send Remote TTS</div>
+              <div class="text-emerald-300 mt-0.5">tincan say "Hey!" --to peer1</div>
+            </div>
+            <div class="p-2 bg-slate-900 rounded border border-slate-800">
+              <div class="text-slate-400 text-[10px]">Live 2-Way Voice Call</div>
+              <div class="text-cyan-300 mt-0.5">tincan call peer1 --voice-only</div>
+            </div>
+            <div class="p-2 bg-slate-900 rounded border border-slate-800">
+              <div class="text-slate-400 text-[10px]">Live Video / Screenshare</div>
+              <div class="text-indigo-300 mt-0.5">tincan call peer1 --screen</div>
+            </div>
+            <div class="p-2 bg-slate-900 rounded border border-slate-800">
+              <div class="text-slate-400 text-[10px]">Approve Queued Peer Action</div>
+              <div class="text-amber-300 mt-0.5">tincan trigger 1</div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <p class="text-xs text-slate-400 mb-2">2. Live AI Model Prompt over OpenRouter Gateway (Gemini 2.5, Claude 3.7, Grok, GPT-4o):</p>
-      <div class="bg-black/80 border border-slate-800 rounded-lg p-3 flex items-center justify-between font-mono text-sm">
-        <code id="chatCmd" class="text-cyan-400 select-all overflow-x-auto">curl -s -X POST https://iot-federated-agent-memory-production.up.railway.app/api/chat -H "Content-Type: application/json" -d '{"prompt":"Hello world!"}'</code>
-        <button onclick="navigator.clipboard.writeText(document.getElementById('chatCmd').innerText); alert('Copied chat curl command!')" class="ml-4 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-sans font-semibold transition active:scale-95 shrink-0">
-          Copy Curl
-        </button>
+      <!-- Right: Featured TikTok Walkthrough & Promo (@nojuannobody) -->
+      <div class="lg:col-span-5 bg-slate-900 border border-pink-900/60 rounded-xl p-5 shadow-2xl flex flex-col items-center">
+        <div class="w-full flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-lg">🎬</span>
+            <div>
+              <h2 class="font-bold text-white text-sm">Featured Walkthrough &amp; Spotlight</h2>
+              <p class="text-[11px] text-slate-400">Official TinCan Mesh Demo by <a href="https://www.tiktok.com/@nojuannobody" target="_blank" class="text-pink-400 hover:underline font-mono">@nojuannobody</a></p>
+            </div>
+          </div>
+          <span class="text-[10px] bg-pink-950 text-pink-300 border border-pink-800 px-2 py-0.5 rounded-full font-mono uppercase">Sponsored / Guide</span>
+        </div>
+        <div class="w-full flex justify-center overflow-hidden rounded-lg bg-black/40 p-2 border border-slate-800">
+          <blockquote class="tiktok-embed" cite="https://www.tiktok.com/@nojuannobody/video/7705677376465767711" data-video-id="7705677376465767711" style="max-width: 605px;min-width: 325px;" > <section> <a target="_blank" title="@nojuannobody" href="https://www.tiktok.com/@nojuannobody?refer=embed">@nojuannobody</a> <p></p> <a target="_blank" title="♬ original sound - kingvonfrmdao" href="https://www.tiktok.com/music/original-sound-7628145615867824926?refer=embed">♬ original sound - kingvonfrmdao</a> </section> </blockquote>
+          <script async src="https://www.tiktok.com/embed.js"></script>
+        </div>
       </div>
     </div>
 
