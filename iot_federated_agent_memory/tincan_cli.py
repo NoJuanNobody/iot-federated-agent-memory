@@ -72,6 +72,22 @@ def main(argv: Optional[List[str]] = None) -> int:
     # mcp
     subparsers.add_parser("mcp", help="Start MCP server over stdio")
 
+    # screensaver / start
+    start_p = subparsers.add_parser("start", help="Launch the full terminal screensaver and live mesh dashboard")
+    start_p.add_argument("--duration", type=float, default=None, help="Exit after N seconds")
+
+    ss_p = subparsers.add_parser("screensaver", help="Alias for 'start'")
+    ss_p.add_argument("--duration", type=float, default=None, help="Exit after N seconds")
+
+    # chat / agent
+    chat_p = subparsers.add_parser("chat", help="Start interactive agentic chat REPL with the live OpenRouter models")
+    chat_p.add_argument("prompt", nargs="?", default=None, help="Single-shot prompt to send to the agent")
+    chat_p.add_argument("--model", default="gemini-brain", help="Model alias to use (default: gemini-brain)")
+
+    agent_p = subparsers.add_parser("ask", help="Single-shot query to the TinCan Agent")
+    agent_p.add_argument("prompt", help="Prompt question for the agent")
+    agent_p.add_argument("--model", default="gemini-brain", help="Model alias to use")
+
     # serve
     serve_parser = subparsers.add_parser("serve", help="Run local standalone TinCan Blind Relay")
     serve_parser.add_argument("--port", type=int, default=8080, help="Port to listen on (default: 8080)")
@@ -149,6 +165,23 @@ def main(argv: Optional[List[str]] = None) -> int:
             else:
                 print(f"[-] Read failed: {exc}", file=sys.stderr)
             return 1
+
+    if args.command in ("start", "screensaver"):
+        from .tui import main as tui_main
+        tui_args = ["--screensaver", "--relay", args.relay]
+        if args.duration is not None:
+            tui_args.extend(["--duration", str(args.duration)])
+        return tui_main(tui_args)
+
+    if args.command in ("chat", "ask"):
+        from .tincan_agent import TinCanAgentChat
+        agent = TinCanAgentChat(relay_url=args.relay, model_alias=args.model)
+        if hasattr(args, "prompt") and args.prompt:
+            reply = agent.ask(args.prompt)
+            print(reply)
+            return 0
+        agent.run_repl()
+        return 0
 
     if args.command == "contacts":
         contacts = client.tincan_list_contacts()
