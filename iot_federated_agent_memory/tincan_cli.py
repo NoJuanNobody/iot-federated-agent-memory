@@ -123,6 +123,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     serve_parser.add_argument("--port", type=int, default=8080, help="Port to listen on (default: 8080)")
     serve_parser.add_argument("--db", default=":memory:", help="SQLite database path (default: :memory:)")
 
+    # playlist
+    pl_parser = subparsers.add_parser("playlist", help="Manage the Relay Video Channel & Collection Playlist")
+    pl_parser.add_argument("action", nargs="?", default="list", choices=["list", "add", "remove"], help="Action (list, add, remove)")
+    pl_parser.add_argument("target", nargs="?", default=None, help="TikTok URL, video ID, embed snippet, or item ID")
+    pl_parser.add_argument("--title", default=None, help="Optional title for the video")
+    pl_parser.add_argument("--category", default="spotlight", help="Category tag (instruction, ad, spotlight)")
+    pl_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
     # upgrade
     subparsers.add_parser("upgrade", help="Upgrade TinCan CLI and mesh bundles to the latest production release")
 
@@ -406,6 +414,63 @@ def main(argv: Optional[List[str]] = None) -> int:
                 print(json.dumps({"error": str(exc)}, indent=2))
             else:
                 print(f"[-] Failed to pin contact: {exc}", file=sys.stderr)
+            return 1
+
+    if args.command == "playlist":
+        import urllib.request
+        relay_base = args.relay.rstrip("/")
+        try:
+            if args.action == "list":
+                req = urllib.request.Request(f"{relay_base}/api/playlist", method="GET")
+                with urllib.request.urlopen(req, timeout=8.0) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                if args.json:
+                    print(json.dumps(data, indent=2))
+                else:
+                    print(f"\033[1;35m📺 Relay Video Collection ({data.get('total', 0)} videos):\033[0m")
+                    for idx, v in enumerate(data.get("videos", []), 1):
+                        print(f"  {idx}. [{v.get('category', '').upper()}] {v.get('title')} ({v.get('creator')}) -> {v.get('cite_url')}")
+                return 0
+            elif args.action == "add":
+                if not args.target:
+                    print("[-] Please provide a TikTok URL, video ID, or embed snippet.", file=sys.stderr)
+                    return 1
+                payload = {"input": args.target, "title": args.title, "category": args.category}
+                req = urllib.request.Request(
+                    f"{relay_base}/api/playlist/add",
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=8.0) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                if args.json:
+                    print(json.dumps(data, indent=2))
+                else:
+                    it = data.get("item", {})
+                    print(f"\033[1;32m[+] Added to Relay Collection:\033[0m {it.get('title')} ({it.get('cite_url')})")
+                    print(f"    Total videos in rotation: {data.get('playlist', {}).get('total')}")
+                return 0
+            elif args.action == "remove":
+                if not args.target:
+                    print("[-] Please provide a video_id to remove.", file=sys.stderr)
+                    return 1
+                payload = {"video_id": args.target}
+                req = urllib.request.Request(
+                    f"{relay_base}/api/playlist/remove",
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=8.0) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                if args.json:
+                    print(json.dumps(data, indent=2))
+                else:
+                    print(f"[+] Status: {data.get('status')} (Remaining: {data.get('playlist', {}).get('total')})")
+                return 0
+        except Exception as exc:
+            print(f"[-] Playlist error: {exc}", file=sys.stderr)
             return 1
 
     return 0

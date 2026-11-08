@@ -9,6 +9,7 @@ from iot_federated_agent_memory.scale import IoTFederatedMemoryScale
 from iot_federated_agent_memory.webrtc_relay import WebRTCSignalingRelay
 from iot_federated_agent_memory.ai_gateway import DynamicAIGatewayRouter
 from iot_federated_agent_memory.tincan_relay import TinCanBlindRelay
+from iot_federated_agent_memory.video_playlist import RelayVideoPlaylist
 
 PORT = int(os.environ.get("PORT", 8080))
 
@@ -16,6 +17,7 @@ relay = WebRTCSignalingRelay()
 router = DynamicAIGatewayRouter()
 scale = IoTFederatedMemoryScale()
 tincan_relay = TinCanBlindRelay()
+playlist = RelayVideoPlaylist()
 
 # Register seed peers for live dashboard
 relay.register_peer("peer-primary-mac", "Mac Studio (M1 Max)", "192.168.1.100", 50004)
@@ -158,17 +160,60 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"status": "left", "peer_id": peer_id, "removed": left}, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/playlist/add":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                raw_input = data.get("url") or data.get("input") or data.get("video_id") or data.get("embed")
+                if not raw_input:
+                    self._send_json({"error": "Missing 'url', 'input', or 'video_id'"}, 400)
+                    return
+                added = playlist.add_video(
+                    raw_input=raw_input,
+                    title=data.get("title"),
+                    creator=data.get("creator"),
+                    category=data.get("category", "spotlight"),
+                    duration_seconds=int(data.get("duration_seconds", 35)),
+                )
+                self._send_json({
+                    "status": "added",
+                    "item": added,
+                    "playlist": playlist.get_playlist(),
+                }, 200)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/playlist/remove":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                vid = data.get("id") or data.get("video_id")
+                if not vid:
+                    self._send_json({"error": "Missing 'id' or 'video_id'"}, 400)
+                    return
+                removed = playlist.remove_video(vid)
+                self._send_json({
+                    "status": "removed" if removed else "not_found",
+                    "playlist": playlist.get_playlist(),
+                }, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
         else:
             self.send_response(404)
             self.end_headers()
 
     def do_GET(self):
         parsed = urlparse(self.path)
-        if parsed.path in ("/", "/health", "/call"):
+        if parsed.path in ("/", "/health", "/call", "/tv"):
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.end_headers()
             self.wfile.write(HTML_UI.encode("utf-8"))
+        elif parsed.path == "/api/playlist":
+            self._send_json(playlist.get_playlist(), 200)
         elif parsed.path == "/api/webrtc/signals":
             query = parse_qs(parsed.query)
             peer_id = query.get("peer_id", query.get("peer", [None]))[0]
@@ -357,21 +402,59 @@ HTML_UI = """<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- Right: Featured TikTok Walkthrough & Promo (@nojuannobody) -->
-      <div class="lg:col-span-5 bg-slate-900 border border-pink-900/60 rounded-xl p-5 shadow-2xl flex flex-col items-center">
-        <div class="w-full flex items-center justify-between mb-3">
+      <!-- Right: Relay Autoplaying Video Channel & Collection Player -->
+      <div id="tv" class="lg:col-span-5 bg-slate-900 border border-pink-900/60 rounded-xl p-5 shadow-2xl flex flex-col space-y-3">
+        <div class="w-full flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <span class="text-lg">🎬</span>
+            <span class="text-lg">📺</span>
             <div>
-              <h2 class="font-bold text-white text-sm">Featured Walkthrough &amp; Spotlight</h2>
-              <p class="text-[11px] text-slate-400">Official TinCan Mesh Demo by <a href="https://www.tiktok.com/@nojuannobody" target="_blank" class="text-pink-400 hover:underline font-mono">@nojuannobody</a></p>
+              <h2 class="font-bold text-white text-sm">Relay Video Channel &amp; Collection</h2>
+              <p id="nowPlayingTitle" class="text-[11px] text-slate-400">Auto-playing <a href="https://www.tiktok.com/@nojuannobody" target="_blank" class="text-pink-400 hover:underline font-mono">@nojuannobody</a></p>
             </div>
           </div>
-          <span class="text-[10px] bg-pink-950 text-pink-300 border border-pink-800 px-2 py-0.5 rounded-full font-mono uppercase">Sponsored / Guide</span>
+          <span id="playlistCounterBadge" class="text-[10px] bg-pink-950 text-pink-300 border border-pink-800 px-2.5 py-0.5 rounded-full font-mono uppercase">1 / 1 · Loop</span>
         </div>
-        <div class="w-full flex justify-center overflow-hidden rounded-lg bg-black/40 p-2 border border-slate-800">
-          <blockquote class="tiktok-embed" cite="https://www.tiktok.com/@nojuannobody/video/7705677376465767711" data-video-id="7705677376465767711" style="max-width: 605px;min-width: 325px;" > <section> <a target="_blank" title="@nojuannobody" href="https://www.tiktok.com/@nojuannobody?refer=embed">@nojuannobody</a> <p></p> <a target="_blank" title="♬ original sound - kingvonfrmdao" href="https://www.tiktok.com/music/original-sound-7628145615867824926?refer=embed">♬ original sound - kingvonfrmdao</a> </section> </blockquote>
-          <script async src="https://www.tiktok.com/embed.js"></script>
+
+        <!-- Auto-Playing Video Viewport (TikTok Player v1 / YouTube / MP4 + Blockquote Fallback) -->
+        <div class="w-full flex flex-col items-center justify-center overflow-hidden rounded-lg bg-black border border-slate-800 relative min-h-[540px]">
+          <div id="playerIframeContainer" class="w-full h-[540px] flex items-center justify-center">
+            <iframe
+              id="relayVideoIframe"
+              src="https://www.tiktok.com/player/v1/7705677376465767711?autoplay=1&loop=1&music_info=1&description=1&rel=0"
+              class="w-full h-full border-0"
+              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+              allowfullscreen
+            ></iframe>
+          </div>
+          <div id="playerBlockquoteContainer" class="w-full hidden justify-center p-2">
+            <blockquote class="tiktok-embed" cite="https://www.tiktok.com/@nojuannobody/video/7705677376465767711" data-video-id="7705677376465767711" style="max-width: 605px;min-width: 325px;" > <section> <a target="_blank" title="@nojuannobody" href="https://www.tiktok.com/@nojuannobody?refer=embed">@nojuannobody</a> <p></p> <a target="_blank" title="♬ original sound - kingvonfrmdao" href="https://www.tiktok.com/music/original-sound-7628145615867824926?refer=embed">♬ original sound - kingvonfrmdao</a> </section> </blockquote>
+            <script async src="https://www.tiktok.com/embed.js"></script>
+          </div>
+        </div>
+
+        <!-- Playlist Controls -->
+        <div class="flex items-center justify-between gap-2 text-xs font-mono">
+          <div class="flex items-center gap-1.5">
+            <button onclick="prevPlaylistVideo()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 transition">⏮ Prev</button>
+            <button onclick="nextPlaylistVideo()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 transition">Next ⏭</button>
+            <button id="autoRotateBtn" onclick="toggleAutoRotate()" class="px-2.5 py-1 bg-emerald-950 text-emerald-300 rounded border border-emerald-800 transition">🔁 Auto-Loop: ON</button>
+          </div>
+          <button id="toggleEmbedModeBtn" onclick="toggleEmbedMode()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition">
+            Card View
+          </button>
+        </div>
+
+        <!-- Collection Queue List -->
+        <div id="playlistQueue" class="space-y-1 max-h-28 overflow-y-auto pr-1 text-xs font-mono">
+          <!-- Populated dynamically from /api/playlist -->
+        </div>
+
+        <!-- Add Video to Collection Form -->
+        <div class="pt-2 border-t border-slate-800 flex gap-1.5 text-xs">
+          <input id="newVideoInput" type="text" placeholder="Paste TikTok URL, video ID, or <blockquote> to add to collection..." class="flex-1 bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white font-mono placeholder:text-slate-600">
+          <button onclick="addVideoToPlaylist()" class="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded transition shrink-0">
+            + Add Video
+          </button>
         </div>
       </div>
     </div>
@@ -792,6 +875,144 @@ HTML_UI = """<!DOCTYPE html>
       }
     }
 
+    // =========================================================================
+    // Relay Video Channel & Auto-Rotating Playlist Engine
+    // =========================================================================
+    let playlistVideos = [];
+    let currentVideoIdx = 0;
+    let autoRotateEnabled = true;
+    let rotateTimer = null;
+    let useBlockquoteMode = false;
+
+    async function loadPlaylist(preserveIndex = true) {
+      try {
+        const res = await fetch('/api/playlist');
+        if (!res.ok) return;
+        const data = await res.json();
+        playlistVideos = data.videos || [];
+        if (!preserveIndex || currentVideoIdx >= playlistVideos.length) {
+          currentVideoIdx = 0;
+        }
+        renderPlaylistUI();
+      } catch (e) {}
+    }
+
+    function renderPlaylistUI() {
+      const total = playlistVideos.length;
+      const badge = document.getElementById('playlistCounterBadge');
+      const queue = document.getElementById('playlistQueue');
+      if (!total) {
+        badge.innerText = '0 / 0';
+        queue.innerHTML = '<div class="text-slate-500">No videos in collection</div>';
+        return;
+      }
+
+      const item = playlistVideos[currentVideoIdx];
+      badge.innerText = `${currentVideoIdx + 1} / ${total} · ${autoRotateEnabled ? 'Loop' : 'Paused'}`;
+      document.getElementById('nowPlayingTitle').innerHTML =
+        `${item.title} · <a href="https://www.tiktok.com/${item.creator}" target="_blank" class="text-pink-400 hover:underline font-mono">${item.creator}</a>`;
+
+      const iframe = document.getElementById('relayVideoIframe');
+      const loopParam = (total === 1 && autoRotateEnabled) ? '1' : '0';
+      const targetSrc = item.platform === 'tiktok'
+        ? `https://www.tiktok.com/player/v1/${item.video_id}?autoplay=1&loop=${loopParam}&music_info=1&description=1&rel=0`
+        : item.embed_url;
+
+      if (iframe && iframe.getAttribute('data-vid') !== item.id + '-' + loopParam) {
+        iframe.setAttribute('data-vid', item.id + '-' + loopParam);
+        iframe.src = targetSrc;
+      }
+
+      queue.innerHTML = playlistVideos.map((v, idx) => `
+        <div onclick="selectPlaylistVideo(${idx})" class="cursor-pointer px-2.5 py-1.5 rounded border flex justify-between items-center transition ${idx === currentVideoIdx ? 'bg-pink-950/60 border-pink-700 text-white' : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'}">
+          <span class="truncate">${idx + 1}. ${v.title} (${v.creator})</span>
+          <span class="text-[10px] uppercase px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 ml-2 shrink-0">${v.category}</span>
+        </div>
+      `).join('');
+
+      scheduleAutoAdvance(item.duration_seconds || 35);
+    }
+
+    function scheduleAutoAdvance(seconds) {
+      if (rotateTimer) clearTimeout(rotateTimer);
+      if (!autoRotateEnabled || playlistVideos.length <= 1) return;
+      rotateTimer = setTimeout(() => {
+        nextPlaylistVideo();
+      }, (seconds || 35) * 1000);
+    }
+
+    function selectPlaylistVideo(idx) {
+      if (idx < 0 || idx >= playlistVideos.length) return;
+      currentVideoIdx = idx;
+      renderPlaylistUI();
+    }
+
+    function nextPlaylistVideo() {
+      if (!playlistVideos.length) return;
+      currentVideoIdx = (currentVideoIdx + 1) % playlistVideos.length;
+      renderPlaylistUI();
+    }
+
+    function prevPlaylistVideo() {
+      if (!playlistVideos.length) return;
+      currentVideoIdx = (currentVideoIdx - 1 + playlistVideos.length) % playlistVideos.length;
+      renderPlaylistUI();
+    }
+
+    function toggleAutoRotate() {
+      autoRotateEnabled = !autoRotateEnabled;
+      const btn = document.getElementById('autoRotateBtn');
+      btn.innerText = autoRotateEnabled ? '🔁 Auto-Loop: ON' : '⏸ Auto-Loop: OFF';
+      btn.className = autoRotateEnabled
+        ? 'px-2.5 py-1 bg-emerald-950 text-emerald-300 rounded border border-emerald-800 transition'
+        : 'px-2.5 py-1 bg-slate-800 text-slate-400 rounded border border-slate-700 transition';
+      renderPlaylistUI();
+    }
+
+    function toggleEmbedMode() {
+      useBlockquoteMode = !useBlockquoteMode;
+      document.getElementById('playerIframeContainer').className = useBlockquoteMode ? 'hidden' : 'w-full h-[540px] flex items-center justify-center';
+      document.getElementById('playerBlockquoteContainer').className = useBlockquoteMode ? 'w-full flex justify-center p-2' : 'w-full hidden justify-center p-2';
+      document.getElementById('toggleEmbedModeBtn').innerText = useBlockquoteMode ? 'Auto-Player View' : 'Card View';
+    }
+
+    async function addVideoToPlaylist() {
+      const inp = document.getElementById('newVideoInput');
+      const raw = inp.value.trim();
+      if (!raw) return;
+      try {
+        const res = await fetch('/api/playlist/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input: raw, category: 'spotlight' })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          inp.value = '';
+          playlistVideos = data.playlist.videos || [];
+          currentVideoIdx = playlistVideos.length - 1;
+          renderPlaylistUI();
+        } else {
+          alert('Could not add video: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Failed to add video: ' + err.message);
+      }
+    }
+
+    // Listen for TikTok Player v1 postMessage events (e.g. video ended -> advance to next in collection)
+    window.addEventListener('message', (event) => {
+      try {
+        const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (msg && msg['x-tiktok-player'] && msg.type === 'onStateChange' && msg.value === 0) {
+          if (autoRotateEnabled && playlistVideos.length > 1) {
+            nextPlaylistVideo();
+          }
+        }
+      } catch (e) {}
+    });
+
+    loadPlaylist(false);
     loadAnalytics();
     setInterval(loadAnalytics, 5000);
   </script>

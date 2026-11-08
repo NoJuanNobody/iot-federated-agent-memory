@@ -61,3 +61,23 @@ def test_tincan_cli_say_and_call(tmp_path, monkeypatch, capsys):
     out_call = capsys.readouterr().out
     assert "lab-room" in out_call
     assert "call_ready" in out_call
+
+
+def test_relay_video_playlist_collection():
+    from iot_federated_agent_memory.video_playlist import RelayVideoPlaylist
+
+    pl = RelayVideoPlaylist()
+    state = pl.get_playlist()
+    assert state["total"] == 1
+    assert state["videos"][0]["video_id"] == "7705677376465767711"
+    assert state["videos"][0]["creator"] == "@nojuannobody"
+
+    # Add a second video via raw blockquote embed snippet
+    snippet = '<blockquote class="tiktok-embed" cite="https://www.tiktok.com/@nojuannobody/video/7705677376465767799" data-video-id="7705677376465767799"></blockquote>'
+    added = pl.add_video(snippet, title="Part 2 Walkthrough", category="ad")
+    assert added["video_id"] == "7705677376465767799"
+    assert pl.get_playlist()["total"] == 2
+
+    # Remove the second video
+    assert pl.remove_video("7705677376465767799") is True
+    assert pl.get_playlist()["total"] == 1
