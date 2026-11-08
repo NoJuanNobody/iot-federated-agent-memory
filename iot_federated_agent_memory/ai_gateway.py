@@ -29,7 +29,7 @@ class DynamicAIGatewayRouter:
         "claude-brain": LabProviderConfig(
             lab_id="anthropic",
             display_name="Anthropic Claude Sonnet",
-            model_alias="anthropic/claude-3.7-sonnet",
+            model_alias="anthropic/claude-sonnet-5.5",
             endpoint=OPENROUTER_ENDPOINT,
             api_key_env="OPENROUTER_API_KEY",
             available_credits=100.0,
@@ -38,7 +38,7 @@ class DynamicAIGatewayRouter:
         "grok-brain": LabProviderConfig(
             lab_id="xai",
             display_name="xAI Grok",
-            model_alias="x-ai/grok-2-1212",
+            model_alias="x-ai/grok-4.7",
             endpoint=OPENROUTER_ENDPOINT,
             api_key_env="OPENROUTER_API_KEY",
             available_credits=50.0,
@@ -47,7 +47,7 @@ class DynamicAIGatewayRouter:
         "gemini-brain": LabProviderConfig(
             lab_id="google",
             display_name="Google Gemini Flash",
-            model_alias="google/gemini-2.0-flash-001",
+            model_alias="google/gemini-2.5-flash",
             endpoint=OPENROUTER_ENDPOINT,
             api_key_env="OPENROUTER_API_KEY",
             available_credits=80.0,

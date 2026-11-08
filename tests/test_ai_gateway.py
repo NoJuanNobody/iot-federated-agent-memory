@@ -22,12 +22,12 @@ def test_ai_gateway_simulated_dispatch():
     router = DynamicAIGatewayRouter(openrouter_key=None)
     res = router.dispatch_completion("claude-brain", [{"role": "user", "content": "hi"}])
     assert "Simulated" in res["choices"][0]["message"]["content"]
-    assert res["model"] == "anthropic/claude-3.7-sonnet"
+    assert res["model"] == "anthropic/claude-sonnet-5.5"
 
 def test_ai_gateway_real_openrouter_dispatch():
     router = DynamicAIGatewayRouter(openrouter_key="sk-or-v1-mock-test")
     mock_resp = MagicMock()
-    mock_resp.read.return_value = b'{"id":"gen-123","model":"anthropic/claude-3.7-sonnet","choices":[{"message":{"role":"assistant","content":"hello"}}]}'
+    mock_resp.read.return_value = b'{"id":"gen-123","model":"anthropic/claude-sonnet-5.5","choices":[{"message":{"role":"assistant","content":"hello"}}]}'
     mock_resp.__enter__.return_value = mock_resp
     
     with patch("urllib.request.urlopen", return_value=mock_resp):
