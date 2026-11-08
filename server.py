@@ -51,6 +51,27 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": str(ve)}, 400)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/chat":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                model_alias = data.get("model", "gemini-brain")
+                prompt = data.get("prompt")
+                messages = data.get("messages")
+                if not messages:
+                    if not prompt:
+                        prompt = "Hello from TinCan 2 / IoT Federated Mesh!"
+                    messages = [{"role": "user", "content": prompt}]
+                completion = router.dispatch_completion(
+                    alias=model_alias,
+                    messages=messages,
+                    temperature=float(data.get("temperature", 0.7)),
+                    max_tokens=int(data.get("max_tokens", 512)),
+                )
+                self._send_json(completion, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
         else:
             self.send_response(404)
             self.end_headers()
@@ -167,15 +188,23 @@ HTML_UI = """<!DOCTYPE html>
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2">
           <span class="text-xl">⚡</span>
-          <h2 class="font-bold text-white text-base">Launch THE AI MESSIAH Terminal App</h2>
+          <h2 class="font-bold text-white text-base">One-Line Curl Commands</h2>
         </div>
-        <span class="text-xs bg-indigo-950 text-indigo-300 border border-indigo-800 px-2.5 py-1 rounded-md font-mono">Terminal Command</span>
+        <span class="text-xs bg-indigo-950 text-indigo-300 border border-indigo-800 px-2.5 py-1 rounded-md font-mono">Instant Terminal Access</span>
       </div>
-      <p class="text-xs text-slate-400 mb-3">Live relay dashboard with the AI Messiah logo screensaver. Paste into a terminal (add --screensaver to start on the logo):</p>
+      <p class="text-xs text-slate-400 mb-2">1. Install and setup peer mesh &amp; TinCan tools (no account needed):</p>
+      <div class="bg-black/80 border border-slate-800 rounded-lg p-3 flex items-center justify-between font-mono text-sm mb-3">
+        <code id="installCmd" class="text-emerald-400 select-all overflow-x-auto">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code>
+        <button onclick="navigator.clipboard.writeText(document.getElementById('installCmd').innerText); alert('Copied install command!')" class="ml-4 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-sans font-semibold transition active:scale-95 shrink-0">
+          Copy Curl
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-400 mb-2">2. Live AI Model Prompt over OpenRouter Gateway (Gemini 2.5, Claude 3.7, Grok, GPT-4o):</p>
       <div class="bg-black/80 border border-slate-800 rounded-lg p-3 flex items-center justify-between font-mono text-sm">
-        <code id="screensaverCmd" class="text-emerald-400 select-all overflow-x-auto">python3 ~/dev/iot-federated-agent-memory/tui.py</code>
-        <button onclick="navigator.clipboard.writeText(document.getElementById('screensaverCmd').innerText); alert('Copied to clipboard!')" class="ml-4 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-sans font-semibold transition active:scale-95 shrink-0">
-          Copy Command
+        <code id="chatCmd" class="text-cyan-400 select-all overflow-x-auto">curl -s -X POST https://iot-federated-agent-memory-production.up.railway.app/api/chat -H "Content-Type: application/json" -d '{"prompt":"Hello world!"}'</code>
+        <button onclick="navigator.clipboard.writeText(document.getElementById('chatCmd').innerText); alert('Copied chat curl command!')" class="ml-4 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-sans font-semibold transition active:scale-95 shrink-0">
+          Copy Curl
         </button>
       </div>
     </div>
