@@ -93,12 +93,22 @@ def main(argv: Optional[List[str]] = None) -> int:
     serve_parser.add_argument("--port", type=int, default=8080, help="Port to listen on (default: 8080)")
     serve_parser.add_argument("--db", default=":memory:", help="SQLite database path (default: :memory:)")
 
+    # upgrade
+    subparsers.add_parser("upgrade", help="Upgrade TinCan CLI and mesh bundles to the latest production release")
+
     args = parser.parse_args(argv)
 
     if not args.command:
         # Default bare command: launch the interactive screensaver / live mesh TUI
         from .tui import main as tui_main
         return tui_main(["--screensaver", "--relay", args.relay])
+
+    if args.command == "upgrade":
+        import subprocess
+        print(f"[*] Upgrading TinCan from {args.relay}...")
+        cmd = f"curl -sSL {args.relay}/install.sh | bash"
+        res = subprocess.run(cmd, shell=True)
+        return res.returncode
 
     if args.command == "mcp":
         client = TinCanMCPClient(relay_url=args.relay, config_dir=args.dir, alias=args.alias)
