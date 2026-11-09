@@ -148,7 +148,41 @@ class TinCanMCPClient:
         self.public_key_hex = bytes(self.identity.verify_key).hex()
 
         self.contact_book = ContactBook(raise_on_conflict=True)
+        self.role_file = os.path.join(self.config_dir, "role.json")
         self._load_contacts()
+
+    def get_my_role(self) -> str:
+        """Returns the current operator's role ('admin', 'moderator', 'mentor', 'mentee', 'peer')."""
+        env_role = os.environ.get("TINCAN_ROLE", "").strip().lower()
+        if env_role in ("admin", "moderator", "mentor", "mentee", "peer"):
+            return env_role
+        if os.path.exists(self.role_file):
+            try:
+                with open(self.role_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                r = data.get(self.alias) or data.get("default") or data.get("role")
+                if r and str(r).lower() in ("admin", "moderator", "mentor", "mentee", "peer"):
+                    return str(r).lower()
+            except Exception:
+                pass
+        return "peer"
+
+    def set_my_role(self, role: str) -> str:
+        """Sets and persists the operator's role ('admin', 'moderator', 'mentor', 'mentee', 'peer')."""
+        norm = role.strip().lower()
+        if norm not in ("admin", "moderator", "mentor", "mentee", "peer"):
+            raise ValueError(f"Invalid role '{role}'. Choose from: admin, moderator, mentor, mentee, peer")
+        data = {}
+        if os.path.exists(self.role_file):
+            try:
+                with open(self.role_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except Exception:
+                data = {}
+        data[self.alias] = norm
+        with open(self.role_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        return norm
 
     def _load_or_create_identity(self) -> TinCanIdentity:
         key_path = os.path.join(self.identities_dir, f"{self.alias}.key")
@@ -217,10 +251,13 @@ class TinCanMCPClient:
     # -------------------------------------------------------------------------
 
     def tincan_whoami(self, **kwargs) -> Dict[str, Any]:
-        """Returns current local address, alias, and public key."""
+        """Returns current local address, alias, role, and public key."""
+        my_role = self.get_my_role()
         return {
             "alias": self.alias,
             "address": self.address,
+            "role": my_role,
+            "is_admin": my_role in ("admin", "moderator"),
             "public_key": self.public_key_hex,
             "public_key_b32": self.address[3:].split("@")[0],
             "relay_url": self.relay_url,
@@ -260,6 +297,7 @@ class TinCanMCPClient:
             "kind": kwargs.get("kind", "chat"),
             "text": str(message),
             "speak": bool(speak),
+            "sender_role": kwargs.get("sender_role") or self.get_my_role(),
             "expects_reply": kwargs.get("expects_reply", False),
             "reply_to": kwargs.get("reply_to"),
             "hop": int(kwargs.get("hop", 0)),
@@ -434,7 +472,7 @@ class TinCanMCPClient:
         trust_mentor_tts: bool = False,
         **kwargs,
     ) -> Dict[str, Any]:
-        """Pins contact key with optional mentorship role ('mentor', 'mentee', 'peer')."""
+        """Pins contact key with optional role ('admin', 'moderator', 'mentor', 'mentee', 'peer')."""
         if not alias:
             raise ValueError("alias is required")
         if not address:
@@ -443,7 +481,7 @@ class TinCanMCPClient:
         clean_addr = address.split("@")[0].strip()
         pub_bytes = decode_address(clean_addr)
         pk_hex = pub_bytes.hex()
-        norm_role = role if role in ("mentor", "mentee", "peer") else "peer"
+        norm_role = role if role in ("admin", "moderator", "mentor", "mentee", "peer") else "peer"
         meta = {"role": norm_role, "trust_mentor_tts": bool(trust_mentor_tts)}
 
         self.contact_book.pin(alias, clean_addr, metadata=meta)
@@ -468,16 +506,17 @@ class TinCanMCPClient:
         role: Optional[str] = None,
         trust_mentor_tts: Optional[bool] = None,
     ) -> Dict[str, Any]:
-        """Update mentorship role ('mentor', 'mentee', 'peer') and voice-gate policy for a pinned contact."""
+        """Update role ('admin', 'moderator', 'mentor', 'mentee', 'peer') and voice-gate policy for a pinned contact."""
         if not self.contact_book.has_alias(alias):
             raise ValueError(f"Unknown contact alias '{alias}'. Pin them first with 'tincan add-contact {alias} <tc:address>'.")
         c_info = self.contact_book.get_contact(alias) or {}
         addr = c_info["address"]
         meta = dict(c_info.get("metadata") or {})
         if role is not None:
-            if role not in ("mentor", "mentee", "peer"):
-                raise ValueError(f"Invalid role '{role}'. Choose from: mentor, mentee, peer")
-            meta["role"] = role
+            norm_r = str(role).strip().lower()
+            if norm_r not in ("admin", "moderator", "mentor", "mentee", "peer"):
+                raise ValueError(f"Invalid role '{role}'. Choose from: admin, moderator, mentor, mentee, peer")
+            meta["role"] = norm_r
         if trust_mentor_tts is not None:
             meta["trust_mentor_tts"] = bool(trust_mentor_tts)
         self.contact_book.pin(alias, addr, metadata=meta)

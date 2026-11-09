@@ -172,6 +172,16 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
   <!-- Multiplayer Peer Cursors Layer -->
   <div id="multiplayerCursorsLayer" class="fixed inset-0 pointer-events-none z-40 overflow-hidden"></div>
 
+  <!-- High-Priority Admin Moderator Broadcast Banner -->
+  <div id="adminBroadcastBanner" class="hidden fixed top-0 left-0 right-0 z-[100] bg-gradient-to-r from-amber-600 via-red-600 to-amber-600 text-white font-mono text-xs py-2 px-4 shadow-2xl flex items-center justify-between border-b-2 border-yellow-300 animate-pulse">
+    <div class="flex items-center gap-2 max-w-5xl mx-auto">
+      <span class="text-base">🚨</span>
+      <span class="font-bold tracking-wider">[ADMIN MODERATOR ANNOUNCEMENT]:</span>
+      <span id="adminBroadcastText" class="font-semibold text-amber-100"></span>
+    </div>
+    <button onclick="dismissAdminBanner()" class="px-2 py-0.5 rounded bg-black/40 hover:bg-black/70 text-white text-[11px] font-bold border border-white/30">✕ Dismiss</button>
+  </div>
+
   <!-- Top Gamified Mesh OS HUD Bar -->
   <header id="meshOsHud" class="fixed top-0 left-0 right-0 h-14 bg-slate-950/90 border-b border-slate-800/80 backdrop-blur-md z-50 flex items-center justify-between px-3 sm:px-6 select-none">
     <div class="flex items-center gap-3">
@@ -182,6 +192,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             TinCan Mesh OS
           </span>
           <span class="hidden sm:inline-block text-[10px] text-slate-400 font-mono ml-1.5 px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800">v2.1</span>
+          <span id="osAdminBadge" class="hidden text-[10px] font-mono ml-1.5 px-2 py-0.5 rounded-full bg-amber-950/90 text-amber-300 border border-amber-500 font-bold tracking-wider shadow-[0_0_10px_rgba(245,158,11,0.4)]">🛡️ ADMIN MOD</span>
         </div>
       </div>
 
@@ -202,6 +213,14 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     <!-- HUD Right Controls -->
     <div class="flex items-center gap-2">
+      <!-- Admin Mode Toggle & Mod Panel -->
+      <button id="osAdminToggleBtn" onclick="toggleAdminMode()" class="text-xs font-mono px-2.5 py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 hover:text-amber-400 hover:border-amber-600 transition flex items-center gap-1.5 active:scale-95 shadow-sm font-semibold">
+        <span>🛡️</span> <span id="osAdminToggleText">Admin Mode</span>
+      </button>
+      <button id="osModPanelBtn" onclick="toggleWindow('win-moderator')" class="hidden text-xs font-mono px-2.5 py-1 rounded border border-amber-500 bg-amber-950 text-amber-300 hover:bg-amber-900 transition flex items-center gap-1.5 active:scale-95 shadow-sm font-bold">
+        <span>🛡️</span> <span>Mod Panel</span>
+      </button>
+
       <!-- Direct Live Chat Toggle -->
       <button onclick="focusChatWindow()" class="text-xs font-mono px-2.5 py-1 rounded border border-cyan-700 bg-cyan-950 text-cyan-300 hover:bg-cyan-900 transition flex items-center gap-1.5 active:scale-95 shadow-sm">
         <span>💬</span> <span class="font-bold">Chat</span> <span id="hudChatBadge" class="px-1.5 py-0.2 rounded-full bg-cyan-400 text-black text-[10px] font-bold">Live</span>
@@ -807,6 +826,123 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       </div>
     </div>
 
+    <!-- ===================================================================== -->
+    <!-- Window 6: Admin Moderator Control Panel -->
+    <!-- ===================================================================== -->
+    <div id="win-moderator" class="mesh-window w-[680px] hidden" data-window-id="win-moderator" style="top: 84px; left: 180px; z-index: 25;">
+      <div class="window-header flex items-center justify-between px-3 py-2 bg-gradient-to-r from-amber-950/90 via-slate-900/90 to-amber-950/90 border-b border-amber-600/50">
+        <div class="flex items-center gap-2">
+          <span class="text-base">🛡️</span>
+          <span class="text-xs font-bold text-amber-300 font-mono tracking-wide">Admin Moderator Control Panel</span>
+          <span class="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[10px] font-mono border border-amber-500/50">AUTHORITY LEVEL: HIGH</span>
+        </div>
+        <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
+          <button onclick="openPopoutWindow('win-moderator')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
+          <button onclick="minimizeWindow('win-moderator')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
+          <button onclick="maximizeWindow('win-moderator')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">□</button>
+          <button onclick="toggleWindow('win-moderator')" class="px-1.5 py-0.5 rounded bg-amber-950 hover:bg-amber-900 text-amber-300 text-[11px] border border-amber-800">✕</button>
+        </div>
+      </div>
+      <div class="window-body p-4 space-y-4 max-h-[660px] overflow-y-auto">
+
+        <!-- Moderator KPI Cards -->
+        <div class="grid grid-cols-3 gap-2 font-mono">
+          <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5 text-center">
+            <div class="text-[10px] text-slate-400 uppercase tracking-wider">Web Visitors</div>
+            <div id="modWebCount" class="text-xl font-bold text-emerald-400 mt-0.5">0</div>
+            <div class="text-[9px] text-emerald-500/80">Active Browser Tabs</div>
+          </div>
+          <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5 text-center">
+            <div class="text-[10px] text-slate-400 uppercase tracking-wider">Mesh Streams</div>
+            <div id="modMeshCount" class="text-xl font-bold text-cyan-400 mt-0.5">0</div>
+            <div class="text-[9px] text-cyan-500/80">WebRTC / Workstations</div>
+          </div>
+          <div class="bg-slate-900/90 border border-amber-900/40 rounded-lg p-2.5 text-center">
+            <div class="text-[10px] text-amber-400/90 uppercase tracking-wider">Admin Status</div>
+            <div class="text-sm font-bold text-amber-300 mt-1 flex items-center justify-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+              <span>ACTIVE 🛡️</span>
+            </div>
+            <div class="text-[9px] text-slate-400">Total Mesh Authority</div>
+          </div>
+        </div>
+
+        <!-- Emergency Moderator Broadcast -->
+        <div class="bg-slate-900/90 border border-amber-700/60 rounded-xl p-3.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="text-xs font-bold text-amber-300 font-mono flex items-center gap-1.5">
+              <span>📢</span>
+              <span>System-Wide Moderator Announcement</span>
+            </div>
+            <span class="text-[10px] text-slate-400 font-mono">Pushes banner to all web &amp; mesh clients</span>
+          </div>
+          <div class="flex gap-2">
+            <input type="text" id="adminAnnouncementInput" placeholder="Enter high-priority announcement (e.g., 'Scheduled maintenance in 10 mins' or 'Welcome to the lab')..." class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-amber-500">
+            <button onclick="sendAdminBroadcast()" class="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:brightness-110 text-slate-950 font-bold rounded-lg text-xs font-mono transition active:scale-95 shadow flex items-center gap-1">
+              <span>⚡</span> <span>Broadcast</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Section 1: Relay Website Visitors -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+          <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+            <div class="text-xs font-bold text-emerald-400 font-mono flex items-center gap-1.5">
+              <span>🌐</span>
+              <span>Relay Website Visitors (Active Browser Cursors)</span>
+            </div>
+            <span id="modWebVisitorsCountTag" class="text-[11px] font-mono text-slate-400">0 connected</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left font-mono text-xs">
+              <thead class="text-slate-400 bg-slate-950/60 border-b border-slate-800 text-[11px]">
+                <tr>
+                  <th class="px-2.5 py-1.5">Peer ID</th>
+                  <th class="px-2.5 py-1.5">Room</th>
+                  <th class="px-2.5 py-1.5">Focus Window</th>
+                  <th class="px-2.5 py-1.5">Cursor Pos</th>
+                  <th class="px-2.5 py-1.5">Last Seen</th>
+                  <th class="px-2.5 py-1.5 text-right">Moderator Action</th>
+                </tr>
+              </thead>
+              <tbody id="modWebVisitorsTable" class="divide-y divide-slate-800/50">
+                <tr><td colspan="6" class="px-3 py-3 text-center text-slate-500 text-[11px]">Polling live website cursors...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Section 2: Connected Mesh Nodes -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+          <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+            <div class="text-xs font-bold text-cyan-400 font-mono flex items-center gap-1.5">
+              <span>📡</span>
+              <span>Connected Mesh Nodes (Live WebRTC Streams &amp; Workstations)</span>
+            </div>
+            <span id="modMeshNodesCountTag" class="text-[11px] font-mono text-slate-400">0 streams</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left font-mono text-xs">
+              <thead class="text-slate-400 bg-slate-950/60 border-b border-slate-800 text-[11px]">
+                <tr>
+                  <th class="px-2.5 py-1.5">Peer / Node ID</th>
+                  <th class="px-2.5 py-1.5">Display Name</th>
+                  <th class="px-2.5 py-1.5">Room</th>
+                  <th class="px-2.5 py-1.5">Media Capabilities</th>
+                  <th class="px-2.5 py-1.5">UDP Port</th>
+                  <th class="px-2.5 py-1.5 text-right">Moderator Action</th>
+                </tr>
+              </thead>
+              <tbody id="modMeshNodesTable" class="divide-y divide-slate-800/50">
+                <tr><td colspan="6" class="px-3 py-3 text-center text-slate-500 text-[11px]">Polling active WebRTC streams...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
   </main>
 
   <!-- Bottom OS Dock -->
@@ -829,6 +965,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <button onclick="toggleWindow('win-quests')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Quests, Arena & Leaderboard">
       <span>🎯</span> <span class="hidden md:inline">Quests &amp; Leaderboard</span>
     </button>
+    <button id="dockModBtn" onclick="toggleWindow('win-moderator')" class="hidden px-2.5 py-1.5 bg-amber-950/80 hover:bg-amber-900 border border-amber-600 text-amber-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Admin Moderator Control Panel">
+      <span>🛡️</span> <span class="hidden md:inline font-bold">Mod Panel</span>
+    </button>
     <div class="h-5 w-px bg-slate-700 mx-1"></div>
     <button onclick="fireTestPacket()" class="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:brightness-110 text-white rounded-xl text-xs font-mono font-semibold transition active:scale-95 flex items-center gap-1 shadow-md" title="Launch animated test packet across mesh topology">
       <span>🥫</span> <span>Fire Test Packet</span>
@@ -847,6 +986,105 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     document.getElementById('roomInput').value = currentRoom;
     document.getElementById('localPeerLabel').innerText = myPeerId;
+
+    // Admin Moderator State & Controls
+    let isAdmin = (urlParams.get('role') === 'admin' || urlParams.get('admin') === 'true' || localStorage.getItem('tincan_admin') === 'true');
+
+    function updateAdminUI() {
+      const badge = document.getElementById('osAdminBadge');
+      const modBtn = document.getElementById('osModPanelBtn');
+      const dockBtn = document.getElementById('dockModBtn');
+      const toggleText = document.getElementById('osAdminToggleText');
+      const toggleBtn = document.getElementById('osAdminToggleBtn');
+      if (isAdmin) {
+        if (badge) badge.classList.remove('hidden');
+        if (modBtn) modBtn.classList.remove('hidden');
+        if (dockBtn) dockBtn.classList.remove('hidden');
+        if (toggleText) toggleText.innerText = 'Admin: ACTIVE 🛡️';
+        if (toggleBtn) {
+          toggleBtn.className = 'text-xs font-mono px-2.5 py-1 rounded border border-amber-500 bg-amber-950 text-amber-300 transition flex items-center gap-1.5 shadow-sm font-bold';
+        }
+      } else {
+        if (badge) badge.classList.add('hidden');
+        if (modBtn) modBtn.classList.add('hidden');
+        if (dockBtn) dockBtn.classList.add('hidden');
+        if (toggleText) toggleText.innerText = 'Admin Mode';
+        if (toggleBtn) {
+          toggleBtn.className = 'text-xs font-mono px-2.5 py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 hover:text-amber-400 hover:border-amber-600 transition flex items-center gap-1.5 shadow-sm font-semibold';
+        }
+      }
+    }
+
+    function toggleAdminMode() {
+      isAdmin = !isAdmin;
+      localStorage.setItem('tincan_admin', isAdmin ? 'true' : 'false');
+      updateAdminUI();
+      if (isAdmin) {
+        toggleWindow('win-moderator');
+        playXpChime();
+      }
+    }
+
+    async function kickPeerNode(peerId, room = 'main') {
+      if (!confirm(`Are you sure you want to disconnect / kick '${peerId}' from room '${room}'?`)) return;
+      try {
+        const res = await fetch('/api/webrtc/leave', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ peer_id: peerId, room })
+        });
+        if (res.ok) {
+          playXpChime();
+          await pollMeshState();
+        }
+      } catch (err) {
+        alert('Kick request failed: ' + err);
+      }
+    }
+
+    async function sendAdminBroadcast() {
+      const input = document.getElementById('adminAnnouncementInput');
+      const text = input ? input.value.trim() : '';
+      if (!text) return;
+      input.value = '';
+      const room = document.getElementById('roomInput').value.trim() || 'main';
+      try {
+        await fetch('/api/webrtc/signal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: myPeerId,
+            to: '*',
+            type: 'admin_broadcast',
+            room,
+            payload: {
+              text,
+              sender: myPeerId,
+              role: 'admin',
+              timestamp: Date.now()
+            }
+          })
+        });
+        showAdminBanner(text, myPeerId);
+        playXpChime();
+      } catch (err) {
+        alert('Broadcast failed: ' + err);
+      }
+    }
+
+    function showAdminBanner(text, sender) {
+      const banner = document.getElementById('adminBroadcastBanner');
+      const textEl = document.getElementById('adminBroadcastText');
+      if (banner && textEl) {
+        textEl.innerText = `${text} (by ${sender || 'Admin'})`;
+        banner.classList.remove('hidden');
+      }
+    }
+
+    function dismissAdminBanner() {
+      const banner = document.getElementById('adminBroadcastBanner');
+      if (banner) banner.classList.add('hidden');
+    }
 
     // Cross-Window BroadcastChannel ('tincan-mesh-bus')
     const meshBus = new BroadcastChannel('tincan-mesh-bus');
@@ -949,15 +1187,17 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     function toggleWindow(winId) {
       const win = document.getElementById(winId);
       if (!win) return;
-      if (win.style.display === 'none') {
+      if (win.style.display === 'none' || win.classList.contains('hidden')) {
         win.style.display = 'flex';
+        win.classList.remove('hidden');
         win.classList.remove('minimized');
         bringToFront(win);
       } else if (win.classList.contains('minimized')) {
         win.classList.remove('minimized');
         bringToFront(win);
       } else {
-        bringToFront(win);
+        win.classList.add('hidden');
+        win.style.display = 'none';
       }
     }
 
@@ -1501,6 +1741,76 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             </tr>
           `).join('');
         }
+
+        // Update Moderator Panel Rosters
+        const cursorsArr = Array.isArray(state.cursors) ? state.cursors : Object.values(state.cursors || {});
+        const streamsArr = state.active_webrtc_streams || [];
+
+        const modWebCountEl = document.getElementById('modWebCount');
+        const modMeshCountEl = document.getElementById('modMeshCount');
+        const modWebTagEl = document.getElementById('modWebVisitorsCountTag');
+        const modMeshTagEl = document.getElementById('modMeshNodesCountTag');
+
+        if (modWebCountEl) modWebCountEl.innerText = cursorsArr.length;
+        if (modMeshCountEl) modMeshCountEl.innerText = streamsArr.length;
+        if (modWebTagEl) modWebTagEl.innerText = `${cursorsArr.length} connected`;
+        if (modMeshTagEl) modMeshTagEl.innerText = `${streamsArr.length} active streams`;
+
+        const webTbody = document.getElementById('modWebVisitorsTable');
+        if (webTbody) {
+          if (cursorsArr.length === 0) {
+            webTbody.innerHTML = '<tr><td colspan="6" class="px-3 py-3 text-center text-slate-500 text-[11px]">No active web cursors detected</td></tr>';
+          } else {
+            const now = Date.now() / 1000;
+            webTbody.innerHTML = cursorsArr.map(c => {
+              const diff = Math.max(0, Math.round(now - (c.updated_at || now)));
+              const isLocal = c.peer_id === myPeerId;
+              const badge = diff <= 15 ? '<span class="text-emerald-400 font-bold">● Active</span>' :
+                            diff <= 60 ? `<span class="text-yellow-400">◐ ${diff}s ago</span>` :
+                            `<span class="text-slate-500">○ ${diff}s ago</span>`;
+              return `
+                <tr class="hover:bg-slate-800/40 transition">
+                  <td class="px-2.5 py-1.5 text-white font-bold">${c.peer_id} ${isLocal ? '<span class="text-[10px] text-cyan-400">(you)</span>' : ''}</td>
+                  <td class="px-2.5 py-1.5 text-slate-300">${c.room || 'main'}</td>
+                  <td class="px-2.5 py-1.5 text-slate-400">${c.window_id || 'desktop'}</td>
+                  <td class="px-2.5 py-1.5 text-slate-400 font-mono">(${Math.round(c.x || 0)}, ${Math.round(c.y || 0)})</td>
+                  <td class="px-2.5 py-1.5">${badge}</td>
+                  <td class="px-2.5 py-1.5 text-right">
+                    ${!isLocal ? `<button onclick="kickPeerNode('${c.peer_id}', '${c.room || 'main'}')" class="px-2 py-0.5 rounded bg-red-950/80 hover:bg-red-800 text-red-300 border border-red-800 text-[10px] font-bold transition">⛔ Kick</button>` : '<span class="text-slate-600 text-[10px]">Host</span>'}
+                  </td>
+                </tr>
+              `;
+            }).join('');
+          }
+        }
+
+        const meshTbody = document.getElementById('modMeshNodesTable');
+        if (meshTbody) {
+          if (streamsArr.length === 0) {
+            meshTbody.innerHTML = '<tr><td colspan="6" class="px-3 py-3 text-center text-slate-500 text-[11px]">No active WebRTC / workstation streams</td></tr>';
+          } else {
+            meshTbody.innerHTML = streamsArr.map(s => {
+              const isLocal = s.peer_id === myPeerId;
+              const caps = [];
+              if (s.has_video) caps.push('📹 Video');
+              if (s.has_audio) caps.push('🎙️ Voice');
+              if (s.has_screen) caps.push('🖥️ Screen');
+              if (caps.length === 0) caps.push('⚡ Signaling');
+              return `
+                <tr class="hover:bg-slate-800/40 transition">
+                  <td class="px-2.5 py-1.5 text-cyan-300 font-bold">${s.peer_id} ${isLocal ? '<span class="text-[10px] text-cyan-400">(you)</span>' : ''}</td>
+                  <td class="px-2.5 py-1.5 text-white">${s.display_name || s.peer_id}</td>
+                  <td class="px-2.5 py-1.5 text-slate-300">${s.room || 'main'}</td>
+                  <td class="px-2.5 py-1.5 text-slate-400">${caps.join(', ')}</td>
+                  <td class="px-2.5 py-1.5 text-slate-400 font-mono">UDP/${s.udp_port || 'auto'}</td>
+                  <td class="px-2.5 py-1.5 text-right">
+                    ${!isLocal ? `<button onclick="kickPeerNode('${s.peer_id}', '${s.room || 'main'}')" class="px-2 py-0.5 rounded bg-red-950/80 hover:bg-red-800 text-red-300 border border-red-800 text-[10px] font-bold transition">⛔ Disconnect</button>` : '<span class="text-slate-600 text-[10px]">Host</span>'}
+                  </td>
+                </tr>
+              `;
+            }).join('');
+          }
+        }
       } catch (e) {}
     }
 
@@ -1742,6 +2052,14 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                 appendChatMessage(sender, txt, false, sig.timestamp ? sig.timestamp * 1000 : null);
                 playXpChime();
               }
+            }
+          } else if (sig.type === 'admin_broadcast') {
+            const sigKey = `admin-${sig.seq || ''}-${sig.from}-${sig.timestamp || ''}`;
+            if (!seenChatIds.has(sigKey)) {
+              seenChatIds.add(sigKey);
+              const txt = (sig.payload && (sig.payload.text || sig.payload.message)) || (typeof sig.payload === 'string' ? sig.payload : '');
+              showAdminBanner(txt, sig.from);
+              playXpChime();
             }
           }
         }

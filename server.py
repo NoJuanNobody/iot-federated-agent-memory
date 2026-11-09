@@ -162,7 +162,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"status": "signaled", "signal": msg}, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
-        elif parsed.path == "/api/webrtc/leave":
+        elif parsed.path in ("/api/webrtc/leave", "/api/mesh/kick"):
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
             try:
@@ -174,6 +174,9 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     return
                 left = relay.leave_peer(peer_id)
                 relay.exchange_signal(peer_id, "*", "hangup", {"peer_id": peer_id}, room=room)
+                with mesh_os._lock:
+                    if peer_id in mesh_os.cursors:
+                        del mesh_os.cursors[peer_id]
                 self._send_json({"status": "left", "peer_id": peer_id, "removed": left}, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)

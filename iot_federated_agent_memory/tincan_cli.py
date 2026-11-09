@@ -86,7 +86,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     add_parser = subparsers.add_parser("add-contact", help="Pin a contact's public key (TOFU) with optional Mentor/Mentee role")
     add_parser.add_argument("alias", help="Human-readable alias name")
     add_parser.add_argument("address", help="TinCan address (tc:<52 base32 chars>)")
-    add_parser.add_argument("--role", default="peer", choices=["mentor", "mentee", "peer"], help="Relationship role (mentor, mentee, peer)")
+    add_parser.add_argument("--role", default="peer", choices=["admin", "moderator", "mentor", "mentee", "peer"], help="Relationship role (admin, moderator, mentor, mentee, peer)")
     add_parser.add_argument("--allow-voice", action="store_true", help="Pre-approve live TTS voice coaching from this Mentor")
     add_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
@@ -149,7 +149,38 @@ def main(argv: Optional[List[str]] = None) -> int:
     for st_cmd in ("status", "ping"):
         st_parser = subparsers.add_parser(st_cmd, help="Check if a peer is online / on their computer and inspect read receipts")
         st_parser.add_argument("peer", nargs="?", default="harper", help="Contact alias or tc: address (default: harper)")
+        st_parser.add_argument("--mesh", action="store_true", help="Display all live website visitors and mesh nodes")
         st_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # who / peers / mesh / roster (inspect who is on the website and connected to the mesh)
+    for who_cmd in ("who", "peers", "mesh", "roster"):
+        who_p = subparsers.add_parser(who_cmd, help="List who is currently on the relay website and connected to the mesh")
+        who_p.add_argument("--room", default="main", help="Filter by room name (default: main)")
+        who_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # admin (admin moderator commands)
+    admin_p = subparsers.add_parser("admin", help="Admin moderator tools for TinCan mesh & relay")
+    admin_sub = admin_p.add_subparsers(dest="admin_action", help="Admin actions")
+
+    admin_who = admin_sub.add_parser("who", help="Inspect all website visitors and connected mesh peers")
+    admin_who.add_argument("--room", default="main", help="Filter by room name (default: main)")
+    admin_who.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    admin_kick = admin_sub.add_parser("kick", help="Kick / disconnect a peer or web client from the mesh")
+    admin_kick.add_argument("peer", help="Peer ID to disconnect")
+    admin_kick.add_argument("--room", default="main", help="Room name (default: main)")
+    admin_kick.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    admin_bc = admin_sub.add_parser("broadcast", help="Broadcast a system-wide high-priority moderator announcement")
+    admin_bc.add_argument("text", help="Announcement message")
+    admin_bc.add_argument("--room", default="main", help="Room name (default: main)")
+    admin_bc.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    admin_role = admin_sub.add_parser("role", help="Set role for self or a contact (admin, moderator, mentor, mentee, peer)")
+    admin_role.add_argument("target", nargs="?", default="self", help="Contact alias or 'self' (default: self)")
+    admin_role.add_argument("role_val", nargs="?", default="admin", help="Role (admin, moderator, mentor, mentee, peer)")
+    admin_role.add_argument("--role", default=None, choices=["admin", "moderator", "mentor", "mentee", "peer"], help="Role to assign")
+    admin_role.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
     # credits / cost (live OpenRouter cost & credit dashboard)
     for cr_cmd in ("credits", "cost"):
@@ -221,7 +252,17 @@ def main(argv: Optional[List[str]] = None) -> int:
         if args.json:
             print(json.dumps(info, indent=2))
         else:
+            role_str = str(info.get("role", "peer")).upper()
+            if role_str in ("ADMIN", "MODERATOR"):
+                role_badge = "\033[1;33m🛡️ ADMIN MODERATOR\033[0m"
+            elif role_str == "MENTOR":
+                role_badge = "\033[1;32m🎓 MENTOR\033[0m"
+            elif role_str == "MENTEE":
+                role_badge = "\033[1;36m🌱 MENTEE\033[0m"
+            else:
+                role_badge = "🤝 PEER"
             print(f"TinCan Identity: {info['alias']}")
+            print(f"Role:            {role_badge}")
             print(f"Address:         {info['address']}")
             print(f"Public Key (hex): {info['public_key']}")
             print(f"Relay:           {info['relay_url']}")
@@ -255,12 +296,15 @@ def main(argv: Optional[List[str]] = None) -> int:
                     print("Inbox empty (no new messages).")
                 for m in msgs:
                     sender_label = m.get("sender_alias") or m.get("sender")
-                    sender_role = m.get("sender_role", "peer")
-                    role_badge = (
-                        " \033[1;33m[🎓 MENTOR]\033[0m"
-                        if sender_role == "mentor"
-                        else (" \033[1;36m[🌱 MENTEE]\033[0m" if sender_role == "mentee" else "")
-                    )
+                    sender_role = str(m.get("sender_role", "peer")).lower()
+                    if sender_role in ("admin", "moderator"):
+                        role_badge = " \033[1;33m[🛡️ ADMIN MODERATOR]\033[0m"
+                    elif sender_role == "mentor":
+                        role_badge = " \033[1;32m[🎓 MENTOR]\033[0m"
+                    elif sender_role == "mentee":
+                        role_badge = " \033[1;36m[🌱 MENTEE]\033[0m"
+                    else:
+                        role_badge = ""
                     ver_badge = "✓ verified" if m.get("verified") else "✗ unverified"
                     # Approval Gate for Speaker Peripheral: Play immediately if user passed --speak OR
                     # if sender is a pinned Mentor with explicit `trust_mentor_tts` enabled by the Mentee;
@@ -475,8 +519,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             if not contacts:
                 print("No pinned contacts.")
             for c in contacts:
-                role = c.get("role", "peer")
-                role_badge = "🎓 MENTOR" if role == "mentor" else ("🌱 MENTEE" if role == "mentee" else "🤝 PEER")
+                role = str(c.get("role", "peer")).lower()
+                role_badge = "🛡️ ADMIN" if role in ("admin", "moderator") else ("🎓 MENTOR" if role == "mentor" else ("🌱 MENTEE" if role == "mentee" else "🤝 PEER"))
                 voice_policy = "🔊 live-voice" if c.get("trust_mentor_tts") else "🔒 approval-gated"
                 print(f"- {c['alias']} [{role_badge} · {voice_policy}]: {c['address']}")
         return 0
@@ -709,34 +753,229 @@ def main(argv: Optional[List[str]] = None) -> int:
         import urllib.parse
         import urllib.request
 
-        target_peer = args.peer or "harper"
-        resolved_addr = target_peer
-        if client.contact_book.has_alias(target_peer):
-            resolved_addr = client.contact_book.get_address(target_peer)
-        relay_base = args.relay.rstrip("/")
-        try:
-            url = f"{relay_base}/api/tincan/whoami?address={urllib.parse.quote(resolved_addr)}"
-            with urllib.request.urlopen(url, timeout=8.0) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            if args.json:
-                print(json.dumps(data, indent=2))
-            else:
-                mb = data.get("mailbox_stats") or {}
-                pres = data.get("presence") or mb.get("presence") or {}
-                state = pres.get("state", "offline").upper()
-                badge_color = "\033[1;32m● ONLINE" if state == "ONLINE" else ("\033[1;33m◐ IDLE" if state == "IDLE" else "\033[1;31m○ OFFLINE / AWAY")
-                print(f"Peer Presence for '{target_peer}' ({resolved_addr}):")
-                print(f"  Status:          {badge_color}\033[0m")
-                print(f"  On Computer:     {'YES' if pres.get('is_on_computer') else 'NO (has not polled relay recently)'}")
-                if pres.get("seconds_since_active") is not None:
-                    print(f"  Last Activity:   {pres.get('seconds_since_active')}s ago ({pres.get('last_event')})")
+        if getattr(args, "mesh", False) or args.peer in ("all", "mesh"):
+            # Redirect to who roster
+            args.command = "who"
+        else:
+            target_peer = args.peer or "harper"
+            resolved_addr = target_peer
+            if client.contact_book.has_alias(target_peer):
+                resolved_addr = client.contact_book.get_address(target_peer)
+            relay_base = args.relay.rstrip("/")
+            try:
+                url = f"{relay_base}/api/tincan/whoami?address={urllib.parse.quote(resolved_addr)}"
+                with urllib.request.urlopen(url, timeout=8.0) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                if args.json:
+                    print(json.dumps(data, indent=2))
                 else:
-                    print("  Last Activity:   No active CLI/TUI poll recorded since last relay boot")
-                print(f"  Mailbox Queue:   {mb.get('count', 0)} total envelopes ({pres.get('unread_count', mb.get('count', 0))} unread, last read seq: {pres.get('last_read_seq', 0)})")
-            return 0
-        except Exception as exc:
-            print(f"[-] Status check failed: {exc}", file=sys.stderr)
+                    mb = data.get("mailbox_stats") or {}
+                    pres = data.get("presence") or mb.get("presence") or {}
+                    state = pres.get("state", "offline").upper()
+                    badge_color = "\033[1;32m● ONLINE" if state == "ONLINE" else ("\033[1;33m◐ IDLE" if state == "IDLE" else "\033[1;31m○ OFFLINE / AWAY")
+                    print(f"Peer Presence for '{target_peer}' ({resolved_addr}):")
+                    print(f"  Status:          {badge_color}\033[0m")
+                    print(f"  On Computer:     {'YES' if pres.get('is_on_computer') else 'NO (has not polled relay recently)'}")
+                    if pres.get("seconds_since_active") is not None:
+                        print(f"  Last Activity:   {pres.get('seconds_since_active')}s ago ({pres.get('last_event')})")
+                    else:
+                        print("  Last Activity:   No active CLI/TUI poll recorded since last relay boot")
+                    print(f"  Mailbox Queue:   {mb.get('count', 0)} total envelopes ({pres.get('unread_count', mb.get('count', 0))} unread, last read seq: {pres.get('last_read_seq', 0)})")
+                return 0
+            except Exception as exc:
+                print(f"[-] Status check failed: {exc}", file=sys.stderr)
+                return 1
+
+    if args.command in ("who", "peers", "mesh", "roster") or (args.command == "admin" and getattr(args, "admin_action", None) in ("who", "users", "peers", "list", None)):
+        import time
+        import urllib.parse
+        import urllib.request
+
+        relay_base = args.relay.rstrip("/")
+        room = getattr(args, "room", "main") or "main"
+        try:
+            state_url = f"{relay_base}/api/mesh/state?room={urllib.parse.quote(room)}"
+            req = urllib.request.Request(state_url, headers={"User-Agent": "TinCanCLI/2.2-Admin"})
+            with urllib.request.urlopen(req, timeout=8.0) as resp:
+                mesh_state = json.loads(resp.read().decode("utf-8"))
+        except Exception as e:
+            print(f"[-] Failed to fetch mesh state from {relay_base}: {e}", file=sys.stderr)
             return 1
+
+        cursors = mesh_state.get("cursors", [])
+        streams = mesh_state.get("active_webrtc_streams", [])
+        leaderboard = mesh_state.get("leaderboard", [])
+        tier = mesh_state.get("tier", {})
+        now = time.time()
+
+        if args.json:
+            out = {
+                "relay": relay_base,
+                "room": room,
+                "tier": tier,
+                "counts": {
+                    "website_visitors": len(cursors),
+                    "mesh_nodes": len(streams),
+                    "total_active": len(cursors) + len(streams),
+                },
+                "website_visitors": cursors,
+                "mesh_nodes": streams,
+                "leaderboard": leaderboard,
+            }
+            print(json.dumps(out, indent=2))
+            return 0
+
+        print("\033[1;36m=======================================================================\033[0m")
+        print("\033[1;36m       🥫 TINCAN MESH & RELAY WEBSITE ROSTER (ADMIN TELEMETRY)\033[0m")
+        print(f"\033[1;30m       Relay: {relay_base} | Room: {room} | Tier: {tier.get('tier_code', 'L4')}\033[0m")
+        print("\033[1;36m=======================================================================\033[0m\n")
+
+        # 1. Website Visitors (Active browser sessions / cursors)
+        print(f"\033[1;32m🌐 RELAY WEBSITE VISITORS ({len(cursors)} Active Browser Sessions)\033[0m")
+        print("\033[1;30m" + "-" * 71 + "\033[0m")
+        if not cursors:
+            print("  (No website visitors currently active on the retro desktop)")
+        else:
+            for c in cursors:
+                p_id = c.get("peer_id", "unknown")
+                name = c.get("display_name") or p_id
+                x = int(c.get("x", 0))
+                y = int(c.get("y", 0))
+                win = c.get("window_id", "desktop")
+                upd = c.get("updated_at", 0)
+                diff = int(now - upd) if upd else 0
+                if diff <= 15:
+                    status_badge = "\033[1;32m● ACTIVE NOW\033[0m"
+                elif diff <= 60:
+                    status_badge = f"\033[1;33m◐ IDLE ({diff}s ago)\033[0m"
+                else:
+                    status_badge = f"\033[1;30m○ AWAY ({diff}s ago)\033[0m"
+
+                label_str = f"{p_id} ({name})" if name != p_id else p_id
+                print(f"  • \033[1;37m{label_str:22s}\033[0m {status_badge:28s} Window: {win:10s} Pos: ({x:4d}, {y:4d})")
+
+        print()
+        # 2. Connected Mesh Nodes (Live WebRTC Streams & Workstations)
+        print(f"\033[1;34m📡 CONNECTED MESH NODES ({len(streams)} Active WebRTC / Workstation Streams)\033[0m")
+        print("\033[1;30m" + "-" * 71 + "\033[0m")
+        if not streams:
+            print("  (No WebRTC streaming nodes active in this room)")
+        else:
+            for s in streams:
+                p_id = s.get("peer_id", "unknown")
+                d_name = s.get("display_name") or p_id
+                r = s.get("room", room)
+                port = s.get("udp_port", "auto")
+                caps = []
+                if s.get("has_video"):
+                    caps.append("📹 Video")
+                if s.get("has_audio"):
+                    caps.append("🎙️ Voice")
+                if s.get("has_screen"):
+                    caps.append("🖥️ Screen")
+                if not caps:
+                    caps.append("⚡ Workstation Signaling")
+                caps_str = ", ".join(caps)
+                print(f"  • \033[1;37m{p_id:22s}\033[0m [{d_name}]")
+                print(f"    Room: {r:10s} | Port: UDP/{port} | Media: {caps_str}")
+
+        print()
+        # 3. Top Active Mesh Operators (Leaderboard)
+        if leaderboard:
+            print(f"\033[1;35m🏆 TOP MESH OPERATORS ({len(leaderboard)} Registered Peers)\033[0m")
+            print("\033[1;30m" + "-" * 71 + "\033[0m")
+            for idx, p in enumerate(leaderboard[:5]):
+                badges_str = " ".join(p.get("badges", []))
+                print(f"  #{idx+1} \033[1;37m{p.get('peer_id'):18s}\033[0m | XP: \033[1;33m{p.get('xp', 0):4d}\033[0m | Envelopes: {p.get('envelopes_sealed', 0)} | {badges_str}")
+
+        print("\n\033[1;30m" + "=" * 71 + "\033[0m")
+        print(f"\033[1;32mTotal Online: {len(cursors)} on Web, {len(streams)} on Mesh\033[0m | Mod Action: \033[1;33mtincan admin kick <peer_id>\033[0m")
+        return 0
+
+    if args.command == "admin":
+        action = getattr(args, "admin_action", "who")
+        if action == "kick":
+            import urllib.request
+            relay_base = args.relay.rstrip("/")
+            room = getattr(args, "room", "main") or "main"
+            target_peer = args.peer
+            try:
+                req = urllib.request.Request(
+                    f"{relay_base}/api/webrtc/leave",
+                    data=json.dumps({"peer_id": target_peer, "room": room}).encode("utf-8"),
+                    headers={"Content-Type": "application/json", "User-Agent": "TinCanCLI/2.2-Admin"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=8.0) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                if args.json:
+                    print(json.dumps(data, indent=2))
+                else:
+                    if data.get("removed"):
+                        print(f"\033[1;32m[🛡️ ADMIN MODERATOR] Successfully kicked '{target_peer}' from mesh room '{room}'.\033[0m")
+                    else:
+                        print(f"[*] Node '{target_peer}' was not active in room '{room}'.")
+                return 0
+            except Exception as exc:
+                print(f"[-] Admin kick error: {exc}", file=sys.stderr)
+                return 1
+
+        elif action == "broadcast":
+            import time
+            import urllib.request
+            relay_base = args.relay.rstrip("/")
+            room = getattr(args, "room", "main") or "main"
+            pub_hex = client.identity.verify_key.encode().hex()[:8]
+            sender_id = f"admin-{args.alias}-{pub_hex}"
+            payload_data = {
+                "from": sender_id,
+                "to": "*",
+                "type": "admin_broadcast",
+                "room": room,
+                "payload": {
+                    "text": args.text,
+                    "sender": sender_id,
+                    "role": "admin",
+                    "timestamp": time.time(),
+                    "priority": "emergency",
+                },
+            }
+            try:
+                req = urllib.request.Request(
+                    f"{relay_base}/api/webrtc/signal",
+                    data=json.dumps(payload_data).encode("utf-8"),
+                    headers={"Content-Type": "application/json", "User-Agent": "TinCanCLI/2.2-Admin"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=8.0) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                if args.json:
+                    print(json.dumps(data, indent=2))
+                else:
+                    print(f"\033[1;32m[🛡️ ADMIN MODERATOR] System-wide announcement broadcast to room '{room}':\033[0m")
+                    print(f"  \033[1;33m\"{args.text}\"\033[0m")
+                return 0
+            except Exception as exc:
+                print(f"[-] Admin broadcast error: {exc}", file=sys.stderr)
+                return 1
+
+        elif action == "role":
+            target = args.target or "self"
+            role_choice = (getattr(args, "role", None) or getattr(args, "role_val", "admin") or "admin").strip().lower()
+            if target in ("self", "me", args.alias):
+                client.set_my_role(role_choice)
+                if args.json:
+                    print(json.dumps({"status": "updated", "target": "self", "role": role_choice}, indent=2))
+                else:
+                    print(f"\033[1;32m[🛡️ ADMIN MODERATOR] Successfully set local identity role to: {role_choice.upper()}\033[0m")
+                return 0
+            else:
+                updated = client.set_contact_role(target, role=role_choice)
+                if args.json:
+                    print(json.dumps(updated, indent=2))
+                else:
+                    print(f"\033[1;32m[🛡️ ADMIN MODERATOR] Successfully set role for contact '{target}' to: {role_choice.upper()}\033[0m")
+                return 0
 
     if args.command in ("credits", "cost"):
         from .ai_gateway import DynamicAIGatewayRouter
