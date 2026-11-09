@@ -172,8 +172,9 @@ class TinCanMCPClient:
                     data = json.load(f)
                 for alias, info in data.items():
                     addr = info.get("address") if isinstance(info, dict) else info
+                    meta = info.get("metadata", {}) if isinstance(info, dict) else {}
                     if addr and validate_address(addr):
-                        self.contact_book.pin(alias, addr, raise_on_conflict=False)
+                        self.contact_book.pin(alias, addr, metadata=meta, raise_on_conflict=False)
             except Exception as exc:
                 logger.warning("Could not load contacts from %s: %s", self.contacts_file, exc)
 
@@ -380,12 +381,19 @@ class TinCanMCPClient:
                 inner = {"error": f"Failed to decrypt: {exc}", "text": None}
 
             sender_alias = self.find_alias(sender)
+            sender_meta: Dict[str, Any] = {}
+            if sender_alias:
+                c_info = self.contact_book.get_contact(sender_alias)
+                if c_info:
+                    sender_meta = c_info.get("metadata", {})
 
             decrypted_messages.append({
                 "seq": seq,
                 "envelope_id": envelope_id or inner.get("id"),
                 "sender": sender,
                 "sender_alias": sender_alias,
+                "sender_role": sender_meta.get("role", "peer"),
+                "sender_trust_mentor_tts": bool(sender_meta.get("trust_mentor_tts", False)),
                 "recipient": self.address,
                 "timestamp": ts,
                 "verified": verified,
@@ -397,10 +405,11 @@ class TinCanMCPClient:
         return decrypted_messages
 
     def tincan_list_contacts(self, **kwargs) -> List[Dict[str, Any]]:
-        """Lists trusted aliases and addresses."""
+        """Lists trusted aliases, addresses, and mentorship roles."""
         result = []
         for alias, info in sorted(self.contact_book.list_contacts().items()):
             addr = info.get("address", "")
+            meta = info.get("metadata") or {}
             pub_hex = None
             if validate_address(addr):
                 try:
@@ -412,11 +421,20 @@ class TinCanMCPClient:
                 "address": addr,
                 "public_key": pub_hex,
                 "pinned_at": info.get("pinned_at"),
+                "role": meta.get("role", "peer"),
+                "trust_mentor_tts": bool(meta.get("trust_mentor_tts", False)),
             })
         return result
 
-    def tincan_add_contact(self, alias: str, address: str, **kwargs) -> Dict[str, Any]:
-        """Pins contact key."""
+    def tincan_add_contact(
+        self,
+        alias: str,
+        address: str,
+        role: str = "peer",
+        trust_mentor_tts: bool = False,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Pins contact key with optional mentorship role ('mentor', 'mentee', 'peer')."""
         if not alias:
             raise ValueError("alias is required")
         if not address:
@@ -425,8 +443,10 @@ class TinCanMCPClient:
         clean_addr = address.split("@")[0].strip()
         pub_bytes = decode_address(clean_addr)
         pk_hex = pub_bytes.hex()
+        norm_role = role if role in ("mentor", "mentee", "peer") else "peer"
+        meta = {"role": norm_role, "trust_mentor_tts": bool(trust_mentor_tts)}
 
-        self.contact_book.pin(alias, clean_addr)
+        self.contact_book.pin(alias, clean_addr, metadata=meta)
         self._save_contacts()
 
         contact_info = self.contact_book.get_contact(alias)
@@ -438,6 +458,36 @@ class TinCanMCPClient:
             "address": clean_addr,
             "public_key": pk_hex,
             "pinned_at": pinned_at,
+            "role": norm_role,
+            "trust_mentor_tts": bool(trust_mentor_tts),
+        }
+
+    def set_contact_role(
+        self,
+        alias: str,
+        role: Optional[str] = None,
+        trust_mentor_tts: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """Update mentorship role ('mentor', 'mentee', 'peer') and voice-gate policy for a pinned contact."""
+        if not self.contact_book.has_alias(alias):
+            raise ValueError(f"Unknown contact alias '{alias}'. Pin them first with 'tincan add-contact {alias} <tc:address>'.")
+        c_info = self.contact_book.get_contact(alias) or {}
+        addr = c_info["address"]
+        meta = dict(c_info.get("metadata") or {})
+        if role is not None:
+            if role not in ("mentor", "mentee", "peer"):
+                raise ValueError(f"Invalid role '{role}'. Choose from: mentor, mentee, peer")
+            meta["role"] = role
+        if trust_mentor_tts is not None:
+            meta["trust_mentor_tts"] = bool(trust_mentor_tts)
+        self.contact_book.pin(alias, addr, metadata=meta)
+        self._save_contacts()
+        return {
+            "status": "updated",
+            "alias": alias,
+            "address": addr,
+            "role": meta.get("role", "peer"),
+            "trust_mentor_tts": bool(meta.get("trust_mentor_tts", False)),
         }
 
 

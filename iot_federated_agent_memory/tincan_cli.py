@@ -83,10 +83,24 @@ def main(argv: Optional[List[str]] = None) -> int:
     contacts_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
     # add-contact
-    add_parser = subparsers.add_parser("add-contact", help="Pin a contact's public key (TOFU)")
+    add_parser = subparsers.add_parser("add-contact", help="Pin a contact's public key (TOFU) with optional Mentor/Mentee role")
     add_parser.add_argument("alias", help="Human-readable alias name")
     add_parser.add_argument("address", help="TinCan address (tc:<52 base32 chars>)")
+    add_parser.add_argument("--role", default="peer", choices=["mentor", "mentee", "peer"], help="Relationship role (mentor, mentee, peer)")
+    add_parser.add_argument("--allow-voice", action="store_true", help="Pre-approve live TTS voice coaching from this Mentor")
     add_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # mentor (Mentor-Mentee coaching, guidance & hand-raise protocol)
+    mentor_p = subparsers.add_parser("mentor", help="Manage Mentor-Mentee relationships, guided walkthroughs, and hand-raises")
+    mentor_p.add_argument("action", nargs="?", default="status", choices=["status", "set", "guide", "hand"], help="Action (status, set, guide, hand)")
+    mentor_p.add_argument("target", nargs="?", default=None, help="Contact alias (for 'set'/'guide') or topic (for 'hand')")
+    mentor_p.add_argument("message", nargs="?", default=None, help="Guidance instruction or URL (for 'guide')")
+    mentor_p.add_argument("--role", default="mentor", choices=["mentor", "mentee", "peer"], help="Role to assign when using 'set'")
+    mentor_p.add_argument("--allow-voice", action="store_true", help="Allow trusted Mentor voice coaching to play without gating")
+    mentor_p.add_argument("--gate-voice", action="store_true", help="Require explicit approval gate for Mentor voice coaching")
+    mentor_p.add_argument("--speak", action="store_true", help="Attach spoken TTS coaching flag when sending 'guide'")
+    mentor_p.add_argument("--mentor", default=None, help="Specific Mentor alias to notify when raising 'hand'")
+    mentor_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
     # mcp
     subparsers.add_parser("mcp", help="Start MCP server over stdio")
@@ -227,16 +241,24 @@ def main(argv: Optional[List[str]] = None) -> int:
                     print("Inbox empty (no new messages).")
                 for m in msgs:
                     sender_label = m.get("sender_alias") or m.get("sender")
+                    sender_role = m.get("sender_role", "peer")
+                    role_badge = (
+                        " \033[1;33m[🎓 MENTOR]\033[0m"
+                        if sender_role == "mentor"
+                        else (" \033[1;36m[🌱 MENTEE]\033[0m" if sender_role == "mentee" else "")
+                    )
                     ver_badge = "✓ verified" if m.get("verified") else "✗ unverified"
-                    # Approval Gate for Speaker Peripheral: Only play immediately if user passed --speak;
-                    # otherwise, if sender requested TTS (`m.get("speak")`), queue it in the Accessibility Gate!
-                    should_speak_now = bool(args.speak) and not bool(args.no_speak)
+                    # Approval Gate for Speaker Peripheral: Play immediately if user passed --speak OR
+                    # if sender is a pinned Mentor with explicit `trust_mentor_tts` enabled by the Mentee;
+                    # otherwise queue in the Accessibility Gate!
+                    mentor_trusted_tts = (sender_role == "mentor") and bool(m.get("sender_trust_mentor_tts"))
+                    should_speak_now = (bool(args.speak) or (bool(m.get("speak")) and mentor_trusted_tts)) and not bool(args.no_speak)
                     speak_badge = (
                         " [🔊 TTS spoken]"
                         if should_speak_now
                         else (" [🔒 TTS queued for approval]" if m.get("speak") else "")
                     )
-                    print(f"[{m.get('seq')}] From: {sender_label} ({ver_badge}){speak_badge}")
+                    print(f"[{m.get('seq')}] From: {sender_label}{role_badge} ({ver_badge}){speak_badge}")
                     print(f"    {m.get('message')}")
 
                     msg_txt = m.get("message", "")
@@ -250,11 +272,13 @@ def main(argv: Optional[List[str]] = None) -> int:
                             command_text=msg_txt,
                             config_dir=args.dir,
                             action_type="tts",
+                            sender_role=sender_role,
                         )
-                        print(f"    \033[33m🔊 Voice playback gated [seq {m.get('seq')}]. Run 'tincan trigger {m.get('seq')}' to approve & play aloud.\033[0m")
+                        gate_label = "🎓 Mentor Voice Coaching" if sender_role == "mentor" else "🔊 Voice playback"
+                        print(f"    \033[33m{gate_label} gated [seq {m.get('seq')}]. Run 'tincan trigger {m.get('seq')}' to approve & play aloud.\033[0m")
 
                     # Automatically enqueue actionable requests into the Accessibility Gate
-                    if any(keyword in msg_txt.lower() for keyword in ["open", "run", "launch", "execute", "start", "call", "join"]):
+                    if any(keyword in msg_txt.lower() for keyword in ["open", "run", "launch", "execute", "start", "call", "join", "[mentor guidance]", "[mentee hand raise]"]):
                         act = enqueue_action(
                             seq=m.get("seq", 0),
                             sender=m.get("sender", ""),
@@ -262,8 +286,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                             command_text=msg_txt,
                             config_dir=args.dir,
                             action_type="command",
+                            sender_role=sender_role,
                         )
-                        print(f"    \033[33m⚡ Queued in Accessibility Gate [seq {m.get('seq')}]. Run 'tincan trigger {m.get('seq')}' to approve & execute.\033[0m")
+                        q_label = "🎓 Mentor Guidance Step" if sender_role == "mentor" else ("✋ Mentee Review Request" if sender_role == "mentee" else "⚡ Action")
+                        print(f"    \033[33m{q_label} queued in Accessibility Gate [seq {m.get('seq')}]. Run 'tincan trigger {m.get('seq')}' to approve & execute.\033[0m")
             return 0
         except Exception as exc:
             if args.json:
@@ -377,10 +403,13 @@ def main(argv: Optional[List[str]] = None) -> int:
             if not pending:
                 print("No pending actions awaiting approval.")
             else:
-                print("\033[1;36m=== Pending Inbound Actions (Accessibility Gate) ===\033[0m")
+                print("\033[1;36m=== Pending Inbound Actions (Mentor & Peer Accessibility Gate) ===\033[0m")
                 for a in pending:
-                    print(f"[{a['seq']}] From {a['sender_alias']}: \"{a['command']}\"")
-                    print(f"    -> Run: \033[1;32mtincan trigger {a['seq']}\033[0m to approve & execute")
+                    s_role = a.get("sender_role", "peer")
+                    r_tag = "🎓 MENTOR" if s_role == "mentor" else ("🌱 MENTEE" if s_role == "mentee" else "PEER")
+                    a_type = "🔊 TTS" if a.get("action_type") == "tts" else "⚡ CMD"
+                    print(f"[{a['seq']}] [{r_tag} · {a_type}] From {a['sender_alias']}: \"{a['command']}\"")
+                    print(f"    -> Run: \033[1;32mtincan trigger {a['seq']}\033[0m to approve & execute (or 'tincan dismiss {a['seq']}')")
         return 0
 
     if args.command == "trigger":
@@ -432,16 +461,24 @@ def main(argv: Optional[List[str]] = None) -> int:
             if not contacts:
                 print("No pinned contacts.")
             for c in contacts:
-                print(f"- {c['alias']}: {c['address']}")
+                role = c.get("role", "peer")
+                role_badge = "🎓 MENTOR" if role == "mentor" else ("🌱 MENTEE" if role == "mentee" else "🤝 PEER")
+                voice_policy = "🔊 live-voice" if c.get("trust_mentor_tts") else "🔒 approval-gated"
+                print(f"- {c['alias']} [{role_badge} · {voice_policy}]: {c['address']}")
         return 0
 
     if args.command == "add-contact":
         try:
-            res = client.tincan_add_contact(args.alias, args.address)
+            res = client.tincan_add_contact(
+                args.alias,
+                args.address,
+                role=getattr(args, "role", "peer"),
+                trust_mentor_tts=bool(getattr(args, "allow_voice", False)),
+            )
             if args.json:
                 print(json.dumps(res, indent=2))
             else:
-                print(f"[+] Pinned contact '{res['alias']}' -> {res['address']}")
+                print(f"[+] Pinned contact '{res['alias']}' ({res.get('role', 'peer').upper()}) -> {res['address']}")
             return 0
         except Exception as exc:
             if args.json:
@@ -449,6 +486,153 @@ def main(argv: Optional[List[str]] = None) -> int:
             else:
                 print(f"[-] Failed to pin contact: {exc}", file=sys.stderr)
             return 1
+
+    if args.command == "mentor":
+        from .tincan_actions import load_pending_actions
+        import urllib.parse
+        import urllib.request
+
+        contacts = client.tincan_list_contacts()
+        mentors = [c for c in contacts if c.get("role") == "mentor"]
+        mentees = [c for c in contacts if c.get("role") == "mentee"]
+
+        if args.action == "status":
+            pending = [a for a in load_pending_actions(args.dir) if a.get("status") == "pending_approval"]
+            status_payload = {
+                "identity": client.alias,
+                "address": client.address,
+                "mentors": mentors,
+                "mentees": mentees,
+                "pending_guidance_count": len(pending),
+                "pending_guidance": pending,
+            }
+            if args.json:
+                print(json.dumps(status_payload, indent=2))
+            else:
+                print("\033[1;33m=== 🎓 TinCan Mentor–Mentee Studio Status ===\033[0m")
+                print(f"  Local Identity: {client.alias} ({client.address[:20]}...)")
+                print(f"  Pinned Mentors ({len(mentors)}):")
+                if not mentors:
+                    print("    • None yet (Run: tincan mentor set <alias> --role mentor)")
+                for m in mentors:
+                    vp = "🔊 Live Voice Coaching ON" if m.get("trust_mentor_tts") else "🔒 Approval-Gated (Safe Default)"
+                    print(f"    • {m['alias']} ({vp}) -> {m['address'][:22]}...")
+                print(f"  Pinned Mentees ({len(mentees)}):")
+                if not mentees:
+                    print("    • None yet (Run: tincan mentor set <alias> --role mentee)")
+                for mt in mentees:
+                    print(f"    • {mt['alias']} -> {mt['address'][:22]}...")
+                print(f"  Pending Guidance Queue: {len(pending)} item(s) awaiting 'tincan trigger <seq>'")
+            return 0
+
+        if args.action == "set":
+            if not args.target:
+                print("[-] Usage: tincan mentor set <contact_alias> [--role mentor|mentee|peer] [--allow-voice | --gate-voice]", file=sys.stderr)
+                return 1
+            trust_tts = None
+            if args.allow_voice:
+                trust_tts = True
+            elif args.gate_voice:
+                trust_tts = False
+            try:
+                updated = client.set_contact_role(args.target, role=args.role, trust_mentor_tts=trust_tts)
+                if args.json:
+                    print(json.dumps(updated, indent=2))
+                else:
+                    vp = "Live Voice Coaching ON" if updated["trust_mentor_tts"] else "Approval-Gated (Default)"
+                    print(f"\033[1;32m[+] Updated '{updated['alias']}' -> Role: {updated['role'].upper()} ({vp})\033[0m")
+                return 0
+            except Exception as exc:
+                if args.json:
+                    print(json.dumps({"error": str(exc)}, indent=2))
+                else:
+                    print(f"[-] Mentor set failed: {exc}", file=sys.stderr)
+                return 1
+
+        if args.action == "guide":
+            if not args.target or not args.message:
+                print("[-] Usage: tincan mentor guide <mentee_alias> \"<instruction_or_url>\" [--speak]", file=sys.stderr)
+                return 1
+            guided_msg = f"[MENTOR GUIDANCE] {args.message}"
+            try:
+                res = client.tincan_send(recipient_address=args.target, message=guided_msg, speak=bool(args.speak))
+                # Award Mentor Guidance XP on relay
+                try:
+                    relay_base = args.relay.rstrip("/")
+                    q_req = urllib.request.Request(
+                        f"{relay_base}/api/mesh/quest",
+                        data=json.dumps({
+                            "peer_id": f"{client.alias}-{client.public_key_hex[:8]}",
+                            "action_key": "mentor_guidance",
+                        }).encode("utf-8"),
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    urllib.request.urlopen(q_req, timeout=4.0).read()
+                except Exception:
+                    pass
+                out = {"status": "guidance_sent", "mentee": args.target, "message": guided_msg, "envelope": res}
+                if args.json:
+                    print(json.dumps(out, indent=2))
+                else:
+                    print(f"\033[1;33m🎓 Mentor Guidance dispatched to '{args.target}' (seq {res.get('seq')})!\033[0m")
+                    print(f"   Step: {args.message}")
+                    print("   (Queued in Mentee's Accessibility Gate for approval + execution)")
+                return 0
+            except Exception as exc:
+                if args.json:
+                    print(json.dumps({"error": str(exc)}, indent=2))
+                else:
+                    print(f"[-] Guidance send failed: {exc}", file=sys.stderr)
+                return 1
+
+        if args.action == "hand":
+            topic = args.target or "Requesting live Mentor code review & walkthrough"
+            target_mentor = args.mentor or (mentors[0]["alias"] if mentors else None)
+            if not target_mentor:
+                print("[-] No Mentor pinned yet. Pin a Mentor first with 'tincan mentor set <alias> --role mentor' or pass --mentor <alias>.", file=sys.stderr)
+                return 1
+            anon_id = client.public_key_hex[:8]
+            room = f"mentor-{anon_id}"
+            relay_base = args.relay.rstrip("/")
+            call_url = f"{relay_base}/?room={urllib.parse.quote(room)}&mode=screen#call"
+            hand_msg = f"[MENTEE HAND RAISE] {topic} — Join Mentor Pair Room: {call_url}"
+            try:
+                res = client.tincan_send(recipient_address=target_mentor, message=hand_msg, speak=True)
+                try:
+                    q_req = urllib.request.Request(
+                        f"{relay_base}/api/mesh/quest",
+                        data=json.dumps({
+                            "peer_id": f"{client.alias}-{anon_id}",
+                            "action_key": "mentee_hand_raise",
+                        }).encode("utf-8"),
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    urllib.request.urlopen(q_req, timeout=4.0).read()
+                except Exception:
+                    pass
+                out = {
+                    "status": "hand_raised",
+                    "mentor": target_mentor,
+                    "topic": topic,
+                    "pair_room": room,
+                    "call_url": call_url,
+                    "envelope": res,
+                }
+                if args.json:
+                    print(json.dumps(out, indent=2))
+                else:
+                    print(f"\033[1;36m✋ Hand Raised to Mentor '{target_mentor}' (seq {res.get('seq')})!\033[0m")
+                    print(f"   Topic:     {topic}")
+                    print(f"   Pair Room: {call_url}")
+                return 0
+            except Exception as exc:
+                if args.json:
+                    print(json.dumps({"error": str(exc)}, indent=2))
+                else:
+                    print(f"[-] Hand raise failed: {exc}", file=sys.stderr)
+                return 1
 
     if args.command == "playlist":
         import urllib.request

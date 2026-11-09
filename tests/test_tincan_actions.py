@@ -94,3 +94,55 @@ def test_execute_missing_action(tmp_path):
     config_dir = str(tmp_path)
     with pytest.raises(ValueError):
         execute_action("999", config_dir=config_dir)
+
+
+def test_mentor_mentee_cli_workflow(tmp_path, capsys):
+    import json
+    from iot_federated_agent_memory.tincan_core import TinCanIdentity
+    from iot_federated_agent_memory.tincan_cli import main as cli_main
+
+    mentor_id = TinCanIdentity.generate()
+    mentee_id = TinCanIdentity.generate()
+
+    # 1. Pin a Mentor contact (default approval-gated voice)
+    rc1 = cli_main([
+        "--dir", str(tmp_path),
+        "add-contact", "prof-maya", mentor_id.address,
+        "--role", "mentor",
+        "--json",
+    ])
+    assert rc1 == 0
+    out1 = json.loads(capsys.readouterr().out)
+    assert out1["role"] == "mentor"
+    assert out1["trust_mentor_tts"] is False
+
+    # 2. Pin a Mentee contact
+    rc2 = cli_main([
+        "--dir", str(tmp_path),
+        "add-contact", "alex", mentee_id.address,
+        "--role", "mentee",
+        "--json",
+    ])
+    assert rc2 == 0
+    out2 = json.loads(capsys.readouterr().out)
+    assert out2["role"] == "mentee"
+
+    # 3. Check `tincan mentor status --json`
+    rc3 = cli_main(["--dir", str(tmp_path), "mentor", "status", "--json"])
+    assert rc3 == 0
+    status_data = json.loads(capsys.readouterr().out)
+    assert len(status_data["mentors"]) == 1
+    assert status_data["mentors"][0]["alias"] == "prof-maya"
+    assert len(status_data["mentees"]) == 1
+    assert status_data["mentees"][0]["alias"] == "alex"
+
+    # 4. Toggle live voice coaching ON and then back to approval-gated
+    rc4 = cli_main(["--dir", str(tmp_path), "mentor", "set", "prof-maya", "--role", "mentor", "--allow-voice", "--json"])
+    assert rc4 == 0
+    upd_on = json.loads(capsys.readouterr().out)
+    assert upd_on["trust_mentor_tts"] is True
+
+    rc5 = cli_main(["--dir", str(tmp_path), "mentor", "set", "prof-maya", "--role", "mentor", "--gate-voice", "--json"])
+    assert rc5 == 0
+    upd_off = json.loads(capsys.readouterr().out)
+    assert upd_off["trust_mentor_tts"] is False

@@ -56,6 +56,18 @@ QUEST_CATALOG: Dict[str, Dict[str, Any]] = {
         "xp": 15,
         "description": "Emit a live watch-party reaction across the room",
     },
+    "mentor_guidance": {
+        "title": "Mentor Guidance",
+        "badge": "🎓 Trusted Mentor",
+        "xp": 250,
+        "description": "Dispatch or complete an approval-gated Mentor-Mentee walkthrough step",
+    },
+    "mentee_hand_raise": {
+        "title": "Apprentice Signal",
+        "badge": "✋ Active Mentee",
+        "xp": 150,
+        "description": "Raise hand for a Mentor pair-programming or code-review session",
+    },
 }
 
 

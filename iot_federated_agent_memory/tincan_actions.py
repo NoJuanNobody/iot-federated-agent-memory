@@ -46,11 +46,12 @@ def enqueue_action(
     command_text: str,
     config_dir: Optional[str] = None,
     action_type: str = "command",
+    sender_role: str = "peer",
 ) -> Dict[str, Any]:
     """Queue an incoming command or TTS request requiring explicit human approval before firing."""
     actions = load_pending_actions(config_dir)
     for act in actions:
-        if act["seq"] == seq and act["sender"] == sender:
+        if act["seq"] == seq and act["sender"] == sender and act.get("action_type") == action_type:
             return act
 
     item = {
@@ -58,6 +59,7 @@ def enqueue_action(
         "seq": seq,
         "sender": sender,
         "sender_alias": sender_alias or "peer",
+        "sender_role": sender_role or "peer",
         "command": command_text,
         "action_type": action_type,
         "queued_at": time.time(),
