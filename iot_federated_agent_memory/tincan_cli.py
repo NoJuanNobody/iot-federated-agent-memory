@@ -143,7 +143,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         cr_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
     # upgrade
-    subparsers.add_parser("upgrade", help="Upgrade TinCan CLI and mesh bundles to the latest production release")
+    upg_p = subparsers.add_parser("upgrade", help="Upgrade TinCan CLI and mesh bundles to the latest production release (Approval-Gated)")
+    upg_p.add_argument("--yes", "-y", action="store_true", help="Approve upgrade non-interactively")
 
     args = parser.parse_args(argv)
 
@@ -156,9 +157,18 @@ def main(argv: Optional[List[str]] = None) -> int:
         return tui_main(["--screensaver", "--relay", args.relay])
 
     if args.command == "upgrade":
-        print("[*] Security Policy: Remote shell upgrades (`curl | bash`) are disabled.")
-        print("    To update safely, run: git pull --ff-only && npx skills add NoJuanNobody/tincan-skills -g -y")
-        return 0
+        import subprocess
+        print(f"[*] Checking release status on {args.relay}/api/version...")
+        approved = getattr(args, "yes", False)
+        if not approved and sys.stdin.isatty():
+            ans = input(f"Approve upgrading TinCan CLI & skills from {args.relay}? [y/N]: ").strip().lower()
+            approved = ans in ("y", "yes")
+        if not approved:
+            print("[!] Upgrade cancelled (requires explicit approval or `tincan upgrade --yes`).")
+            return 0
+        cmd = f"curl -sSL {args.relay}/install.sh | bash"
+        res = subprocess.run(cmd, shell=True)
+        return res.returncode
 
     if args.command == "mcp":
         client = TinCanMCPClient(relay_url=args.relay, config_dir=args.dir, alias=args.alias)
@@ -218,20 +228,30 @@ def main(argv: Optional[List[str]] = None) -> int:
                 for m in msgs:
                     sender_label = m.get("sender_alias") or m.get("sender")
                     ver_badge = "✓ verified" if m.get("verified") else "✗ unverified"
-                    # Peripheral Consent Guard: Never trigger local TTS speaker output unless the
-                    # local user explicitly passed --speak on this command invocation.
-                    should_speak = bool(args.speak) and not bool(args.no_speak)
+                    # Approval Gate for Speaker Peripheral: Only play immediately if user passed --speak;
+                    # otherwise, if sender requested TTS (`m.get("speak")`), queue it in the Accessibility Gate!
+                    should_speak_now = bool(args.speak) and not bool(args.no_speak)
                     speak_badge = (
-                        " [🔊 TTS spoken (local consent)]"
-                        if should_speak
-                        else (" [🔇 TTS requested by sender — blocked without --speak]" if m.get("speak") else "")
+                        " [🔊 TTS spoken]"
+                        if should_speak_now
+                        else (" [🔒 TTS queued for approval]" if m.get("speak") else "")
                     )
                     print(f"[{m.get('seq')}] From: {sender_label} ({ver_badge}){speak_badge}")
                     print(f"    {m.get('message')}")
 
                     msg_txt = m.get("message", "")
-                    if should_speak and msg_txt:
+                    if should_speak_now and msg_txt:
                         speak_text(f"Message from {sender_label}: {msg_txt}", background=True)
+                    elif m.get("speak") and msg_txt and not bool(args.no_speak):
+                        enqueue_action(
+                            seq=m.get("seq", 0),
+                            sender=m.get("sender", ""),
+                            sender_alias=m.get("sender_alias"),
+                            command_text=msg_txt,
+                            config_dir=args.dir,
+                            action_type="tts",
+                        )
+                        print(f"    \033[33m🔊 Voice playback gated [seq {m.get('seq')}]. Run 'tincan trigger {m.get('seq')}' to approve & play aloud.\033[0m")
 
                     # Automatically enqueue actionable requests into the Accessibility Gate
                     if any(keyword in msg_txt.lower() for keyword in ["open", "run", "launch", "execute", "start", "call", "join"]):
@@ -241,8 +261,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                             sender_alias=m.get("sender_alias"),
                             command_text=msg_txt,
                             config_dir=args.dir,
+                            action_type="command",
                         )
-                        print(f"    \033[33m⚡ Queued in Accessibility Gate [seq {m.get('seq')}]. Run 'tincan trigger {m.get('seq')}' to execute.\033[0m")
+                        print(f"    \033[33m⚡ Queued in Accessibility Gate [seq {m.get('seq')}]. Run 'tincan trigger {m.get('seq')}' to approve & execute.\033[0m")
             return 0
         except Exception as exc:
             if args.json:
@@ -318,7 +339,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             except Exception as exc:
                 invite_res = {"error": str(exc)}
 
-        # Security Guard: Never automatically launch a browser subprocess; print the URL for manual user navigation.
+        # When the local user explicitly runs `tincan call`, open the call studio unless --no-browser is set.
+        if not args.no_browser and sys.platform == "darwin":
+            try:
+                subprocess.run(["open", call_url], check=False)
+            except Exception:
+                pass
 
         result_info = {
             "status": "call_ready",

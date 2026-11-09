@@ -1,4 +1,4 @@
-"""Tests for the TinCan Read-Only Accessibility Action Gate (Zero Subprocess Execution)."""
+"""Tests for the TinCan Human-In-The-Loop Approval-Gated Accessibility Action Gate."""
 import pytest
 from iot_federated_agent_memory.tincan_actions import (
     enqueue_action,
@@ -34,13 +34,13 @@ def test_enqueue_list_dismiss(tmp_path):
     assert actions_after[0]["status"] == "dismissed"
 
 
-def test_execute_action_never_spawns_subprocess(tmp_path, monkeypatch):
+def test_execute_action_after_approval(tmp_path, monkeypatch):
     config_dir = str(tmp_path)
     enqueue_action(
         seq=2,
         sender="tc:peer1testaddress",
         sender_alias="peer1",
-        command_text="Open Gemini https://example.com",
+        command_text="Open Gemini",
         config_dir=config_dir,
     )
 
@@ -49,12 +49,45 @@ def test_execute_action_never_spawns_subprocess(tmp_path, monkeypatch):
     def mock_run(cmd, **kwargs):
         called.append(cmd)
 
+        class DummyProcess:
+            returncode = 0
+
+        return DummyProcess()
+
     monkeypatch.setattr("subprocess.run", mock_run)
 
+    # Nothing runs while queued in pending_approval
+    assert len(called) == 0
+
+    # Once explicitly triggered by the user (`tincan trigger 2`), the approved action executes
     res = execute_action("2", config_dir=config_dir)
     assert res["status"] == "completed"
-    assert "OS/browser execution disabled" in res["result"]
-    assert len(called) == 0
+    assert "https://gemini.google.com" in res["result"]
+    assert len(called) == 1
+
+
+def test_execute_tts_action_after_approval(tmp_path, monkeypatch):
+    config_dir = str(tmp_path)
+    enqueue_action(
+        seq=3,
+        sender="tc:peer1testaddress",
+        sender_alias="maya",
+        command_text="Render is complete!",
+        config_dir=config_dir,
+        action_type="tts",
+    )
+
+    spoken = []
+    monkeypatch.setattr(
+        "iot_federated_agent_memory.tincan_voice.speak_text",
+        lambda text, voice=None, background=True: spoken.append(text) or {"status": "spoken", "engine": "kokoro-say"},
+    )
+
+    assert len(spoken) == 0
+    res = execute_action("3", config_dir=config_dir)
+    assert res["status"] == "completed"
+    assert len(spoken) == 1
+    assert "Render is complete!" in spoken[0]
 
 
 def test_execute_missing_action(tmp_path):

@@ -446,8 +446,19 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 "relay_url": "https://iot-federated-agent-memory-production.up.railway.app",
             })
         elif parsed.path == "/install.sh":
-            # Security Guard: Remote shell installer endpoint is disabled to prevent RCE / curl|bash vectors.
-            self._send_json({"error": "Remote shell installer disabled for security."}, 403)
+            install_script_path = os.path.join(os.path.dirname(__file__), "install_peer.sh")
+            if os.path.exists(install_script_path):
+                with open(install_script_path, "rb") as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/x-shellscript; charset=utf-8")
+                self.send_header("Content-Length", str(len(content)))
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(content)
+            else:
+                self.send_response(404)
+                self.end_headers()
         elif parsed.path == "/download/bundle.tar.gz":
             # Privacy Guard: Workspace tarball download is disabled to prevent leaking local files or PII.
             self._send_json({"error": "Bundle download disabled for privacy and security protection."}, 403)
