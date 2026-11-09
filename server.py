@@ -22,9 +22,9 @@ tincan_relay = TinCanBlindRelay()
 playlist = RelayVideoPlaylist()
 mesh_os = TinCanMeshOSEngine(seed=True)
 
-# Register seed peers for live dashboard
-relay.register_peer("peer-primary-mac", "Mac Studio (M1 Max)", "192.168.1.100", 50004)
-relay.register_peer("peer-secondary-node", "Collaborator MacBook", "192.168.1.105", 50006)
+# Register seed peers for live dashboard (IP addresses redacted, peripherals OFF by default)
+relay.register_peer("peer-primary-mac", "Mac Studio (M1 Chip)", "redacted", 50004, has_video=False, has_audio=False, has_screen=False)
+relay.register_peer("peer-secondary-node", "Collaborator Node", "redacted", 50006, has_video=False, has_audio=False, has_screen=False)
 
 HTML_UI = MESH_OS_HTML_UI
 
@@ -119,11 +119,11 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 session = relay.register_peer(
                     peer_id=peer_id,
                     display_name=display_name,
-                    udp_address=data.get("udp_address", self.client_address[0] if self.client_address else "127.0.0.1"),
+                    udp_address="redacted",
                     udp_port=int(data.get("udp_port", 50000)),
                     room=data.get("room", "main"),
-                    has_video=bool(data.get("has_video", True)),
-                    has_audio=bool(data.get("has_audio", True)),
+                    has_video=bool(data.get("has_video", False)),
+                    has_audio=bool(data.get("has_audio", False)),
                     has_screen=bool(data.get("has_screen", False)),
                 )
                 mesh_os.award_xp(peer_id, "workstation_handshake", display_name=display_name)
@@ -460,23 +460,8 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self.send_response(404)
                 self.end_headers()
         elif parsed.path == "/download/bundle.tar.gz":
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            buf = io.BytesIO()
-            with tarfile.open(fileobj=buf, mode="w:gz") as tar:
-                def exclude_cruft(tarinfo):
-                    name = tarinfo.name
-                    if ".git" in name or "__pycache__" in name or ".pytest_cache" in name or ".worktrees" in name:
-                        return None
-                    return tarinfo
-                tar.add(base_dir, arcname="iot-federated-agent-memory", filter=exclude_cruft)
-            archive_data = buf.getvalue()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/gzip")
-            self.send_header("Content-Disposition", 'attachment; filename="iot-federated-agent-memory.tar.gz"')
-            self.send_header("Content-Length", str(len(archive_data)))
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(archive_data)
+            # Privacy Guard: Workspace tarball download is disabled to prevent leaking local files or PII.
+            self._send_json({"error": "Bundle download disabled for privacy and security protection."}, 403)
         else:
             self.send_response(404)
             self.end_headers()

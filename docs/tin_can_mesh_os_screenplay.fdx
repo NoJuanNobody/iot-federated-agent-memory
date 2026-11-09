@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="5">
+  <Content>
+    <Paragraph Type="Scene Heading">
+      <SceneProperties Title="">
+        <Summary>
+          <Paragraph Type="Action">
+            <Text>Alejandro monitors peer presence (tincan status) &amp; pooled OpenRouter credits ($290) before receiving an emergency Kokoro TTS voice alert (tincan say) from Maya.</Text>
+          </Paragraph>
+        </Summary>
+      </SceneProperties>
+      <Text>INT. BOCA RATON CYBER LAB - NIGHT</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Rain streaks the glass of a darkened graduate research bay. Three monitors glow in Amber Phosphor CRT mode across ALEJANDRO&apos;s (20s, sharp, relentless) desk.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>On the center display: TINCAN MESH OS v2.2. Floating windows pulse at READINESS TIER L3 (550 XP). A taut neon &quot;tin-can string&quot; vibrates between two pop-out windows across his dual monitors.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Alejandro&apos;s fingers fly across a mechanical keyboard.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>ALEJANDRO</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Let&apos;s see who&apos;s actually awake on the mesh.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>He types `tincan status peer-secondary-node` and `tincan credits` into `win-terminal`.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>The HUD flashes: `peer-secondary-node (Collaborator MacBook) — ONLINE. OpenRouter Pool: $290.00 across 4 Funded Labs.`</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Suddenly, an incoming voice waveform ripples across his speaker bar. Local Kokoro-82M TTS synthesizes a crystal-clear voice in the room.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>MAYA (V.O.)</Text>
+    </Paragraph>
+    <Paragraph Type="Parenthetical">
+      <Text>(filtered, Kokoro TTS via `tincan say`)</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Alejandro! Primary cloud ingress just went dark. Corporate SSO is locked out. Tell me the blind relay is up.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Alejandro smirks. He hits a hotkey.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>ALEJANDRO</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Zero accounts. Zero plaintext on the wire. Pin my key and hop into the Comms Studio.</Text>
+    </Paragraph>
+    <Paragraph Type="Scene Heading">
+      <SceneProperties Title="">
+        <Summary>
+          <Paragraph Type="Action">
+            <Text>During a cloud outage, Maya generates her zero-account Ed25519 identity (tincan whoami), pins Alejandro via TOFU (tincan add-contact), and initiates a WebRTC screen call (tincan call --screen).</Text>
+          </Paragraph>
+        </Summary>
+      </SceneProperties>
+      <Text>INT. TORONTO LOFTS - CONTINUOUS</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>MAYA (20s, systems architect, hood up) sits in a candlelit loft during a grid brownout, tethered to a cellular hotspot.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>She runs `tincan whoami` and `tincan add-contact alejandro`, pinning his Ed25519/X25519 identity via Trust-On-First-Use.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>MAYA</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Identity pinned. Opening sub-80ms UDP tunnel now.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>She types: `tincan call alejandro --screen`.</Text>
+    </Paragraph>
+    <Paragraph Type="Scene Heading">
+      <SceneProperties Title="">
+        <Summary>
+          <Paragraph Type="Action">
+            <Text>Alejandro and Maya exchange X25519 sealed patches (tincan send/read), audit diffs via the AI Brain Arena, sync Watch Party telemetry (tincan playlist), and execute a HITL trigger (tincan actions/trigger) to ascend to L5.</Text>
+          </Paragraph>
+        </Summary>
+      </SceneProperties>
+      <Text>INT. BOCA RATON CYBER LAB / INT. TORONTO LOFTS - INTERCUT</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>On both of their screens, `Mesh Comms Studio.app` (`win-comms`) snaps open. Sub-80ms H.264 UDP video locks in.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Above the top HUD bar, a glowing cyan capsule arcs across the topology canvas. A synthesized WebAudio chord chimes: `+50 XP — FIRST HANDSHAKE (🟢 Mesh Initiate)`.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>MAYA</Text>
+    </Paragraph>
+    <Paragraph Type="Parenthetical">
+      <Text>(on WebRTC video)</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>I can see your second monitor pop-out! Look at the BroadcastChannel string tether pulsing between our windows.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>ALEJANDRO</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Send the zero-day patch payload through the Blind Relay. Even Railway can&apos;t decrypt the envelope—only my Curve25519 private key can open it.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Maya fires `tincan send alejandro &quot;patch-v2.diff&quot;` from her terminal.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>On the background canvas of TinCan Mesh OS, a neon-blue X25519 capsule launches from `Collaborator MacBook`, slingshots through `Central Railway Relay`, and lands in Alejandro&apos;s mailbox (`+100 XP — 🥫 Cipher Postmaster`).</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Alejandro runs `tincan read`. The ciphertext unseals locally (`+75 XP — 🔐 Zero-Knowledge Reader`).</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>MAYA</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Wait—before we deploy the patch, which model should audit the assembly diff? Gemini 2.5 Pro or Claude Sonnet?</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>ALEJANDRO</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Why guess? Let&apos;s run a blind Arena match.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Alejandro drags `AI Brain Router &amp; Arena.app` (`win-arena`) to center screen, clicks the Quick Swap chip for `google/gemini-2.5-pro`, and hits Battle 2 Brains.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Two pink AI prompt packets streak from the relay to `gemini-brain` and `claude-brain`. Side-by-side diffs stream in real time. Maya&apos;s remote cyan cursor glides across Alejandro&apos;s screen and clicks Vote Winner (`+150 XP — 🧠 Synapse Arbiter`).</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>The top progress bar surges past `1,000 XP — TIER L4: CRDT GOSSIP &amp; REAL-TIME WEBRTC MESH`.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>MAYA</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Now we need to trigger the remote hotfix on your workstation—hands-free while you keep monitoring the telemetry video feed.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>In `Relay TV Watch Party.app` (`win-tv`), Alejandro clicks Sync Party and taps the `🔥` and `🥫` reaction buttons. Floating emoji particles rise across both of their monitors in lockstep (`+15 XP`).</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Maya queues an inbound accessibility command from her terminal.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>On Alejandro&apos;s screen, the Accessibility Gate (`tincan actions`) flashes amber: `[Action #1] From: maya — Execute production hotfix rollout (Pending Human-In-The-Loop Approval)`.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>ALEJANDRO</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Inbound action verified. Triggering now.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Alejandro types `tincan trigger 1` (`+200 XP — ⚡ HITL Commander`).</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>The HUD explodes into Messiah Gold as the room ascends to `TIER L5: AUTONOMOUS COGNITIVE MESH (2,000+ XP)`.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>MAYA</Text>
+    </Paragraph>
+    <Paragraph Type="Parenthetical">
+      <Text>(grinning)</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Patched, verified, and zero keys exposed.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Alejandro leans back, typing `tincan screensaver`. The terminal dissolves into the animated half-block AI MESSIAH artwork pulsing peacefully in the dark.</Text>
+    </Paragraph>
+    <Paragraph Type="Transition">
+      <Text>FADE OUT.</Text>
+    </Paragraph>
+  </Content>
+  <MoresAndContinueds>
+    <DialogueBreaks AutomaticCharacterContinueds="Yes" BottomOfPage="Yes" DialogueBottom="(MORE)" DialogueTop="(CONT&apos;D)" TopOfNext="Yes"/>
+    <SceneBreaks ContinuedNumber="No" SceneBottom="(CONTINUED)" SceneBottomOfPage="No" SceneTop="CONTINUED:" SceneTopOfNext="No"/>
+  </MoresAndContinueds>
+  <SceneNumberOptions LeftLocation="0.75" NumberScheme="1A" RightLocation="7.38" ShowNumbersOnLeft="No" ShowNumbersOnRight="No"/>
+  <ElementSettings Type="Scene Heading">
+    <FontSpec Font="Courier Prime" Size="12" Style="AllCaps"/>
+    <ParagraphSpec Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="1.50" RightIndent="7.50" SpaceBefore="12" Spacing="1" StartsNewPage="No"/>
+    <Behavior PaginateAs="Scene Heading" ReturnKey="Action" Shortcut="1"/>
+  </ElementSettings>
+  <ElementSettings Type="Action">
+    <FontSpec Font="Courier Prime" Size="12"/>
+    <ParagraphSpec Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="1.50" RightIndent="7.50" SpaceBefore="12" Spacing="1" StartsNewPage="No"/>
+    <Behavior PaginateAs="Action" ReturnKey="Action" Shortcut="2"/>
+  </ElementSettings>
+  <ElementSettings Type="Character">
+    <FontSpec Font="Courier Prime" Size="12" Style="AllCaps"/>
+    <ParagraphSpec Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="3.70" RightIndent="7.50" SpaceBefore="12" Spacing="1" StartsNewPage="No"/>
+    <Behavior PaginateAs="Character" ReturnKey="Dialogue" Shortcut="3"/>
+  </ElementSettings>
+  <ElementSettings Type="Parenthetical">
+    <FontSpec Font="Courier Prime" Size="12"/>
+    <ParagraphSpec Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="3.10" RightIndent="5.60" SpaceBefore="0" Spacing="1" StartsNewPage="No"/>
+    <Behavior PaginateAs="Parenthetical" ReturnKey="Dialogue" Shortcut="4"/>
+  </ElementSettings>
+  <ElementSettings Type="Dialogue">
+    <FontSpec Font="Courier Prime" Size="12"/>
+    <ParagraphSpec Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="2.50" RightIndent="6.00" SpaceBefore="0" Spacing="1" StartsNewPage="No"/>
+    <Behavior PaginateAs="Dialogue" ReturnKey="Action" Shortcut="5"/>
+  </ElementSettings>
+  <ElementSettings Type="Transition">
+    <FontSpec Font="Courier Prime" Size="12" Style="AllCaps"/>
+    <ParagraphSpec Alignment="Right" FirstIndent="0.00" Leading="Regular" LeftIndent="4.00" RightIndent="7.50" SpaceBefore="12" Spacing="1" StartsNewPage="No"/>
+    <Behavior PaginateAs="Transition" ReturnKey="Scene Heading" Shortcut="6"/>
+  </ElementSettings>
+  <ElementSettings Type="Shot">
+    <FontSpec Font="Courier Prime" Size="12" Style="AllCaps"/>
+    <ParagraphSpec Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="1.50" RightIndent="7.50" SpaceBefore="12" Spacing="1" StartsNewPage="No"/>
+    <Behavior PaginateAs="Shot" ReturnKey="Action" Shortcut="7"/>
+  </ElementSettings>
+  <ElementSettings Type="General">
+    <FontSpec Font="Courier Prime" Size="12"/>
+    <ParagraphSpec Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="1.50" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No"/>
+    <Behavior PaginateAs="General" ReturnKey="General" Shortcut="8"/>
+  </ElementSettings>
+  <PageLayout BottomMargin="72" FooterMargin="36" HeaderMargin="36" TopMargin="72">
+    <PageSize Height="11.00" Width="8.50"/>
+  </PageLayout>
+  <HeaderAndFooter FooterFirstPage="Yes" FooterVisible="No" HeaderFirstPage="No" HeaderVisible="Yes" StartingPage="1" ScriptCraftTitlePage="No">
+    <Header>
+      <Paragraph Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="1.25" RightIndent="-1.00" SpaceBefore="0" Spacing="1" StartsNewPage="No"><Text>	</Text><Text>	</Text><DynamicLabel Type="Last Revised"/><Text>  </Text><DynamicLabel Type="Page #"/><Text>.</Text><Tabstops><Tabstop Position="4.50" Type="Center"/><Tabstop Position="7.25" Type="Right"/></Tabstops></Paragraph>
+    </Header>
+    <Footer>
+    </Footer>
+  </HeaderAndFooter>
+  <TitlePage>
+    <Content>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No" ScriptCraftField="title">
+        <Text>STRING THEORY (THE TINCAN MESH PROTOCOL)</Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No" ScriptCraftField="credit">
+        <Text>Written by</Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No" ScriptCraftField="author">
+        <Text>Alejandro Londono &amp; Antigravity</Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No" ScriptCraftField="source">
+        <Text>Based on TinCan 2.2 &amp; IoT Federated Agent Mesh OS</Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Center" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No">
+        <Text></Text>
+      </Paragraph>
+      <Paragraph Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No" ScriptCraftField="contact">
+        <Text>Florida Atlantic University (FAU) — Z23961745</Text>
+      </Paragraph>
+      <Paragraph Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No" ScriptCraftField="contact">
+        <Text>https://iot-federated-agent-memory-production.up.railway.app</Text>
+      </Paragraph>
+      <Paragraph Alignment="Right" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No" ScriptCraftField="draftDate">
+        <Text>November 8, 2026</Text>
+      </Paragraph>
+    </Content>
+  </TitlePage>
+</FinalDraft>

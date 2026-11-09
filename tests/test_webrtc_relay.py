@@ -31,6 +31,18 @@ def test_webrtc_signaling_and_peer_registration():
     assert len(relay.get_active_streams()) == 1
 
 
+def test_privacy_and_peripheral_consent_defaults():
+    """Verify IP addresses are redacted and peripherals (cam, mic, screen) default to OFF."""
+    relay = WebRTCSignalingRelay()
+    session = relay.register_peer("anon-peer-01", "Anonymous Peer", "203.0.113.42", 50004)
+    assert session.udp_address == "redacted"
+    assert session.has_video is False
+    assert session.has_audio is False
+    assert session.has_screen is False
+    streams = relay.get_active_streams()
+    assert streams[0]["udp_address"] == "redacted"
+
+
 def test_tincan_voice_speak_text(monkeypatch):
     monkeypatch.setattr("iot_federated_agent_memory.tincan_voice.find_tts_binary", lambda: "/usr/local/bin/kokoro-say")
     called = []

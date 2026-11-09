@@ -147,13 +147,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     args = parser.parse_args(argv)
 
-    # Check for silent auto-upgrade in background if needed (non-blocking)
-    if args.command != "upgrade":
-        try:
-            from .auto_upgrade import check_and_auto_upgrade
-            check_and_auto_upgrade(args.relay, config_dir=args.dir, force=False)
-        except Exception:
-            pass
+    # Privacy & Consent Guard: Automatic background `curl | bash` upgrades are disabled.
+    # Upgrades only run when the operator explicitly invokes `tincan upgrade`.
 
     if not args.command:
         # Default bare command: launch the interactive screensaver / live mesh TUI
@@ -225,8 +220,14 @@ def main(argv: Optional[List[str]] = None) -> int:
                 for m in msgs:
                     sender_label = m.get("sender_alias") or m.get("sender")
                     ver_badge = "✓ verified" if m.get("verified") else "✗ unverified"
-                    should_speak = (bool(m.get("speak")) or bool(args.speak)) and not bool(args.no_speak)
-                    speak_badge = " [🔊 TTS spoken]" if should_speak else (" [TTS requested]" if m.get("speak") else "")
+                    # Peripheral Consent Guard: Never trigger local TTS speaker output unless the
+                    # local user explicitly passed --speak on this command invocation.
+                    should_speak = bool(args.speak) and not bool(args.no_speak)
+                    speak_badge = (
+                        " [🔊 TTS spoken (local consent)]"
+                        if should_speak
+                        else (" [🔇 TTS requested by sender — blocked without --speak]" if m.get("speak") else "")
+                    )
                     print(f"[{m.get('seq')}] From: {sender_label} ({ver_badge}){speak_badge}")
                     print(f"    {m.get('message')}")
 
@@ -280,18 +281,20 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         room = args.room or "main"
         mode = "screen" if args.screen else ("voice" if args.voice_only else "video")
-        peer_id = f"{args.alias}-{os.uname().nodename.split('.')[0]}"
+        # Privacy Guard: Use an anonymous key fingerprint instead of leaking os.uname().nodename
+        anon_id = client.public_key_hex[:8]
+        peer_id = f"{args.alias}-{anon_id}"
         relay_base = args.relay.rstrip("/")
         call_url = f"{relay_base}/?room={urllib.parse.quote(room)}&peer={urllib.parse.quote(peer_id)}&mode={mode}#call"
 
-        # Register peer session on relay WebRTC room
+        # Register peer session on relay WebRTC room (peripherals default to False until browser consent)
         reg_payload = {
             "peer_id": peer_id,
-            "display_name": f"{args.alias} ({os.uname().nodename.split('.')[0]})",
+            "display_name": f"{args.alias} ({anon_id})",
             "room": room,
-            "has_video": not args.voice_only,
-            "has_audio": True,
-            "has_screen": bool(args.screen),
+            "has_video": False,
+            "has_audio": False,
+            "has_screen": False,
         }
         try:
             req = urllib.request.Request(

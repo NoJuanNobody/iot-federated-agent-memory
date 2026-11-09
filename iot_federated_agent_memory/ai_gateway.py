@@ -239,7 +239,7 @@ class DynamicAIGatewayRouter:
             "account_total_credits_usd": round(total_credits, 4),
             "account_total_usage_usd": round(total_usage, 6),
             "account_remaining_balance_usd": round(remaining_balance, 4),
-            "key_label": key_data.get("label") or "active-key",
+            "key_label": "pooled-mesh-key [redacted]",
             "key_limit_usd": key_data.get("limit"),
             "key_remaining_usd": round(float(key_data["limit_remaining"]), 6) if key_data.get("limit_remaining") is not None else None,
             "key_usage_total_usd": round(float(key_data.get("usage") or 0.0), 6),

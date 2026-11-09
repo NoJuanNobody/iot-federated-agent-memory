@@ -14,14 +14,16 @@ import urllib.request
 DEFAULT_RELAY = "https://iot-federated-agent-memory-production.up.railway.app"
 
 def register_peer_session(relay_url, peer_id, display_name, room="main", udp_port=50004):
+    # Peripheral & Privacy Guard: All peripherals (video, audio, screen) are strictly OFF by default,
+    # and no IP address or OS username/hostname is transmitted.
     payload = json.dumps({
         "peer_id": peer_id,
         "display_name": display_name,
         "room": room,
         "udp_port": udp_port,
-        "has_video": True,
-        "has_audio": True,
-        "has_screen": True,
+        "has_video": False,
+        "has_audio": False,
+        "has_screen": False,
     }).encode("utf-8")
     req = urllib.request.Request(
         f"{relay_url}/api/webrtc/register",

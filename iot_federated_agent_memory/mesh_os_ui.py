@@ -1642,6 +1642,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         for (const sig of (data.signals || [])) {
           document.getElementById('remotePeerLabel').innerText = sig.from;
           if (sig.type === 'offer' && sig.payload && sig.payload.sdp) {
+            // Peripheral & Connection Consent Guard: Never auto-answer an incoming WebRTC offer
+            // without explicit human consent.
+            const accepted = window.confirm(`Incoming WebRTC call offer from '${sig.from}'. Accept connection? (Your camera/mic remain OFF unless you explicitly enable them)`);
+            if (!accepted) {
+              setCallStatus('Declined offer from ' + sig.from, 'amber');
+              continue;
+            }
             ensurePeerConnection();
             await pc.setRemoteDescription(new RTCSessionDescription(sig.payload.sdp));
             const answer = await pc.createAnswer();

@@ -12,13 +12,13 @@ from typing import Any, Dict, List, Optional
 class PeerSession:
     peer_id: str
     display_name: str
-    udp_address: str = "127.0.0.1"
+    udp_address: str = "redacted"
     udp_port: int = 50000
     connected_at: float = 0.0
     active_stream: bool = True
     room: str = "main"
-    has_video: bool = True
-    has_audio: bool = True
+    has_video: bool = False
+    has_audio: bool = False
     has_screen: bool = False
 
 
@@ -35,18 +35,19 @@ class WebRTCSignalingRelay:
         self,
         peer_id: str,
         display_name: str,
-        udp_address: str = "127.0.0.1",
+        udp_address: str = "redacted",
         udp_port: int = 50000,
         room: str = "main",
-        has_video: bool = True,
-        has_audio: bool = True,
+        has_video: bool = False,
+        has_audio: bool = False,
         has_screen: bool = False,
     ) -> PeerSession:
         with self._lock:
+            # Privacy Guard: Never store or expose raw client IP addresses in PeerSession
             session = PeerSession(
                 peer_id=peer_id,
                 display_name=display_name,
-                udp_address=udp_address,
+                udp_address="redacted",
                 udp_port=int(udp_port),
                 connected_at=time.time(),
                 active_stream=True,

@@ -1,0 +1,68 @@
+{
+  "total_frames": 4156,
+  "total_seconds": 173.167,
+  "total_ticks": 43987104000000,
+  "master_audio": "/Users/alejandrolondono/dev/iot-federated-agent-memory/docs/panels/trailer_voiceover.wav",
+  "scenes": [
+    {
+      "id": "panel_01_cyber_lab_crt",
+      "audio_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/docs/panels/panel_01_cyber_lab_crt_drama.wav",
+      "start_frame": 0,
+      "frames": 715,
+      "start_sec": 0.0,
+      "duration_sec": 29.792,
+      "start_ticks": 0,
+      "duration_ticks": 7567560000000
+    },
+    {
+      "id": "panel_02_kokoro_voice_alert",
+      "audio_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/docs/panels/panel_02_kokoro_voice_alert_drama.wav",
+      "start_frame": 715,
+      "frames": 636,
+      "start_sec": 29.792,
+      "duration_sec": 26.5,
+      "start_ticks": 7567560000000,
+      "duration_ticks": 6731424000000
+    },
+    {
+      "id": "panel_03_toronto_loft_tofu",
+      "audio_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/docs/panels/panel_03_toronto_loft_tofu_drama.wav",
+      "start_frame": 1351,
+      "frames": 591,
+      "start_sec": 56.292,
+      "duration_sec": 24.625,
+      "start_ticks": 14298984000000,
+      "duration_ticks": 6255144000000
+    },
+    {
+      "id": "panel_04_webrtc_capsule_flight",
+      "audio_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/docs/panels/panel_04_webrtc_capsule_flight_drama.wav",
+      "start_frame": 1942,
+      "frames": 740,
+      "start_sec": 80.917,
+      "duration_sec": 30.833,
+      "start_ticks": 20554128000000,
+      "duration_ticks": 7832160000000
+    },
+    {
+      "id": "panel_05_ai_brain_arena",
+      "audio_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/docs/panels/panel_05_ai_brain_arena_drama.wav",
+      "start_frame": 2682,
+      "frames": 701,
+      "start_sec": 111.75,
+      "duration_sec": 29.208,
+      "start_ticks": 28386288000000,
+      "duration_ticks": 7419384000000
+    },
+    {
+      "id": "panel_06_tier_l5_messiah_gold",
+      "audio_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/docs/panels/panel_06_tier_l5_messiah_gold_drama.wav",
+      "start_frame": 3383,
+      "frames": 773,
+      "start_sec": 140.958,
+      "duration_sec": 32.208,
+      "start_ticks": 35805672000000,
+      "duration_ticks": 8181432000000
+    }
+  ]
+}
