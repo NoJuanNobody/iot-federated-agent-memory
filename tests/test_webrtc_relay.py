@@ -68,17 +68,17 @@ def test_relay_video_playlist_collection():
 
     pl = RelayVideoPlaylist()
     state = pl.get_playlist()
-    assert state["total"] == 1
+    assert state["total"] == 3
     assert state["videos"][0]["video_id"] == "7705677376465767711"
     assert state["videos"][0]["creator"] == "@nojuannobody"
 
-    # Add a second video via raw blockquote embed snippet
+    # Add an extra video via raw blockquote embed snippet
     snippet = '<blockquote class="tiktok-embed" cite="https://www.tiktok.com/@nojuannobody/video/7705677376465767799" data-video-id="7705677376465767799"></blockquote>'
     added = pl.add_video(snippet, title="Part 2 Walkthrough", category="ad", auto_download=False)
     assert added["video_id"] == "7705677376465767799"
     assert added["embed_url"] == "/videos/7705677376465767799.mp4"
-    assert pl.get_playlist()["total"] == 2
+    assert pl.get_playlist()["total"] == 4
 
-    # Remove the second video
+    # Remove the extra video
     assert pl.remove_video("7705677376465767799") is True
-    assert pl.get_playlist()["total"] == 1
+    assert pl.get_playlist()["total"] == 3

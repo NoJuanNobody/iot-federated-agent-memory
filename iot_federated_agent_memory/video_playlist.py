@@ -1,4 +1,4 @@
-"""Relay Video Channel & Native MP4 Playlist Manager (Zero External TikTok Links)."""
+"""Relay Video Channel & Native MP4 Playlist Manager (Backed by Railway S3 Bucket `tincan-videos`)."""
 
 from __future__ import annotations
 
@@ -13,6 +13,8 @@ import urllib.request
 from dataclasses import dataclass, asdict
 from typing import Any, Dict, List, Optional
 
+from .s3_storage import s3_get_object, s3_put_object
+
 VIDEOS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "videos")
 
 
@@ -20,26 +22,38 @@ VIDEOS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", 
 class PlaylistItem:
     id: str
     video_id: str
-    platform: str  # "mp4", "tiktok", "youtube"
+    platform: str  # "mp4"
     creator: str
     title: str
     category: str  # "instruction", "ad", "spotlight"
     cite_url: str
-    embed_url: str  # Direct /videos/<id>.mp4 or S3/CDN MP4 stream URL
+    embed_url: str  # Direct /videos/<id>.mp4 stream
     duration_seconds: int = 35
     added_at: float = 0.0
     local_mp4_path: Optional[str] = None
+    s3_uri: Optional[str] = None
 
 
-def download_tiktok_mp4(video_id: str, cite_url: str, dest_dir: Optional[str] = None) -> Optional[str]:
-    """Download clean MP4 from TikTok via yt-dlp or TikWM API so the relay hosts & plays native MP4."""
+def download_tiktok_mp4(
+    video_id: str,
+    cite_url: str,
+    dest_dir: Optional[str] = None,
+    sync_s3: bool = True,
+) -> Optional[str]:
+    """Resolve clean MP4 from local cache, Railway S3 bucket, yt-dlp, or TikWM API."""
     target_dir = dest_dir or VIDEOS_DIR
     os.makedirs(target_dir, exist_ok=True)
     out_path = os.path.join(target_dir, f"{video_id}.mp4")
+
+    # 1. Local cache check
     if os.path.isfile(out_path) and os.path.getsize(out_path) > 1024:
         return out_path
 
-    # 1. Try yt-dlp if available on system
+    # 2. Check Railway S3 bucket ('tincan-videos')
+    if sync_s3 and s3_get_object(f"videos/{video_id}.mp4", out_path):
+        return out_path
+
+    # 3. Try yt-dlp if available on system
     ytdlp_bin = os.path.expanduser("~/.local/bin/yt-dlp")
     if not (os.path.isfile(ytdlp_bin) and os.access(ytdlp_bin, os.X_OK)):
         ytdlp_bin = shutil.which("yt-dlp")
@@ -51,32 +65,38 @@ def download_tiktok_mp4(video_id: str, cite_url: str, dest_dir: Optional[str] = 
                 check=False,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                timeout=30,
+                timeout=35,
             )
-            if os.path.isfile(out_path) and os.path.getsize(out_path) > 1024:
-                return out_path
         except Exception:
             pass
 
-    # 2. Fallback for cloud containers without yt-dlp: TikWM direct MP4 resolver
-    try:
-        api_url = f"https://www.tikwm.com/api/?url={cite_url}"
-        req = urllib.request.Request(api_url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            meta = json.loads(resp.read().decode("utf-8"))
-        mp4_url = (meta.get("data") or {}).get("play")
-        if mp4_url:
-            dl_req = urllib.request.Request(mp4_url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(dl_req, timeout=20) as mp4_resp:
-                data = mp4_resp.read()
-            if len(data) > 1024:
-                with open(out_path, "wb") as f:
-                    f.write(data)
-                return out_path
-    except Exception:
-        pass
+    # 4. Fallback for cloud containers without yt-dlp: TikWM direct MP4 resolver
+    if not (os.path.isfile(out_path) and os.path.getsize(out_path) > 1024):
+        try:
+            api_url = f"https://www.tikwm.com/api/?url={cite_url}"
+            req = urllib.request.Request(api_url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                meta = json.loads(resp.read().decode("utf-8"))
+            mp4_url = (meta.get("data") or {}).get("play")
+            if mp4_url:
+                dl_req = urllib.request.Request(mp4_url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(dl_req, timeout=20) as mp4_resp:
+                    data = mp4_resp.read()
+                if len(data) > 1024:
+                    with open(out_path, "wb") as f:
+                        f.write(data)
+        except Exception:
+            pass
 
-    return out_path if os.path.isfile(out_path) else None
+    if os.path.isfile(out_path) and os.path.getsize(out_path) > 1024:
+        if sync_s3:
+            try:
+                s3_put_object(out_path, f"videos/{video_id}.mp4")
+            except Exception:
+                pass
+        return out_path
+
+    return None
 
 
 def parse_video_input(
@@ -104,9 +124,8 @@ def parse_video_input(
         detected_creator = creator or (handle_match.group(1) if handle_match else "@nojuannobody")
         if not detected_creator.startswith("@"):
             detected_creator = f"@{detected_creator}"
-        cite_url = f"https://www.tiktok.com/{detected_creator}/video/{vid}"
-        local_mp4 = download_tiktok_mp4(vid, cite_url) if auto_download else None
-        # Always serve native self-hosted MP4 from the relay (/videos/<vid>.mp4) — never link out to TikTok!
+        tiktok_source_url = f"https://www.tiktok.com/{detected_creator}/video/{vid}"
+        local_mp4 = download_tiktok_mp4(vid, tiktok_source_url) if auto_download else None
         embed_url = f"/videos/{vid}.mp4"
         return PlaylistItem(
             id=f"video-{vid}",
@@ -144,21 +163,43 @@ def parse_video_input(
 class RelayVideoPlaylist:
     """Thread-safe native MP4 video collection manager for the TinCan Relay."""
 
-    def __init__(self) -> None:
+    DEFAULT_COLLECTION = [
+        {
+            "id": "7705677376465767711",
+            "title": "TinCan Mesh Walkthrough",
+            "creator": "@nojuannobody",
+            "category": "instruction",
+        },
+        {
+            "id": "7705963225849892126",
+            "title": "AI Messiah Non-Profit AI Lab",
+            "creator": "@nojuannobody",
+            "category": "ad",
+        },
+        {
+            "id": "7704099297763003678",
+            "title": "Deconstructing the Frame (HARP)",
+            "creator": "@nojuannobody",
+            "category": "spotlight",
+        },
+    ]
+
+    def __init__(self, seed_default_only_first: bool = False) -> None:
         self._lock = threading.Lock()
         self.items: List[PlaylistItem] = []
         self.autoplay: bool = True
         self.loop_collection: bool = True
         os.makedirs(VIDEOS_DIR, exist_ok=True)
-        # Seed with @nojuannobody's self-hosted MP4 video (7705677376465767711.mp4)
-        self.add_video(
-            raw_input="7705677376465767711",
-            title="TinCan Mesh Walkthrough",
-            creator="@nojuannobody",
-            category="instruction",
-            duration_seconds=35,
-            auto_download=False,
-        )
+        seeds = self.DEFAULT_COLLECTION[:1] if seed_default_only_first else self.DEFAULT_COLLECTION
+        for s in seeds:
+            self.add_video(
+                raw_input=s["id"],
+                title=s["title"],
+                creator=s["creator"],
+                category=s["category"],
+                duration_seconds=35,
+                auto_download=False,
+            )
 
     def add_video(
         self,
