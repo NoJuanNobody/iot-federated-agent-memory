@@ -12,6 +12,7 @@ from iot_federated_agent_memory.tincan_relay import TinCanBlindRelay
 from iot_federated_agent_memory.video_playlist import RelayVideoPlaylist
 from iot_federated_agent_memory.mesh_os_engine import TinCanMeshOSEngine
 from iot_federated_agent_memory.mesh_os_ui import MESH_OS_HTML_UI
+from iot_federated_agent_memory.account_registry import PeerAccountRegistry
 
 PORT = int(os.environ.get("PORT", 8080))
 
@@ -21,6 +22,7 @@ scale = IoTFederatedMemoryScale()
 tincan_relay = TinCanBlindRelay()
 playlist = RelayVideoPlaylist()
 mesh_os = TinCanMeshOSEngine(seed=True)
+account_registry = PeerAccountRegistry()
 
 # Register seed peers for live dashboard (IP addresses redacted, peripherals OFF by default)
 relay.register_peer("peer-primary-mac", "Mac Studio (M1 Chip)", "redacted", 50004, has_video=False, has_audio=False, has_screen=False)
@@ -86,6 +88,23 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 )
                 peer_id = data.get("peer_id") or "peer"
                 mesh_os.record_flight(peer_id, model_alias, kind="ai_prompt", label=model_alias)
+                usage = completion.get("usage", {})
+                p_toks = int(usage.get("prompt_tokens", 0))
+                c_toks = int(usage.get("completion_tokens", 0))
+                t_toks = int(usage.get("total_tokens", p_toks + c_toks))
+                cost = float(completion.get("cost_usd") or usage.get("cost") or 0.0)
+                try:
+                    billing_receipt = account_registry.bill_tokens(
+                        peer_id=peer_id,
+                        prompt_tokens=p_toks,
+                        completion_tokens=c_toks,
+                        total_tokens=t_toks,
+                        cost_usd=cost,
+                        model=model_alias,
+                    )
+                    completion["billing"] = billing_receipt
+                except Exception as b_err:
+                    completion["billing_error"] = str(b_err)
                 self._send_json(completion, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
@@ -302,6 +321,44 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"status": "voted", **res}, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/account/register":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                peer_id = data.get("peer_id")
+                name = data.get("name") or data.get("full_name")
+                phone = data.get("phone") or data.get("phone_number")
+                email = data.get("email")
+                account = account_registry.register_account(
+                    peer_id=peer_id,
+                    full_name=name,
+                    phone_number=phone,
+                    email=email,
+                )
+                try:
+                    mesh_os.award_xp(peer_id, "account_created")
+                except Exception:
+                    pass
+                self._send_json({"status": "success", "account": account}, 201)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/account/billing/topup":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                peer_id = data.get("peer_id")
+                tokens = int(data.get("tokens", 0))
+                amount_usd = float(data.get("amount_usd", 0.0))
+                account = account_registry.top_up_credits(peer_id, amount_usd=amount_usd, tokens=tokens)
+                self._send_json({"status": "topup_success", "account": account}, 200)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
         else:
             self.send_response(404)
             self.end_headers()
@@ -385,6 +442,29 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": "Missing 'peer_id' query parameter"}, 400)
                 return
             self._send_json(relay.poll_signals(receiver_id=peer_id, room=room, since_seq=since_seq), 200)
+        elif parsed.path == "/api/account/get":
+            query = parse_qs(parsed.query)
+            peer_id = query.get("peer_id", [None])[0]
+            if not peer_id:
+                self._send_json({"error": "Missing 'peer_id' query parameter"}, 400)
+                return
+            acc = account_registry.get_account_by_peer(peer_id)
+            if acc:
+                self._send_json({"status": "found", "account": acc}, 200)
+            else:
+                self._send_json({"error": "Account not found", "peer_id": peer_id}, 404)
+        elif parsed.path == "/api/account/list":
+            accounts = account_registry.list_accounts()
+            self._send_json({"count": len(accounts), "accounts": accounts}, 200)
+        elif parsed.path == "/api/account/billing":
+            query = parse_qs(parsed.query)
+            peer_id = query.get("peer_id", [None])[0]
+            if not peer_id:
+                self._send_json({"error": "Missing 'peer_id' query parameter"}, 400)
+                return
+            summary = account_registry.get_billing_summary(peer_id)
+            status_code = 200 if "error" not in summary else 404
+            self._send_json(summary, status_code)
         elif parsed.path == "/api/status":
             audit = scale.evaluate_current_and_future()
             self._send_json({

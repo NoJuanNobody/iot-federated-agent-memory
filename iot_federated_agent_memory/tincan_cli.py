@@ -46,6 +46,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     who_p = subparsers.add_parser("whoami", help="Display current local identity and TinCan address")
     who_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
+    # register
+    reg_p = subparsers.add_parser("register", help="Register a username and create an account to receive token credits")
+    reg_p.add_argument("--username", "-u", help="Desired username / display name")
+    reg_p.add_argument("--email", "-e", help="Account email address for billing receipts")
+    reg_p.add_argument("--phone", "-p", default="", help="Contact phone number (optional)")
+    reg_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
     # send
     send_parser = subparsers.add_parser("send", help="Send sealed message to a recipient address or contact alias")
     send_parser.add_argument("recipient", help="Recipient TinCan address (tc:...) or contact alias")
@@ -267,7 +274,81 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(f"Public Key (hex): {info['public_key']}")
             print(f"Relay:           {info['relay_url']}")
             print(f"Pinned Contacts: {info['contacts_count']}")
+
+            # Check for registered billing account
+            try:
+                from .account_registry import PeerAccountRegistry
+                acc = PeerAccountRegistry().get_account_by_peer(info['address'])
+                if acc:
+                    print(f"Account:         \033[1;32m@{acc['full_name']}\033[0m ({acc['email']})")
+                    print(f"Token Balance:   \033[1;33m{acc['token_balance']:,} Tokens\033[0m (\033[1;36m${acc['credit_balance_usd']:.2f} USD\033[0m)")
+                else:
+                    print("Account:         \033[0;33mUnregistered\033[0m (Run `tincan register` to claim 50,000 starter tokens)")
+            except Exception:
+                pass
         return 0
+
+    if args.command == "register":
+        username = getattr(args, "username", None)
+        if not username:
+            try:
+                username = input("Enter username / display name: ").strip()
+            except (KeyboardInterrupt, EOFError):
+                print("\n[!] Registration cancelled.")
+                return 1
+        if not username:
+            print("[!] Username cannot be empty.")
+            return 1
+
+        email = getattr(args, "email", None)
+        if not email:
+            try:
+                email = input("Enter email address: ").strip()
+            except (KeyboardInterrupt, EOFError):
+                print("\n[!] Registration cancelled.")
+                return 1
+        if not email or "@" not in email:
+            print("[!] Valid email is required for billing and token receipts.")
+            return 1
+
+        phone = getattr(args, "phone", None) or "+10000000000"
+
+        info = client.tincan_whoami()
+        peer_id = info.get("address") or info.get("identity") or client.alias
+
+        from .account_registry import PeerAccountRegistry
+        registry = PeerAccountRegistry()
+        try:
+            acc = registry.register_account(
+                peer_id=peer_id,
+                full_name=username,
+                phone_number=phone,
+                email=email,
+            )
+            acc_file = os.path.join(client.config_dir, "account.json")
+            try:
+                with open(acc_file, "w") as f:
+                    json.dump(acc, f, indent=2)
+            except Exception:
+                pass
+
+            if getattr(args, "json", False):
+                print(json.dumps(acc, indent=2))
+            else:
+                print("\n\033[1;32m═══════════════════════════════════════════════════════════════\033[0m")
+                print(f"\033[1;32m🎉 Account Successfully Created for @{username}!\033[0m")
+                print(f"  • Peer Address:   {acc['peer_id']}")
+                print(f"  • Email:          {acc['email']}")
+                print(f"  • Token Balance:  \033[1;33m{acc['token_balance']:,} Tokens\033[0m")
+                print(f"  • Credit Balance: \033[1;36m${acc['credit_balance_usd']:.2f} USD\033[0m")
+                print("\033[1;32m═══════════════════════════════════════════════════════════════\033[0m\n")
+            return 0
+        except Exception as e:
+            if getattr(args, "json", False):
+                print(json.dumps({"error": str(e)}, indent=2))
+            else:
+                print(f"[!] Registration failed: {e}")
+            return 1
 
     if args.command == "send":
         try:

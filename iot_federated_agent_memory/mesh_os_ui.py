@@ -64,7 +64,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       --accent-color: #eab308;
     }
 
-    /* Spatial Draggable Windows */
+    /* Spatial Draggable & Resizable Windows */
     .mesh-window {
       position: absolute;
       background: var(--panel-bg);
@@ -76,7 +76,35 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      min-width: 340px;
+      min-width: 320px;
+      min-height: 180px;
+      resize: both;
+    }
+
+    .window-resize-handle {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 18px;
+      height: 18px;
+      cursor: nwse-resize;
+      z-index: 50;
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-end;
+      padding: 3px;
+      user-select: none;
+    }
+    .window-resize-handle::after {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-right: 2px solid rgba(255, 255, 255, 0.4);
+      border-bottom: 2px solid rgba(255, 255, 255, 0.4);
+      border-bottom-right-radius: 2px;
+    }
+    .window-resize-handle:hover::after {
+      border-color: var(--accent-color);
     }
 
     .mesh-window.window-focused {
@@ -182,6 +210,88 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <button onclick="dismissAdminBanner()" class="px-2 py-0.5 rounded bg-black/40 hover:bg-black/70 text-white text-[11px] font-bold border border-white/30">✕ Dismiss</button>
   </div>
 
+  <!-- ===================================================================== -->
+  <!-- Mandatory Account Registration & Identity Gate Modal -->
+  <!-- ===================================================================== -->
+  <div id="accountSetupModal" class="hidden fixed inset-0 z-[120] bg-slate-950/90 backdrop-blur-lg flex items-center justify-center p-4">
+    <div class="bg-slate-900 border-2 border-emerald-500 rounded-2xl max-w-md w-full shadow-[0_0_50px_rgba(16,185,129,0.3)] overflow-hidden p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2.5">
+          <span class="text-2xl">🛡️</span>
+          <div>
+            <h3 class="text-sm font-bold text-white font-mono flex items-center gap-2">
+              <span>Identify Yourself</span>
+              <span class="px-2 py-0.2 rounded-full bg-red-950 border border-red-500 text-red-300 text-[9px] uppercase font-bold">Mandatory</span>
+            </h3>
+            <p class="text-[11px] text-slate-400">All mesh operators must register their identity to proceed</p>
+          </div>
+        </div>
+        <button id="modalCloseBtn" onclick="closeAccountModal()" class="hidden text-slate-400 hover:text-white text-xs px-2 py-1 rounded bg-slate-800">✕</button>
+      </div>
+
+      <!-- Starter Perks Banner -->
+      <div class="p-3 bg-gradient-to-r from-emerald-950/60 to-cyan-950/60 border border-emerald-500/40 rounded-xl space-y-1.5 font-mono text-[11px]">
+        <div class="text-emerald-300 font-bold flex items-center gap-1.5">
+          <span>🎁</span> <span>Claim Verified Mesh Account:</span>
+        </div>
+        <div class="flex justify-between text-slate-300 pl-4">
+          <span>• Complimentary Tokens:</span>
+          <span class="font-bold text-emerald-400">50,000 🪙</span>
+        </div>
+        <div class="flex justify-between text-slate-300 pl-4">
+          <span>• Sandbox API Credit:</span>
+          <span class="font-bold text-cyan-400">$1.00 USD</span>
+        </div>
+        <div class="flex justify-between text-slate-300 pl-4">
+          <span>• Connected Peer ID:</span>
+          <span id="modalPeerIdLabel" class="text-slate-400 truncate max-w-[140px]">...</span>
+        </div>
+      </div>
+
+      <!-- Registration Form -->
+      <form id="accountSetupForm" onsubmit="handleAccountFormSubmit(event)" class="space-y-3 font-mono text-xs">
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Who are you? (Username / Full Name) <span class="text-red-400">*</span></label>
+          <div class="relative">
+            <span class="absolute left-3 top-2 text-slate-500">@</span>
+            <input id="accInputUsername" type="text" required placeholder="your_name_or_handle" class="w-full pl-7 pr-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Email Address (for token receipts) <span class="text-red-400">*</span></label>
+          <input id="accInputEmail" type="email" required placeholder="you@example.com" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none" />
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Role / Affiliation</label>
+          <select id="accInputRole" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white focus:border-emerald-500 focus:outline-none">
+            <option value="Researcher / Graduate Student">Student / Academic (FAU / Research)</option>
+            <option value="AI Engineer">AI Engineer / Developer</option>
+            <option value="Collaborator">Mesh Collaborator / Peer</option>
+            <option value="Observer">Observer</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Phone Number (optional, for SMS alerts)</label>
+          <input id="accInputPhone" type="tel" placeholder="+1 561 555 0199" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none" />
+        </div>
+
+        <div id="accFormError" class="hidden text-red-400 text-[11px] p-2 bg-red-950/40 border border-red-800 rounded"></div>
+
+        <div class="pt-2">
+          <button type="submit" id="accSubmitBtn" class="w-full py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:brightness-110 text-white font-bold rounded-lg shadow-lg transition active:scale-95 flex items-center justify-center gap-1.5 text-xs">
+            <span>🛡️</span> <span>Confirm Identity &amp; Claim 50,000 Tokens</span>
+          </button>
+          <p class="text-[10px] text-center text-slate-400 mt-2">
+            ⚠️ Identity registration is required by the admin for all connected peers to allocate tokens.
+          </p>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Top Gamified Mesh OS HUD Bar -->
   <header id="meshOsHud" class="fixed top-0 left-0 right-0 h-14 bg-slate-950/90 border-b border-slate-800/80 backdrop-blur-md z-50 flex items-center justify-between px-3 sm:px-6 select-none">
     <div class="flex items-center gap-3">
@@ -213,6 +323,11 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     <!-- HUD Right Controls -->
     <div class="flex items-center gap-2">
+      <!-- User Account & Token Chip -->
+      <button id="hudAccountBtn" onclick="openAccountModal()" class="text-xs font-mono px-2.5 py-1 rounded border border-emerald-600/70 bg-emerald-950/80 text-emerald-300 hover:bg-emerald-900 transition flex items-center gap-1.5 active:scale-95 shadow-sm font-semibold" title="View or manage your mesh account & token billing balance">
+        <span>👤</span> <span id="hudAccountName">Set Username</span> <span id="hudTokenPill" class="px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-bold">50k 🪙</span>
+      </button>
+
       <!-- Admin Mode Toggle & Mod Panel -->
       <button id="osAdminToggleBtn" onclick="toggleAdminMode()" class="text-xs font-mono px-2.5 py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 hover:text-amber-400 hover:border-amber-600 transition flex items-center gap-1.5 active:scale-95 shadow-sm font-semibold">
         <span>🛡️</span> <span id="osAdminToggleText">Admin Mode</span>
@@ -943,27 +1058,170 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       </div>
     </div>
 
+    <!-- ===================================================================== -->
+    <!-- Window 7: Token Billing, Top-Up & Sponsored Ads.app -->
+    <!-- ===================================================================== -->
+    <div id="win-billing" class="mesh-window w-[620px]" data-window-id="win-billing" style="top: 140px; left: 120px; z-index: 26;">
+      <div class="window-header flex items-center justify-between px-3 py-2 bg-gradient-to-r from-emerald-950/90 via-slate-900/90 to-cyan-950/90 border-b border-emerald-500/40">
+        <div class="flex items-center gap-2">
+          <span class="text-base">💳</span>
+          <span class="text-xs font-bold text-emerald-300 font-mono tracking-wide">Token Store &amp; Sponsor Ads.app</span>
+          <span class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono border border-emerald-500/40 font-semibold">COST SUBSIDY</span>
+        </div>
+        <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
+          <button onclick="openPopoutWindow('win-billing')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
+          <button onclick="minimizeWindow('win-billing')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
+          <button onclick="maximizeWindow('win-billing')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">⤢</button>
+          <button onclick="toggleWindow('win-billing')" class="px-1.5 py-0.5 rounded bg-red-950/80 hover:bg-red-800 text-red-300 text-[11px]">✕</button>
+        </div>
+      </div>
+      <div class="window-body p-4 space-y-4 max-h-[720px] overflow-y-auto text-xs font-sans">
+        <!-- Live Balance Banner -->
+        <div class="p-3 bg-slate-900/80 rounded-xl border border-emerald-500/40 flex items-center justify-between">
+          <div>
+            <div class="text-[11px] text-slate-400 font-mono">Connected Peer Token Balance</div>
+            <div class="flex items-baseline gap-2 mt-0.5">
+              <span id="billingWindowTokens" class="text-2xl font-bold font-mono text-emerald-400">50,000</span>
+              <span class="text-slate-400 text-xs font-mono">tokens</span>
+              <span class="text-slate-600">|</span>
+              <span id="billingWindowCredits" class="text-sm font-mono text-cyan-300 font-bold">$1.00 USD</span>
+            </div>
+          </div>
+          <button onclick="refreshBillingWindow()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-mono flex items-center gap-1 active:scale-95">
+            🔄 Refresh
+          </button>
+        </div>
+
+        <!-- Section 1: Sponsored Ads (Subsidize Costs with Ads) -->
+        <div class="p-3 bg-gradient-to-r from-amber-950/40 to-slate-900/80 rounded-xl border border-amber-600/40 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-amber-400 text-sm">📺</span>
+              <span class="font-bold text-amber-300 font-mono">Watch Sponsored Ads (Earn Free Tokens)</span>
+            </div>
+            <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono border border-amber-500/30 font-bold">+5,000 TOKENS</span>
+          </div>
+          <p class="text-[11px] text-slate-300">
+            Advertisers fund your AI compute! Watch an interactive 10-second sponsor ad to cover API token costs without paying out-of-pocket.
+          </p>
+
+          <!-- Interactive Sponsor Ad Card -->
+          <div id="sponsorAdContainer" class="p-3 bg-slate-950/80 rounded-lg border border-slate-800 flex items-center gap-3">
+            <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center text-white text-xl shrink-0 shadow-md">
+              ⚡
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-white text-xs">Vercel AI SDK &amp; MicroVMs</span>
+                <span class="text-[9px] px-1 rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase">Sponsored</span>
+              </div>
+              <div class="text-[11px] text-slate-400 truncate">Deploy durable agent sandboxes and AI gateways with zero server management.</div>
+            </div>
+            <button id="watchAdBtn" onclick="watchSponsoredAd()" class="px-3 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:brightness-110 text-slate-950 font-bold font-mono text-xs rounded-lg transition active:scale-95 shrink-0 shadow-md">
+              ▶ Watch Ad (10s)
+            </button>
+          </div>
+          <div id="adProgressWrap" class="hidden space-y-1">
+            <div class="flex justify-between text-[10px] font-mono text-amber-300">
+              <span id="adProgressText">Playing sponsor ad...</span>
+              <span id="adTimerText">10s remaining</span>
+            </div>
+            <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+              <div id="adProgressBar" class="bg-amber-400 h-full w-0 transition-all duration-1000 ease-linear"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Direct Token Top-Up Packages -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-white font-mono">💳 Or Buy Token Credits Directly</span>
+            <span class="text-[10px] text-slate-400 font-mono">Instant mesh deposit</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2.5">
+            <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800 hover:border-emerald-500/60 transition flex flex-col justify-between">
+              <div>
+                <div class="text-xs font-bold text-white">Starter Pack</div>
+                <div class="text-lg font-bold font-mono text-emerald-400 mt-1">$1.00</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">50,000 Tokens</div>
+              </div>
+              <button onclick="buyTokens(1.00, 50000)" class="mt-3 w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95">
+                Pay $1
+              </button>
+            </div>
+            <div class="p-3 bg-slate-900/90 rounded-xl border border-emerald-500/80 shadow-md hover:border-emerald-400 transition flex flex-col justify-between relative overflow-hidden">
+              <div class="absolute top-0 right-0 bg-emerald-500 text-slate-950 font-bold text-[9px] px-1.5 py-0.2 rounded-bl uppercase">Popular</div>
+              <div>
+                <div class="text-xs font-bold text-white">Developer Pack</div>
+                <div class="text-lg font-bold font-mono text-emerald-400 mt-1">$5.00</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">275,000 Tokens <span class="text-emerald-400 font-semibold">(+10%)</span></div>
+              </div>
+              <button onclick="buyTokens(5.00, 275000)" class="mt-3 w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95">
+                Pay $5
+              </button>
+            </div>
+            <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800 hover:border-cyan-500/60 transition flex flex-col justify-between">
+              <div>
+                <div class="text-xs font-bold text-white">Fleet Pro Pack</div>
+                <div class="text-lg font-bold font-mono text-cyan-400 mt-1">$20.00</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">1,200,000 Tokens <span class="text-cyan-400 font-semibold">(+20%)</span></div>
+              </div>
+              <button onclick="buyTokens(20.00, 1200000)" class="mt-3 w-full py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95">
+                Pay $20
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Recent Invoices & Consumption -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between text-[11px] font-mono text-slate-400">
+            <span>Recent Token Invoices &amp; Deductions</span>
+            <span id="billingTotalUsedText" class="text-slate-300">Total used: 0 tokens</span>
+          </div>
+          <div class="bg-slate-950 rounded-lg border border-slate-800 p-2 max-h-36 overflow-y-auto font-mono text-[10px]">
+            <table class="w-full text-left">
+              <thead>
+                <tr class="text-slate-500 border-b border-slate-800 pb-1">
+                  <th>Model</th>
+                  <th>Tokens</th>
+                  <th>Cost (USD)</th>
+                  <th class="text-right">Time</th>
+                </tr>
+              </thead>
+              <tbody id="billingLedgerRows" class="divide-y divide-slate-800/40 text-slate-300">
+                <tr><td colspan="4" class="py-2 text-center text-slate-500">No token deductions recorded yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <!-- Bottom OS Dock -->
   <footer id="meshOsDock" class="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 bg-slate-900/90 border border-slate-700/80 rounded-2xl px-3 py-2 flex items-center gap-1.5 sm:gap-2.5 backdrop-blur-md shadow-2xl select-none font-sans">
-    <button onclick="toggleWindow('win-terminal')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Terminal & Quickstart">
+    <button id="dockBtn-win-terminal" onclick="toggleWindow('win-terminal')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Terminal & Quickstart">
       <span>⚡</span> <span class="hidden md:inline">Terminal</span>
     </button>
-    <button onclick="toggleWindow('win-tv')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Relay Watch Party TV">
+    <button id="dockBtn-win-tv" onclick="toggleWindow('win-tv')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Relay Watch Party TV">
       <span>📺</span> <span class="hidden md:inline">Watch Party TV</span>
     </button>
-    <button onclick="toggleWindow('win-arena')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="AI Brain Router & Arena">
+    <button id="dockBtn-win-arena" onclick="toggleWindow('win-arena')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="AI Brain Router & Arena">
       <span>🧠</span> <span class="hidden md:inline">AI Arena</span>
     </button>
-    <button onclick="focusChatWindow()" class="px-2.5 py-1.5 bg-cyan-950 hover:bg-cyan-900 border border-cyan-800 text-cyan-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Live Mesh Chat &amp; Comms">
+    <button id="dockBtn-chat" onclick="focusChatWindow()" class="px-2.5 py-1.5 bg-cyan-950 hover:bg-cyan-900 border border-cyan-800 text-cyan-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Live Mesh Chat &amp; Comms">
       <span>💬</span> <span class="font-bold">Live Chat</span>
     </button>
-    <button onclick="toggleWindow('win-comms')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="WebRTC Video &amp; Voice Comms">
+    <button id="dockBtn-win-comms" onclick="toggleWindow('win-comms')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="WebRTC Video &amp; Voice Comms">
       <span>📹</span> <span class="hidden md:inline">Video/Voice</span>
     </button>
-    <button onclick="toggleWindow('win-quests')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Quests, Arena & Leaderboard">
+    <button id="dockBtn-win-quests" onclick="toggleWindow('win-quests')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Quests, Arena & Leaderboard">
       <span>🎯</span> <span class="hidden md:inline">Quests &amp; Leaderboard</span>
+    </button>
+    <button id="dockBtn-win-billing" onclick="toggleWindow('win-billing')" class="px-2.5 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/80 text-emerald-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95 font-semibold" title="Token Billing, Store &amp; Sponsor Ads">
+      <span>💳</span> <span class="hidden md:inline">Tokens &amp; Ads</span>
     </button>
     <button id="dockModBtn" onclick="toggleWindow('win-moderator')" class="hidden px-2.5 py-1.5 bg-amber-950/80 hover:bg-amber-900 border border-amber-600 text-amber-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Admin Moderator Control Panel">
       <span>🛡️</span> <span class="hidden md:inline font-bold">Mod Panel</span>
@@ -999,7 +1257,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       if (isAdmin) {
         if (badge) badge.classList.remove('hidden');
         if (modBtn) modBtn.classList.remove('hidden');
-        if (dockBtn) dockBtn.classList.remove('hidden');
+        if (dockBtn && !(typeof poppedOutWindows !== 'undefined' && poppedOutWindows.has('win-moderator'))) {
+          dockBtn.classList.remove('hidden');
+          dockBtn.style.display = '';
+        }
         if (toggleText) toggleText.innerText = 'Admin: ACTIVE 🛡️';
         if (toggleBtn) {
           toggleBtn.className = 'text-xs font-mono px-2.5 py-1 rounded border border-amber-500 bg-amber-950 text-amber-300 transition flex items-center gap-1.5 shadow-sm font-bold';
@@ -1138,9 +1399,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       document.getElementById('osThemeSelect').value = themeName;
     }
 
-    // Window Manager: Draggable, Focus, Minimize, Maximize, Pop Out
+    // Window Manager: Draggable, Resizable, Focus, Minimize, Maximize, Pop Out
     let highestZ = 30;
-    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-comms', 'win-quests'];
+    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-comms', 'win-quests', 'win-moderator', 'win-billing'];
+    const poppedOutWindows = new Set();
 
     function bringToFront(winEl) {
       highestZ += 1;
@@ -1182,6 +1444,102 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         window.addEventListener('mousemove', onMouseMove);
         window.addEventListener('mouseup', onMouseUp);
       });
+    }
+
+    function makeWindowResizable(winEl) {
+      let handle = winEl.querySelector('.window-resize-handle');
+      if (!handle) {
+        handle = document.createElement('div');
+        handle.className = 'window-resize-handle';
+        handle.title = 'Drag to resize window';
+        winEl.appendChild(handle);
+      }
+
+      handle.addEventListener('mousedown', (e) => {
+        if (winEl.classList.contains('maximized') || winEl.classList.contains('popout-fullscreen')) {
+          return;
+        }
+        e.stopPropagation();
+        e.preventDefault();
+        bringToFront(winEl);
+
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const startW = winEl.offsetWidth;
+        const startH = winEl.offsetHeight;
+
+        function onMouseMove(moveEvent) {
+          const newW = Math.max(320, startW + (moveEvent.clientX - startX));
+          const newH = Math.max(180, startH + (moveEvent.clientY - startY));
+          winEl.style.width = `${newW}px`;
+          winEl.style.height = `${newH}px`;
+        }
+
+        function onMouseUp() {
+          window.removeEventListener('mousemove', onMouseMove);
+          window.removeEventListener('mouseup', onMouseUp);
+        }
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+      });
+    }
+
+    function getDockButton(winId) {
+      if (winId === 'win-moderator') {
+        return document.getElementById('dockModBtn') || document.getElementById('dockBtn-win-moderator');
+      }
+      return document.getElementById(`dockBtn-${winId}`);
+    }
+
+    function setWindowPoppedOut(winId, isPoppedOut) {
+      const win = document.getElementById(winId);
+      const dockBtn = getDockButton(winId);
+
+      if (isPoppedOut) {
+        poppedOutWindows.add(winId);
+        if (win) {
+          win.style.display = 'none';
+          win.classList.add('hidden');
+        }
+        if (dockBtn) {
+          dockBtn.style.display = 'none';
+          dockBtn.classList.add('hidden');
+        }
+        if (winId === 'win-comms') {
+          const chatDockBtn = document.getElementById('dockBtn-chat');
+          if (chatDockBtn) {
+            chatDockBtn.style.display = 'none';
+            chatDockBtn.classList.add('hidden');
+          }
+        }
+      } else {
+        poppedOutWindows.delete(winId);
+        if (dockBtn) {
+          if (winId === 'win-moderator') {
+            if (isAdmin) {
+              dockBtn.style.display = '';
+              dockBtn.classList.remove('hidden');
+            }
+          } else {
+            dockBtn.style.display = '';
+            dockBtn.classList.remove('hidden');
+          }
+        }
+        if (winId === 'win-comms') {
+          const chatDockBtn = document.getElementById('dockBtn-chat');
+          if (chatDockBtn) {
+            chatDockBtn.style.display = '';
+            chatDockBtn.classList.remove('hidden');
+          }
+        }
+        if (win) {
+          win.style.display = 'flex';
+          win.classList.remove('hidden');
+          win.classList.remove('minimized');
+          bringToFront(win);
+        }
+      }
     }
 
     function toggleWindow(winId) {
@@ -1226,8 +1584,21 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     function openPopoutWindow(winId) {
+      setWindowPoppedOut(winId, true);
       const url = `/?window=${encodeURIComponent(winId)}&room=${encodeURIComponent(currentRoom)}`;
-      window.open(url, `_blank_${winId}`, 'width=1120,height=760,menubar=no,toolbar=no,location=no');
+      const popWin = window.open(url, `_blank_${winId}`, 'width=1120,height=760,menubar=no,toolbar=no,location=no');
+
+      if (popWin) {
+        const timer = setInterval(() => {
+          if (popWin.closed) {
+            clearInterval(timer);
+            setWindowPoppedOut(winId, false);
+            meshBus.postMessage({ type: 'WINDOW_REDOCK', winId: winId });
+          }
+        }, 600);
+      }
+
+      meshBus.postMessage({ type: 'WINDOW_POPOUT', winId: winId });
     }
 
     function tileWindows() {
@@ -1293,7 +1664,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     // Initialize Windows
     allWindows.forEach(id => {
       const w = document.getElementById(id);
-      if (w) makeWindowDraggable(w);
+      if (w) {
+        makeWindowDraggable(w);
+        makeWindowResizable(w);
+      }
     });
 
     // Handle Pop-Out Single-Window Viewport Optimization
@@ -1309,8 +1683,274 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           }
         }
       });
+      // The popped-out window disappears from the dock
+      setWindowPoppedOut(singleWindowParam, true);
       document.title = `[Pop-Out] TinCan Mesh OS — ${singleWindowParam}`;
+
+      window.addEventListener('beforeunload', () => {
+        meshBus.postMessage({ type: 'WINDOW_REDOCK', winId: singleWindowParam });
+      });
     }
+
+    // =========================================================================
+    // Account Setup, Username Prompt & Onboarding Engine (Mandatory Gate)
+    // =========================================================================
+    const REGISTRATION_EPOCH = 'epoch_20261109_v2_mandatory';
+
+    function openAccountModal(isMandatory = false) {
+      const modal = document.getElementById('accountSetupModal');
+      const peerLabel = document.getElementById('modalPeerIdLabel');
+      const userInp = document.getElementById('accInputUsername');
+      const closeBtn = document.getElementById('modalCloseBtn');
+      const errEl = document.getElementById('accFormError');
+      if (errEl) errEl.classList.add('hidden');
+      if (peerLabel) peerLabel.innerText = myPeerId;
+
+      const isRegistered = localStorage.getItem('tincan_registration_epoch') === REGISTRATION_EPOCH && localStorage.getItem('tincan_username');
+      if (closeBtn) {
+        if (!isMandatory && isRegistered) {
+          closeBtn.classList.remove('hidden');
+        } else {
+          closeBtn.classList.add('hidden');
+        }
+      }
+
+      const savedUser = localStorage.getItem('tincan_username');
+      if (savedUser && userInp) {
+        userInp.value = savedUser;
+      }
+      if (modal) {
+        modal.classList.remove('hidden');
+        if (userInp) userInp.focus();
+      }
+    }
+
+    function closeAccountModal() {
+      const isRegistered = localStorage.getItem('tincan_registration_epoch') === REGISTRATION_EPOCH && localStorage.getItem('tincan_username');
+      if (!isRegistered) {
+        // Enforce mandatory registration: cannot close until identity is verified!
+        return;
+      }
+      const modal = document.getElementById('accountSetupModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    async function handleAccountFormSubmit(e) {
+      e.preventDefault();
+      const username = document.getElementById('accInputUsername').value.trim();
+      const email = document.getElementById('accInputEmail').value.trim();
+      const phone = document.getElementById('accInputPhone').value.trim() || '+10000000000';
+      const role = document.getElementById('accInputRole') ? document.getElementById('accInputRole').value : 'Collaborator';
+      const submitBtn = document.getElementById('accSubmitBtn');
+      const errEl = document.getElementById('accFormError');
+
+      if (!username || !email) {
+        if (errEl) {
+          errEl.innerText = 'Name/Username and email are required to identify who you are.';
+          errEl.classList.remove('hidden');
+        }
+        return;
+      }
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span>⏳</span> <span>Verifying Identity...</span>';
+      }
+
+      try {
+        const resp = await fetch('/api/account/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            peer_id: myPeerId,
+            name: `${username} (${role})`,
+            email: email,
+            phone: phone
+          })
+        });
+
+        const data = await resp.json();
+        if (resp.ok && data.status === 'success') {
+          localStorage.setItem('tincan_registration_epoch', REGISTRATION_EPOCH);
+          localStorage.setItem('tincan_username', username);
+          localStorage.setItem('tincan_email', email);
+          localStorage.setItem('tincan_role', role);
+          const hudName = document.getElementById('hudAccountName');
+          if (hudName) hudName.innerText = '@' + username;
+
+          if (sfxEnabled) playXpChime();
+          awardLocalXp(100, `Verified identity @${username}`);
+          const modal = document.getElementById('accountSetupModal');
+          if (modal) modal.classList.add('hidden');
+          refreshBillingWindow();
+          alert(`🎉 Identity Verified! Welcome @${username}. 50,000 tokens have been credited to your account.`);
+        } else {
+          if (errEl) {
+            errEl.innerText = data.error || 'Failed to verify account. Please check your email format.';
+            errEl.classList.remove('hidden');
+          }
+        }
+      } catch (err) {
+        if (errEl) {
+          errEl.innerText = 'Connection error: ' + err.message;
+          errEl.classList.remove('hidden');
+        }
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<span>🛡️</span> <span>Confirm Identity &amp; Claim 50,000 Tokens</span>';
+        }
+      }
+    }
+
+    async function initAccountState() {
+      const epochValid = localStorage.getItem('tincan_registration_epoch') === REGISTRATION_EPOCH;
+      const savedUser = localStorage.getItem('tincan_username');
+      const hudName = document.getElementById('hudAccountName');
+
+      if (!epochValid) {
+        // Enforce mandatory re-registration for EVERYONE: reset old unverified sessions
+        localStorage.removeItem('tincan_username');
+        localStorage.removeItem('tincan_email');
+        sessionStorage.removeItem('tincan_guest_dismissed');
+        openAccountModal(true);
+        return;
+      }
+
+      if (savedUser) {
+        if (hudName) hudName.innerText = '@' + savedUser;
+        refreshBillingWindow();
+        return;
+      }
+
+      openAccountModal(true);
+    }
+
+    setTimeout(initAccountState, 250);
+
+    // =========================================================================
+    // Token Billing, Top-Up & Sponsored Ads Interaction Engine
+    // =========================================================================
+    let isWatchingAd = false;
+
+    async function refreshBillingWindow() {
+      try {
+        const resp = await fetch(`/api/account/billing?peer_id=${encodeURIComponent(myPeerId)}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          const tokEl = document.getElementById('billingWindowTokens');
+          const credEl = document.getElementById('billingWindowCredits');
+          const totalUsedEl = document.getElementById('billingTotalUsedText');
+          if (tokEl) tokEl.innerText = Number(data.token_balance || 0).toLocaleString();
+          if (credEl) credEl.innerText = `$${Number(data.credit_balance_usd || 0).toFixed(2)} USD`;
+          if (totalUsedEl) totalUsedEl.innerText = `Total used: ${Number(data.total_tokens_used || 0).toLocaleString()} tokens ($${Number(data.total_billed_usd || 0).toFixed(4)})`;
+
+          const pill = document.getElementById('hudTokenPill');
+          if (pill) {
+            const toks = Number(data.token_balance || 0);
+            pill.innerText = toks >= 1000 ? `${Math.round(toks / 1000)}k 🪙` : `${toks} 🪙`;
+          }
+
+          const rowsEl = document.getElementById('billingLedgerRows');
+          if (rowsEl && data.recent_invoices && data.recent_invoices.length > 0) {
+            rowsEl.innerHTML = data.recent_invoices.map(inv => {
+              const d = new Date(inv.timestamp * 1000);
+              const timeStr = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
+              return `
+                <tr class="hover:bg-slate-900/60 transition">
+                  <td class="py-1 text-cyan-400 font-bold">${inv.model}</td>
+                  <td class="py-1 text-slate-200">${Number(inv.total_tokens).toLocaleString()}</td>
+                  <td class="py-1 text-emerald-400">$${Number(inv.cost_usd).toFixed(5)}</td>
+                  <td class="py-1 text-right text-slate-500">${timeStr}</td>
+                </tr>
+              `;
+            }).join('');
+          }
+        }
+      } catch (err) {
+        console.warn('Billing refresh failed:', err);
+      }
+    }
+
+    function watchSponsoredAd() {
+      if (isWatchingAd) return;
+      isWatchingAd = true;
+      const btn = document.getElementById('watchAdBtn');
+      const wrap = document.getElementById('adProgressWrap');
+      const bar = document.getElementById('adProgressBar');
+      const timerText = document.getElementById('adTimerText');
+
+      if (btn) btn.disabled = true;
+      if (wrap) wrap.classList.remove('hidden');
+      if (bar) bar.style.width = '0%';
+
+      let secondsLeft = 10;
+      if (timerText) timerText.innerText = `${secondsLeft}s remaining`;
+
+      const interval = setInterval(() => {
+        secondsLeft -= 1;
+        const progressPct = ((10 - secondsLeft) / 10) * 100;
+        if (bar) bar.style.width = `${progressPct}%`;
+        if (timerText) timerText.innerText = `${secondsLeft}s remaining`;
+
+        if (secondsLeft <= 0) {
+          clearInterval(interval);
+          finishSponsoredAd();
+        }
+      }, 1000);
+    }
+
+    async function finishSponsoredAd() {
+      const wrap = document.getElementById('adProgressWrap');
+      const btn = document.getElementById('watchAdBtn');
+      if (wrap) wrap.classList.add('hidden');
+      if (btn) btn.disabled = false;
+      isWatchingAd = false;
+
+      try {
+        const resp = await fetch('/api/account/billing/topup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            peer_id: myPeerId,
+            tokens: 5000,
+            amount_usd: 0.05
+          })
+        });
+        if (resp.ok) {
+          if (sfxEnabled) playXpChime();
+          awardLocalXp(50, 'Sponsored Ad Watched (+5,000 Tokens)');
+          refreshBillingWindow();
+          alert('🎉 Sponsor ad completed! +5,000 Free Tokens credited to your account.');
+        }
+      } catch (e) {
+        console.error('Failed to credit ad tokens:', e);
+      }
+    }
+
+    async function buyTokens(amountUsd, tokens) {
+      try {
+        const resp = await fetch('/api/account/billing/topup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            peer_id: myPeerId,
+            tokens: tokens,
+            amount_usd: amountUsd
+          })
+        });
+        if (resp.ok) {
+          if (sfxEnabled) playXpChime();
+          awardLocalXp(100, `Purchased ${tokens.toLocaleString()} Tokens`);
+          refreshBillingWindow();
+          alert(`💎 Deposit confirmed! +${tokens.toLocaleString()} tokens ($${amountUsd.toFixed(2)}) funded to ${myPeerId}.`);
+        }
+      } catch (e) {
+        alert('Top-up request failed: ' + e);
+      }
+    }
+
+    setTimeout(refreshBillingWindow, 1500);
 
     // Copy Command Helper
     function copyCommand(id) {
@@ -1827,6 +2467,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         activeFlights.push(msg.flight);
       } else if (msg.type === 'MODEL_UPDATED') {
         loadAnalytics();
+      } else if (msg.type === 'WINDOW_POPOUT' && msg.winId) {
+        setWindowPoppedOut(msg.winId, true);
+      } else if (msg.type === 'WINDOW_REDOCK' && msg.winId) {
+        setWindowPoppedOut(msg.winId, false);
       }
     };
 

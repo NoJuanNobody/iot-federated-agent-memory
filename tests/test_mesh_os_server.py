@@ -60,6 +60,12 @@ def test_mesh_os_html_ui_invariants():
         "quickPickModel",
         "BroadcastChannel",
         "openPopoutWindow",
+        'id="win-billing"',
+        'id="dockBtn-win-billing"',
+        'id="watchAdBtn"',
+        'id="accountSetupModal"',
+        'id="hudAccountBtn"',
+        'id="accInputUsername"',
     ):
         assert token in MESH_OS_HTML_UI, f"Missing expected UI token: {token}"
 
