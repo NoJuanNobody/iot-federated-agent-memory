@@ -202,6 +202,11 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     <!-- HUD Right Controls -->
     <div class="flex items-center gap-2">
+      <!-- Direct Live Chat Toggle -->
+      <button onclick="focusChatWindow()" class="text-xs font-mono px-2.5 py-1 rounded border border-cyan-700 bg-cyan-950 text-cyan-300 hover:bg-cyan-900 transition flex items-center gap-1.5 active:scale-95 shadow-sm">
+        <span>💬</span> <span class="font-bold">Chat</span> <span id="hudChatBadge" class="px-1.5 py-0.2 rounded-full bg-cyan-400 text-black text-[10px] font-bold">Live</span>
+      </button>
+
       <!-- Active Peer Count -->
       <span id="osPeerCount" class="text-xs font-mono px-2 py-1 rounded bg-slate-900 border border-slate-800 text-slate-300 flex items-center gap-1">
         <span>👥</span> <span id="osPeerCountNum">2</span> <span class="hidden sm:inline">Active</span>
@@ -286,6 +291,19 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
               Copy Curl
             </button>
           </div>
+        </div>
+
+        <!-- Live Chat Quick Launcher -->
+        <div class="p-3 bg-cyan-950/40 border border-cyan-800/80 rounded-lg flex items-center justify-between">
+          <div class="space-y-0.5">
+            <div class="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+              <span>💬</span> Live Mesh &amp; Peer Chat
+            </div>
+            <p class="text-[11px] text-slate-400">Broadcast messages in real time across all connected browsers and phones.</p>
+          </div>
+          <button onclick="focusChatWindow()" class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs font-bold font-mono transition shrink-0 active:scale-95 shadow">
+            Open Chat →
+          </button>
         </div>
 
         <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-3 space-y-2">
@@ -802,8 +820,11 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <button onclick="toggleWindow('win-arena')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="AI Brain Router & Arena">
       <span>🧠</span> <span class="hidden md:inline">AI Arena</span>
     </button>
-    <button onclick="toggleWindow('win-comms')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="WebRTC Comms Studio">
-      <span>📹</span> <span class="hidden md:inline">WebRTC Comms</span>
+    <button onclick="focusChatWindow()" class="px-2.5 py-1.5 bg-cyan-950 hover:bg-cyan-900 border border-cyan-800 text-cyan-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Live Mesh Chat &amp; Comms">
+      <span>💬</span> <span class="font-bold">Live Chat</span>
+    </button>
+    <button onclick="toggleWindow('win-comms')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="WebRTC Video &amp; Voice Comms">
+      <span>📹</span> <span class="hidden md:inline">Video/Voice</span>
     </button>
     <button onclick="toggleWindow('win-quests')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Quests, Arena & Leaderboard">
       <span>🎯</span> <span class="hidden md:inline">Quests &amp; Leaderboard</span>
@@ -938,6 +959,17 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       } else {
         bringToFront(win);
       }
+    }
+
+    function focusChatWindow() {
+      const win = document.getElementById('win-comms');
+      if (!win) return;
+      win.style.display = 'flex';
+      win.classList.remove('minimized');
+      bringToFront(win);
+      win.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const inp = document.getElementById('chatInput');
+      if (inp) inp.focus();
     }
 
     function minimizeWindow(winId) {
