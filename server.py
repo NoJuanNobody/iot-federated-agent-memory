@@ -39,6 +39,9 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
 
+    def do_HEAD(self):
+        self.do_GET()
+
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -445,7 +448,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 "version": "2.2.0",
                 "relay_url": "https://iot-federated-agent-memory-production.up.railway.app",
             })
-        elif parsed.path == "/install.sh":
+        elif parsed.path in ("/install.sh", "/install_peer.sh"):
             install_script_path = os.path.join(os.path.dirname(__file__), "install_peer.sh")
             if os.path.exists(install_script_path):
                 with open(install_script_path, "rb") as f:
