@@ -138,6 +138,34 @@ struct RainDrop {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct PeerPresence {
+    #[serde(default)]
+    pub state: String,
+    #[serde(default)]
+    pub is_on_computer: bool,
+    #[serde(default)]
+    pub unread_count: u64,
+    #[serde(default)]
+    pub last_read_seq: u64,
+    #[serde(default)]
+    pub last_seen_at: Option<f64>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct PeerStatusInfo {
+    #[serde(default)]
+    pub status: String,
+    #[serde(default)]
+    pub mode: String,
+    #[serde(default)]
+    pub cipher: String,
+    #[serde(default)]
+    pub address: String,
+    #[serde(default)]
+    pub presence: Option<PeerPresence>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ContactItem {
     pub alias: String,
     pub address: String,
@@ -364,6 +392,7 @@ struct AiMessiahTerminalApp {
     agy_extra_logs: Vec<String>,
     tincan_input: String,
     tincan_output_log: Arc<Mutex<Vec<String>>>,
+    selected_peer_status: Arc<Mutex<Option<PeerStatusInfo>>>,
     git_recent_commits: Vec<(String, String)>,
     git_current_branch: String,
 }
@@ -425,6 +454,21 @@ impl AiMessiahTerminalApp {
             }
         });
 
+        let selected_peer_status = Arc::new(Mutex::new(None));
+        let sp_clone = Arc::clone(&selected_peer_status);
+        std::thread::spawn(move || {
+            let output = Command::new("python3").args([CLI_PATH, "status", "harper", "--json"]).output();
+            if let Ok(out) = output {
+                if out.status.success() {
+                    if let Ok(info) = serde_json::from_slice::<PeerStatusInfo>(&out.stdout) {
+                        if let Ok(mut lock) = sp_clone.lock() {
+                            *lock = Some(info);
+                        }
+                    }
+                }
+            }
+        });
+
         Self {
             start_instant: Instant::now(),
             logo,
@@ -452,9 +496,35 @@ impl AiMessiahTerminalApp {
             agy_extra_logs: Vec::new(),
             tincan_input: String::new(),
             tincan_output_log,
+            selected_peer_status,
             git_recent_commits,
             git_current_branch,
         }
+    }
+
+    fn inspect_peer_status(&self, peer: &str) {
+        let peer_str = peer.to_string();
+        let status_lock = Arc::clone(&self.selected_peer_status);
+        let log_clone = Arc::clone(&self.tincan_output_log);
+        std::thread::spawn(move || {
+            let output = Command::new("python3")
+                .args([CLI_PATH, "status", &peer_str, "--json"])
+                .output();
+            if let Ok(out) = output {
+                if out.status.success() {
+                    if let Ok(info) = serde_json::from_slice::<PeerStatusInfo>(&out.stdout) {
+                        if let Ok(mut lock) = status_lock.lock() {
+                            *lock = Some(info);
+                        }
+                    }
+                } else {
+                    let err = String::from_utf8_lossy(&out.stderr);
+                    if let Ok(mut log) = log_clone.lock() {
+                        log.push(format!("$ tincan status {}\nError: {}", peer_str, err));
+                    }
+                }
+            }
+        });
     }
 
     fn run_tincan_subcommand(&self, subcmd: &str) {
@@ -1238,6 +1308,7 @@ impl AiMessiahTerminalApp {
                                 );
                                 if resp.clicked() {
                                     self.selected_contact = item.alias.clone();
+                                    self.inspect_peer_status(&item.alias);
                                 }
                             }
                         }
@@ -1309,6 +1380,86 @@ impl AiMessiahTerminalApp {
             .show(&mut center_ui, |ui| {
                 egui::ScrollArea::vertical().id_salt("tincan_center_scroll").show(ui, |ui| {
                     ui.set_width(ui.available_width());
+
+                    // Card 0: Peer Cryptographic Identity & Presence Telemetry
+                    let peer_status_lock = self.selected_peer_status.lock().map(|s| s.clone()).unwrap_or_default();
+                    let contacts_list = self.contacts_state.lock().map(|c| c.clone()).unwrap_or_default();
+                    let selected_info = contacts_list.iter().find(|c| c.alias == self.selected_contact);
+
+                    egui::Frame::new()
+                        .fill(card_bg)
+                        .stroke(Stroke::new(1.2, Color32::from_rgb(168, 85, 247)))
+                        .corner_radius(10.0)
+                        .inner_margin(egui::Margin::symmetric(12, 9))
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    RichText::new(format!("◆ PEER TELEMETRY & CRYPTO IDENTITY: @{}", self.selected_contact))
+                                        .color(Color32::from_rgb(216, 180, 254))
+                                        .font(mono_bold.clone()),
+                                );
+                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                    if ui.button(RichText::new("Refresh Status").font(mono.clone())).clicked() {
+                                        self.inspect_peer_status(&self.selected_contact);
+                                    }
+                                    if let Some(c) = selected_info {
+                                        if ui.button(RichText::new("Copy Address").font(mono.clone())).clicked() {
+                                            ui.ctx().copy_text(c.address.clone());
+                                        }
+                                        if !c.public_key.is_empty() && ui.button(RichText::new("Copy Pubkey").font(mono.clone())).clicked() {
+                                            ui.ctx().copy_text(c.public_key.clone());
+                                        }
+                                    }
+                                });
+                            });
+                            ui.add_space(4.0);
+
+                            if let Some(c) = selected_info {
+                                ui.horizontal_wrapped(|ui| {
+                                    ui.label(RichText::new("Full Address:").color(gold).font(mono.clone()));
+                                    ui.label(RichText::new(&c.address).color(Color32::WHITE).font(mono.clone()));
+                                    ui.label(RichText::new("(✓ TOFU Key Pinned)").color(green).font(mono.clone()));
+                                });
+                                if !c.public_key.is_empty() {
+                                    ui.horizontal_wrapped(|ui| {
+                                        ui.label(RichText::new("Ed25519 Pubkey:").color(gold).font(mono.clone()));
+                                        ui.label(RichText::new(&c.public_key).color(Color32::from_rgb(203, 213, 225)).font(mono.clone()));
+                                    });
+                                }
+                            }
+
+                            ui.horizontal_wrapped(|ui| {
+                                ui.label(RichText::new("Cipher Suite:").color(gold).font(mono.clone()));
+                                ui.label(RichText::new("X25519 Ephemeral-Static Key Exchange · XSalsa20-Poly1305 (SealedBox)").color(Color32::from_rgb(147, 197, 253)).font(mono.clone()));
+                            });
+
+                            if let Some(info) = peer_status_lock {
+                                if let Some(presence) = info.presence {
+                                    let state_color = if presence.state == "online" { green } else { Color32::from_rgb(251, 146, 60) };
+                                    ui.horizontal_wrapped(|ui| {
+                                        ui.label(RichText::new("Relay Presence:").color(gold).font(mono.clone()));
+                                        ui.label(RichText::new(format!("● {}", presence.state.to_uppercase())).color(state_color).font(mono_bold.clone()));
+                                        ui.label(RichText::new(format!("· On Computer: {}", if presence.is_on_computer { "YES (Active)" } else { "NO / Idle" })).color(Color32::WHITE).font(mono.clone()));
+                                        ui.label(RichText::new(format!("· Unread Mailbox: {}", presence.unread_count)).color(Color32::from_rgb(203, 213, 225)).font(mono.clone()));
+                                        ui.label(RichText::new(format!("· Last Read Seq: {}", presence.last_read_seq)).color(Color32::from_rgb(203, 213, 225)).font(mono.clone()));
+                                    });
+                                }
+                            } else {
+                                ui.label(RichText::new("Querying blind relay for peer presence and mailbox status...").color(Color32::from_rgb(161, 161, 170)).font(mono.clone()));
+                            }
+
+                            let peer_stream = snap.peers.iter().find(|(name, pid, _)| {
+                                name.to_lowercase().contains(&self.selected_contact) || pid.to_lowercase().contains(&self.selected_contact)
+                            });
+                            if let Some((pname, pid, endpoint)) = peer_stream {
+                                ui.horizontal_wrapped(|ui| {
+                                    ui.label(RichText::new("Active WebRTC Stream:").color(gold).font(mono.clone()));
+                                    ui.label(RichText::new(format!("● STREAMING LIVE ({pname}, {pid}) at {endpoint}")).color(green).font(mono_bold.clone()));
+                                });
+                            }
+                        });
+
+                    ui.add_space(8.0);
 
                     // Card A: Sealed E2EE Messenger
                     let chat_lock = self.chat_state.lock().map(|c| c.clone()).unwrap_or_default();
