@@ -39,7 +39,37 @@ class TinCanBlindRelay:
         self._cond = threading.Condition(self._lock)
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
+        self.presence: Dict[str, Dict[str, Any]] = {}
         self._init_db()
+
+    def touch_presence(
+        self,
+        address: str,
+        event: str = "poll",
+        read_seq: Optional[int] = None,
+    ) -> None:
+        if not address:
+            return
+        addr_clean = address.split("@")[0].strip()
+        now = time.time()
+        with self._lock:
+            entry = self.presence.setdefault(
+                addr_clean,
+                {
+                    "address": addr_clean,
+                    "first_seen_at": now,
+                    "last_seen_at": now,
+                    "last_event": event,
+                    "last_read_seq": 0,
+                    "poll_count": 0,
+                },
+            )
+            entry["last_seen_at"] = now
+            entry["last_event"] = event
+            if event == "inbox_poll":
+                entry["poll_count"] = int(entry.get("poll_count", 0)) + 1
+            if read_seq is not None and int(read_seq) > int(entry.get("last_read_seq", 0)):
+                entry["last_read_seq"] = int(read_seq)
 
     def _init_db(self) -> None:
         with self._lock:
@@ -187,6 +217,8 @@ class TinCanBlindRelay:
             self.conn.commit()
             self._cond.notify_all()
 
+        self.touch_presence(sender_clean, event="send")
+
         return {
             "status": "ok",
             "seq": seq,
@@ -268,6 +300,7 @@ class TinCanBlindRelay:
                 })
 
             latest_seq = max([m["seq"] for m in messages], default=since_seq)
+            self.touch_presence(recipient_clean, event="inbox_poll", read_seq=latest_seq)
 
             return {
                 "status": "ok",
@@ -278,7 +311,7 @@ class TinCanBlindRelay:
             }
 
     def whoami(self, address: Optional[str] = None) -> Dict[str, Any]:
-        """Return relay status, crypto info, and optional recipient mailbox metrics."""
+        """Return relay status, crypto info, and optional recipient mailbox + presence metrics."""
         address_clean = address.split("@")[0].strip() if address else None
 
         with self._lock:
@@ -287,16 +320,45 @@ class TinCanBlindRelay:
             total_recipients, total_envelopes = cur.fetchone()
 
             mailbox_stats = None
+            peer_presence = None
             if address_clean:
                 cur.execute(
                     "SELECT COUNT(*), COALESCE(MAX(seq), 0) FROM envelopes WHERE recipient = ?",
                     (address_clean,),
                 )
                 m_count, m_seq = cur.fetchone()
+                p_info = self.presence.get(address_clean)
+                now = time.time()
+                if p_info:
+                    age = max(0.0, now - float(p_info["last_seen_at"]))
+                    state = "online" if age <= 120 else ("idle" if age <= 900 else "offline")
+                    last_read = int(p_info.get("last_read_seq", 0))
+                    peer_presence = {
+                        "state": state,
+                        "is_on_computer": state in ("online", "idle"),
+                        "seconds_since_active": round(age, 1),
+                        "last_seen_at": p_info["last_seen_at"],
+                        "last_event": p_info["last_event"],
+                        "last_read_seq": last_read,
+                        "unread_count": max(0, int(m_seq) - last_read),
+                        "poll_count": p_info.get("poll_count", 0),
+                    }
+                else:
+                    peer_presence = {
+                        "state": "offline",
+                        "is_on_computer": False,
+                        "seconds_since_active": None,
+                        "last_seen_at": None,
+                        "last_event": "never_seen",
+                        "last_read_seq": 0,
+                        "unread_count": int(m_seq),
+                        "poll_count": 0,
+                    }
                 mailbox_stats = {
                     "address": address_clean,
                     "count": int(m_count),
                     "latest_seq": int(m_seq),
+                    "presence": peer_presence,
                 }
 
             return {
@@ -308,6 +370,7 @@ class TinCanBlindRelay:
                 "total_mailboxes": int(total_recipients or 0),
                 "total_envelopes": int(total_envelopes or 0),
                 "mailbox_stats": mailbox_stats,
+                "presence": peer_presence,
             }
 
     def get_stats(self) -> Dict[str, Any]:

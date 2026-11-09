@@ -131,6 +131,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     pl_parser.add_argument("--category", default="spotlight", help="Category tag (instruction, ad, spotlight)")
     pl_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
+    # status / ping (check if a peer is on their computer)
+    for st_cmd in ("status", "ping"):
+        st_parser = subparsers.add_parser(st_cmd, help="Check if a peer is online / on their computer and inspect read receipts")
+        st_parser.add_argument("peer", nargs="?", default="harper", help="Contact alias or tc: address (default: harper)")
+        st_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
     # upgrade
     subparsers.add_parser("upgrade", help="Upgrade TinCan CLI and mesh bundles to the latest production release")
 
@@ -471,6 +477,39 @@ def main(argv: Optional[List[str]] = None) -> int:
                 return 0
         except Exception as exc:
             print(f"[-] Playlist error: {exc}", file=sys.stderr)
+            return 1
+
+    if args.command in ("status", "ping"):
+        import urllib.parse
+        import urllib.request
+
+        target_peer = args.peer or "harper"
+        resolved_addr = target_peer
+        if client.contact_book.has_alias(target_peer):
+            resolved_addr = client.contact_book.get_address(target_peer)
+        relay_base = args.relay.rstrip("/")
+        try:
+            url = f"{relay_base}/api/tincan/whoami?address={urllib.parse.quote(resolved_addr)}"
+            with urllib.request.urlopen(url, timeout=8.0) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            if args.json:
+                print(json.dumps(data, indent=2))
+            else:
+                mb = data.get("mailbox_stats") or {}
+                pres = data.get("presence") or mb.get("presence") or {}
+                state = pres.get("state", "offline").upper()
+                badge_color = "\033[1;32m● ONLINE" if state == "ONLINE" else ("\033[1;33m◐ IDLE" if state == "IDLE" else "\033[1;31m○ OFFLINE / AWAY")
+                print(f"Peer Presence for '{target_peer}' ({resolved_addr}):")
+                print(f"  Status:          {badge_color}\033[0m")
+                print(f"  On Computer:     {'YES' if pres.get('is_on_computer') else 'NO (has not polled relay recently)'}")
+                if pres.get("seconds_since_active") is not None:
+                    print(f"  Last Activity:   {pres.get('seconds_since_active')}s ago ({pres.get('last_event')})")
+                else:
+                    print("  Last Activity:   No active CLI/TUI poll recorded since last relay boot")
+                print(f"  Mailbox Queue:   {mb.get('count', 0)} total envelopes ({pres.get('unread_count', mb.get('count', 0))} unread, last read seq: {pres.get('last_read_seq', 0)})")
+            return 0
+        except Exception as exc:
+            print(f"[-] Status check failed: {exc}", file=sys.stderr)
             return 1
 
     return 0
