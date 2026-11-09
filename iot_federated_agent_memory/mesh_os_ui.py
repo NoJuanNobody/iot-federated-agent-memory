@@ -1735,6 +1735,23 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       if (modal) modal.classList.add('hidden');
     }
 
+    function awardLocalXp(amount, reason) {
+      try {
+        if (sfxEnabled && typeof playXpChime === 'function') playXpChime();
+        fetch('/api/mesh/quest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            peer_id: myPeerId,
+            action_key: 'workstation_handshake',
+            display_name: localStorage.getItem('tincan_username') || myPeerId
+          })
+        }).catch(() => {});
+      } catch (e) {
+        console.warn('awardLocalXp caught error:', e);
+      }
+    }
+
     async function handleAccountFormSubmit(e) {
       e.preventDefault();
       const username = document.getElementById('accInputUsername').value.trim();
