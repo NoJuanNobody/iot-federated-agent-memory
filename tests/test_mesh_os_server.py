@@ -66,6 +66,8 @@ def test_mesh_os_html_ui_invariants():
         'id="accountSetupModal"',
         'id="hudAccountBtn"',
         'id="accInputUsername"',
+        'syncDockIndicators',
+        'minimizeWindow',
     ):
         assert token in MESH_OS_HTML_UI, f"Missing expected UI token: {token}"
 

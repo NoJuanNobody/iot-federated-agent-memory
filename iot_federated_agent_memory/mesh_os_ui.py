@@ -132,7 +132,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       z-index: 100 !important;
     }
 
-    .mesh-window.minimized .window-body {
+    .mesh-window.minimized {
+      min-height: 0 !important;
+      height: auto !important;
+    }
+
+    .mesh-window.minimized .window-body,
+    .mesh-window.minimized .window-resize-handle {
       display: none !important;
     }
 
@@ -1435,6 +1441,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       winEl.style.zIndex = highestZ;
       document.querySelectorAll('.mesh-window').forEach(w => w.classList.remove('window-focused'));
       winEl.classList.add('window-focused');
+      if (typeof syncDockIndicators === 'function') {
+        syncDockIndicators();
+      }
     }
 
     function makeWindowDraggable(winEl) {
@@ -1568,45 +1577,77 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       }
     }
 
+    function syncDockIndicators() {
+      allWindows.forEach(id => {
+        const win = document.getElementById(id);
+        const dockBtn = getDockButton(id);
+        if (!win || !dockBtn) return;
+
+        const isClosed = win.style.display === 'none' || win.classList.contains('hidden') || win.classList.contains('minimized');
+        const isFocused = !isClosed && win.classList.contains('window-focused');
+
+        if (isFocused) {
+          dockBtn.classList.add('ring-2', 'ring-cyan-400');
+          dockBtn.classList.remove('opacity-70');
+        } else if (!isClosed) {
+          dockBtn.classList.remove('ring-2', 'ring-cyan-400');
+          dockBtn.classList.add('ring-1', 'ring-slate-500');
+          dockBtn.classList.remove('opacity-70');
+        } else {
+          dockBtn.classList.remove('ring-1', 'ring-2', 'ring-cyan-400', 'ring-slate-500');
+          dockBtn.classList.add('opacity-70');
+        }
+      });
+    }
+
     function toggleWindow(winId) {
       const win = document.getElementById(winId);
       if (!win) return;
-      if (win.style.display === 'none' || win.classList.contains('hidden')) {
+      const isHidden = win.style.display === 'none' || win.classList.contains('hidden') || win.classList.contains('minimized');
+      if (isHidden) {
         win.style.display = 'flex';
-        win.classList.remove('hidden');
-        win.classList.remove('minimized');
-        bringToFront(win);
-      } else if (win.classList.contains('minimized')) {
-        win.classList.remove('minimized');
+        win.classList.remove('hidden', 'minimized');
         bringToFront(win);
       } else {
-        win.classList.add('hidden');
-        win.style.display = 'none';
+        if (win.classList.contains('window-focused')) {
+          minimizeWindow(winId);
+          return;
+        } else {
+          bringToFront(win);
+        }
       }
+      syncDockIndicators();
     }
 
     function focusChatWindow() {
       const win = document.getElementById('win-comms');
       if (!win) return;
       win.style.display = 'flex';
-      win.classList.remove('minimized');
+      win.classList.remove('minimized', 'hidden');
       bringToFront(win);
       win.scrollIntoView({ behavior: 'smooth', block: 'center' });
       const inp = document.getElementById('chatInput');
       if (inp) inp.focus();
+      syncDockIndicators();
     }
 
     function minimizeWindow(winId) {
       const win = document.getElementById(winId);
       if (!win) return;
-      win.classList.toggle('minimized');
+      win.classList.add('minimized', 'hidden');
+      win.style.display = 'none';
+      win.classList.remove('window-focused');
+      syncDockIndicators();
     }
 
     function maximizeWindow(winId) {
       const win = document.getElementById(winId);
       if (!win) return;
+      win.classList.remove('minimized', 'hidden');
+      win.style.display = 'flex';
       win.classList.toggle('maximized');
       bringToFront(win);
+      syncDockIndicators();
     }
 
     function openPopoutWindow(winId) {
@@ -1695,6 +1736,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         makeWindowResizable(w);
       }
     });
+    syncDockIndicators();
 
     // Handle Pop-Out Single-Window Viewport Optimization
     if (singleWindowParam && allWindows.includes(singleWindowParam)) {
