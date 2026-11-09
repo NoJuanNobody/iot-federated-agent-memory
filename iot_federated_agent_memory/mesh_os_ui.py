@@ -452,16 +452,21 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         </div>
 
         <!-- Configure / Swap Model Form -->
-        <div class="bg-slate-950/70 border border-slate-800 rounded-lg p-3">
-          <h3 class="text-xs font-semibold text-slate-200 mb-2">Configure / Swap Model Target</h3>
+        <div class="bg-slate-950/70 border border-slate-800 rounded-lg p-3 space-y-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="text-xs font-semibold text-slate-200">Configure / Swap Model Target</h3>
+            <span id="currentTargetModelBadge" class="text-[10px] font-mono bg-indigo-950/80 text-indigo-300 border border-indigo-800 px-2 py-0.5 rounded">
+              Active: gemini-brain → google/gemini-2.5-flash
+            </span>
+          </div>
           <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
             <div>
               <label class="block text-slate-400 mb-1 text-[11px]">Target Alias</label>
-              <select id="aliasSelect" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono">
-                <option value="gemini-brain">gemini-brain</option>
-                <option value="claude-brain">claude-brain</option>
-                <option value="grok-brain">grok-brain</option>
-                <option value="openai-brain">openai-brain</option>
+              <select id="aliasSelect" onchange="syncSelectedAliasModel(true)" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono">
+                <option value="gemini-brain">gemini-brain → google/gemini-2.5-flash</option>
+                <option value="claude-brain">claude-brain → anthropic/claude-sonnet-5.5</option>
+                <option value="grok-brain">grok-brain → x-ai/grok-4.7</option>
+                <option value="openai-brain">openai-brain → openai/gpt-4o</option>
               </select>
             </div>
             <div class="sm:col-span-2">
@@ -473,6 +478,15 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                 Update Model
               </button>
             </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-1 pt-1 text-[10px] font-mono">
+            <span class="text-slate-500 mr-1">Quick Swap:</span>
+            <button type="button" onclick="quickPickModel('google/gemini-2.5-pro')" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-indigo-950 text-slate-300 border border-slate-700">gemini-2.5-pro</button>
+            <button type="button" onclick="quickPickModel('anthropic/claude-3.7-sonnet')" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-indigo-950 text-slate-300 border border-slate-700">claude-3.7-sonnet</button>
+            <button type="button" onclick="quickPickModel('x-ai/grok-3')" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-indigo-950 text-slate-300 border border-slate-700">x-ai/grok-3</button>
+            <button type="button" onclick="quickPickModel('openai/gpt-4o')" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-indigo-950 text-slate-300 border border-slate-700">openai/gpt-4o</button>
+            <button type="button" onclick="quickPickModel('meta-llama/llama-3.3-70b-instruct')" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-indigo-950 text-slate-300 border border-slate-700">llama-3.3-70b</button>
+            <button type="button" onclick="quickPickModel('deepseek/deepseek-r1')" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-indigo-950 text-slate-300 border border-slate-700">deepseek-r1</button>
           </div>
           <p id="updateFeedback" class="text-xs mt-2 font-mono hidden"></p>
         </div>
@@ -1050,12 +1064,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       const h = canvas.height;
 
       // Define Node Anchors
+      const pMap = window.latestProvidersMap || {};
       const relayPos = { x: w * 0.5, y: h * 0.42, label: 'Central Railway Relay' };
       const brains = [
-        { id: 'gemini-brain', label: 'Gemini 2.5', x: w * 0.28, y: h * 0.22 },
-        { id: 'claude-brain', label: 'Claude 3.7', x: w * 0.42, y: h * 0.18 },
-        { id: 'grok-brain', label: 'Grok 3', x: w * 0.58, y: h * 0.18 },
-        { id: 'openai-brain', label: 'GPT-4o', x: w * 0.72, y: h * 0.22 },
+        { id: 'gemini-brain', label: pMap['gemini-brain']?.model || 'Gemini 2.5', x: w * 0.28, y: h * 0.22 },
+        { id: 'claude-brain', label: pMap['claude-brain']?.model || 'Claude Sonnet', x: w * 0.42, y: h * 0.18 },
+        { id: 'grok-brain', label: pMap['grok-brain']?.model || 'Grok', x: w * 0.58, y: h * 0.18 },
+        { id: 'openai-brain', label: pMap['openai-brain']?.model || 'GPT-4o', x: w * 0.72, y: h * 0.22 },
       ];
       const peers = [
         { id: myPeerId, label: 'You (Local)', x: w * 0.32, y: h * 0.68 },
@@ -1434,6 +1449,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         spawnEmojiParticle(msg.emoji);
       } else if (msg.type === 'FLIGHT' && msg.flight) {
         activeFlights.push(msg.flight);
+      } else if (msg.type === 'MODEL_UPDATED') {
+        loadAnalytics();
       }
     };
 
@@ -1649,8 +1666,49 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     pollTimer = setInterval(pollSignals, 2000);
 
     // =========================================================================
-    // OpenRouter Analytics & Model Configuration Engine (Preserved)
+    // OpenRouter Analytics & Model Configuration Engine (Preserved & Synced)
     // =========================================================================
+    var latestProvidersMap = window.latestProvidersMap = {};
+
+    function syncSelectedAliasModel(forcePopulateInput = false) {
+      const sel = document.getElementById('aliasSelect');
+      const inp = document.getElementById('modelInput');
+      const badge = document.getElementById('currentTargetModelBadge');
+      if (!sel) return;
+      const alias = sel.value;
+      const info = latestProvidersMap[alias];
+      const currentModel = info ? info.model : '';
+      if (badge && currentModel) {
+        badge.innerText = `Active: ${alias} → ${currentModel}`;
+      }
+      if (inp && currentModel && (forcePopulateInput || document.activeElement !== inp)) {
+        if (forcePopulateInput || !inp.dataset.userEdited) {
+          inp.value = currentModel;
+          delete inp.dataset.userEdited;
+        }
+      }
+    }
+
+    document.getElementById('modelInput').addEventListener('input', (ev) => {
+      ev.target.dataset.userEdited = 'true';
+    });
+
+    function quickPickModel(modelId) {
+      const inp = document.getElementById('modelInput');
+      if (!inp) return;
+      inp.value = modelId;
+      inp.dataset.userEdited = 'true';
+      updateModel();
+    }
+
+    function selectProviderCardForSwap(alias) {
+      const sel = document.getElementById('aliasSelect');
+      if (!sel) return;
+      sel.value = alias;
+      syncSelectedAliasModel(true);
+      document.getElementById('modelInput')?.focus();
+    }
+
     async function loadAnalytics() {
       try {
         const res = await fetch('/api/models/analytics');
@@ -1670,21 +1728,36 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         document.getElementById('analyticsHeader').innerText = 
           `Calls: ${data.total_calls} | Tokens: ${data.total_tokens} | Cost: $${Number(data.total_spend_usd).toFixed(6)}`;
         
+        window.latestProvidersMap = latestProvidersMap = data.providers || {};
+        const sel = document.getElementById('aliasSelect');
+        const prevSelected = sel ? sel.value : 'gemini-brain';
+        if (sel && Object.keys(latestProvidersMap).length > 0) {
+          sel.innerHTML = Object.entries(latestProvidersMap).map(([alias, info]) =>
+            `<option value="${alias}">${alias} → ${info.model}</option>`
+          ).join('');
+          if (latestProvidersMap[prevSelected]) {
+            sel.value = prevSelected;
+          }
+          syncSelectedAliasModel(false);
+        }
+
         const container = document.getElementById('providerCards');
         container.innerHTML = '';
-        for (const [alias, info] of Object.entries(data.providers || {})) {
+        for (const [alias, info] of Object.entries(latestProvidersMap)) {
+          const isSelected = sel && sel.value === alias;
           const card = document.createElement('div');
-          card.className = 'p-3 bg-slate-800/60 rounded-lg border border-slate-700/80 space-y-1.5 font-mono text-xs';
+          card.onclick = () => selectProviderCardForSwap(alias);
+          card.className = `cursor-pointer p-3 bg-slate-800/60 rounded-lg border ${isSelected ? 'border-indigo-500 ring-1 ring-indigo-500/40' : 'border-slate-700/80 hover:border-slate-600'} space-y-1.5 font-mono text-xs transition`;
           card.innerHTML = `
             <div class="flex justify-between items-center">
               <span class="font-bold text-white">${alias}</span>
               <span class="text-[10px] bg-indigo-950 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-800">${info.display_name}</span>
             </div>
-            <div class="text-slate-300 truncate text-[11px]"><span class="text-slate-500">Model:</span> ${info.model}</div>
+            <div class="text-emerald-300 truncate text-[11px] font-semibold"><span class="text-slate-500 font-normal">Model:</span> ${info.model}</div>
             <div class="grid grid-cols-3 gap-1 pt-1 text-slate-300 border-t border-slate-700/50 text-[10px]">
               <div><span class="text-slate-500">In/1M:</span> <span class="text-amber-300">$${Number(info.input_cost_per_1m_usd || 0).toFixed(2)}</span></div>
               <div><span class="text-slate-500">Out/1M:</span> <span class="text-amber-300">$${Number(info.output_cost_per_1m_usd || 0).toFixed(2)}</span></div>
-              <div><span class="text-slate-500">Calls:</span> <span class="text-cyan-300">${info.call_count || 0}</span></div>
+              <div><span class="text-slate-500">Calls:</span> <span class="text-cyan-300">${info.total_calls ?? info.call_count ?? 0}</span></div>
             </div>
           `;
           container.appendChild(card);
@@ -1693,8 +1766,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     async function updateModel() {
-      const alias = document.getElementById('aliasSelect').value;
-      const model = document.getElementById('modelInput').value.trim();
+      const sel = document.getElementById('aliasSelect');
+      const inp = document.getElementById('modelInput');
+      const alias = sel.value;
+      const model = inp.value.trim();
       const fb = document.getElementById('updateFeedback');
       if (!model) {
         fb.innerText = 'Please enter a valid model identifier';
@@ -1709,10 +1784,19 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         });
         const resp = await res.json();
         if (res.ok) {
-          fb.innerText = `✓ Updated ${resp.alias} -> ${resp.model}`;
+          if (!latestProvidersMap[resp.alias]) {
+            latestProvidersMap[resp.alias] = { display_name: resp.display_name || resp.alias, model: resp.model };
+          } else {
+            latestProvidersMap[resp.alias].model = resp.model;
+          }
+          delete inp.dataset.userEdited;
+          inp.value = resp.model;
+          syncSelectedAliasModel(true);
+          fb.innerText = `✓ Updated ${resp.alias} → ${resp.model}`;
           fb.className = 'text-xs mt-2 font-mono text-emerald-400 block';
-          document.getElementById('modelInput').value = '';
-          loadAnalytics();
+          spawnPacketFlight(myPeerId, resp.alias, 'ai_prompt', `Swap: ${resp.model}`);
+          meshBus.postMessage({ type: 'MODEL_UPDATED', alias: resp.alias, model: resp.model });
+          await loadAnalytics();
         } else {
           fb.innerText = `Error: ${resp.error}`;
           fb.className = 'text-xs mt-2 font-mono text-red-400 block';

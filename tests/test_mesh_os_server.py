@@ -55,10 +55,31 @@ def test_mesh_os_html_ui_invariants():
         'id="questDeckGrid"',
         'id="arenaBattleBox"',
         'id="operatorLeaderboard"',
+        'id="currentTargetModelBadge"',
+        "syncSelectedAliasModel",
+        "quickPickModel",
         "BroadcastChannel",
         "openPopoutWindow",
     ):
         assert token in MESH_OS_HTML_UI, f"Missing expected UI token: {token}"
+
+
+def test_model_swap_reflects_in_analytics(live_mesh_server):
+    req = urllib.request.Request(
+        f"{live_mesh_server}/api/models/set",
+        data=json.dumps({"alias": "gemini-brain", "model": "google/gemini-2.5-pro"}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req) as resp:
+        res = json.loads(resp.read().decode("utf-8"))
+        assert res["status"] == "updated"
+        assert res["alias"] == "gemini-brain"
+        assert res["model"] == "google/gemini-2.5-pro"
+
+    with urllib.request.urlopen(f"{live_mesh_server}/api/models/analytics") as resp:
+        analytics = json.loads(resp.read().decode("utf-8"))
+        assert analytics["providers"]["gemini-brain"]["model"] == "google/gemini-2.5-pro"
 
 
 def test_mesh_os_http_endpoints(live_mesh_server):
