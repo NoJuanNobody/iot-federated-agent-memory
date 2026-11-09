@@ -74,8 +74,9 @@ def test_relay_video_playlist_collection():
 
     # Add a second video via raw blockquote embed snippet
     snippet = '<blockquote class="tiktok-embed" cite="https://www.tiktok.com/@nojuannobody/video/7705677376465767799" data-video-id="7705677376465767799"></blockquote>'
-    added = pl.add_video(snippet, title="Part 2 Walkthrough", category="ad")
+    added = pl.add_video(snippet, title="Part 2 Walkthrough", category="ad", auto_download=False)
     assert added["video_id"] == "7705677376465767799"
+    assert added["embed_url"] == "/videos/7705677376465767799.mp4"
     assert pl.get_playlist()["total"] == 2
 
     # Remove the second video

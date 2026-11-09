@@ -1,26 +1,82 @@
-"""Relay Video Channel & Playlist Manager for Autoplaying Video Collections."""
+"""Relay Video Channel & Native MP4 Playlist Manager (Zero External TikTok Links)."""
 
 from __future__ import annotations
 
+import json
+import os
 import re
+import shutil
+import subprocess
 import threading
 import time
+import urllib.request
 from dataclasses import dataclass, asdict
 from typing import Any, Dict, List, Optional
+
+VIDEOS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "videos")
 
 
 @dataclass
 class PlaylistItem:
     id: str
     video_id: str
-    platform: str  # "tiktok", "youtube", "mp4"
+    platform: str  # "mp4", "tiktok", "youtube"
     creator: str
     title: str
     category: str  # "instruction", "ad", "spotlight"
     cite_url: str
-    embed_url: str
+    embed_url: str  # Direct /videos/<id>.mp4 or S3/CDN MP4 stream URL
     duration_seconds: int = 35
     added_at: float = 0.0
+    local_mp4_path: Optional[str] = None
+
+
+def download_tiktok_mp4(video_id: str, cite_url: str, dest_dir: Optional[str] = None) -> Optional[str]:
+    """Download clean MP4 from TikTok via yt-dlp or TikWM API so the relay hosts & plays native MP4."""
+    target_dir = dest_dir or VIDEOS_DIR
+    os.makedirs(target_dir, exist_ok=True)
+    out_path = os.path.join(target_dir, f"{video_id}.mp4")
+    if os.path.isfile(out_path) and os.path.getsize(out_path) > 1024:
+        return out_path
+
+    # 1. Try yt-dlp if available on system
+    ytdlp_bin = os.path.expanduser("~/.local/bin/yt-dlp")
+    if not (os.path.isfile(ytdlp_bin) and os.access(ytdlp_bin, os.X_OK)):
+        ytdlp_bin = shutil.which("yt-dlp")
+
+    if ytdlp_bin:
+        try:
+            subprocess.run(
+                [ytdlp_bin, "-f", "mp4/best", "-o", out_path, cite_url],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=30,
+            )
+            if os.path.isfile(out_path) and os.path.getsize(out_path) > 1024:
+                return out_path
+        except Exception:
+            pass
+
+    # 2. Fallback for cloud containers without yt-dlp: TikWM direct MP4 resolver
+    try:
+        api_url = f"https://www.tikwm.com/api/?url={cite_url}"
+        req = urllib.request.Request(api_url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            meta = json.loads(resp.read().decode("utf-8"))
+        mp4_url = (meta.get("data") or {}).get("play")
+        if mp4_url:
+            dl_req = urllib.request.Request(mp4_url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(dl_req, timeout=20) as mp4_resp:
+                data = mp4_resp.read()
+            if len(data) > 1024:
+                with open(out_path, "wb") as f:
+                    f.write(data)
+                return out_path
+    except Exception:
+        pass
+
+    return out_path if os.path.isfile(out_path) else None
 
 
 def parse_video_input(
@@ -29,8 +85,9 @@ def parse_video_input(
     creator: Optional[str] = None,
     category: str = "spotlight",
     duration_seconds: int = 35,
+    auto_download: bool = True,
 ) -> PlaylistItem:
-    """Parse a TikTok embed blockquote, TikTok URL, TikTok video ID, YouTube URL, or MP4 URL."""
+    """Parse a TikTok URL/embed/ID or direct MP4 URL and resolve to a self-hosted native MP4 stream."""
     text = (raw_input or "").strip()
     if not text:
         raise ValueError("Video input cannot be empty")
@@ -48,46 +105,32 @@ def parse_video_input(
         if not detected_creator.startswith("@"):
             detected_creator = f"@{detected_creator}"
         cite_url = f"https://www.tiktok.com/{detected_creator}/video/{vid}"
-        embed_url = f"https://www.tiktok.com/player/v1/{vid}?autoplay=1&music_info=1&description=1&rel=0"
+        local_mp4 = download_tiktok_mp4(vid, cite_url) if auto_download else None
+        # Always serve native self-hosted MP4 from the relay (/videos/<vid>.mp4) — never link out to TikTok!
+        embed_url = f"/videos/{vid}.mp4"
         return PlaylistItem(
-            id=f"tiktok-{vid}",
+            id=f"video-{vid}",
             video_id=vid,
-            platform="tiktok",
+            platform="mp4",
             creator=detected_creator,
-            title=title or f"TinCan Demo & Spotlight ({detected_creator})",
+            title=title or f"TinCan Featured Video ({detected_creator})",
             category=category or "spotlight",
-            cite_url=cite_url,
+            cite_url=embed_url,
             embed_url=embed_url,
             duration_seconds=int(duration_seconds),
             added_at=time.time(),
+            local_mp4_path=local_mp4,
         )
 
-    # 2. Check for YouTube URL
-    yt_match = re.search(r"(?:v=|youtu\.be/|embed/)([A-Za-z0-9_-]{11})", text)
-    if yt_match:
-        vid = yt_match.group(1)
+    # 2. Direct MP4/WebM path or URL
+    if text.startswith("http://") or text.startswith("https://") or text.startswith("/videos/"):
+        vid = os.path.splitext(os.path.basename(text.split("?")[0]))[0] or f"stream-{int(time.time() * 1000)}"
         return PlaylistItem(
-            id=f"youtube-{vid}",
-            video_id=vid,
-            platform="youtube",
-            creator=creator or "@tincan",
-            title=title or f"YouTube Video ({vid})",
-            category=category or "instruction",
-            cite_url=f"https://www.youtube.com/watch?v={vid}",
-            embed_url=f"https://www.youtube.com/embed/{vid}?autoplay=1&mute=0&loop=1",
-            duration_seconds=int(duration_seconds),
-            added_at=time.time(),
-        )
-
-    # 3. Direct MP4/WebM URL
-    if text.startswith("http://") or text.startswith("https://"):
-        vid = f"stream-{int(time.time() * 1000)}"
-        return PlaylistItem(
-            id=vid,
+            id=f"video-{vid}",
             video_id=vid,
             platform="mp4",
             creator=creator or "@tincan",
-            title=title or "Direct Video Stream",
+            title=title or f"TinCan Video ({vid})",
             category=category or "ad",
             cite_url=text,
             embed_url=text,
@@ -99,20 +142,22 @@ def parse_video_input(
 
 
 class RelayVideoPlaylist:
-    """Thread-safe video collection manager for the TinCan Relay."""
+    """Thread-safe native MP4 video collection manager for the TinCan Relay."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self.items: List[PlaylistItem] = []
         self.autoplay: bool = True
         self.loop_collection: bool = True
-        # Seed with @nojuannobody's featured TikTok video
+        os.makedirs(VIDEOS_DIR, exist_ok=True)
+        # Seed with @nojuannobody's self-hosted MP4 video (7705677376465767711.mp4)
         self.add_video(
-            raw_input="https://www.tiktok.com/@nojuannobody/video/7705677376465767711",
-            title="TinCan Mesh Walkthrough & Creator Spotlight",
+            raw_input="7705677376465767711",
+            title="TinCan Mesh Walkthrough",
             creator="@nojuannobody",
             category="instruction",
             duration_seconds=35,
+            auto_download=False,
         )
 
     def add_video(
@@ -122,6 +167,7 @@ class RelayVideoPlaylist:
         creator: Optional[str] = None,
         category: str = "spotlight",
         duration_seconds: int = 35,
+        auto_download: bool = True,
     ) -> Dict[str, Any]:
         item = parse_video_input(
             raw_input=raw_input,
@@ -129,11 +175,11 @@ class RelayVideoPlaylist:
             creator=creator,
             category=category,
             duration_seconds=duration_seconds,
+            auto_download=auto_download,
         )
         with self._lock:
-            # Replace if same video_id already exists, otherwise append to collection
             for idx, existing in enumerate(self.items):
-                if existing.video_id == item.video_id and existing.platform == item.platform:
+                if existing.video_id == item.video_id:
                     self.items[idx] = item
                     return asdict(item)
             self.items.append(item)

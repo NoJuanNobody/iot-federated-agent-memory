@@ -214,6 +214,52 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             self.wfile.write(HTML_UI.encode("utf-8"))
         elif parsed.path == "/api/playlist":
             self._send_json(playlist.get_playlist(), 200)
+        elif parsed.path.startswith("/videos/") and parsed.path.endswith(".mp4"):
+            from iot_federated_agent_memory.video_playlist import VIDEOS_DIR, download_tiktok_mp4
+            import re
+
+            fname = os.path.basename(parsed.path)
+            vid = os.path.splitext(fname)[0]
+            file_path = os.path.join(VIDEOS_DIR, f"{vid}.mp4")
+            if not os.path.isfile(file_path):
+                download_tiktok_mp4(vid, f"https://www.tiktok.com/@nojuannobody/video/{vid}", VIDEOS_DIR)
+
+            if not os.path.isfile(file_path):
+                self.send_response(404)
+                self.end_headers()
+                return
+
+            file_size = os.path.getsize(file_path)
+            range_header = self.headers.get("Range")
+            if range_header:
+                m = re.match(r"bytes=(\d+)-(\d*)", range_header)
+                if m:
+                    start = int(m.group(1))
+                    end = int(m.group(2)) if m.group(2) else file_size - 1
+                    end = min(end, file_size - 1)
+                    length = max(0, end - start + 1)
+                    with open(file_path, "rb") as f:
+                        f.seek(start)
+                        chunk = f.read(length)
+                    self.send_response(206)
+                    self.send_header("Content-Type", "video/mp4")
+                    self.send_header("Accept-Ranges", "bytes")
+                    self.send_header("Content-Range", f"bytes {start}-{end}/{file_size}")
+                    self.send_header("Content-Length", str(len(chunk)))
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.end_headers()
+                    self.wfile.write(chunk)
+                    return
+
+            with open(file_path, "rb") as f:
+                data = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", "video/mp4")
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Content-Length", str(file_size))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(data)
         elif parsed.path == "/api/webrtc/signals":
             query = parse_qs(parsed.query)
             peer_id = query.get("peer_id", query.get("peer", [None]))[0]
@@ -402,34 +448,31 @@ HTML_UI = """<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- Right: Relay Autoplaying Video Channel & Collection Player -->
+      <!-- Right: Relay Autoplaying Native MP4 Video Channel & Collection Player (Zero External Links) -->
       <div id="tv" class="lg:col-span-5 bg-slate-900 border border-pink-900/60 rounded-xl p-5 shadow-2xl flex flex-col space-y-3">
         <div class="w-full flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="text-lg">📺</span>
             <div>
               <h2 class="font-bold text-white text-sm">Relay Video Channel &amp; Collection</h2>
-              <p id="nowPlayingTitle" class="text-[11px] text-slate-400">Auto-playing <a href="https://www.tiktok.com/@nojuannobody" target="_blank" class="text-pink-400 hover:underline font-mono">@nojuannobody</a></p>
+              <p id="nowPlayingTitle" class="text-[11px] text-slate-400">Self-hosted Native MP4 · <span class="text-pink-400 font-mono">@nojuannobody</span></p>
             </div>
           </div>
           <span id="playlistCounterBadge" class="text-[10px] bg-pink-950 text-pink-300 border border-pink-800 px-2.5 py-0.5 rounded-full font-mono uppercase">1 / 1 · Loop</span>
         </div>
 
-        <!-- Auto-Playing Video Viewport (TikTok Player v1 / YouTube / MP4 + Blockquote Fallback) -->
-        <div class="w-full flex flex-col items-center justify-center overflow-hidden rounded-lg bg-black border border-slate-800 relative min-h-[540px]">
-          <div id="playerIframeContainer" class="w-full h-[540px] flex items-center justify-center">
-            <iframe
-              id="relayVideoIframe"
-              src="https://www.tiktok.com/player/v1/7705677376465767711?autoplay=1&loop=1&music_info=1&description=1&rel=0"
-              class="w-full h-full border-0"
-              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-              allowfullscreen
-            ></iframe>
-          </div>
-          <div id="playerBlockquoteContainer" class="w-full hidden justify-center p-2">
-            <blockquote class="tiktok-embed" cite="https://www.tiktok.com/@nojuannobody/video/7705677376465767711" data-video-id="7705677376465767711" style="max-width: 605px;min-width: 325px;" > <section> <a target="_blank" title="@nojuannobody" href="https://www.tiktok.com/@nojuannobody?refer=embed">@nojuannobody</a> <p></p> <a target="_blank" title="♬ original sound - kingvonfrmdao" href="https://www.tiktok.com/music/original-sound-7628145615867824926?refer=embed">♬ original sound - kingvonfrmdao</a> </section> </blockquote>
-            <script async src="https://www.tiktok.com/embed.js"></script>
-          </div>
+        <!-- Self-Hosted Native HTML5 MP4 Player (Zero TikTok Links or Redirects) -->
+        <div class="w-full flex flex-col items-center justify-center overflow-hidden rounded-lg bg-black border border-slate-800 relative h-[520px]">
+          <video
+            id="relayNativeVideo"
+            src="/videos/7705677376465767711.mp4"
+            autoplay
+            loop
+            muted
+            playsinline
+            controls
+            class="w-full h-full object-contain bg-black"
+          ></video>
         </div>
 
         <!-- Playlist Controls -->
@@ -439,8 +482,8 @@ HTML_UI = """<!DOCTYPE html>
             <button onclick="nextPlaylistVideo()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 transition">Next ⏭</button>
             <button id="autoRotateBtn" onclick="toggleAutoRotate()" class="px-2.5 py-1 bg-emerald-950 text-emerald-300 rounded border border-emerald-800 transition">🔁 Auto-Loop: ON</button>
           </div>
-          <button id="toggleEmbedModeBtn" onclick="toggleEmbedMode()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition">
-            Card View
+          <button id="soundToggleBtn" onclick="toggleVideoSound()" class="px-2.5 py-1 bg-pink-950 hover:bg-pink-900 text-pink-300 rounded border border-pink-800 transition">
+            🔊 Tap to Unmute
           </button>
         </div>
 
@@ -451,9 +494,9 @@ HTML_UI = """<!DOCTYPE html>
 
         <!-- Add Video to Collection Form -->
         <div class="pt-2 border-t border-slate-800 flex gap-1.5 text-xs">
-          <input id="newVideoInput" type="text" placeholder="Paste TikTok URL, video ID, or <blockquote> to add to collection..." class="flex-1 bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white font-mono placeholder:text-slate-600">
+          <input id="newVideoInput" type="text" placeholder="Paste video URL or ID to ingest MP4 into relay collection..." class="flex-1 bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white font-mono placeholder:text-slate-600">
           <button onclick="addVideoToPlaylist()" class="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white font-semibold rounded transition shrink-0">
-            + Add Video
+            + Ingest MP4
           </button>
         </div>
       </div>
@@ -910,17 +953,17 @@ HTML_UI = """<!DOCTYPE html>
       const item = playlistVideos[currentVideoIdx];
       badge.innerText = `${currentVideoIdx + 1} / ${total} · ${autoRotateEnabled ? 'Loop' : 'Paused'}`;
       document.getElementById('nowPlayingTitle').innerHTML =
-        `${item.title} · <a href="https://www.tiktok.com/${item.creator}" target="_blank" class="text-pink-400 hover:underline font-mono">${item.creator}</a>`;
+        `${item.title} · <span class="text-pink-400 font-mono">${item.creator}</span>`;
 
-      const iframe = document.getElementById('relayVideoIframe');
-      const loopParam = (total === 1 && autoRotateEnabled) ? '1' : '0';
-      const targetSrc = item.platform === 'tiktok'
-        ? `https://www.tiktok.com/player/v1/${item.video_id}?autoplay=1&loop=${loopParam}&music_info=1&description=1&rel=0`
-        : item.embed_url;
-
-      if (iframe && iframe.getAttribute('data-vid') !== item.id + '-' + loopParam) {
-        iframe.setAttribute('data-vid', item.id + '-' + loopParam);
-        iframe.src = targetSrc;
+      const vidEl = document.getElementById('relayNativeVideo');
+      const targetSrc = item.embed_url || `/videos/${item.video_id}.mp4`;
+      if (vidEl) {
+        vidEl.loop = (total === 1 && autoRotateEnabled);
+        if (vidEl.getAttribute('data-vid') !== item.id) {
+          vidEl.setAttribute('data-vid', item.id);
+          vidEl.src = targetSrc;
+          vidEl.play().catch(() => {});
+        }
       }
 
       queue.innerHTML = playlistVideos.map((v, idx) => `
@@ -929,8 +972,6 @@ HTML_UI = """<!DOCTYPE html>
           <span class="text-[10px] uppercase px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 ml-2 shrink-0">${v.category}</span>
         </div>
       `).join('');
-
-      scheduleAutoAdvance(item.duration_seconds || 35);
     }
 
     function scheduleAutoAdvance(seconds) {
@@ -969,12 +1010,24 @@ HTML_UI = """<!DOCTYPE html>
       renderPlaylistUI();
     }
 
-    function toggleEmbedMode() {
-      useBlockquoteMode = !useBlockquoteMode;
-      document.getElementById('playerIframeContainer').className = useBlockquoteMode ? 'hidden' : 'w-full h-[540px] flex items-center justify-center';
-      document.getElementById('playerBlockquoteContainer').className = useBlockquoteMode ? 'w-full flex justify-center p-2' : 'w-full hidden justify-center p-2';
-      document.getElementById('toggleEmbedModeBtn').innerText = useBlockquoteMode ? 'Auto-Player View' : 'Card View';
+    function toggleVideoSound() {
+      const vidEl = document.getElementById('relayNativeVideo');
+      const btn = document.getElementById('soundToggleBtn');
+      if (!vidEl) return;
+      vidEl.muted = !vidEl.muted;
+      btn.innerText = vidEl.muted ? '🔊 Tap to Unmute' : '🔇 Mute Audio';
+      vidEl.play().catch(() => {});
     }
+
+    document.getElementById('relayNativeVideo').addEventListener('ended', () => {
+      if (autoRotateEnabled && playlistVideos.length > 1) {
+        nextPlaylistVideo();
+      } else if (autoRotateEnabled && playlistVideos.length === 1) {
+        const vidEl = document.getElementById('relayNativeVideo');
+        vidEl.currentTime = 0;
+        vidEl.play().catch(() => {});
+      }
+    });
 
     async function addVideoToPlaylist() {
       const inp = document.getElementById('newVideoInput');
