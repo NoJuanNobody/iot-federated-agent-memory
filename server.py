@@ -514,9 +514,9 @@ HTML_UI = """<!DOCTYPE html>
         <div class="text-xs text-slate-400 mt-1">H.264 Sub-80ms Latency</div>
       </div>
       <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
-        <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">AI Credit Pool</h2>
-        <div class="text-xl font-bold text-indigo-400 mt-2">4 Funded Labs</div>
-        <div class="text-xs text-slate-400 mt-1">Claude, Grok, Gemini, OpenAI</div>
+        <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">OpenRouter Balance</h2>
+        <div id="topBalanceValue" class="text-xl font-bold text-indigo-400 mt-2">Loading...</div>
+        <div id="topBalanceSub" class="text-xs text-slate-400 mt-1">Live OpenRouter Credit Pool</div>
       </div>
       <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
         <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">TinCan Blind Relay</h2>
@@ -525,18 +525,44 @@ HTML_UI = """<!DOCTYPE html>
       </div>
     </div>
 
-    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
-      <div class="flex justify-between items-center">
+    <div id="openrouter" class="bg-slate-900 border border-indigo-900/60 rounded-xl p-5 space-y-4 shadow-2xl">
+      <div class="flex flex-wrap justify-between items-center gap-2">
         <div>
-          <h2 class="text-lg font-bold text-white">AI Model Gateway &amp; Usage Tracking</h2>
-          <p class="text-xs text-slate-400">Live token metrics, spend per provider, and hot-swappable model configurations</p>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <span>💳</span> OpenRouter Cost, Spend &amp; Credit Dashboard
+          </h2>
+          <p class="text-xs text-slate-400">Live account credits, lifetime spend, key usage, and per-model token pricing</p>
         </div>
-        <div id="analyticsHeader" class="text-right text-xs font-mono text-emerald-400">
-          Loading metrics...
+        <div id="analyticsHeader" class="text-right text-xs font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-3 py-1.5 rounded-lg">
+          Fetching live OpenRouter billing...
         </div>
       </div>
 
-      <!-- Live Provider Cards Grid -->
+      <!-- Live OpenRouter Account & Key Spend Breakdown -->
+      <div id="openrouterBillingGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+        <div class="p-3 bg-slate-950/80 border border-slate-800 rounded-lg">
+          <div class="text-slate-400 text-[11px]">Remaining Balance</div>
+          <div id="orRemaining" class="text-lg font-bold text-emerald-400 mt-0.5">--</div>
+          <div id="orCreditsTotal" class="text-[11px] text-slate-500">of -- credits</div>
+        </div>
+        <div class="p-3 bg-slate-950/80 border border-slate-800 rounded-lg">
+          <div class="text-slate-400 text-[11px]">Total Account Spend</div>
+          <div id="orTotalUsage" class="text-lg font-bold text-amber-400 mt-0.5">--</div>
+          <div class="text-[11px] text-slate-500">Lifetime OpenRouter cost</div>
+        </div>
+        <div class="p-3 bg-slate-950/80 border border-slate-800 rounded-lg">
+          <div class="text-slate-400 text-[11px]">Active Key Spend</div>
+          <div id="orKeyUsage" class="text-lg font-bold text-cyan-400 mt-0.5">--</div>
+          <div id="orKeyToday" class="text-[11px] text-slate-500">Today: --</div>
+        </div>
+        <div class="p-3 bg-slate-950/80 border border-slate-800 rounded-lg">
+          <div class="text-slate-400 text-[11px]">Key Budget Remaining</div>
+          <div id="orKeyLimitRem" class="text-lg font-bold text-indigo-400 mt-0.5">--</div>
+          <div id="orKeyLabel" class="text-[11px] text-slate-500 truncate">Key: --</div>
+        </div>
+      </div>
+
+      <!-- Live Provider & Cost Cards Grid -->
       <div id="providerCards" class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <!-- Injected via JavaScript -->
       </div>
@@ -860,24 +886,43 @@ HTML_UI = """<!DOCTYPE html>
       try {
         const res = await fetch('/api/models/analytics');
         const data = await res.json();
+        const or = data.openrouter || {};
+
+        if (or.connected) {
+          document.getElementById('topBalanceValue').innerText = `$${Number(or.account_remaining_balance_usd).toFixed(2)} Left`;
+          document.getElementById('topBalanceSub').innerText = `$${Number(or.account_total_usage_usd).toFixed(2)} spent of $${Number(or.account_total_credits_usd).toFixed(2)}`;
+          document.getElementById('orRemaining').innerText = `$${Number(or.account_remaining_balance_usd).toFixed(4)}`;
+          document.getElementById('orCreditsTotal').innerText = `of $${Number(or.account_total_credits_usd).toFixed(2)} total credits`;
+          document.getElementById('orTotalUsage').innerText = `$${Number(or.account_total_usage_usd).toFixed(4)}`;
+          document.getElementById('orKeyUsage').innerText = `$${Number(or.key_usage_total_usd).toFixed(6)}`;
+          document.getElementById('orKeyToday').innerText = `Today: $${Number(or.key_usage_daily_usd).toFixed(6)} | Mo: $${Number(or.key_usage_monthly_usd).toFixed(6)}`;
+          document.getElementById('orKeyLimitRem').innerText = or.key_remaining_usd != null ? `$${Number(or.key_remaining_usd).toFixed(4)}` : 'Unlimited';
+          document.getElementById('orKeyLabel').innerText = `Key: ${or.key_label} (Cap: $${or.key_limit_usd || '∞'})`;
+        }
+
         document.getElementById('analyticsHeader').innerText = 
-          `Total Calls: ${data.total_calls} | Tokens: ${data.total_tokens} | Spend: $${data.total_spend_usd.toFixed(4)}`;
+          `Session Calls: ${data.total_calls} | Session Tokens: ${data.total_tokens} | Session Cost: $${Number(data.total_spend_usd).toFixed(6)}`;
         
         const container = document.getElementById('providerCards');
         container.innerHTML = '';
         for (const [alias, info] of Object.entries(data.providers)) {
           const card = document.createElement('div');
-          card.className = 'p-3 bg-slate-800/60 rounded-lg border border-slate-700/80 space-y-1.5 font-mono text-xs';
+          card.className = 'p-3.5 bg-slate-800/60 rounded-lg border border-slate-700/80 space-y-2 font-mono text-xs';
           card.innerHTML = `
             <div class="flex justify-between items-center">
               <span class="font-bold text-white">${alias}</span>
               <span class="text-xs bg-indigo-950 text-indigo-300 px-2 py-0.5 rounded border border-indigo-800">${info.display_name}</span>
             </div>
             <div class="text-slate-300 truncate"><span class="text-slate-500">Model:</span> ${info.model}</div>
-            <div class="grid grid-cols-3 gap-1 pt-1 text-slate-400 border-t border-slate-700/50">
+            <div class="grid grid-cols-3 gap-1 pt-1.5 text-slate-300 border-t border-slate-700/50 text-[11px]">
+              <div><span class="text-slate-500">In/1M:</span> <span class="text-amber-300">$${Number(info.input_cost_per_1m_usd || 0).toFixed(2)}</span></div>
+              <div><span class="text-slate-500">Out/1M:</span> <span class="text-amber-300">$${Number(info.output_cost_per_1m_usd || 0).toFixed(2)}</span></div>
+              <div><span class="text-slate-500">~1K Call:</span> <span class="text-cyan-300">$${Number(info.est_cost_per_1k_prompt_usd || 0).toFixed(5)}</span></div>
+            </div>
+            <div class="grid grid-cols-3 gap-1 pt-1.5 text-slate-400 border-t border-slate-700/50">
               <div><span class="text-slate-500">Calls:</span> <span class="text-white">${info.total_calls}</span></div>
               <div><span class="text-slate-500">Tokens:</span> <span class="text-white">${info.total_tokens}</span></div>
-              <div><span class="text-slate-500">Cost:</span> <span class="text-emerald-400">$${info.cost_usd.toFixed(4)}</span></div>
+              <div><span class="text-slate-500">Spent:</span> <span class="text-emerald-400">$${Number(info.cost_usd || 0).toFixed(6)}</span></div>
             </div>
           `;
           container.appendChild(card);

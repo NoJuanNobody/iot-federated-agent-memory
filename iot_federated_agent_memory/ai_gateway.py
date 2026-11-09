@@ -1,13 +1,36 @@
-"""Dynamic Multi-Lab AI Gateway Router and OpenRouter Unified Credit Pooling."""
+"""Dynamic Multi-Lab AI Gateway Router and Live OpenRouter Cost & Credit Dashboard."""
 
 from __future__ import annotations
 
 import json
 import os
+import subprocess
 import time
 import urllib.request
 from dataclasses import dataclass, asdict
 from typing import Any, Dict, List, Optional
+
+
+def _resolve_openrouter_key_fallback() -> Optional[str]:
+    """Resolve OPENROUTER_API_KEY from environment or local Railway CLI service variables."""
+    env_key = os.environ.get("OPENROUTER_API_KEY")
+    if env_key:
+        return env_key
+    try:
+        repo_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        raw = subprocess.check_output(
+            ["railway", "variable", "list", "--service", "iot-federated-agent-memory", "--json"],
+            cwd=repo_dir,
+            stderr=subprocess.DEVNULL,
+            timeout=6,
+        ).decode("utf-8")
+        data = json.loads(raw)
+        if data.get("OPENROUTER_API_KEY"):
+            os.environ["OPENROUTER_API_KEY"] = data["OPENROUTER_API_KEY"]
+            return data["OPENROUTER_API_KEY"]
+    except Exception:
+        pass
+    return None
 
 
 @dataclass
@@ -19,6 +42,8 @@ class LabProviderConfig:
     api_key_env: str
     available_credits: float
     is_active: bool
+    input_cost_per_1m: float = 1.0
+    output_cost_per_1m: float = 3.0
     total_calls: int = 0
     total_prompt_tokens: int = 0
     total_completion_tokens: int = 0
@@ -27,9 +52,11 @@ class LabProviderConfig:
 
 
 class DynamicAIGatewayRouter:
-    """Manages hot-swappable AI provider subscriptions, credit budgets, and OpenRouter unified routing."""
+    """Manages hot-swappable AI provider models, live OpenRouter billing/credits, and per-call cost tracking."""
 
     OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
+    OPENROUTER_CREDITS_URL = "https://openrouter.ai/api/v1/credits"
+    OPENROUTER_KEY_URL = "https://openrouter.ai/api/v1/auth/key"
 
     DEFAULT_LABS = {
         "claude-brain": LabProviderConfig(
@@ -40,6 +67,8 @@ class DynamicAIGatewayRouter:
             api_key_env="OPENROUTER_API_KEY",
             available_credits=100.0,
             is_active=True,
+            input_cost_per_1m=3.00,
+            output_cost_per_1m=15.00,
         ),
         "grok-brain": LabProviderConfig(
             lab_id="xai",
@@ -49,6 +78,8 @@ class DynamicAIGatewayRouter:
             api_key_env="OPENROUTER_API_KEY",
             available_credits=50.0,
             is_active=True,
+            input_cost_per_1m=2.00,
+            output_cost_per_1m=10.00,
         ),
         "gemini-brain": LabProviderConfig(
             lab_id="google",
@@ -58,6 +89,8 @@ class DynamicAIGatewayRouter:
             api_key_env="OPENROUTER_API_KEY",
             available_credits=80.0,
             is_active=True,
+            input_cost_per_1m=0.15,
+            output_cost_per_1m=0.60,
         ),
         "openai-brain": LabProviderConfig(
             lab_id="openai",
@@ -67,15 +100,19 @@ class DynamicAIGatewayRouter:
             api_key_env="OPENROUTER_API_KEY",
             available_credits=60.0,
             is_active=True,
+            input_cost_per_1m=2.50,
+            output_cost_per_1m=10.00,
         ),
     }
 
     def __init__(self, openrouter_key: Optional[str] = None):
-        self.openrouter_key = openrouter_key or os.environ.get("OPENROUTER_API_KEY")
+        self.openrouter_key = openrouter_key if openrouter_key is not None else os.environ.get("OPENROUTER_API_KEY")
         self.providers: Dict[str, LabProviderConfig] = {
             k: LabProviderConfig(**asdict(v)) for k, v in self.DEFAULT_LABS.items()
         }
         self.routing_log: List[Dict[str, Any]] = []
+        self._billing_cache: Optional[Dict[str, Any]] = None
+        self._billing_cached_at: float = 0.0
 
     def route_request(self, requested_alias: str, estimated_cost: float = 0.02) -> LabProviderConfig:
         """Route request to the target lab, or fallback if credit pool is exhausted."""
@@ -117,7 +154,6 @@ class DynamicAIGatewayRouter:
     def set_model(self, alias: str, new_model: str, display_name: Optional[str] = None) -> LabProviderConfig:
         """Set or update model name for a provider alias."""
         if alias not in self.providers:
-            # Create custom provider slot
             self.providers[alias] = LabProviderConfig(
                 lab_id="custom",
                 display_name=display_name or alias,
@@ -147,27 +183,105 @@ class DynamicAIGatewayRouter:
             provider.total_prompt_tokens += prompt_tokens
             provider.total_completion_tokens += completion_tokens
             provider.total_tokens += total_tokens
+            if cost <= 0.0 and (prompt_tokens > 0 or completion_tokens > 0):
+                cost = (
+                    (prompt_tokens / 1_000_000.0) * provider.input_cost_per_1m
+                    + (completion_tokens / 1_000_000.0) * provider.output_cost_per_1m
+                )
             provider.total_cost += cost
 
-    def get_analytics(self) -> Dict[str, Any]:
-        """Aggregate usage analytics across all models."""
-        total_calls = sum(p.total_calls for p in self.providers.values())
-        total_tokens = sum(p.total_tokens for p in self.providers.values())
-        total_spend = sum(p.total_cost for p in self.providers.values())
+    def get_openrouter_billing(self, force_refresh: bool = False) -> Dict[str, Any]:
+        """Fetch real-time OpenRouter account credits, total spend, and active key usage."""
+        now = time.time()
+        if not force_refresh and self._billing_cached_at and (now - self._billing_cached_at) < 15.0 and self._billing_cache:
+            return self._billing_cache
+
+        api_key = self.openrouter_key or _resolve_openrouter_key_fallback()
+        if not api_key:
+            return {
+                "connected": False,
+                "account_total_credits_usd": 0.0,
+                "account_total_usage_usd": 0.0,
+                "account_remaining_balance_usd": 0.0,
+                "key_label": "not_configured",
+                "key_limit_usd": None,
+                "key_remaining_usd": None,
+                "key_usage_total_usd": 0.0,
+                "key_usage_daily_usd": 0.0,
+                "key_usage_weekly_usd": 0.0,
+                "key_usage_monthly_usd": 0.0,
+            }
+
+        headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/json"}
+        credits_data: Dict[str, Any] = {}
+        key_data: Dict[str, Any] = {}
+
+        try:
+            req_c = urllib.request.Request(self.OPENROUTER_CREDITS_URL, headers=headers, method="GET")
+            with urllib.request.urlopen(req_c, timeout=8.0) as resp_c:
+                credits_data = (json.loads(resp_c.read().decode("utf-8")) or {}).get("data") or {}
+        except Exception:
+            pass
+
+        try:
+            req_k = urllib.request.Request(self.OPENROUTER_KEY_URL, headers=headers, method="GET")
+            with urllib.request.urlopen(req_k, timeout=8.0) as resp_k:
+                key_data = (json.loads(resp_k.read().decode("utf-8")) or {}).get("data") or {}
+        except Exception:
+            pass
+
+        total_credits = float(credits_data.get("total_credits") or 0.0)
+        total_usage = float(credits_data.get("total_usage") or 0.0)
+        remaining_balance = max(0.0, total_credits - total_usage)
+
+        billing = {
+            "connected": bool(credits_data or key_data),
+            "account_total_credits_usd": round(total_credits, 4),
+            "account_total_usage_usd": round(total_usage, 6),
+            "account_remaining_balance_usd": round(remaining_balance, 4),
+            "key_label": key_data.get("label") or "active-key",
+            "key_limit_usd": key_data.get("limit"),
+            "key_remaining_usd": round(float(key_data["limit_remaining"]), 6) if key_data.get("limit_remaining") is not None else None,
+            "key_usage_total_usd": round(float(key_data.get("usage") or 0.0), 6),
+            "key_usage_daily_usd": round(float(key_data.get("usage_daily") or 0.0), 6),
+            "key_usage_weekly_usd": round(float(key_data.get("usage_weekly") or 0.0), 6),
+            "key_usage_monthly_usd": round(float(key_data.get("usage_monthly") or 0.0), 6),
+            "fetched_at": now,
+        }
+        self._billing_cache = billing
+        self._billing_cached_at = now
+        return billing
+
+    def get_analytics(self, include_live_billing: bool = True) -> Dict[str, Any]:
+        """Aggregate usage analytics, per-model token rates, and live OpenRouter account spend."""
+        session_calls = sum(p.total_calls for p in self.providers.values())
+        session_tokens = sum(p.total_tokens for p in self.providers.values())
+        session_spend = sum(p.total_cost for p in self.providers.values())
+        billing = self.get_openrouter_billing() if include_live_billing else {}
+
         return {
-            "total_calls": total_calls,
-            "total_tokens": total_tokens,
-            "total_spend_usd": round(total_spend, 6),
+            "total_calls": session_calls,
+            "total_tokens": session_tokens,
+            "total_spend_usd": round(session_spend, 6),
+            "openrouter": billing,
             "providers": {
                 k: {
                     "display_name": p.display_name,
                     "model": p.model_alias,
+                    "input_cost_per_1m_usd": p.input_cost_per_1m,
+                    "output_cost_per_1m_usd": p.output_cost_per_1m,
+                    "est_cost_per_1k_prompt_usd": round((p.input_cost_per_1m * 0.5 + p.output_cost_per_1m * 0.5) / 1000.0, 6),
                     "total_calls": p.total_calls,
                     "prompt_tokens": p.total_prompt_tokens,
                     "completion_tokens": p.total_completion_tokens,
                     "total_tokens": p.total_tokens,
                     "cost_usd": round(p.total_cost, 6),
-                    "remaining_credits": round(p.available_credits, 4),
+                    "remaining_credits": round(
+                        billing.get("account_remaining_balance_usd", p.available_credits)
+                        if billing.get("connected")
+                        else p.available_credits,
+                        4,
+                    ),
                     "is_active": p.is_active,
                 }
                 for k, p in self.providers.items()
@@ -184,7 +298,7 @@ class DynamicAIGatewayRouter:
     ) -> Dict[str, Any]:
         """Dispatch real chat completion to OpenRouter using single OPENROUTER_API_KEY."""
         config = self.route_request(alias)
-        api_key = self.openrouter_key or os.environ.get("OPENROUTER_API_KEY")
+        api_key = self.openrouter_key if self.openrouter_key is not None else os.environ.get("OPENROUTER_API_KEY")
 
         if not api_key:
             # Simulated offline response if no API key is injected
@@ -223,9 +337,9 @@ class DynamicAIGatewayRouter:
         with urllib.request.urlopen(req, timeout=30) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             usage = data.get("usage", {})
-            prompt_toks = usage.get("prompt_tokens", 0)
-            comp_toks = usage.get("completion_tokens", 0)
-            total_toks = usage.get("total_tokens", prompt_toks + comp_toks)
-            cost = usage.get("cost", 0.0)
+            prompt_toks = int(usage.get("prompt_tokens", 0))
+            comp_toks = int(usage.get("completion_tokens", 0))
+            total_toks = int(usage.get("total_tokens", prompt_toks + comp_toks))
+            cost = float(usage.get("cost") or 0.0)
             self.record_usage(alias, prompt_toks, comp_toks, total_toks, cost)
             return data

@@ -137,6 +137,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         st_parser.add_argument("peer", nargs="?", default="harper", help="Contact alias or tc: address (default: harper)")
         st_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
+    # credits / cost (live OpenRouter cost & credit dashboard)
+    for cr_cmd in ("credits", "cost"):
+        cr_parser = subparsers.add_parser(cr_cmd, help="Display live OpenRouter account credits, spend, and per-model cost rates")
+        cr_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
     # upgrade
     subparsers.add_parser("upgrade", help="Upgrade TinCan CLI and mesh bundles to the latest production release")
 
@@ -511,6 +516,34 @@ def main(argv: Optional[List[str]] = None) -> int:
         except Exception as exc:
             print(f"[-] Status check failed: {exc}", file=sys.stderr)
             return 1
+
+    if args.command in ("credits", "cost"):
+        from .ai_gateway import DynamicAIGatewayRouter
+
+        router_inst = DynamicAIGatewayRouter()
+        analytics = router_inst.get_analytics(include_live_billing=True)
+        if args.json:
+            print(json.dumps(analytics, indent=2))
+        else:
+            or_info = analytics.get("openrouter") or {}
+            print("\033[1;36m=== 💳 OpenRouter Live Cost & Credit Dashboard ===\033[0m")
+            if or_info.get("connected"):
+                print(f"  Remaining Balance:   \033[1;32m${or_info.get('account_remaining_balance_usd', 0):.4f}\033[0m (of ${or_info.get('account_total_credits_usd', 0):.2f} total credits)")
+                print(f"  Total Account Spend: \033[1;33m${or_info.get('account_total_usage_usd', 0):.4f}\033[0m")
+                print(f"  Active Key ({or_info.get('key_label')}):")
+                print(f"    • Key Spend Total: ${or_info.get('key_usage_total_usd', 0):.6f} (Today: ${or_info.get('key_usage_daily_usd', 0):.6f} | Month: ${or_info.get('key_usage_monthly_usd', 0):.6f})")
+                if or_info.get("key_remaining_usd") is not None:
+                    print(f"    • Key Budget Left: ${or_info.get('key_remaining_usd', 0):.4f} (of ${or_info.get('key_limit_usd')} limit)")
+            else:
+                print("  Status:              OpenRouter key not found in local environment")
+            print("\n\033[1;35m--- Per-Model Token Pricing & Cost ---\033[0m")
+            for alias, p in (analytics.get("providers") or {}).items():
+                print(
+                    f"  • {alias:13s} ({p['model']:28s}) -> "
+                    f"In: ${p['input_cost_per_1m_usd']:.2f}/1M | Out: ${p['output_cost_per_1m_usd']:.2f}/1M | "
+                    f"~1K Call: ${p['est_cost_per_1k_prompt_usd']:.5f}"
+                )
+        return 0
 
     return 0
 
