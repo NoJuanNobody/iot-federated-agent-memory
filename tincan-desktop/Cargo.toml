@@ -1,0 +1,22 @@
+[package]
+name = "ai-messiah-terminal"
+version = "0.1.0"
+edition = "2024"
+description = "Native Rust Desktop 3-Pane Terminal App: AGY Swarm Orchestrator + AI Messiah IoT Federated Mesh Screensaver/Dashboard + TinCan Encrypted CLI"
+
+[[bin]]
+name = "ai-messiah-terminal"
+path = "src/main.rs"
+
+[dependencies]
+eframe = { version = "0.36", default-features = false, features = ["default_fonts", "wgpu", "accesskit", "wayland", "x11", "persistence", "links"] }
+egui = "0.36"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+log = "0.4"
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.dev]
+opt-level = 1
