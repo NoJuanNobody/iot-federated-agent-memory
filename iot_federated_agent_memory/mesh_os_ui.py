@@ -587,6 +587,30 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             </div>
           </div>
         </div>
+
+        <!-- Live Room & Peer Chat Messaging -->
+        <div class="pt-3 border-t border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span>💬</span> Live Mesh &amp; Peer Chat
+            </span>
+            <span id="chatCounterBadge" class="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">0 messages</span>
+          </div>
+
+          <!-- Message stream -->
+          <div id="chatMessagesList" class="h-44 overflow-y-auto p-2.5 bg-slate-950/90 border border-slate-800 rounded-lg space-y-2 text-xs font-mono">
+            <div class="text-slate-500 text-[11px] italic">No messages yet. Send a broadcast to all active room peers below.</div>
+          </div>
+
+          <!-- Message input -->
+          <div class="flex gap-1.5">
+            <input id="chatInput" type="text" placeholder="Type a message to room peers..." class="flex-1 bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white font-mono placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" onkeydown="if(event.key==='Enter') sendChatMessage()">
+            <button onclick="sendChatMessage()" class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs font-bold font-mono transition active:scale-95 shrink-0 flex items-center gap-1">
+              <span>Send</span>
+              <span>↵</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1676,11 +1700,95 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             document.getElementById('remoteVideo').srcObject = null;
             document.getElementById('remotePeerLabel').innerText = 'peer hung up';
             setCallStatus('Peer disconnected', 'amber');
+          } else if (sig.type === 'chat' || sig.type === 'message') {
+            const sigKey = `${sig.seq || ''}-${sig.from}-${sig.timestamp || ''}`;
+            if (!seenChatIds.has(sigKey)) {
+              seenChatIds.add(sigKey);
+              const txt = (sig.payload && (sig.payload.text || sig.payload.message)) || (typeof sig.payload === 'string' ? sig.payload : '');
+              const sender = (sig.payload && sig.payload.sender) || sig.from || 'Peer';
+              if (txt && sig.from !== myPeerId) {
+                appendChatMessage(sender, txt, false, sig.timestamp ? sig.timestamp * 1000 : null);
+                playXpChime();
+              }
+            }
           }
         }
       } catch (e) {}
     }
     pollTimer = setInterval(pollSignals, 2000);
+
+    // =========================================================================
+    // Live Mesh & Peer Chat Engine
+    // =========================================================================
+    let chatMsgCount = 0;
+    const seenChatIds = new Set();
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function appendChatMessage(sender, text, isMe = false, timestamp = null) {
+      const list = document.getElementById('chatMessagesList');
+      if (!list) return;
+
+      if (chatMsgCount === 0) {
+        list.innerHTML = '';
+      }
+      chatMsgCount++;
+      const counter = document.getElementById('chatCounterBadge');
+      if (counter) counter.innerText = `${chatMsgCount} message${chatMsgCount === 1 ? '' : 's'}`;
+
+      const timeStr = timestamp ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const row = document.createElement('div');
+      row.className = `p-2 rounded text-xs font-mono border transition-all ${isMe ? 'bg-cyan-950/40 border-cyan-800/60 ml-4' : 'bg-slate-900/90 border-slate-800 mr-4'}`;
+      row.innerHTML = `
+        <div class="flex items-center justify-between text-[10px] text-slate-400 mb-0.5">
+          <span class="font-bold ${isMe ? 'text-cyan-300' : 'text-emerald-400'}">${escapeHtml(sender)}${isMe ? ' (you)' : ''}</span>
+          <span class="text-[9px] text-slate-500">${timeStr}</span>
+        </div>
+        <div class="text-slate-100 break-words leading-relaxed">${escapeHtml(text)}</div>
+      `;
+      list.appendChild(row);
+      list.scrollTop = list.scrollHeight;
+    }
+
+    async function sendChatMessage() {
+      const input = document.getElementById('chatInput');
+      if (!input) return;
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      const room = document.getElementById('roomInput').value.trim() || 'main';
+
+      appendChatMessage(myPeerId, text, true, Date.now());
+      playXpChime();
+
+      try {
+        await fetch('/api/webrtc/signal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: myPeerId,
+            to: '*',
+            type: 'chat',
+            room: room,
+            payload: {
+              text: text,
+              sender: myPeerId,
+              timestamp: Date.now()
+            }
+          })
+        });
+      } catch (err) {
+        console.error('Failed to send chat message:', err);
+      }
+    }
 
     // =========================================================================
     // OpenRouter Analytics & Model Configuration Engine (Preserved & Synced)

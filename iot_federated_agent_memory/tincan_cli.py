@@ -163,6 +163,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         disc_parser.add_argument("--room", default="main", help="WebRTC room name (default: main)")
         disc_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
+    # msg / broadcast (live room chat)
+    for msg_cmd in ("msg", "broadcast"):
+        msg_parser = subparsers.add_parser(msg_cmd, help="Broadcast a real-time message to all peers in a WebRTC room")
+        msg_parser.add_argument("text", help="Message text to broadcast to peers")
+        msg_parser.add_argument("--room", default="main", help="WebRTC room name (default: main)")
+        msg_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
     # upgrade
     upg_p = subparsers.add_parser("upgrade", help="Upgrade TinCan CLI and mesh bundles to the latest production release (Approval-Gated)")
     upg_p.add_argument("--yes", "-y", action="store_true", help="Approve upgrade non-interactively")
@@ -762,7 +769,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.command in ("disconnect", "leave", "close"):
         import urllib.request
 
-        target_peer = args.peer or f"{args.alias}-{ident.public_key_hex[:8]}"
+        pub_hex = client.identity.verify_key.encode().hex()[:8]
+        target_peer = args.peer or f"{args.alias}-{pub_hex}"
         relay_base = args.relay.rstrip("/")
         try:
             req = urllib.request.Request(
@@ -783,6 +791,44 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 0
         except Exception as exc:
             print(f"[-] Disconnect error: {exc}", file=sys.stderr)
+            return 1
+
+    if args.command in ("msg", "broadcast"):
+        import time
+        import urllib.request
+
+        pub_hex = client.identity.verify_key.encode().hex()[:8]
+        sender_id = f"{args.alias}-{pub_hex}"
+        relay_base = args.relay.rstrip("/")
+        payload_data = {
+            "from": sender_id,
+            "to": "*",
+            "type": "chat",
+            "room": args.room,
+            "payload": {
+                "text": args.text,
+                "sender": args.alias or sender_id,
+                "timestamp": time.time(),
+            },
+        }
+        try:
+            req = urllib.request.Request(
+                f"{relay_base}/api/webrtc/signal",
+                data=json.dumps(payload_data).encode("utf-8"),
+                headers={"Content-Type": "application/json", "User-Agent": "TinCanCLI/2.2"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=8.0) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            if args.json:
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"\033[1;32m[+] Message broadcast to room '{args.room}'!\033[0m")
+                print(f"    From: {sender_id}")
+                print(f"    Text: {args.text}")
+            return 0
+        except Exception as exc:
+            print(f"[-] Broadcast error: {exc}", file=sys.stderr)
             return 1
 
     return 0

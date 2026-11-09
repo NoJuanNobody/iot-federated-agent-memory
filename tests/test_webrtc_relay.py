@@ -123,3 +123,35 @@ def test_tincan_cli_disconnect(tmp_path, monkeypatch, capsys):
     assert '"removed": true' in out
     assert len(called_requests) == 1
     assert "/api/webrtc/leave" in called_requests[0].full_url
+
+
+def test_tincan_cli_broadcast(tmp_path, monkeypatch, capsys):
+    called_requests = []
+
+    class DummyResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def read(self):
+            import json
+            return json.dumps({
+                "status": "signaled",
+                "signal": {"type": "chat", "room": "main", "payload": {"text": "Hello mesh!"}}
+            }).encode()
+
+    def fake_urlopen(req, timeout=None):
+        called_requests.append(req)
+        return DummyResponse()
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    rc = cli_main(["--dir", str(tmp_path), "msg", "Hello mesh!", "--room", "main", "--json"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Hello mesh!" in out
+    assert '"status": "signaled"' in out
+    assert len(called_requests) == 1
+    assert "/api/webrtc/signal" in called_requests[0].full_url
