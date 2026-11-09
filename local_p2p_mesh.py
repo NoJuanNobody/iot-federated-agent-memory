@@ -15,16 +15,8 @@ from urllib.parse import urlparse
 DEFAULT_LOCAL_PORT = 8080
 
 def get_local_ip():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        # Connect to an arbitrary public IP to determine default egress interface
-        s.connect(('10.255.255.255', 1))
-        IP = s.getsockname()[0]
-    except Exception:
-        IP = '127.0.0.1'
-    finally:
-        s.close()
-    return IP
+    # Privacy Guard: Never probe or expose local LAN IP addresses
+    return "127.0.0.1"
 
 class LocalMeshHandler(BaseHTTPRequestHandler):
     peers = {}
@@ -67,8 +59,8 @@ def main():
     parser.add_argument("--port", type=int, default=DEFAULT_LOCAL_PORT, help="Port to bind")
     args = parser.parse_args()
 
-    local_ip = get_local_ip()
-    server = HTTPServer(("0.0.0.0", args.port), LocalMeshHandler)
+    local_ip = "127.0.0.1"
+    server = HTTPServer(("127.0.0.1", args.port), LocalMeshHandler)
     print("=" * 60)
     print(f"[*] LOCAL P2P MESH SERVER ACTIVE (NO CLOUD REQUIRED)")
     print(f"[*] Your Local IP Address: http://{local_ip}:{args.port}")

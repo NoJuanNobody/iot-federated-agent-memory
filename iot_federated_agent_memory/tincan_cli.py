@@ -156,11 +156,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         return tui_main(["--screensaver", "--relay", args.relay])
 
     if args.command == "upgrade":
-        import subprocess
-        print(f"[*] Upgrading TinCan from {args.relay}...")
-        cmd = f"curl -sSL {args.relay}/install.sh | bash"
-        res = subprocess.run(cmd, shell=True)
-        return res.returncode
+        print("[*] Security Policy: Remote shell upgrades (`curl | bash`) are disabled.")
+        print("    To update safely, run: git pull --ff-only && npx skills add NoJuanNobody/tincan-skills -g -y")
+        return 0
 
     if args.command == "mcp":
         client = TinCanMCPClient(relay_url=args.relay, config_dir=args.dir, alias=args.alias)
@@ -173,8 +171,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         relay_instance = TinCanBlindRelay(db_path=args.db)
         from ..server import MeshGatewayHandler
-        print(f"[*] Starting TinCan Blind Relay on port {args.port} (db: {args.db})...")
-        server = ThreadingHTTPServer(("0.0.0.0", args.port), MeshGatewayHandler)
+        print(f"[*] Starting TinCan Blind Relay on 127.0.0.1:{args.port} (db: {args.db})...")
+        server = ThreadingHTTPServer(("127.0.0.1", args.port), MeshGatewayHandler)
         server.serve_forever()
         return 0
 
@@ -320,11 +318,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             except Exception as exc:
                 invite_res = {"error": str(exc)}
 
-        if not args.no_browser and sys.platform == "darwin":
-            try:
-                subprocess.run(["open", call_url], check=False)
-            except Exception:
-                pass
+        # Security Guard: Never automatically launch a browser subprocess; print the URL for manual user navigation.
 
         result_info = {
             "status": "call_ready",

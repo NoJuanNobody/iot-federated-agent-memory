@@ -192,8 +192,9 @@ class TestSealedDelivery:
         bob = generate_identity()
         ciphertext = seal_payload(bob.address, "Sensitive Information")
 
-        # Corrupt the base64 string
-        corrupted = "A" + ciphertext[1:]
+        # Corrupt the base64 string deterministically
+        flip_char = "B" if ciphertext[0] == "A" else "A"
+        corrupted = flip_char + ciphertext[1:]
         with pytest.raises(DecryptionError):
             bob.open_sealed(corrupted)
 

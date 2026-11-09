@@ -12,25 +12,8 @@ from typing import Any, Dict, List, Optional
 
 
 def _resolve_openrouter_key_fallback() -> Optional[str]:
-    """Resolve OPENROUTER_API_KEY from environment or local Railway CLI service variables."""
-    env_key = os.environ.get("OPENROUTER_API_KEY")
-    if env_key:
-        return env_key
-    try:
-        repo_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        raw = subprocess.check_output(
-            ["railway", "variable", "list", "--service", "iot-federated-agent-memory", "--json"],
-            cwd=repo_dir,
-            stderr=subprocess.DEVNULL,
-            timeout=6,
-        ).decode("utf-8")
-        data = json.loads(raw)
-        if data.get("OPENROUTER_API_KEY"):
-            os.environ["OPENROUTER_API_KEY"] = data["OPENROUTER_API_KEY"]
-            return data["OPENROUTER_API_KEY"]
-    except Exception:
-        pass
-    return None
+    """Resolve OPENROUTER_API_KEY strictly from environment (CLI subprocess scraping disabled)."""
+    return os.environ.get("OPENROUTER_API_KEY")
 
 
 @dataclass

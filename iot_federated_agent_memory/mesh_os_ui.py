@@ -259,11 +259,11 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         </div>
 
         <div>
-          <p class="text-xs text-slate-400 mb-1.5">1. Install &amp; setup peer mesh + TinCan CLI (no account needed):</p>
+          <p class="text-xs text-slate-400 mb-1.5">1. Install TinCan 2.2 Skills via npx skills (Zero-RCE, Peripherals OFF):</p>
           <div class="bg-black/80 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between font-mono text-xs">
-            <code id="installCmd" class="text-emerald-400 select-all overflow-x-auto">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code>
+            <code id="installCmd" class="text-emerald-400 select-all overflow-x-auto">npx skills add NoJuanNobody/tincan-skills -g -y</code>
             <button onclick="copyCommand('installCmd')" class="ml-3 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[11px] font-sans font-semibold transition shrink-0 active:scale-95">
-              Copy Curl
+              Copy Command
             </button>
           </div>
         </div>
