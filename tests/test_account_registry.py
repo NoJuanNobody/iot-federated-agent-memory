@@ -45,6 +45,36 @@ def test_peer_account_registration_and_billing_flow():
         assert summary["token_balance"] == 69250
         assert len(summary["recent_invoices"]) == 1
         assert summary["recent_invoices"][0]["total_tokens"] == 750
+
+        # Mandatory PII Consent Check
+        with pytest.raises(ValueError, match="PII and operator telemetry consent is mandatory"):
+            registry.register_account(
+                peer_id="peer-unconsented",
+                full_name="No Consent User",
+                phone_number="+15615551234",
+                email="noconsent@example.com",
+                consent_pii=False,
+            )
+
+        # Mandatory Full Name Check
+        with pytest.raises(ValueError, match="Full Name is mandatory"):
+            registry.register_account(
+                peer_id="peer-noname",
+                full_name="",
+                phone_number="+15615551234",
+                email="noname@example.com",
+                consent_pii=True,
+            )
+
+        # Mandatory Phone Check
+        with pytest.raises(ValueError, match="Valid phone number is mandatory"):
+            registry.register_account(
+                peer_id="peer-nophone",
+                full_name="Valid Name",
+                phone_number="123",
+                email="valid@example.com",
+                consent_pii=True,
+            )
     finally:
         if os.path.exists(temp_db):
             os.remove(temp_db)

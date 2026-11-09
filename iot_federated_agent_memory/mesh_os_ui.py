@@ -217,28 +217,27 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
   </div>
 
   <!-- ===================================================================== -->
-  <!-- Mandatory Account Registration & Identity Gate Modal -->
+  <!-- Non-Negotiable Account Registration & Identity Gate Modal -->
   <!-- ===================================================================== -->
-  <div id="accountSetupModal" class="hidden fixed inset-0 z-[120] bg-slate-950/90 backdrop-blur-lg flex items-center justify-center p-4">
-    <div class="bg-slate-900 border-2 border-emerald-500 rounded-2xl max-w-md w-full shadow-[0_0_50px_rgba(16,185,129,0.3)] overflow-hidden p-6 space-y-4">
+  <div id="accountSetupModal" class="hidden fixed inset-0 z-[9999] bg-slate-950/95 backdrop-blur-xl flex items-center justify-center p-4 pointer-events-auto select-none">
+    <div class="bg-slate-900 border-2 border-emerald-500/80 rounded-2xl max-w-lg w-full shadow-[0_0_80px_rgba(16,185,129,0.35)] overflow-hidden p-6 space-y-4">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-        <div class="flex items-center gap-2.5">
-          <span class="text-2xl">🛡️</span>
+        <div class="flex items-center gap-3">
+          <span class="text-3xl">🛡️</span>
           <div>
             <h3 class="text-sm font-bold text-white font-mono flex items-center gap-2">
-              <span>Identify Yourself</span>
-              <span class="px-2 py-0.2 rounded-full bg-red-950 border border-red-500 text-red-300 text-[9px] uppercase font-bold">Mandatory</span>
+              <span>Mandatory Operator Registration</span>
+              <span class="px-2 py-0.5 rounded-full bg-red-950 border border-red-500 text-red-300 text-[9px] uppercase font-bold tracking-wider">Non-Negotiable</span>
             </h3>
-            <p class="text-[11px] text-slate-400">All mesh operators must register their identity to proceed</p>
+            <p class="text-[11px] text-slate-400">Mesh security protocol requires verified identity &amp; PII consent before entry</p>
           </div>
         </div>
-        <button id="modalCloseBtn" onclick="closeAccountModal()" class="hidden text-slate-400 hover:text-white text-xs px-2 py-1 rounded bg-slate-800">✕</button>
       </div>
 
       <!-- Starter Perks Banner -->
       <div class="p-3 bg-gradient-to-r from-emerald-950/60 to-cyan-950/60 border border-emerald-500/40 rounded-xl space-y-1.5 font-mono text-[11px]">
         <div class="text-emerald-300 font-bold flex items-center gap-1.5">
-          <span>🎁</span> <span>Claim Verified Mesh Account:</span>
+          <span>🎁</span> <span>Claim Verified Mesh Operator Credentials:</span>
         </div>
         <div class="flex justify-between text-slate-300 pl-4">
           <span>• Complimentary Tokens:</span>
@@ -249,49 +248,65 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           <span class="font-bold text-cyan-400">$1.00 USD</span>
         </div>
         <div class="flex justify-between text-slate-300 pl-4">
-          <span>• Connected Peer ID:</span>
-          <span id="modalPeerIdLabel" class="text-slate-400 truncate max-w-[140px]">...</span>
+          <span>• Hardware Node Peer ID:</span>
+          <span id="modalPeerIdLabel" class="text-slate-400 truncate max-w-[160px]">...</span>
         </div>
       </div>
 
       <!-- Registration Form -->
       <form id="accountSetupForm" onsubmit="handleAccountFormSubmit(event)" class="space-y-3 font-mono text-xs">
         <div>
-          <label class="block text-slate-300 font-semibold mb-1">Who are you? (Username / Full Name) <span class="text-red-400">*</span></label>
+          <label class="block text-slate-300 font-semibold mb-1">Full Legal / Real Name <span class="text-red-400">*</span></label>
+          <input id="accInputFullName" type="text" required minlength="2" placeholder="e.g. Jane Doe" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none" />
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Username / Mesh Call-Sign <span class="text-red-400">*</span></label>
           <div class="relative">
             <span class="absolute left-3 top-2 text-slate-500">@</span>
-            <input id="accInputUsername" type="text" required placeholder="your_name_or_handle" class="w-full pl-7 pr-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none" />
+            <input id="accInputUsername" type="text" required minlength="3" placeholder="handle_or_callsign" class="w-full pl-7 pr-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Contact Email <span class="text-red-400">*</span></label>
+            <input id="accInputEmail" type="email" required placeholder="you@fau.edu or email" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Phone Number (SMS/2FA) <span class="text-red-400">*</span></label>
+            <input id="accInputPhone" type="tel" required minlength="10" placeholder="+1 561 555 0199" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none" />
           </div>
         </div>
 
         <div>
-          <label class="block text-slate-300 font-semibold mb-1">Email Address (for token receipts) <span class="text-red-400">*</span></label>
-          <input id="accInputEmail" type="email" required placeholder="you@example.com" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none" />
-        </div>
-
-        <div>
-          <label class="block text-slate-300 font-semibold mb-1">Role / Affiliation</label>
+          <label class="block text-slate-300 font-semibold mb-1">Affiliation / Purpose</label>
           <select id="accInputRole" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white focus:border-emerald-500 focus:outline-none">
-            <option value="Researcher / Graduate Student">Student / Academic (FAU / Research)</option>
-            <option value="AI Engineer">AI Engineer / Developer</option>
-            <option value="Collaborator">Mesh Collaborator / Peer</option>
-            <option value="Observer">Observer</option>
+            <option value="FAU Graduate School / Academic">FAU Graduate School / Academic Research</option>
+            <option value="AI Systems Engineer">AI Systems Engineer / Developer</option>
+            <option value="Mesh Operator">Decentralized Mesh Operator</option>
+            <option value="Security Auditor">Security Auditor / Observer</option>
           </select>
         </div>
 
-        <div>
-          <label class="block text-slate-300 font-semibold mb-1">Phone Number (optional, for SMS alerts)</label>
-          <input id="accInputPhone" type="tel" placeholder="+1 561 555 0199" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none" />
+        <!-- Non-Negotiable PII Consent Accordion/Box -->
+        <div class="p-3 bg-slate-950 rounded-xl border border-amber-500/40 space-y-2">
+          <label class="flex items-start gap-2.5 cursor-pointer text-slate-200">
+            <input id="accInputConsentPii" type="checkbox" required class="mt-0.5 w-4 h-4 rounded bg-slate-900 border-amber-500 text-emerald-500 focus:ring-0 focus:outline-none shrink-0" />
+            <span class="text-[11px] leading-relaxed">
+              <strong class="text-amber-300">Mandatory PII &amp; Operator Consent:</strong> I explicitly consent to the collection, cryptographic attestation, and federated storage of my Name, Email, Phone Number, Node IP, and AI usage telemetry for operator moderation and billing auditing.
+            </span>
+          </label>
         </div>
 
         <div id="accFormError" class="hidden text-red-400 text-[11px] p-2 bg-red-950/40 border border-red-800 rounded"></div>
 
         <div class="pt-2">
           <button type="submit" id="accSubmitBtn" class="w-full py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:brightness-110 text-white font-bold rounded-lg shadow-lg transition active:scale-95 flex items-center justify-center gap-1.5 text-xs">
-            <span>🛡️</span> <span>Confirm Identity &amp; Claim 50,000 Tokens</span>
+            <span>🛡️</span> <span>Sign Identity &amp; Unlock TinCan Mesh OS</span>
           </button>
           <p class="text-[10px] text-center text-slate-400 mt-2">
-            ⚠️ Identity registration is required by the admin for all connected peers to allocate tokens.
+            ⚠️ This step is mandatory. Desktop and agent windows remain locked until verified.
           </p>
         </div>
       </form>
@@ -1761,47 +1776,55 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     // =========================================================================
-    // Account Setup, Username Prompt & Onboarding Engine (Mandatory Gate)
+    // Account Setup, Username Prompt & Onboarding Engine (Mandatory Non-Negotiable Gate)
     // =========================================================================
-    const REGISTRATION_EPOCH = 'epoch_20261109_v2_mandatory';
+    const REGISTRATION_EPOCH = 'epoch_20261109_v3_strict_pii';
 
     function openAccountModal(isMandatory = false) {
       const modal = document.getElementById('accountSetupModal');
       const peerLabel = document.getElementById('modalPeerIdLabel');
+      const nameInp = document.getElementById('accInputFullName');
       const userInp = document.getElementById('accInputUsername');
-      const closeBtn = document.getElementById('modalCloseBtn');
+      const emailInp = document.getElementById('accInputEmail');
+      const phoneInp = document.getElementById('accInputPhone');
       const errEl = document.getElementById('accFormError');
       if (errEl) errEl.classList.add('hidden');
       if (peerLabel) peerLabel.innerText = myPeerId;
 
-      const isRegistered = localStorage.getItem('tincan_registration_epoch') === REGISTRATION_EPOCH && localStorage.getItem('tincan_username');
-      if (closeBtn) {
-        if (!isMandatory && isRegistered) {
-          closeBtn.classList.remove('hidden');
-        } else {
-          closeBtn.classList.add('hidden');
-        }
-      }
+      if (nameInp && localStorage.getItem('tincan_fullname')) nameInp.value = localStorage.getItem('tincan_fullname');
+      if (userInp && localStorage.getItem('tincan_username')) userInp.value = localStorage.getItem('tincan_username');
+      if (emailInp && localStorage.getItem('tincan_email')) emailInp.value = localStorage.getItem('tincan_email');
+      if (phoneInp && localStorage.getItem('tincan_phone')) phoneInp.value = localStorage.getItem('tincan_phone');
 
-      const savedUser = localStorage.getItem('tincan_username');
-      if (savedUser && userInp) {
-        userInp.value = savedUser;
-      }
       if (modal) {
         modal.classList.remove('hidden');
-        if (userInp) userInp.focus();
+        if (nameInp && !nameInp.value) nameInp.focus();
+        else if (userInp) userInp.focus();
       }
     }
 
     function closeAccountModal() {
-      const isRegistered = localStorage.getItem('tincan_registration_epoch') === REGISTRATION_EPOCH && localStorage.getItem('tincan_username');
+      const isRegistered = localStorage.getItem('tincan_registration_epoch') === REGISTRATION_EPOCH 
+        && localStorage.getItem('tincan_username') 
+        && localStorage.getItem('tincan_consent_pii') === 'true';
       if (!isRegistered) {
-        // Enforce mandatory registration: cannot close until identity is verified!
+        // Enforce non-negotiable mandatory registration: cannot close until identity & PII consent are confirmed!
         return;
       }
       const modal = document.getElementById('accountSetupModal');
       if (modal) modal.classList.add('hidden');
     }
+
+    // Intercept Escape key to prevent modal bypass
+    window.addEventListener('keydown', (e) => {
+      const isRegistered = localStorage.getItem('tincan_registration_epoch') === REGISTRATION_EPOCH 
+        && localStorage.getItem('tincan_username') 
+        && localStorage.getItem('tincan_consent_pii') === 'true';
+      if (!isRegistered && e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, true);
 
     function awardLocalXp(amount, reason) {
       try {
@@ -1822,16 +1845,51 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     async function handleAccountFormSubmit(e) {
       e.preventDefault();
-      const username = document.getElementById('accInputUsername').value.trim();
-      const email = document.getElementById('accInputEmail').value.trim();
-      const phone = document.getElementById('accInputPhone').value.trim() || '+10000000000';
-      const role = document.getElementById('accInputRole') ? document.getElementById('accInputRole').value : 'Collaborator';
+      const fullName = (document.getElementById('accInputFullName') ? document.getElementById('accInputFullName').value : '').trim();
+      const username = (document.getElementById('accInputUsername') ? document.getElementById('accInputUsername').value : '').trim();
+      const email = (document.getElementById('accInputEmail') ? document.getElementById('accInputEmail').value : '').trim();
+      const phone = (document.getElementById('accInputPhone') ? document.getElementById('accInputPhone').value : '').trim();
+      const role = document.getElementById('accInputRole') ? document.getElementById('accInputRole').value : 'Mesh Operator';
+      const consentPii = document.getElementById('accInputConsentPii') ? document.getElementById('accInputConsentPii').checked : false;
       const submitBtn = document.getElementById('accSubmitBtn');
       const errEl = document.getElementById('accFormError');
 
-      if (!username || !email) {
+      if (!fullName || fullName.length < 2) {
         if (errEl) {
-          errEl.innerText = 'Name/Username and email are required to identify who you are.';
+          errEl.innerText = 'Full Legal / Real Name is non-negotiable (minimum 2 characters).';
+          errEl.classList.remove('hidden');
+        }
+        return;
+      }
+
+      if (!username || username.length < 2) {
+        if (errEl) {
+          errEl.innerText = 'Username / Mesh Call-Sign is non-negotiable (minimum 2 characters).';
+          errEl.classList.remove('hidden');
+        }
+        return;
+      }
+
+      if (!email || !email.includes('@')) {
+        if (errEl) {
+          errEl.innerText = 'A valid contact email address is required for operator records.';
+          errEl.classList.remove('hidden');
+        }
+        return;
+      }
+
+      const cleanPhone = phone.replace(/[^\d+]/g, '');
+      if (!cleanPhone || cleanPhone.replace(/\D/g, '').length < 10) {
+        if (errEl) {
+          errEl.innerText = 'A valid phone number (minimum 10 digits) is non-negotiable for operator 2FA verification.';
+          errEl.classList.remove('hidden');
+        }
+        return;
+      }
+
+      if (!consentPii) {
+        if (errEl) {
+          errEl.innerText = 'You must explicitly consent to PII storage, node telemetry, and operator auditing.';
           errEl.classList.remove('hidden');
         }
         return;
@@ -1839,7 +1897,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
       if (submitBtn) {
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span>⏳</span> <span>Verifying Identity...</span>';
+        submitBtn.innerHTML = '<span>⏳</span> <span>Verifying &amp; Attesting Operator Identity...</span>';
       }
 
       try {
@@ -1848,18 +1906,26 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             peer_id: myPeerId,
-            name: `${username} (${role})`,
+            full_name: fullName,
+            name: fullName,
+            username: username,
             email: email,
-            phone: phone
+            phone: phone,
+            phone_number: phone,
+            role: role,
+            consent_pii: true
           })
         });
 
         const data = await resp.json();
         if (resp.ok && data.status === 'success') {
           localStorage.setItem('tincan_registration_epoch', REGISTRATION_EPOCH);
+          localStorage.setItem('tincan_fullname', fullName);
           localStorage.setItem('tincan_username', username);
           localStorage.setItem('tincan_email', email);
+          localStorage.setItem('tincan_phone', phone);
           localStorage.setItem('tincan_role', role);
+          localStorage.setItem('tincan_consent_pii', 'true');
           const hudName = document.getElementById('hudAccountName');
           if (hudName) hudName.innerText = '@' + username;
 
@@ -1868,10 +1934,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           const modal = document.getElementById('accountSetupModal');
           if (modal) modal.classList.add('hidden');
           refreshBillingWindow();
-          alert(`🎉 Identity Verified! Welcome @${username}. 50,000 tokens have been credited to your account.`);
+          alert(`🎉 Identity Verified! Welcome Operator @${username}. 50,000 tokens have been credited to your account.`);
         } else {
           if (errEl) {
-            errEl.innerText = data.error || 'Failed to verify account. Please check your email format.';
+            errEl.innerText = data.error || 'Failed to verify account. Please check your contact information.';
             errEl.classList.remove('hidden');
           }
         }
@@ -1883,7 +1949,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       } finally {
         if (submitBtn) {
           submitBtn.disabled = false;
-          submitBtn.innerHTML = '<span>🛡️</span> <span>Confirm Identity &amp; Claim 50,000 Tokens</span>';
+          submitBtn.innerHTML = '<span>🛡️</span> <span>Sign Identity &amp; Unlock TinCan Mesh OS</span>';
         }
       }
     }
@@ -1891,13 +1957,11 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     async function initAccountState() {
       const epochValid = localStorage.getItem('tincan_registration_epoch') === REGISTRATION_EPOCH;
       const savedUser = localStorage.getItem('tincan_username');
+      const savedConsent = localStorage.getItem('tincan_consent_pii') === 'true';
       const hudName = document.getElementById('hudAccountName');
 
-      if (!epochValid) {
-        // Enforce mandatory re-registration for EVERYONE: reset old unverified sessions
-        localStorage.removeItem('tincan_username');
-        localStorage.removeItem('tincan_email');
-        sessionStorage.removeItem('tincan_guest_dismissed');
+      if (!epochValid || !savedUser || !savedConsent) {
+        // Enforce mandatory non-negotiable registration for EVERYONE
         openAccountModal(true);
         return;
       }

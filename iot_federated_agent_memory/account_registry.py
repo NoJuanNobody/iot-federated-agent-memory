@@ -18,14 +18,21 @@ class PeerAccountRegistry:
 
     def __init__(self, db_path: Optional[str] = None):
         if db_path is None:
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            db_path = os.path.join(base_dir, "peer_accounts.db")
+            data_dir = (
+                os.environ.get("TINCAN_DATA_DIR")
+                or os.environ.get("RAILWAY_VOLUME_MOUNT_PATH")
+                or os.path.dirname(os.path.abspath(__file__))
+            )
+            os.makedirs(data_dir, exist_ok=True)
+            db_path = os.path.join(data_dir, "peer_accounts.db")
         self.db_path = db_path
         self._init_db()
 
     def _init_db(self):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL;")
+            cursor.execute("PRAGMA synchronous=NORMAL;")
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS accounts (
@@ -53,6 +60,14 @@ class PeerAccountRegistry:
                 cursor.execute("ALTER TABLE accounts ADD COLUMN total_tokens_used INTEGER DEFAULT 0")
             if "total_billed_usd" not in columns:
                 cursor.execute("ALTER TABLE accounts ADD COLUMN total_billed_usd REAL DEFAULT 0.0")
+            if "username" not in columns:
+                cursor.execute("ALTER TABLE accounts ADD COLUMN username TEXT DEFAULT ''")
+            if "role" not in columns:
+                cursor.execute("ALTER TABLE accounts ADD COLUMN role TEXT DEFAULT 'Researcher / Student'")
+            if "consent_pii" not in columns:
+                cursor.execute("ALTER TABLE accounts ADD COLUMN consent_pii INTEGER DEFAULT 1")
+            if "consent_timestamp" not in columns:
+                cursor.execute("ALTER TABLE accounts ADD COLUMN consent_timestamp REAL DEFAULT 0.0")
 
             # Ledger table for token audit transactions
             cursor.execute(
@@ -89,23 +104,33 @@ class PeerAccountRegistry:
         full_name: str,
         phone_number: str,
         email: str,
+        username: str = "",
+        role: str = "Researcher / Student",
+        consent_pii: bool = True,
         initial_tokens: int = DEFAULT_INITIAL_TOKENS,
         initial_credit_usd: float = DEFAULT_INITIAL_CREDIT_USD,
     ) -> Dict:
-        """Register or update an account for a connected peer."""
-        peer_id = peer_id.strip()
-        full_name = full_name.strip()
-        phone_number = phone_number.strip()
-        email = email.strip().lower()
+        """Register or update an account for a connected peer with mandatory identity & PII consent."""
+        peer_id = (peer_id or "").strip()
+        full_name = (full_name or "").strip()
+        phone_number = (phone_number or "").strip()
+        email = (email or "").strip().lower()
+        username = (username or "").strip()
+        if not username and full_name:
+            username = full_name.split()[0].lower()
 
         if not peer_id:
             raise ValueError("peer_id is required")
-        if not full_name:
-            raise ValueError("full_name is required")
+        if not full_name or len(full_name) < 2:
+            raise ValueError("Full Name is mandatory (minimum 2 characters)")
+        if not username or len(username) < 2:
+            raise ValueError("Username is mandatory (minimum 2 characters)")
         if not self.validate_email(email):
             raise ValueError(f"Invalid email address: {email}")
         if not self.validate_phone(phone_number):
-            raise ValueError(f"Invalid phone number: {phone_number}")
+            raise ValueError(f"Valid phone number is mandatory (minimum 10 digits): {phone_number}")
+        if not consent_pii:
+            raise ValueError("PII and operator telemetry consent is mandatory to access TinCan Mesh OS")
 
         now = time.time()
         with sqlite3.connect(self.db_path) as conn:
@@ -113,17 +138,25 @@ class PeerAccountRegistry:
             cursor.execute(
                 """
                 INSERT INTO accounts (
-                    peer_id, full_name, phone_number, email, created_at, status,
+                    peer_id, full_name, phone_number, email, username, role,
+                    consent_pii, consent_timestamp, created_at, status,
                     token_balance, credit_balance_usd, total_tokens_used, total_billed_usd
                 )
-                VALUES (?, ?, ?, ?, ?, 'active', ?, ?, 0, 0.0)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, 0, 0.0)
                 ON CONFLICT(peer_id) DO UPDATE SET
                     full_name=excluded.full_name,
                     phone_number=excluded.phone_number,
                     email=excluded.email,
+                    username=excluded.username,
+                    role=excluded.role,
+                    consent_pii=excluded.consent_pii,
+                    consent_timestamp=excluded.consent_timestamp,
                     created_at=excluded.created_at
                 """,
-                (peer_id, full_name, phone_number, email, now, initial_tokens, initial_credit_usd),
+                (
+                    peer_id, full_name, phone_number, email, username, role,
+                    1 if consent_pii else 0, now, now, initial_tokens, initial_credit_usd
+                ),
             )
             conn.commit()
 

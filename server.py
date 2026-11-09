@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
+import gzip
+import hashlib
 import io
 import json
 import os
+import subprocess
 import tarfile
+import threading
 from http.server import ThreadingHTTPServer as HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from iot_federated_agent_memory.scale import IoTFederatedMemoryScale
@@ -17,6 +21,38 @@ from iot_federated_agent_memory.sponsor_ads import SponsorAdManager
 from dataclasses import asdict
 
 PORT = int(os.environ.get("PORT", 8080))
+
+
+def _resolve_commit_hash() -> str:
+    env_sha = (
+        os.environ.get("RAILWAY_GIT_COMMIT_SHA")
+        or os.environ.get("GIT_COMMIT_SHA")
+        or ""
+    ).strip()
+    if env_sha:
+        return env_sha[:7]
+    try:
+        out = (
+            subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"],
+                cwd=os.path.dirname(os.path.abspath(__file__)),
+                stderr=subprocess.DEVNULL,
+                timeout=2.0,
+            )
+            .decode("utf-8")
+            .strip()
+        )
+        if out:
+            return out
+    except Exception:
+        pass
+    return "2f7faf2"
+
+
+COMMIT_HASH = _resolve_commit_hash()
+_downloading_videos = set()
+_downloading_lock = threading.Lock()
+_html_cache = {}
 
 relay = WebRTCSignalingRelay()
 router = DynamicAIGatewayRouter()
@@ -35,21 +71,57 @@ relay.register_peer("peer-secondary-node", "Collaborator Node", "redacted", 5000
 HTML_UI = MESH_OS_HTML_UI
 
 
+def _get_html_Entry(html_str: str):
+    key = id(html_str)
+    entry = _html_cache.get(key)
+    if entry is None:
+        raw = html_str.encode("utf-8")
+        gz = gzip.compress(raw, compresslevel=6)
+        etag = f'"{hashlib.sha256(raw).hexdigest()[:16]}"'
+        entry = (raw, gz, etag)
+        _html_cache[key] = entry
+    return entry
+
+
 class MeshGatewayHandler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def _accepts_gzip(self) -> bool:
+        enc = self.headers.get("Accept-Encoding", "")
+        return "gzip" in enc.lower()
+
+    def _write_body(self, payload: bytes) -> None:
+        if getattr(self, "command", "GET") != "HEAD" and payload:
+            self.wfile.write(payload)
+
+    def _send_empty(self, code: int = 204) -> None:
+        self.send_response(code)
+        self.send_header("Content-Length", "0")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+
     def _send_json(self, data, code=200):
+        raw = json.dumps(data, separators=(",", ":")).encode("utf-8")
+        use_gzip = self._accepts_gzip() and len(raw) >= 512
+        body = gzip.compress(raw, compresslevel=5) if use_gzip else raw
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
+        if use_gzip:
+            self.send_header("Content-Encoding", "gzip")
+        self.send_header("Vary", "Accept-Encoding")
+        self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.end_headers()
-        self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
+        self._write_body(body)
 
     def do_HEAD(self):
         self.do_GET()
 
     def do_OPTIONS(self):
         self.send_response(200)
+        self.send_header("Content-Length", "0")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -334,11 +406,17 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 name = data.get("name") or data.get("full_name")
                 phone = data.get("phone") or data.get("phone_number")
                 email = data.get("email")
+                username = data.get("username") or name
+                role = data.get("role", "Researcher / Student")
+                consent_pii = bool(data.get("consent_pii", True))
                 account = account_registry.register_account(
                     peer_id=peer_id,
                     full_name=name,
                     phone_number=phone,
                     email=email,
+                    username=username,
+                    role=role,
+                    consent_pii=consent_pii,
                 )
                 try:
                     mesh_os.award_xp(peer_id, "account_created")
@@ -377,22 +455,60 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
         else:
-            self.send_response(404)
-            self.end_headers()
+            self._send_empty(404)
 
     def do_GET(self):
         parsed = urlparse(self.path)
         if parsed.path in ("/", "/health", "/call", "/tv", "/os"):
+            raw, gz, etag = _get_html_Entry(HTML_UI)
+            if self.headers.get("If-None-Match") == etag:
+                self.send_response(304)
+                self.send_header("ETag", etag)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            use_gzip = self._accepts_gzip()
+            body = gz if use_gzip else raw
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("ETag", etag)
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Vary", "Accept-Encoding")
+            if use_gzip:
+                self.send_header("Content-Encoding", "gzip")
+            self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(HTML_UI.encode("utf-8"))
+            self._write_body(body)
         elif parsed.path == "/api/mesh/state":
             query = parse_qs(parsed.query)
             room = query.get("room", ["main"])[0]
             state = mesh_os.get_state(room=room)
             state["active_webrtc_streams"] = relay.get_active_streams()
             self._send_json(state, 200)
+        elif parsed.path == "/api/mesh/sync":
+            query = parse_qs(parsed.query)
+            room = query.get("room", ["main"])[0]
+            peer_id = query.get("peer_id", query.get("peer", [None]))[0]
+            since_str = query.get("since_seq", query.get("since", ["0"]))[0]
+            inc_analytics = query.get("include_analytics", ["0"])[0] in ("1", "true", "yes")
+            try:
+                since_seq = int(since_str)
+            except ValueError:
+                since_seq = 0
+            state = mesh_os.get_state(room=room)
+            state["active_webrtc_streams"] = relay.get_active_streams()
+            signals_payload = (
+                relay.poll_signals(receiver_id=peer_id, room=room, since_seq=since_seq)
+                if peer_id
+                else {"signals": [], "latest_seq": since_seq, "peers": []}
+            )
+            payload = {
+                "state": state,
+                "signals": signals_payload,
+            }
+            if inc_analytics:
+                payload["analytics"] = router.get_analytics()
+            self._send_json(payload, 200)
         elif parsed.path == "/api/mesh/leaderboard":
             self._send_json({
                 "leaderboard": mesh_os.get_leaderboard(),
@@ -420,15 +536,38 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             vid = os.path.splitext(fname)[0]
             file_path = os.path.join(VIDEOS_DIR, f"{vid}.mp4")
             if not os.path.isfile(file_path):
-                download_tiktok_mp4(vid, f"https://www.tiktok.com/@nojuannobody/video/{vid}", VIDEOS_DIR)
+                with _downloading_lock:
+                    already_downloading = vid in _downloading_videos
+                    if not already_downloading:
+                        _downloading_videos.add(vid)
+
+                if not already_downloading:
+                    def _bg_download(v_id: str, dest_dir: str):
+                        try:
+                            download_tiktok_mp4(v_id, f"https://www.tiktok.com/@nojuannobody/video/{v_id}", dest_dir)
+                        finally:
+                            with _downloading_lock:
+                                _downloading_videos.discard(v_id)
+
+                    threading.Thread(target=_bg_download, args=(vid, VIDEOS_DIR), daemon=True).start()
 
             if not os.path.isfile(file_path):
-                self.send_response(404)
+                self._send_empty(404)
+                return
+
+            stat = os.stat(file_path)
+            file_size = stat.st_size
+            etag = f'"{file_size}-{int(stat.st_mtime)}"'
+            if self.headers.get("If-None-Match") == etag:
+                self.send_response(304)
+                self.send_header("ETag", etag)
+                self.send_header("Cache-Control", "public, max-age=86400, immutable")
+                self.send_header("Content-Length", "0")
                 self.end_headers()
                 return
 
-            file_size = os.path.getsize(file_path)
             range_header = self.headers.get("Range")
+            chunk_size = 65536
             if range_header:
                 m = re.match(r"bytes=(\d+)-(\d*)", range_header)
                 if m:
@@ -436,28 +575,42 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     end = int(m.group(2)) if m.group(2) else file_size - 1
                     end = min(end, file_size - 1)
                     length = max(0, end - start + 1)
-                    with open(file_path, "rb") as f:
-                        f.seek(start)
-                        chunk = f.read(length)
                     self.send_response(206)
                     self.send_header("Content-Type", "video/mp4")
                     self.send_header("Accept-Ranges", "bytes")
                     self.send_header("Content-Range", f"bytes {start}-{end}/{file_size}")
-                    self.send_header("Content-Length", str(len(chunk)))
+                    self.send_header("Content-Length", str(length))
+                    self.send_header("ETag", etag)
+                    self.send_header("Cache-Control", "public, max-age=86400, immutable")
                     self.send_header("Access-Control-Allow-Origin", "*")
                     self.end_headers()
-                    self.wfile.write(chunk)
+                    if getattr(self, "command", "GET") != "HEAD" and length > 0:
+                        with open(file_path, "rb") as f:
+                            f.seek(start)
+                            remaining = length
+                            while remaining > 0:
+                                buf = f.read(min(chunk_size, remaining))
+                                if not buf:
+                                    break
+                                self.wfile.write(buf)
+                                remaining -= len(buf)
                     return
 
-            with open(file_path, "rb") as f:
-                data = f.read()
             self.send_response(200)
             self.send_header("Content-Type", "video/mp4")
             self.send_header("Accept-Ranges", "bytes")
             self.send_header("Content-Length", str(file_size))
+            self.send_header("ETag", etag)
+            self.send_header("Cache-Control", "public, max-age=86400, immutable")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
-            self.wfile.write(data)
+            if getattr(self, "command", "GET") != "HEAD" and file_size > 0:
+                with open(file_path, "rb") as f:
+                    while True:
+                        buf = f.read(chunk_size)
+                        if not buf:
+                            break
+                        self.wfile.write(buf)
         elif parsed.path == "/api/webrtc/signals":
             query = parse_qs(parsed.query)
             peer_id = query.get("peer_id", query.get("peer", [None]))[0]
@@ -546,17 +699,9 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             res = tincan_relay.whoami(address)
             self._send_json(res)
         elif parsed.path == "/api/version":
-            commit_hash = "2f7faf2"
-            try:
-                import subprocess
-                out = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=os.path.dirname(__file__)).decode().strip()
-                if out:
-                    commit_hash = out
-            except Exception:
-                pass
             self._send_json({
                 "service": "tincan",
-                "commit": commit_hash,
+                "commit": COMMIT_HASH,
                 "version": "2.2.0",
                 "relay_url": "https://iot-federated-agent-memory-production.up.railway.app",
             })
@@ -570,16 +715,14 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Length", str(len(content)))
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
-                self.wfile.write(content)
+                self._write_body(content)
             else:
-                self.send_response(404)
-                self.end_headers()
+                self._send_empty(404)
         elif parsed.path == "/download/bundle.tar.gz":
             # Privacy Guard: Workspace tarball download is disabled to prevent leaking local files or PII.
             self._send_json({"error": "Bundle download disabled for privacy and security protection."}, 403)
         else:
-            self.send_response(404)
-            self.end_headers()
+            self._send_empty(404)
 
 
 if __name__ == "__main__":

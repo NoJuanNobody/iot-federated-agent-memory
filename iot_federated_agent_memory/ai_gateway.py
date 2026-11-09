@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import threading
 import time
 import urllib.request
 from dataclasses import dataclass, asdict
@@ -96,6 +97,9 @@ class DynamicAIGatewayRouter:
         self.routing_log: List[Dict[str, Any]] = []
         self._billing_cache: Optional[Dict[str, Any]] = None
         self._billing_cached_at: float = 0.0
+        self._billing_refreshing: bool = False
+        self._billing_lock = threading.Lock()
+        self.BILLING_CACHE_TTL: float = 60.0
 
     def route_request(self, requested_alias: str, estimated_cost: float = 0.02) -> LabProviderConfig:
         """Route request to the target lab, or fallback if credit pool is exhausted."""
@@ -173,42 +177,23 @@ class DynamicAIGatewayRouter:
                 )
             provider.total_cost += cost
 
-    def get_openrouter_billing(self, force_refresh: bool = False) -> Dict[str, Any]:
-        """Fetch real-time OpenRouter account credits, total spend, and active key usage."""
+    def _fetch_openrouter_billing_sync(self, api_key: str) -> Dict[str, Any]:
+        """Perform the synchronous OpenRouter billing HTTP requests and update cache."""
         now = time.time()
-        if not force_refresh and self._billing_cached_at and (now - self._billing_cached_at) < 15.0 and self._billing_cache:
-            return self._billing_cache
-
-        api_key = self.openrouter_key or _resolve_openrouter_key_fallback()
-        if not api_key:
-            return {
-                "connected": False,
-                "account_total_credits_usd": 0.0,
-                "account_total_usage_usd": 0.0,
-                "account_remaining_balance_usd": 0.0,
-                "key_label": "not_configured",
-                "key_limit_usd": None,
-                "key_remaining_usd": None,
-                "key_usage_total_usd": 0.0,
-                "key_usage_daily_usd": 0.0,
-                "key_usage_weekly_usd": 0.0,
-                "key_usage_monthly_usd": 0.0,
-            }
-
         headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/json"}
         credits_data: Dict[str, Any] = {}
         key_data: Dict[str, Any] = {}
 
         try:
             req_c = urllib.request.Request(self.OPENROUTER_CREDITS_URL, headers=headers, method="GET")
-            with urllib.request.urlopen(req_c, timeout=8.0) as resp_c:
+            with urllib.request.urlopen(req_c, timeout=5.0) as resp_c:
                 credits_data = (json.loads(resp_c.read().decode("utf-8")) or {}).get("data") or {}
         except Exception:
             pass
 
         try:
             req_k = urllib.request.Request(self.OPENROUTER_KEY_URL, headers=headers, method="GET")
-            with urllib.request.urlopen(req_k, timeout=8.0) as resp_k:
+            with urllib.request.urlopen(req_k, timeout=5.0) as resp_k:
                 key_data = (json.loads(resp_k.read().decode("utf-8")) or {}).get("data") or {}
         except Exception:
             pass
@@ -231,9 +216,50 @@ class DynamicAIGatewayRouter:
             "key_usage_monthly_usd": round(float(key_data.get("usage_monthly") or 0.0), 6),
             "fetched_at": now,
         }
-        self._billing_cache = billing
-        self._billing_cached_at = now
+        with self._billing_lock:
+            self._billing_cache = billing
+            self._billing_cached_at = now
+            self._billing_refreshing = False
         return billing
+
+    def get_openrouter_billing(self, force_refresh: bool = False) -> Dict[str, Any]:
+        """Fetch real-time OpenRouter account credits with stale-while-revalidate background refresh."""
+        now = time.time()
+        if not force_refresh and self._billing_cached_at and (now - self._billing_cached_at) < self.BILLING_CACHE_TTL and self._billing_cache:
+            return self._billing_cache
+
+        api_key = self.openrouter_key or _resolve_openrouter_key_fallback()
+        if not api_key:
+            return {
+                "connected": False,
+                "account_total_credits_usd": 0.0,
+                "account_total_usage_usd": 0.0,
+                "account_remaining_balance_usd": 0.0,
+                "key_label": "not_configured",
+                "key_limit_usd": None,
+                "key_remaining_usd": None,
+                "key_usage_total_usd": 0.0,
+                "key_usage_daily_usd": 0.0,
+                "key_usage_weekly_usd": 0.0,
+                "key_usage_monthly_usd": 0.0,
+            }
+
+        # Stale-while-revalidate: if we already have cached billing data and force_refresh is False,
+        # refresh asynchronously in a background thread so HTTP polling never blocks p99 latency.
+        if not force_refresh and self._billing_cache is not None:
+            with self._billing_lock:
+                should_spawn = not self._billing_refreshing
+                if should_spawn:
+                    self._billing_refreshing = True
+            if should_spawn:
+                threading.Thread(
+                    target=self._fetch_openrouter_billing_sync,
+                    args=(api_key,),
+                    daemon=True,
+                ).start()
+            return self._billing_cache
+
+        return self._fetch_openrouter_billing_sync(api_key)
 
     def get_analytics(self, include_live_billing: bool = True) -> Dict[str, Any]:
         """Aggregate usage analytics, per-model token rates, and live OpenRouter account spend."""
