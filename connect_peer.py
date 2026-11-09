@@ -13,6 +13,32 @@ import urllib.request
 
 DEFAULT_RELAY = "https://iot-federated-agent-memory-production.up.railway.app"
 
+def register_peer_session(relay_url, peer_id, display_name, room="main", udp_port=50004):
+    payload = json.dumps({
+        "peer_id": peer_id,
+        "display_name": display_name,
+        "room": room,
+        "udp_port": udp_port,
+        "has_video": True,
+        "has_audio": True,
+        "has_screen": True,
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        f"{relay_url}/api/webrtc/register",
+        data=payload,
+        headers={"Content-Type": "application/json", "User-Agent": "AntigravityPeerClient/1.0"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            reg = json.loads(resp.read().decode())
+            print(f"[+] Registered Peer Session on Relay: {reg.get('peer_id')} in room '{reg.get('room')}' ({len(reg.get('peers', []))} peers in room)")
+            return reg
+    except Exception as e:
+        print(f"[!] Peer session registration warning: {e}")
+        return None
+
+
 def check_status(relay_url):
     req = urllib.request.Request(f"{relay_url}/api/status", headers={"User-Agent": "AntigravityPeerClient/1.0"})
     try:
@@ -47,6 +73,7 @@ def main():
     except Exception as exc:
         print(f"[!] splash skipped: {exc}")
 
+    register_peer_session(args.relay, args.peer_id, args.display_name)
     status = check_status(args.relay)
     if not status:
         sys.exit(1)
