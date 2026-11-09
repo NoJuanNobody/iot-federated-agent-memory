@@ -13,6 +13,8 @@ from iot_federated_agent_memory.video_playlist import RelayVideoPlaylist
 from iot_federated_agent_memory.mesh_os_engine import TinCanMeshOSEngine
 from iot_federated_agent_memory.mesh_os_ui import MESH_OS_HTML_UI
 from iot_federated_agent_memory.account_registry import PeerAccountRegistry
+from iot_federated_agent_memory.sponsor_ads import SponsorAdManager
+from dataclasses import asdict
 
 PORT = int(os.environ.get("PORT", 8080))
 
@@ -21,6 +23,8 @@ router = DynamicAIGatewayRouter()
 scale = IoTFederatedMemoryScale()
 tincan_relay = TinCanBlindRelay()
 playlist = RelayVideoPlaylist()
+sponsor_manager = SponsorAdManager()
+sponsor_manager.sync_from_playlist([asdict(it) for it in playlist.items])
 mesh_os = TinCanMeshOSEngine(seed=True)
 account_registry = PeerAccountRegistry()
 
@@ -345,6 +349,16 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": str(ve)}, 400)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/ads/click":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                sponsor_id = data.get("sponsor_id", "")
+                success = sponsor_manager.record_click(sponsor_id)
+                self._send_json({"status": "ok", "recorded": success, "sponsor_id": sponsor_id}, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
         elif parsed.path == "/api/account/billing/topup":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
@@ -353,6 +367,9 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 peer_id = data.get("peer_id")
                 tokens = int(data.get("tokens", 0))
                 amount_usd = float(data.get("amount_usd", 0.0))
+                sponsor_id = data.get("sponsor_id")
+                if sponsor_id:
+                    sponsor_manager.record_completion(sponsor_id)
                 account = account_registry.top_up_credits(peer_id, amount_usd=amount_usd, tokens=tokens)
                 self._send_json({"status": "topup_success", "account": account}, 200)
             except ValueError as ve:
@@ -383,6 +400,18 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             }, 200)
         elif parsed.path == "/api/playlist":
             self._send_json(playlist.get_playlist(), 200)
+        elif parsed.path == "/api/ads/sponsor":
+            query = parse_qs(parsed.query)
+            sponsor_id = query.get("id", [None])[0]
+            sponsor = sponsor_manager.get_sponsor(sponsor_id)
+            state = sponsor_manager.get_state()
+            self._send_json({
+                "sponsor": sponsor,
+                "networks": state["networks"],
+                "total_sponsors": len(state["all_sponsors"]),
+            }, 200)
+        elif parsed.path == "/api/ads/state":
+            self._send_json(sponsor_manager.get_state(), 200)
         elif parsed.path.startswith("/videos/") and parsed.path.endswith(".mp4"):
             from iot_federated_agent_memory.video_playlist import VIDEOS_DIR, download_tiktok_mp4
             import re

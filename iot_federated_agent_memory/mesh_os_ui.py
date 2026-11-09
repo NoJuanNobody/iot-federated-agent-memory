@@ -1099,36 +1099,62 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
               <span class="text-amber-400 text-sm">📺</span>
               <span class="font-bold text-amber-300 font-mono">Watch Sponsored Ads (Earn Free Tokens)</span>
             </div>
-            <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono border border-amber-500/30 font-bold">+5,000 TOKENS</span>
+            <div class="flex items-center gap-1.5">
+              <button type="button" onclick="fetchNextSponsor()" title="Rotate to next sponsor" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-mono border border-slate-700 active:scale-95 transition">⟳ Next Sponsor</button>
+              <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono border border-amber-500/30 font-bold">+5,000 TOKENS</span>
+            </div>
           </div>
           <p class="text-[11px] text-slate-300">
-            Advertisers fund your AI compute! Watch an interactive 10-second sponsor ad to cover API token costs without paying out-of-pocket.
+            Advertisers fund your AI compute! Watch an interactive 10-second sponsor video or visit our developer partners to cover API token costs without paying out-of-pocket.
           </p>
 
           <!-- Interactive Sponsor Ad Card -->
-          <div id="sponsorAdContainer" class="p-3 bg-slate-950/80 rounded-lg border border-slate-800 flex items-center gap-3">
-            <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center text-white text-xl shrink-0 shadow-md">
-              ⚡
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2">
-                <span class="font-bold text-white text-xs">Vercel AI SDK &amp; MicroVMs</span>
-                <span class="text-[9px] px-1 rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase">Sponsored</span>
+          <div id="sponsorAdContainer" class="p-3 bg-slate-950/80 rounded-lg border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+              <div id="adSponsorIcon" class="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center text-white text-xl shrink-0 shadow-md">
+                ⚡
               </div>
-              <div class="text-[11px] text-slate-400 truncate">Deploy durable agent sandboxes and AI gateways with zero server management.</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span id="adSponsorName" class="font-bold text-white text-xs truncate">Vercel AI SDK &amp; MicroVMs</span>
+                  <span id="adSponsorBadge" class="text-[9px] px-1 rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase">Sponsored</span>
+                </div>
+                <div id="adSponsorTagline" class="text-[11px] text-slate-400 truncate">Deploy durable agent sandboxes and AI gateways with zero server management.</div>
+              </div>
             </div>
-            <button id="watchAdBtn" onclick="watchSponsoredAd()" class="px-3 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:brightness-110 text-slate-950 font-bold font-mono text-xs rounded-lg transition active:scale-95 shrink-0 shadow-md">
-              ▶ Watch Ad (10s)
-            </button>
+            <div class="flex items-center gap-2 shrink-0 w-full md:w-auto justify-end">
+              <a id="adSponsorCtaBtn" href="https://sdk.vercel.ai?utm_source=tincan-mesh" target="_blank" rel="noopener noreferrer" onclick="trackSponsorClick()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-mono rounded border border-slate-700 transition">
+                Visit Partner ↗
+              </a>
+              <button id="watchAdBtn" onclick="watchSponsoredAd()" class="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:brightness-110 text-slate-950 font-bold font-mono text-xs rounded-lg transition active:scale-95 shadow-md">
+                ▶ Watch Video (10s)
+              </button>
+            </div>
           </div>
-          <div id="adProgressWrap" class="hidden space-y-1">
-            <div class="flex justify-between text-[10px] font-mono text-amber-300">
-              <span id="adProgressText">Playing sponsor ad...</span>
-              <span id="adTimerText">10s remaining</span>
+
+          <!-- Video Player Container (Active when watching) -->
+          <div id="adVideoContainer" class="hidden space-y-2 p-2.5 bg-slate-950 rounded-lg border border-amber-500/40">
+            <div class="relative bg-black rounded overflow-hidden aspect-video flex items-center justify-center">
+              <video id="adVideoPlayer" playsinline preload="auto" class="w-full h-full object-contain"></video>
+              <div id="adVideoOverlay" class="absolute top-2 left-2 px-2 py-0.5 bg-black/80 rounded border border-slate-700 text-[10px] font-mono text-amber-300">
+                Sponsor Clip: <span id="adVideoTitle">Partner Ad</span>
+              </div>
             </div>
-            <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-              <div id="adProgressBar" class="bg-amber-400 h-full w-0 transition-all duration-1000 ease-linear"></div>
+            <div id="adProgressWrap" class="space-y-1">
+              <div class="flex justify-between text-[10px] font-mono text-amber-300">
+                <span id="adProgressText">Streaming verified sponsor video...</span>
+                <span id="adTimerText">10s remaining</span>
+              </div>
+              <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div id="adProgressBar" class="bg-amber-400 h-full w-0 transition-all duration-300 ease-linear"></div>
+              </div>
             </div>
+          </div>
+
+          <!-- Advertising Network & Community Partner Info -->
+          <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono px-1">
+            <span>Direct Partner Ads • EthicalAds • Google AdSense • Community Ads</span>
+            <button type="button" onclick="openSponsorInfoModal()" class="text-amber-400 hover:underline">How to Advertise ℹ</button>
           </div>
         </div>
 
@@ -1849,9 +1875,77 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     // Token Billing, Top-Up & Sponsored Ads Interaction Engine
     // =========================================================================
     let isWatchingAd = false;
+    let currentSponsor = {
+      id: "vercel-ai",
+      name: "Vercel AI SDK & MicroVMs",
+      tagline: "Deploy durable agent sandboxes and AI gateways with zero server management.",
+      cta: "Visit Partner ↗",
+      url: "https://sdk.vercel.ai?utm_source=tincan-mesh",
+      icon: "⚡",
+      badge: "Sponsored",
+      video_url: "/videos/7705677376465767711.mp4",
+      duration_seconds: 10,
+      reward_tokens: 5000,
+      reward_usd: 0.05
+    };
+
+    async function loadActiveSponsor(sponsorId) {
+      try {
+        const url = sponsorId ? `/api/ads/sponsor?id=${encodeURIComponent(sponsorId)}` : '/api/ads/sponsor';
+        const resp = await fetch(url);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.sponsor) {
+            currentSponsor = data.sponsor;
+            renderSponsorCard();
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load active sponsor:', err);
+      }
+    }
+
+    function renderSponsorCard() {
+      const nameEl = document.getElementById('adSponsorName');
+      const tagEl = document.getElementById('adSponsorTagline');
+      const badgeEl = document.getElementById('adSponsorBadge');
+      const iconEl = document.getElementById('adSponsorIcon');
+      const ctaBtn = document.getElementById('adSponsorCtaBtn');
+      const titleEl = document.getElementById('adVideoTitle');
+
+      if (nameEl) nameEl.innerText = currentSponsor.name || 'Developer Sponsor';
+      if (tagEl) tagEl.innerText = currentSponsor.tagline || 'Fund free mesh AI tokens.';
+      if (badgeEl) badgeEl.innerText = currentSponsor.badge || 'Sponsored';
+      if (iconEl) iconEl.innerText = currentSponsor.icon || '⚡';
+      if (titleEl) titleEl.innerText = currentSponsor.name || 'Sponsor Ad';
+      if (ctaBtn) {
+        ctaBtn.href = currentSponsor.url || '#';
+        ctaBtn.innerText = currentSponsor.cta || 'Visit Partner ↗';
+      }
+    }
+
+    async function fetchNextSponsor() {
+      await loadActiveSponsor();
+    }
+
+    async function trackSponsorClick() {
+      if (!currentSponsor || !currentSponsor.id) return;
+      try {
+        await fetch('/api/ads/click', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sponsor_id: currentSponsor.id })
+        });
+      } catch (e) {}
+    }
+
+    function openSponsorInfoModal() {
+      alert("📣 Real Ads & Direct Sponsorships on TinCan:\n\n1. Direct Partner Sponsorship: Real developer brands (Railway, Vercel, Supabase) sponsor AI compute via verified video ads & click-through links.\n2. Developer Ad Networks: Integration-ready for EthicalAds (ETHICALADS_PUBLISHER_ID) and Carbon Ads.\n3. Rewarded Video Ads: Configurable Google AdSense Rewarded Ads (ADSENSE_CLIENT_ID).\n4. Community Ad Slots: Any peer can feature an ad in rotation using:\n   tincan playlist add <mp4_or_tiktok_url> --category ad");
+    }
 
     async function refreshBillingWindow() {
       try {
+        loadActiveSponsor();
         const resp = await fetch(`/api/account/billing?peer_id=${encodeURIComponent(myPeerId)}`);
         if (resp.ok) {
           const data = await resp.json();
@@ -1893,36 +1987,68 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       if (isWatchingAd) return;
       isWatchingAd = true;
       const btn = document.getElementById('watchAdBtn');
-      const wrap = document.getElementById('adProgressWrap');
+      const videoBox = document.getElementById('adVideoContainer');
+      const videoEl = document.getElementById('adVideoPlayer');
       const bar = document.getElementById('adProgressBar');
       const timerText = document.getElementById('adTimerText');
+      const progressText = document.getElementById('adProgressText');
 
       if (btn) btn.disabled = true;
-      if (wrap) wrap.classList.remove('hidden');
+      if (videoBox) videoBox.classList.remove('hidden');
       if (bar) bar.style.width = '0%';
 
-      let secondsLeft = 10;
+      const duration = currentSponsor.duration_seconds || 10;
+      let secondsLeft = duration;
       if (timerText) timerText.innerText = `${secondsLeft}s remaining`;
+      if (progressText) progressText.innerText = `Streaming ${currentSponsor.name || 'sponsor'} video...`;
 
-      const interval = setInterval(() => {
+      let adFinished = false;
+      let interval = null;
+
+      const completeAd = () => {
+        if (adFinished) return;
+        adFinished = true;
+        if (interval) clearInterval(interval);
+        finishSponsoredAd();
+      };
+
+      if (videoEl && currentSponsor.video_url) {
+        videoEl.src = currentSponsor.video_url;
+        videoEl.currentTime = 0;
+        videoEl.muted = true;
+        videoEl.play().catch(e => {
+          console.warn('Ad video autoplay policy note:', e);
+        });
+        videoEl.onended = completeAd;
+      }
+
+      interval = setInterval(() => {
         secondsLeft -= 1;
-        const progressPct = ((10 - secondsLeft) / 10) * 100;
+        const progressPct = Math.min(100, ((duration - secondsLeft) / duration) * 100);
         if (bar) bar.style.width = `${progressPct}%`;
-        if (timerText) timerText.innerText = `${secondsLeft}s remaining`;
+        if (timerText) timerText.innerText = `${Math.max(0, secondsLeft)}s remaining`;
 
         if (secondsLeft <= 0) {
-          clearInterval(interval);
-          finishSponsoredAd();
+          completeAd();
         }
       }, 1000);
     }
 
     async function finishSponsoredAd() {
-      const wrap = document.getElementById('adProgressWrap');
+      const videoBox = document.getElementById('adVideoContainer');
+      const videoEl = document.getElementById('adVideoPlayer');
       const btn = document.getElementById('watchAdBtn');
-      if (wrap) wrap.classList.add('hidden');
+
+      if (videoEl) {
+        try { videoEl.pause(); } catch(e){}
+      }
+      if (videoBox) videoBox.classList.add('hidden');
       if (btn) btn.disabled = false;
       isWatchingAd = false;
+
+      const sponsorId = (currentSponsor && currentSponsor.id) ? currentSponsor.id : 'sponsor-default';
+      const rewardTokens = (currentSponsor && currentSponsor.reward_tokens) ? currentSponsor.reward_tokens : 5000;
+      const rewardUsd = (currentSponsor && currentSponsor.reward_usd) ? currentSponsor.reward_usd : 0.05;
 
       try {
         const resp = await fetch('/api/account/billing/topup', {
@@ -1930,15 +2056,16 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             peer_id: myPeerId,
-            tokens: 5000,
-            amount_usd: 0.05
+            tokens: rewardTokens,
+            amount_usd: rewardUsd,
+            sponsor_id: sponsorId
           })
         });
         if (resp.ok) {
           if (sfxEnabled) playXpChime();
-          awardLocalXp(50, 'Sponsored Ad Watched (+5,000 Tokens)');
+          awardLocalXp(50, `Sponsored Ad Watched (+${rewardTokens.toLocaleString()} Tokens)`);
           refreshBillingWindow();
-          alert('🎉 Sponsor ad completed! +5,000 Free Tokens credited to your account.');
+          alert(`🎉 Sponsor video completed! +${rewardTokens.toLocaleString()} Free Tokens credited from ${currentSponsor.name || 'Sponsor'}.`);
         }
       } catch (e) {
         console.error('Failed to credit ad tokens:', e);
