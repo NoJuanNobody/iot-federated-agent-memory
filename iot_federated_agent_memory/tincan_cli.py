@@ -156,6 +156,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         cr_parser = subparsers.add_parser(cr_cmd, help="Display live OpenRouter account credits, spend, and per-model cost rates")
         cr_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
+    # disconnect / leave / close
+    for disc_cmd in ("disconnect", "leave", "close"):
+        disc_parser = subparsers.add_parser(disc_cmd, help="Disconnect a peer node or close connection to WebRTC mesh room")
+        disc_parser.add_argument("peer", nargs="?", help="Peer ID to disconnect (e.g. peer-2i6pm0, or default current identity)")
+        disc_parser.add_argument("--room", default="main", help="WebRTC room name (default: main)")
+        disc_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
     # upgrade
     upg_p = subparsers.add_parser("upgrade", help="Upgrade TinCan CLI and mesh bundles to the latest production release (Approval-Gated)")
     upg_p.add_argument("--yes", "-y", action="store_true", help="Approve upgrade non-interactively")
@@ -751,6 +758,32 @@ def main(argv: Optional[List[str]] = None) -> int:
                     f"~1K Call: ${p['est_cost_per_1k_prompt_usd']:.5f}"
                 )
         return 0
+
+    if args.command in ("disconnect", "leave", "close"):
+        import urllib.request
+
+        target_peer = args.peer or f"{args.alias}-{ident.public_key_hex[:8]}"
+        relay_base = args.relay.rstrip("/")
+        try:
+            req = urllib.request.Request(
+                f"{relay_base}/api/webrtc/leave",
+                data=json.dumps({"peer_id": target_peer, "room": args.room}).encode("utf-8"),
+                headers={"Content-Type": "application/json", "User-Agent": "TinCanCLI/2.2"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=8.0) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            if args.json:
+                print(json.dumps(data, indent=2))
+            else:
+                if data.get("removed"):
+                    print(f"\033[1;32m[+] Successfully disconnected '{target_peer}' from room '{args.room}'.\033[0m")
+                else:
+                    print(f"[*] Node '{target_peer}' was not active in room '{args.room}' (already disconnected).")
+            return 0
+        except Exception as exc:
+            print(f"[-] Disconnect error: {exc}", file=sys.stderr)
+            return 1
 
     return 0
 

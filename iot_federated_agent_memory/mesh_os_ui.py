@@ -259,9 +259,19 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         </div>
 
         <div>
-          <p class="text-xs text-slate-400 mb-1.5">1. Install TinCan 2.2 Skills via npx skills (Zero-RCE, Peripherals OFF):</p>
+          <p class="text-xs text-slate-400 mb-1.5">1. One-Line Terminal Installer (Installs TinCan CLI &amp; Skills):</p>
           <div class="bg-black/80 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between font-mono text-xs">
-            <code id="installCmd" class="text-emerald-400 select-all overflow-x-auto">npx skills add NoJuanNobody/tincan-skills -g -y</code>
+            <code id="curlInstallCmd" class="text-emerald-400 select-all overflow-x-auto">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code>
+            <button onclick="copyCommand('curlInstallCmd')" class="ml-3 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-sans font-semibold transition shrink-0 active:scale-95">
+              Copy Curl
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <p class="text-xs text-slate-400 mb-1.5">2. Or Install TinCan Skills Directly via npx skills:</p>
+          <div class="bg-black/80 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between font-mono text-xs">
+            <code id="installCmd" class="text-indigo-300 select-all overflow-x-auto">npx skills add NoJuanNobody/tincan-skills -g -y</code>
             <button onclick="copyCommand('installCmd')" class="ml-3 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[11px] font-sans font-semibold transition shrink-0 active:scale-95">
               Copy Command
             </button>
@@ -269,10 +279,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         </div>
 
         <div>
-          <p class="text-xs text-slate-400 mb-1.5">2. Live AI Model Prompt over OpenRouter Gateway (Gemini 2.5, Claude, Grok, GPT-4o):</p>
+          <p class="text-xs text-slate-400 mb-1.5">3. Live AI Model Prompt over OpenRouter Gateway (Gemini 2.5, Claude, Grok, GPT-4o):</p>
           <div class="bg-black/80 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between font-mono text-xs">
             <code id="chatCmd" class="text-cyan-400 select-all overflow-x-auto">curl -s -X POST https://iot-federated-agent-memory-production.up.railway.app/api/chat -H "Content-Type: application/json" -d '{"prompt":"Hello world!"}'</code>
-            <button onclick="copyCommand('chatCmd')" class="ml-3 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-sans font-semibold transition shrink-0 active:scale-95">
+            <button onclick="copyCommand('chatCmd')" class="ml-3 px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-[11px] font-sans font-semibold transition shrink-0 active:scale-95">
               Copy Curl
             </button>
           </div>

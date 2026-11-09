@@ -94,3 +94,32 @@ def test_relay_video_playlist_collection():
     # Remove the extra video
     assert pl.remove_video("7705677376465767799") is True
     assert pl.get_playlist()["total"] == 3
+
+
+def test_tincan_cli_disconnect(tmp_path, monkeypatch, capsys):
+    called_requests = []
+
+    class DummyResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def read(self):
+            import json
+            return json.dumps({"status": "left", "peer_id": "test-peer-123", "removed": True}).encode()
+
+    def fake_urlopen(req, timeout=None):
+        called_requests.append(req)
+        return DummyResponse()
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    rc = cli_main(["--dir", str(tmp_path), "disconnect", "test-peer-123", "--room", "test-room", "--json"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "test-peer-123" in out
+    assert '"removed": true' in out
+    assert len(called_requests) == 1
+    assert "/api/webrtc/leave" in called_requests[0].full_url
