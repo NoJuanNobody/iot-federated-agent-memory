@@ -123,13 +123,27 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     .mesh-window.popout-fullscreen {
-      top: 60px !important;
+      position: fixed !important;
+      top: 56px !important;
       left: 8px !important;
       right: 8px !important;
       bottom: 8px !important;
       width: calc(100vw - 16px) !important;
-      height: calc(100vh - 68px) !important;
+      height: calc(100vh - 64px) !important;
+      min-height: calc(100vh - 64px) !important;
+      max-height: calc(100vh - 64px) !important;
       z-index: 100 !important;
+      border-radius: 12px !important;
+    }
+
+    .mesh-window.popout-fullscreen .window-body {
+      max-height: calc(100vh - 110px) !important;
+      height: calc(100vh - 110px) !important;
+      overflow-y: auto !important;
+    }
+
+    .mesh-window.popout-fullscreen .window-resize-handle {
+      display: none !important;
     }
 
     .mesh-window.minimized {
@@ -1543,6 +1557,11 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     function setWindowPoppedOut(winId, isPoppedOut) {
+      // In a pop-out standalone tab, never hide our own primary window!
+      if (singleWindowParam && singleWindowParam === winId) {
+        return;
+      }
+
       const win = document.getElementById(winId);
       const dockBtn = getDockButton(winId);
 
@@ -1550,22 +1569,26 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         poppedOutWindows.add(winId);
         if (win) {
           win.style.display = 'none';
-          win.classList.add('hidden');
+          win.classList.add('hidden', 'popped-out');
         }
         if (dockBtn) {
-          dockBtn.style.display = 'none';
-          dockBtn.classList.add('hidden');
+          dockBtn.dataset.poppedOut = 'true';
+          dockBtn.classList.add('ring-2', 'ring-indigo-400', 'bg-indigo-950/80', 'text-indigo-200');
+          dockBtn.title = `${winId} is open in a pop-out window. Click to focus or redock.`;
         }
         if (winId === 'win-comms') {
           const chatDockBtn = document.getElementById('dockBtn-chat');
           if (chatDockBtn) {
-            chatDockBtn.style.display = 'none';
-            chatDockBtn.classList.add('hidden');
+            chatDockBtn.classList.add('ring-2', 'ring-indigo-400');
+            chatDockBtn.title = 'Live Chat is open in pop-out window.';
           }
         }
       } else {
         poppedOutWindows.delete(winId);
         if (dockBtn) {
+          delete dockBtn.dataset.poppedOut;
+          dockBtn.classList.remove('ring-2', 'ring-indigo-400', 'bg-indigo-950/80', 'text-indigo-200');
+          dockBtn.title = '';
           if (winId === 'win-moderator') {
             if (isAdmin) {
               dockBtn.style.display = '';
@@ -1579,17 +1602,17 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         if (winId === 'win-comms') {
           const chatDockBtn = document.getElementById('dockBtn-chat');
           if (chatDockBtn) {
-            chatDockBtn.style.display = '';
-            chatDockBtn.classList.remove('hidden');
+            chatDockBtn.classList.remove('ring-2', 'ring-indigo-400');
+            chatDockBtn.title = 'Live Mesh Chat & Comms';
           }
         }
         if (win) {
+          win.classList.remove('hidden', 'minimized', 'popped-out');
           win.style.display = 'flex';
-          win.classList.remove('hidden');
-          win.classList.remove('minimized');
           bringToFront(win);
         }
       }
+      syncDockIndicators();
     }
 
     function syncDockIndicators() {
@@ -1616,6 +1639,23 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     function toggleWindow(winId) {
+      if (poppedOutWindows.has(winId)) {
+        const handle = popoutWindowHandles.get(winId);
+        if (handle && !handle.closed) {
+          try { handle.focus(); } catch (e) {}
+          const shouldRedock = confirm(`Window '${winId}' is currently open in a pop-out window on your second screen.\n\nClick OK to pull it back and redock onto this main desktop, or Cancel to leave it open.`);
+          if (shouldRedock) {
+            try { handle.close(); } catch(e){}
+            popoutWindowHandles.delete(winId);
+            setWindowPoppedOut(winId, false);
+          }
+          return;
+        } else {
+          setWindowPoppedOut(winId, false);
+          return;
+        }
+      }
+
       const win = document.getElementById(winId);
       if (!win) return;
       const isHidden = win.style.display === 'none' || win.classList.contains('hidden') || win.classList.contains('minimized');
@@ -1665,20 +1705,28 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       syncDockIndicators();
     }
 
-    function openPopoutWindow(winId) {
-      setWindowPoppedOut(winId, true);
-      const url = `/?window=${encodeURIComponent(winId)}&room=${encodeURIComponent(currentRoom)}`;
-      const popWin = window.open(url, `_blank_${winId}`, 'width=1120,height=760,menubar=no,toolbar=no,location=no');
+    const popoutWindowHandles = new Map();
 
-      if (popWin) {
-        const timer = setInterval(() => {
-          if (popWin.closed) {
-            clearInterval(timer);
-            setWindowPoppedOut(winId, false);
-            meshBus.postMessage({ type: 'WINDOW_REDOCK', winId: winId });
-          }
-        }, 600);
+    function openPopoutWindow(winId) {
+      const targetUrl = `/?window=${encodeURIComponent(winId)}&room=${encodeURIComponent(currentRoom)}&peer=${encodeURIComponent(myPeerId)}`;
+      const popWin = window.open(targetUrl, `_tincan_popout_${winId}`, 'width=1120,height=760,menubar=no,toolbar=no,location=no,status=no');
+
+      if (!popWin || popWin.closed || typeof popWin.closed === 'undefined') {
+        alert('⚠️ Pop-up was blocked by your browser!\n\nPlease click the pop-up icon in your address bar and select "Always allow pop-ups for this site" to open windows in separate monitors.');
+        return;
       }
+
+      popoutWindowHandles.set(winId, popWin);
+      setWindowPoppedOut(winId, true);
+
+      const timer = setInterval(() => {
+        if (popWin.closed) {
+          clearInterval(timer);
+          popoutWindowHandles.delete(winId);
+          setWindowPoppedOut(winId, false);
+          meshBus.postMessage({ type: 'WINDOW_REDOCK', winId: winId });
+        }
+      }, 400);
 
       meshBus.postMessage({ type: 'WINDOW_POPOUT', winId: winId });
     }
@@ -1759,15 +1807,37 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         const w = document.getElementById(id);
         if (w) {
           if (id === singleWindowParam) {
+            w.classList.remove('hidden', 'minimized');
             w.classList.add('popout-fullscreen');
             w.style.display = 'flex';
+
+            // Transform the Pop Out button in header into a Redock button
+            const popBtn = w.querySelector('button[onclick*="openPopoutWindow"]');
+            if (popBtn) {
+              popBtn.innerText = '↙ Redock';
+              popBtn.onclick = () => window.close();
+              popBtn.title = 'Close pop-out and return window to main desktop';
+              popBtn.className = 'px-2 py-0.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] shadow transition active:scale-95';
+            }
+
+            // Hide the minimize button in popout window as it fills the window
+            const minBtn = w.querySelector('button[onclick*="minimizeWindow"]');
+            if (minBtn) minBtn.style.display = 'none';
+
+            // Hide the maximize button in popout window
+            const maxBtn = w.querySelector('button[onclick*="maximizeWindow"]');
+            if (maxBtn) maxBtn.style.display = 'none';
           } else {
             w.style.display = 'none';
+            w.classList.add('hidden');
           }
         }
       });
-      // The popped-out window disappears from the dock
-      setWindowPoppedOut(singleWindowParam, true);
+
+      // Hide dock in popout window for maximum workspace
+      const dock = document.getElementById('meshOsDock');
+      if (dock) dock.style.display = 'none';
+
       document.title = `[Pop-Out] TinCan Mesh OS — ${singleWindowParam}`;
 
       window.addEventListener('beforeunload', () => {
@@ -2448,13 +2518,20 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     // =========================================================================
-    // Multiplayer Cursor Telemetry
+    // Multiplayer Cursor Telemetry (Throttled & Visibility-Gated)
     // =========================================================================
     let lastCursorSend = 0;
+    let lastCursorX = -1;
+    let lastCursorY = -1;
     window.addEventListener('mousemove', (e) => {
+      if (document.hidden) return;
       const now = Date.now();
-      if (now - lastCursorSend > 160) {
+      const dx = Math.abs(e.clientX - lastCursorX);
+      const dy = Math.abs(e.clientY - lastCursorY);
+      if (now - lastCursorSend > 280 && (dx >= 4 || dy >= 4)) {
         lastCursorSend = now;
+        lastCursorX = e.clientX;
+        lastCursorY = e.clientY;
         fetch('/api/mesh/cursor', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2580,7 +2657,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     // =========================================================================
     // Polling Loop: State, Quests, Leaderboard & Readiness Progression
     // =========================================================================
-    async function pollMeshState() {
+    async function pollMeshState(force = false) {
+      if (!force && document.hidden) return;
       try {
         const res = await fetch(`/api/mesh/state?room=${encodeURIComponent(currentRoom)}`);
         if (!res.ok) return;
@@ -2704,8 +2782,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       } catch (e) {}
     }
 
-    setInterval(pollMeshState, 2000);
-    pollMeshState();
+    setInterval(() => pollMeshState(false), 4000);
+    pollMeshState(true);
 
     // BroadcastChannel Listener
     meshBus.onmessage = (ev) => {
@@ -2718,9 +2796,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       } else if (msg.type === 'MODEL_UPDATED') {
         loadAnalytics();
       } else if (msg.type === 'WINDOW_POPOUT' && msg.winId) {
-        setWindowPoppedOut(msg.winId, true);
+        if (!singleWindowParam) {
+          setWindowPoppedOut(msg.winId, true);
+        }
       } else if (msg.type === 'WINDOW_REDOCK' && msg.winId) {
-        setWindowPoppedOut(msg.winId, false);
+        if (!singleWindowParam) {
+          setWindowPoppedOut(msg.winId, false);
+        }
       }
     };
 
@@ -2891,7 +2973,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       setCallStatus('Call Ended', 'slate');
     }
 
-    async function pollSignals() {
+    async function pollSignals(force = false) {
+      if (!force && document.hidden && !pc) return;
       try {
         const room = document.getElementById('roomInput').value.trim() || 'main';
         const res = await fetch(`/api/webrtc/signals?peer_id=${encodeURIComponent(myPeerId)}&room=${encodeURIComponent(room)}&since_seq=${lastSignalSeq}`);
@@ -2959,7 +3042,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         }
       } catch (e) {}
     }
-    pollTimer = setInterval(pollSignals, 2000);
+    pollTimer = setInterval(() => pollSignals(false), 3000);
 
     // =========================================================================
     // Live Mesh & Peer Chat Engine
@@ -3078,7 +3161,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       document.getElementById('modelInput')?.focus();
     }
 
-    async function loadAnalytics() {
+    async function loadAnalytics(force = false) {
+      if (!force && document.hidden) return;
       try {
         const res = await fetch('/api/models/analytics');
         const data = await res.json();
@@ -3303,10 +3387,17 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       }
     }
 
-    // Init Playlist & Analytics
+    // Init Playlist & Analytics (Visibility-Aware Polling)
     loadPlaylist(false);
-    loadAnalytics();
-    setInterval(loadAnalytics, 5000);
+    loadAnalytics(true);
+    setInterval(() => loadAnalytics(false), 15000);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        pollMeshState(true);
+        pollSignals(true);
+        loadAnalytics(true);
+      }
+    });
   </script>
 </body>
 </html>

@@ -68,6 +68,9 @@ def test_mesh_os_html_ui_invariants():
         'id="accInputUsername"',
         'syncDockIndicators',
         'minimizeWindow',
+        'popout-fullscreen',
+        'WINDOW_POPOUT',
+        'WINDOW_REDOCK',
     ):
         assert token in MESH_OS_HTML_UI, f"Missing expected UI token: {token}"
 
