@@ -82,8 +82,26 @@ def test_mesh_os_html_ui_invariants():
         'id="netMetricPeers"',
         'id="netMetricVisitors"',
         'id="netWinActiveNum"',
+        'startDirectCall',
     ):
         assert token in MESH_OS_HTML_UI, f"Missing expected UI token: {token}"
+
+
+def test_mesh_os_inline_javascript_syntax():
+    import re
+    import shutil
+    import subprocess
+    import tempfile
+
+    scripts = re.findall(r"<script(?![^>]*src=)[^>]*>(.*?)</script>", MESH_OS_HTML_UI, re.S)
+    assert len(scripts) >= 1
+    if shutil.which("node"):
+        for script in scripts:
+            with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:
+                f.write(script)
+                fname = f.name
+            res = subprocess.run(["node", "--check", fname], capture_output=True, text=True)
+            assert res.returncode == 0, f"Inline JS syntax error:\n{res.stderr}"
 
 
 def test_model_swap_reflects_in_analytics(live_mesh_server):
@@ -105,11 +123,12 @@ def test_model_swap_reflects_in_analytics(live_mesh_server):
 
 
 def test_mesh_os_http_endpoints(live_mesh_server):
-    # 1. GET /os returns HTML_UI
-    with urllib.request.urlopen(f"{live_mesh_server}/os") as resp:
-        html = resp.read().decode("utf-8")
-        assert resp.status == 200
-        assert "TinCan Mesh OS" in html
+    # 1. GET /os and /mesh return HTML_UI
+    for route in ("/os", "/mesh"):
+        with urllib.request.urlopen(f"{live_mesh_server}{route}") as resp:
+            html = resp.read().decode("utf-8")
+            assert resp.status == 200
+            assert "TinCan Mesh OS" in html
 
     # 2. GET /api/mesh/state
     with urllib.request.urlopen(f"{live_mesh_server}/api/mesh/state?room=main") as resp:

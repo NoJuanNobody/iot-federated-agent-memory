@@ -835,7 +835,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urlparse(self.path)
-        if parsed.path in ("/", "/health", "/call", "/tv", "/os", "/board", "/cyberspace"):
+        if parsed.path in ("/", "/health", "/call", "/tv", "/os", "/mesh", "/board", "/cyberspace"):
             raw, gz, etag = _get_html_Entry(HTML_UI)
             if self.headers.get("If-None-Match") == etag:
                 self.send_response(304)

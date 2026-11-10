@@ -3642,7 +3642,6 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         }
 
         // Update Moderator Panel Rosters
-        const cursorsArr = Array.isArray(state.cursors) ? state.cursors : Object.values(state.cursors || {});
         const streamsArr = state.active_webrtc_streams || [];
 
         const modWebCountEl = document.getElementById('modWebCount');
@@ -3795,6 +3794,15 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
       }
       return pc;
+    }
+
+    function startDirectCall(peerId) {
+      toggleWindow('win-comms');
+      const roomEl = document.getElementById('roomInput');
+      if (roomEl && peerId && !roomEl.value.trim()) {
+        roomEl.value = 'main';
+      }
+      startCall('video');
     }
 
     async function startCall(mode = 'video') {
