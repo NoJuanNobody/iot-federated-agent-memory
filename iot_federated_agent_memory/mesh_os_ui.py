@@ -378,10 +378,24 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         <span>💬</span> <span class="font-bold">Chat</span> <span id="hudChatBadge" class="px-1.5 py-0.2 rounded-full bg-cyan-400 text-black text-[10px] font-bold">Live</span>
       </button>
 
-      <!-- Active Peer Count -->
-      <span id="osPeerCount" class="text-xs font-mono px-2 py-1 rounded bg-slate-900 border border-slate-800 text-slate-300 flex items-center gap-1">
-        <span>👥</span> <span id="osPeerCountNum">2</span> <span class="hidden sm:inline">Active</span>
-      </span>
+      <!-- Active Peer & Network Pop-Out Launcher ("2 active") -->
+      <button id="osPeerCount" onclick="toggleWindow('win-network')" class="text-xs font-mono px-2.5 py-1 rounded bg-emerald-950/90 border border-emerald-600/90 text-emerald-300 hover:bg-emerald-900 transition flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer font-bold" title="Click to open Active Network Roster, Live Visitors & Leaderboard">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span>👥 <span id="osPeerCountNum">2</span> Active ↗</span>
+      </button>
+
+      <!-- Layout Tiling Mode Switcher -->
+      <div class="hidden md:flex items-center bg-slate-900 border border-slate-700/80 rounded-lg p-0.5 font-mono text-[11px] shadow-sm">
+        <button id="btnLayoutTile2x2" onclick="setDesktopLayout('tile2x2')" class="px-2 py-0.5 rounded text-slate-300 hover:text-white transition flex items-center gap-1" title="Tile 2x2 Grid (4 Quadrants)">
+          <span>🪟</span> <span>2x2 Grid</span>
+        </button>
+        <button id="btnLayoutSplit" onclick="setDesktopLayout('split2col')" class="px-2 py-0.5 rounded text-slate-400 hover:text-white transition flex items-center gap-1" title="Split 2-Column Side-by-Side">
+          <span>📑</span> <span>Split</span>
+        </button>
+        <button id="btnLayoutFree" onclick="setDesktopLayout('free')" class="px-2 py-0.5 rounded text-slate-400 hover:text-white transition flex items-center gap-1" title="Free Draggable Mode">
+          <span>🗔</span> <span>Free</span>
+        </button>
+      </div>
 
       <!-- Unlockable Theme Selector -->
       <select id="osThemeSelect" onchange="changeTheme(this.value)" class="text-xs bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 font-mono cursor-pointer hover:border-slate-500 transition">
@@ -397,14 +411,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         🔔 SFX: ON
       </button>
 
-      <!-- Tile / Reset Windows -->
-      <button id="osTileBtn" onclick="tileWindows()" class="hidden md:inline-flex text-xs font-mono px-2.5 py-1 rounded border border-indigo-800 bg-indigo-950 text-indigo-300 hover:bg-indigo-900 transition active:scale-95">
-        🪟 Tile Windows
-      </button>
-
       <!-- Pop Out Mode Guide -->
       <button onclick="togglePopoutGuide()" class="text-xs font-mono px-2 py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 transition">
-        ↗ Pop Out Mode
+        ↗ Pop Out Guide
       </button>
     </div>
   </header>
@@ -936,7 +945,12 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
               <span>🏆</span> Live Mesh Operator Leaderboard
             </h3>
-            <span class="text-[11px] font-mono text-slate-400">Ranked by Lifetime XP</span>
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] font-mono text-slate-400">Ranked by Lifetime XP</span>
+              <button onclick="toggleWindow('win-network')" class="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 bg-emerald-950/80 border border-emerald-700/80 px-2 py-0.5 rounded transition flex items-center gap-1 active:scale-95" title="Open standalone window with 2 Active Peers and Live Visitors">
+                <span>👥</span> <span>Standalone 2-Active Window ↗</span>
+              </button>
+            </div>
           </div>
 
           <div class="bg-slate-950/80 border border-slate-800 rounded-lg overflow-hidden">
@@ -1830,6 +1844,102 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       </div>
     </div>
 
+    <!-- ===================================================================== -->
+    <!-- Window 9: Network Roster & Operator Leaderboard.app -->
+    <!-- ===================================================================== -->
+    <div id="win-network" class="mesh-window w-[560px] max-w-full" data-window-id="win-network" style="top: 72px; right: 24px; z-index: 28;">
+      <div class="window-header flex items-center justify-between px-3 py-2 bg-gradient-to-r from-emerald-950/95 via-slate-900/95 to-slate-900/95 border-b border-emerald-500/50">
+        <div class="flex items-center gap-2">
+          <span class="text-base">👥</span>
+          <span class="text-xs font-bold text-emerald-300 font-mono tracking-wide">Network Presence &amp; Standalone Leaderboard.app</span>
+          <span id="netWinActiveBadge" class="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600 text-[10px] font-bold">🟢 <span id="netWinActiveNum">2</span> active</span>
+        </div>
+        <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
+          <button onclick="openPopoutWindow('win-network')" class="px-1.5 py-0.5 rounded bg-emerald-900/90 hover:bg-emerald-800 text-emerald-200 border border-emerald-600 text-[10px] font-bold transition active:scale-95" title="Pop out into separate window or secondary monitor">↗ Pop Out</button>
+          <button onclick="minimizeWindow('win-network')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
+          <button onclick="maximizeWindow('win-network')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">□</button>
+          <button onclick="toggleWindow('win-network')" class="px-1.5 py-0.5 rounded bg-red-950/80 hover:bg-red-900 text-red-300 text-[11px]">✕</button>
+        </div>
+      </div>
+      <div class="window-body p-4 space-y-4 max-h-[680px] overflow-y-auto">
+        <!-- Top Metrics Cards -->
+        <div class="grid grid-cols-3 gap-2 text-center font-mono">
+          <div class="p-2.5 bg-slate-950/90 border border-slate-800 rounded-lg">
+            <div class="text-xs font-bold text-emerald-400 flex items-center justify-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span id="netMetricPeers">2</span>
+            </div>
+            <div class="text-[10px] text-slate-400">Mesh Peers</div>
+          </div>
+          <div class="p-2.5 bg-slate-950/90 border border-slate-800 rounded-lg">
+            <div class="text-xs font-bold text-cyan-400" id="netMetricVisitors">14</div>
+            <div class="text-[10px] text-slate-400">Web Cursors</div>
+          </div>
+          <div class="p-2.5 bg-slate-950/90 border border-slate-800 rounded-lg">
+            <div class="text-xs font-bold text-amber-400" id="netMetricTopXp">850 XP</div>
+            <div class="text-[10px] text-slate-400">Top Rank</div>
+          </div>
+        </div>
+
+        <!-- Sub Tabs -->
+        <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs font-mono">
+          <button onclick="switchNetTab('peers')" id="btnNetTab-peers" class="flex-1 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold text-center transition">
+            🟢 Active Peers (<span id="netTabPeersCount">2</span>)
+          </button>
+          <button onclick="switchNetTab('visitors')" id="btnNetTab-visitors" class="flex-1 py-1 rounded text-slate-400 hover:text-white text-center transition">
+            🌐 Web Visitors (<span id="netTabVisitorsCount">1</span>)
+          </button>
+          <button onclick="switchNetTab('leaderboard')" id="btnNetTab-leaderboard" class="flex-1 py-1 rounded text-slate-400 hover:text-white text-center transition">
+            🏆 Leaderboard
+          </button>
+        </div>
+
+        <!-- Tab 1: Active Peers List -->
+        <div id="netPanel-peers" class="space-y-2">
+          <div id="netPeersList" class="space-y-2 font-mono">
+            <!-- Dynamically populated via syncState -->
+          </div>
+        </div>
+
+        <!-- Tab 2: Web Visitors List -->
+        <div id="netPanel-visitors" class="space-y-2 hidden">
+          <div class="text-[11px] text-slate-400 font-mono flex items-center justify-between">
+            <span>Real-time Multiplayer WebKit Cursors &amp; Visitors</span>
+            <span class="text-emerald-400 font-bold">● Live Sync</span>
+          </div>
+          <div id="netVisitorsList" class="space-y-1.5 font-mono text-xs max-h-72 overflow-y-auto">
+            <!-- Dynamically populated via syncState -->
+          </div>
+        </div>
+
+        <!-- Tab 3: Operator Leaderboard -->
+        <div id="netPanel-leaderboard" class="space-y-2 hidden">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-300 font-mono flex items-center gap-1.5">
+              <span>🏆</span> Live Operator Leaderboard
+            </span>
+            <span class="text-[10px] font-mono text-slate-400">Ranked by Lifetime XP</span>
+          </div>
+          <div class="bg-slate-950/80 border border-slate-800 rounded-lg overflow-hidden">
+            <table class="w-full text-left text-xs font-mono">
+              <thead class="bg-slate-900 text-slate-400 border-b border-slate-800">
+                <tr>
+                  <th class="px-3 py-2">Rank</th>
+                  <th class="px-3 py-2">Operator Peer</th>
+                  <th class="px-3 py-2">Readiness Tier</th>
+                  <th class="px-3 py-2">Badges</th>
+                  <th class="px-3 py-2 text-right">Squad XP</th>
+                </tr>
+              </thead>
+              <tbody id="operatorLeaderboardStandalone" class="divide-y divide-slate-800/60">
+                <!-- Dynamically updated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <!-- Bottom OS Dock -->
@@ -1845,6 +1955,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     </button>
     <button id="dockBtn-win-arena" onclick="toggleWindow('win-arena')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="AI Brain Router & Arena">
       <span>🧠</span> <span class="hidden md:inline">AI Arena</span>
+    </button>
+    <button id="dockBtn-win-network" onclick="toggleWindow('win-network')" class="px-2.5 py-1.5 bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-500/80 text-emerald-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95 font-bold" title="Active Network Roster, Live Visitors & Standalone Leaderboard">
+      <span>👥</span> <span class="hidden md:inline">2 Active &amp; Ranks</span>
     </button>
     <button id="dockBtn-chat" onclick="focusChatWindow()" class="px-2.5 py-1.5 bg-cyan-950 hover:bg-cyan-900 border border-cyan-800 text-cyan-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Live Mesh Chat &amp; Comms">
       <span>💬</span> <span class="font-bold">Live Chat</span>
@@ -2051,8 +2164,25 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     // Window Manager: Draggable, Resizable, Focus, Minimize, Maximize, Pop Out
     let highestZ = 30;
-    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-comms', 'win-quests', 'win-moderator', 'win-billing', 'win-board'];
+    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-comms', 'win-quests', 'win-moderator', 'win-billing', 'win-board', 'win-network'];
     const poppedOutWindows = new Set();
+
+    function switchNetTab(tabName) {
+      ['peers', 'visitors', 'leaderboard'].forEach(t => {
+        const btn = document.getElementById(`btnNetTab-${t}`);
+        const panel = document.getElementById(`netPanel-${t}`);
+        if (btn) {
+          if (t === tabName) {
+            btn.className = 'flex-1 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold text-center transition';
+          } else {
+            btn.className = 'flex-1 py-1 rounded text-slate-400 hover:text-white text-center transition';
+          }
+        }
+        if (panel) {
+          panel.classList.toggle('hidden', t !== tabName);
+        }
+      });
+    }
 
     function bringToFront(winEl) {
       highestZ += 1;
@@ -2320,60 +2450,117 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       meshBus.postMessage({ type: 'WINDOW_POPOUT', winId: winId });
     }
 
-    function tileWindows() {
-      const isMobile = window.innerWidth < 768;
-      const winTerm = document.getElementById('win-terminal');
-      const winTv = document.getElementById('win-tv');
-      const winArena = document.getElementById('win-arena');
-      const winComms = document.getElementById('win-comms');
-      const winQuests = document.getElementById('win-quests');
+    let currentDesktopLayout = localStorage.getItem('tincan_layout_mode') || 'free';
 
-      allWindows.forEach(id => {
-        const w = document.getElementById(id);
-        if (w) {
-          w.style.display = 'flex';
-          w.classList.remove('maximized', 'minimized');
-        }
-      });
+    function setDesktopLayout(mode) {
+      currentDesktopLayout = mode;
+      localStorage.setItem('tincan_layout_mode', mode);
+
+      const btn2x2 = document.getElementById('btnLayoutTile2x2');
+      const btnSplit = document.getElementById('btnLayoutSplit');
+      const btnFree = document.getElementById('btnLayoutFree');
+
+      if (btn2x2) btn2x2.className = (mode === 'tile2x2') ? 'px-2 py-0.5 rounded bg-indigo-600 text-white font-bold shadow transition flex items-center gap-1' : 'px-2 py-0.5 rounded text-slate-400 hover:text-white transition flex items-center gap-1';
+      if (btnSplit) btnSplit.className = (mode === 'split2col') ? 'px-2 py-0.5 rounded bg-indigo-600 text-white font-bold shadow transition flex items-center gap-1' : 'px-2 py-0.5 rounded text-slate-400 hover:text-white transition flex items-center gap-1';
+      if (btnFree) btnFree.className = (mode === 'free') ? 'px-2 py-0.5 rounded bg-indigo-600 text-white font-bold shadow transition flex items-center gap-1' : 'px-2 py-0.5 rounded text-slate-400 hover:text-white transition flex items-center gap-1';
+
+      if (mode === 'free') {
+        allWindows.forEach(id => {
+          const w = document.getElementById(id);
+          if (w) {
+            w.style.height = '';
+            const body = w.querySelector('.window-body');
+            if (body) body.style.height = '';
+          }
+        });
+        return;
+      }
+
+      const isMobile = window.innerWidth < 768;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const topBarHeight = 56;
+      const dockHeight = 64;
+      const pad = 12;
+      const availH = vh - topBarHeight - dockHeight - (pad * 2);
 
       if (isMobile) {
         let top = 70;
-        [winTerm, winTv, winArena, winComms, winQuests].forEach(w => {
+        ['win-tv', 'win-arena', 'win-board', 'win-network'].forEach(id => {
+          const w = document.getElementById(id);
           if (!w) return;
+          w.style.display = 'flex';
+          w.classList.remove('maximized', 'minimized', 'hidden');
           w.style.left = '10px';
           w.style.right = '10px';
           w.style.top = `${top}px`;
           w.style.width = 'calc(100vw - 20px)';
           top += 580;
         });
-      } else {
-        const halfWidth = Math.floor((window.innerWidth - 64) / 2);
-        if (winTerm) {
-          winTerm.style.left = '20px';
-          winTerm.style.top = '72px';
-          winTerm.style.width = `${halfWidth}px`;
-        }
-        if (winTv) {
-          winTv.style.left = `${halfWidth + 36}px`;
-          winTv.style.top = '72px';
-          winTv.style.width = `${halfWidth}px`;
-        }
-        if (winArena) {
-          winArena.style.left = '20px';
-          winArena.style.top = '680px';
-          winArena.style.width = `${halfWidth}px`;
-        }
-        if (winComms) {
-          winComms.style.left = `${halfWidth + 36}px`;
-          winComms.style.top = '680px';
-          winComms.style.width = `${halfWidth}px`;
-        }
-        if (winQuests) {
-          winQuests.style.left = '20px';
-          winQuests.style.top = '1320px';
-          winQuests.style.width = `${window.innerWidth - 48}px`;
-        }
+        return;
       }
+
+      if (mode === 'tile2x2') {
+        const halfW = Math.floor((vw - (pad * 3)) / 2);
+        const halfH = Math.max(340, Math.floor(availH / 2));
+
+        const quadrants = [
+          { id: 'win-tv', x: pad, y: topBarHeight + pad, w: halfW, h: halfH },
+          { id: 'win-arena', x: pad + halfW + pad, y: topBarHeight + pad, w: halfW, h: halfH },
+          { id: 'win-board', x: pad, y: topBarHeight + pad + halfH + pad, w: halfW, h: halfH },
+          { id: 'win-network', x: pad + halfW + pad, y: topBarHeight + pad + halfH + pad, w: halfW, h: halfH }
+        ];
+
+        quadrants.forEach(q => {
+          const w = document.getElementById(q.id);
+          if (w) {
+            w.style.display = 'flex';
+            w.classList.remove('hidden', 'minimized', 'maximized');
+            w.style.left = `${q.x}px`;
+            w.style.top = `${q.y}px`;
+            w.style.width = `${q.w}px`;
+            w.style.height = `${q.h}px`;
+            const body = w.querySelector('.window-body');
+            if (body) {
+              body.style.maxHeight = `${q.h - 44}px`;
+              body.style.height = `${q.h - 44}px`;
+            }
+            bringToFront(w);
+          }
+        });
+      } else if (mode === 'split2col') {
+        const halfW = Math.floor((vw - (pad * 3)) / 2);
+        const halfH = Math.max(340, Math.floor(availH / 2));
+
+        const splits = [
+          { id: 'win-tv', x: pad, y: topBarHeight + pad, w: halfW, h: halfH },
+          { id: 'win-board', x: pad, y: topBarHeight + pad + halfH + pad, w: halfW, h: halfH },
+          { id: 'win-arena', x: pad + halfW + pad, y: topBarHeight + pad, w: halfW, h: halfH },
+          { id: 'win-network', x: pad + halfW + pad, y: topBarHeight + pad + halfH + pad, w: halfW, h: halfH }
+        ];
+
+        splits.forEach(s => {
+          const w = document.getElementById(s.id);
+          if (w) {
+            w.style.display = 'flex';
+            w.classList.remove('hidden', 'minimized', 'maximized');
+            w.style.left = `${s.x}px`;
+            w.style.top = `${s.y}px`;
+            w.style.width = `${s.w}px`;
+            w.style.height = `${s.h}px`;
+            const body = w.querySelector('.window-body');
+            if (body) {
+              body.style.maxHeight = `${s.h - 44}px`;
+              body.style.height = `${s.h - 44}px`;
+            }
+            bringToFront(w);
+          }
+        });
+      }
+    }
+
+    function tileWindows() {
+      setDesktopLayout('tile2x2');
     }
 
     function togglePopoutGuide() {
@@ -3342,9 +3529,16 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         document.getElementById('osXpBar').style.width = `${pct}%`;
         document.getElementById('osXpText').innerText = `${squadXp.toLocaleString()} / ${targetXp.toLocaleString()} XP`;
 
-        // Update Peer Count
+        // Update Peer Count across Top HUD and win-network
         const count = state.peers_count || (state.active_webrtc_streams?.length || 2);
-        document.getElementById('osPeerCountNum').innerText = count;
+        const osCountEl = document.getElementById('osPeerCountNum');
+        if (osCountEl) osCountEl.innerText = count;
+        const netWinBadgeEl = document.getElementById('netWinActiveNum');
+        if (netWinBadgeEl) netWinBadgeEl.innerText = count;
+        const netMetricPeersEl = document.getElementById('netMetricPeers');
+        if (netMetricPeersEl) netMetricPeersEl.innerText = count;
+        const netTabPeersEl = document.getElementById('netTabPeersCount');
+        if (netTabPeersEl) netTabPeersEl.innerText = count;
 
         // Render Multiplayer Cursors
         if (state.cursors) {
@@ -3357,10 +3551,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           renderMultiplayerCursors(cursorMap);
         }
 
-        // Update Leaderboard
+        // Update Leaderboard in both win-quests and standalone win-network
         if (state.leaderboard && Array.isArray(state.leaderboard)) {
-          const tbody = document.getElementById('operatorLeaderboard');
-          tbody.innerHTML = state.leaderboard.map((p, idx) => `
+          const renderLdRows = (rows) => rows.map((p, idx) => `
             <tr>
               <td class="px-3 py-2 text-${idx === 0 ? 'amber-400' : 'slate-400'} font-bold">#${idx + 1}</td>
               <td class="px-3 py-2 text-white font-bold">${p.display_name || p.peer_id}</td>
@@ -3371,6 +3564,81 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
               <td class="px-3 py-2 text-right text-cyan-300 font-bold">${(p.xp || 0).toLocaleString()} XP</td>
             </tr>
           `).join('');
+
+          const tbody = document.getElementById('operatorLeaderboard');
+          if (tbody) tbody.innerHTML = renderLdRows(state.leaderboard);
+
+          const tbodyStandalone = document.getElementById('operatorLeaderboardStandalone');
+          if (tbodyStandalone) tbodyStandalone.innerHTML = renderLdRows(state.leaderboard);
+
+          const topRank = state.leaderboard[0];
+          const topXpEl = document.getElementById('netMetricTopXp');
+          if (topXpEl && topRank) {
+            topXpEl.innerText = `${(topRank.xp || 850).toLocaleString()} XP`;
+          }
+        }
+
+        // Update win-network Peers & Visitors Roster
+        const activePeers = (state.active_webrtc_streams && state.active_webrtc_streams.length > 0)
+          ? state.active_webrtc_streams
+          : [
+              { peer_id: 'Mac Studio (M1 Max)', handle: '@nojuannobody', tier: 'L5: Autonomous Mesh', rtt: 24, status: 'Streaming 1080p', mbps: '5.4' },
+              { peer_id: 'MacBook Pro (M2)', handle: '@collaborator', tier: 'L4: CRDT Gossip', rtt: 38, status: 'Connected', mbps: '2.1' }
+            ];
+
+        const netPeersListEl = document.getElementById('netPeersList');
+        if (netPeersListEl) {
+          netPeersListEl.innerHTML = activePeers.map(p => `
+            <div class="p-3 bg-slate-950/80 border border-slate-800 rounded-lg space-y-1.5 hover:border-slate-700 transition">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>🖥️</span> <span>${escapeHtml(p.peer_id || p.handle || 'Peer Node')}</span>
+                </span>
+                <span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-bold">
+                  ${escapeHtml(p.tier || 'L4: CRDT Gossip')}
+                </span>
+              </div>
+              <div class="flex items-center justify-between text-[11px] text-slate-400">
+                <span class="text-emerald-400">● ${escapeHtml(p.status || 'Active WebRTC Stream')}</span>
+                <span class="font-mono text-cyan-300">${p.rtt || 24}ms RTT · ${p.mbps || '3.2'} Mbps</span>
+              </div>
+              <div class="flex items-center gap-2 pt-1 border-t border-slate-800/80 text-[10px]">
+                <button onclick="startDirectCall('${escapeHtml(p.peer_id || '')}')" class="px-2 py-0.5 rounded bg-emerald-900/80 hover:bg-emerald-800 text-emerald-200 border border-emerald-700 transition active:scale-95">📞 Call</button>
+                <button onclick="toggleWindow('win-comms')" class="px-2 py-0.5 rounded bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-800 transition active:scale-95">📺 View Screen</button>
+                <button onclick="fireTestPacket()" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition active:scale-95">💬 Ping</button>
+              </div>
+            </div>
+          `).join('');
+        }
+
+        const cursorsArr = Array.isArray(state.cursors) ? state.cursors : Object.values(state.cursors || {});
+        const visitorsCount = Math.max(cursorsArr.length, 1);
+        const netMetricVisitorsEl = document.getElementById('netMetricVisitors');
+        if (netMetricVisitorsEl) netMetricVisitorsEl.innerText = visitorsCount;
+        const netTabVisitorsEl = document.getElementById('netTabVisitorsCount');
+        if (netTabVisitorsEl) netTabVisitorsEl.innerText = visitorsCount;
+
+        const netVisitorsListEl = document.getElementById('netVisitorsList');
+        if (netVisitorsListEl) {
+          if (cursorsArr.length === 0) {
+            netVisitorsListEl.innerHTML = `
+              <div class="p-2.5 bg-slate-950/60 border border-slate-800/80 rounded-lg text-slate-400 text-xs flex items-center justify-between">
+                <span class="flex items-center gap-1.5"><span>🖱️</span> <span>Local Browser Session</span></span>
+                <span class="px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 text-[10px]">Active Now</span>
+              </div>
+            `;
+          } else {
+            netVisitorsListEl.innerHTML = cursorsArr.map(c => `
+              <div class="p-2 bg-slate-950/70 border border-slate-800 rounded-lg flex items-center justify-between text-[11px]">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full" style="background-color: ${c.color || '#38bdf8'}"></span>
+                  <span class="text-white font-bold">${escapeHtml(c.user || c.display_name || c.peer_id || 'Web Visitor')}</span>
+                  <span class="text-slate-400 text-[10px]">(${escapeHtml(c.agent || 'Web Client')})</span>
+                </div>
+                <span class="text-emerald-400 font-mono text-[10px]">${escapeHtml(c.window_id || c.focused_window || 'Mesh Desktop')}</span>
+              </div>
+            `).join('');
+          }
         }
 
         // Update Moderator Panel Rosters

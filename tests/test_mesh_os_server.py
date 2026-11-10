@@ -71,6 +71,17 @@ def test_mesh_os_html_ui_invariants():
         'popout-fullscreen',
         'WINDOW_POPOUT',
         'WINDOW_REDOCK',
+        'id="win-network"',
+        'id="operatorLeaderboardStandalone"',
+        'id="btnLayoutTile2x2"',
+        'id="btnLayoutSplit"',
+        'id="btnLayoutFree"',
+        'setDesktopLayout',
+        'switchNetTab',
+        'dockBtn-win-network',
+        'id="netMetricPeers"',
+        'id="netMetricVisitors"',
+        'id="netWinActiveNum"',
     ):
         assert token in MESH_OS_HTML_UI, f"Missing expected UI token: {token}"
 
