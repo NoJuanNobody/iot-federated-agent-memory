@@ -356,6 +356,40 @@ class RelayVideoPlaylist:
                 self._save_state()
             return asdict(item)
 
+    def update_video(
+        self,
+        video_id_or_id: str,
+        title: Optional[str] = None,
+        creator: Optional[str] = None,
+        category: Optional[str] = None,
+        duration_seconds: Optional[int] = None,
+        cite_url: Optional[str] = None,
+        embed_url: Optional[str] = None,
+        persist: bool = True,
+    ) -> Optional[Dict[str, Any]]:
+        """Update existing video metadata in the playlist and persist to S3."""
+        with self._lock:
+            for idx, it in enumerate(self.items):
+                if it.id == video_id_or_id or it.video_id == video_id_or_id:
+                    if title is not None:
+                        it.title = title.strip()
+                    if creator is not None:
+                        c = creator.strip()
+                        it.creator = c if c.startswith("@") else f"@{c}"
+                    if category is not None:
+                        it.category = category.strip().lower()
+                    if duration_seconds is not None:
+                        it.duration_seconds = max(1, int(duration_seconds))
+                    if cite_url is not None:
+                        it.cite_url = cite_url.strip()
+                    if embed_url is not None:
+                        it.embed_url = embed_url.strip()
+                    self.items[idx] = it
+                    if persist:
+                        self._save_state()
+                    return asdict(it)
+            return None
+
     def remove_video(self, video_id_or_id: str, persist: bool = True) -> bool:
         with self._lock:
             before = len(self.items)

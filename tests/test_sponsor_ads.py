@@ -120,3 +120,89 @@ def test_http_sponsor_endpoints(live_server):
         res2 = json.loads(resp.read().decode("utf-8"))
         assert res2["status"] == "topup_success"
         assert res2["account"]["token_balance"] >= 55000
+
+
+def test_admin_video_and_sponsor_crud_endpoints(live_server):
+    # 1. Update Video
+    req_update_vid = urllib.request.Request(
+        f"{live_server}/api/playlist/update",
+        data=json.dumps({
+            "id": "7705677376465767711",
+            "title": "Updated Mesh Tutorial",
+            "creator": "@tin_admin",
+            "category": "instruction",
+            "duration_seconds": 40,
+        }).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req_update_vid) as resp:
+        assert resp.status == 200
+        data = json.loads(resp.read().decode("utf-8"))
+        assert data["status"] == "updated"
+        assert data["item"]["title"] == "Updated Mesh Tutorial"
+        assert data["item"]["creator"] == "@tin_admin"
+
+    # 2. Add Sponsor Ad
+    req_add_ad = urllib.request.Request(
+        f"{live_server}/api/sponsors/add",
+        data=json.dumps({
+            "id": "anthropic-claude",
+            "name": "Anthropic Claude 3.7",
+            "tagline": "Hybrid reasoning and code editing.",
+            "cta": "Try Claude ↗",
+            "url": "https://anthropic.com",
+            "icon": "🤖",
+            "badge": "AI Partner",
+            "reward_tokens": 6000,
+            "reward_usd": 0.06,
+        }).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req_add_ad) as resp:
+        assert resp.status == 200
+        data = json.loads(resp.read().decode("utf-8"))
+        assert data["status"] == "added"
+        assert data["sponsor"]["id"] == "anthropic-claude"
+        assert data["sponsor"]["reward_tokens"] == 6000
+
+    # 3. Update Sponsor Ad
+    req_update_ad = urllib.request.Request(
+        f"{live_server}/api/sponsors/update",
+        data=json.dumps({
+            "id": "anthropic-claude",
+            "name": "Anthropic Claude 3.7 Sonnet (Updated)",
+            "reward_tokens": 7500,
+        }).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req_update_ad) as resp:
+        assert resp.status == 200
+        data = json.loads(resp.read().decode("utf-8"))
+        assert data["status"] == "updated"
+        assert data["sponsor"]["name"] == "Anthropic Claude 3.7 Sonnet (Updated)"
+        assert data["sponsor"]["reward_tokens"] == 7500
+
+    # 4. List Sponsors
+    with urllib.request.urlopen(f"{live_server}/api/sponsors") as resp:
+        assert resp.status == 200
+        data = json.loads(resp.read().decode("utf-8"))
+        s_ids = [s["id"] for s in data["all_sponsors"]]
+        assert "anthropic-claude" in s_ids
+
+    # 5. Remove Sponsor Ad
+    req_remove_ad = urllib.request.Request(
+        f"{live_server}/api/sponsors/remove",
+        data=json.dumps({"id": "anthropic-claude"}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req_remove_ad) as resp:
+        assert resp.status == 200
+        data = json.loads(resp.read().decode("utf-8"))
+        assert data["status"] == "removed"
+        s_ids_after = [s["id"] for s in data["state"]["all_sponsors"]]
+        assert "anthropic-claude" not in s_ids_after
+

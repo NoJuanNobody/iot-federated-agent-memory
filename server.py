@@ -18,6 +18,7 @@ from iot_federated_agent_memory.mesh_os_engine import TinCanMeshOSEngine
 from iot_federated_agent_memory.mesh_os_ui import MESH_OS_HTML_UI
 from iot_federated_agent_memory.account_registry import PeerAccountRegistry
 from iot_federated_agent_memory.sponsor_ads import SponsorAdManager
+from iot_federated_agent_memory.cyberspace_board import CyberspaceBoardEngine
 from dataclasses import asdict
 
 PORT = int(os.environ.get("PORT", 8080))
@@ -63,6 +64,13 @@ sponsor_manager = SponsorAdManager()
 sponsor_manager.sync_from_playlist([asdict(it) for it in playlist.items])
 mesh_os = TinCanMeshOSEngine(seed=True)
 account_registry = PeerAccountRegistry()
+cyberspace_board = CyberspaceBoardEngine(
+    account_registry=account_registry,
+    ai_router=router,
+    tincan_relay=tincan_relay,
+    webrtc_relay=relay,
+    seed=True,
+)
 
 # Register seed peers for live dashboard (IP addresses redacted, peripherals OFF by default)
 relay.register_peer("peer-primary-mac", "Mac Studio (M1 Chip)", "redacted", 50004, has_video=False, has_audio=False, has_screen=False)
@@ -350,6 +358,88 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 }, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/playlist/update":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                vid = data.get("id") or data.get("video_id")
+                if not vid:
+                    self._send_json({"error": "Missing 'id' or 'video_id'"}, 400)
+                    return
+                updated = playlist.update_video(
+                    video_id_or_id=vid,
+                    title=data.get("title"),
+                    creator=data.get("creator"),
+                    category=data.get("category"),
+                    duration_seconds=data.get("duration_seconds"),
+                    cite_url=data.get("cite_url"),
+                    embed_url=data.get("embed_url"),
+                )
+                if updated:
+                    sponsor_manager.sync_from_playlist([asdict(it) for it in playlist.items])
+                    self._send_json({
+                        "status": "updated",
+                        "item": updated,
+                        "playlist": playlist.get_playlist(),
+                    }, 200)
+                else:
+                    self._send_json({"error": "Video not found", "video_id": vid}, 404)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/sponsors/add":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                if not data.get("name"):
+                    self._send_json({"error": "Missing sponsor 'name'"}, 400)
+                    return
+                added = sponsor_manager.add_sponsor(data)
+                self._send_json({
+                    "status": "added",
+                    "sponsor": added,
+                    "state": sponsor_manager.get_state(),
+                }, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/sponsors/update":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                s_id = data.get("id")
+                if not s_id:
+                    self._send_json({"error": "Missing sponsor 'id'"}, 400)
+                    return
+                updated = sponsor_manager.update_sponsor(s_id, data)
+                if updated:
+                    self._send_json({
+                        "status": "updated",
+                        "sponsor": updated,
+                        "state": sponsor_manager.get_state(),
+                    }, 200)
+                else:
+                    self._send_json({"error": "Sponsor not found", "id": s_id}, 404)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/sponsors/remove":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                s_id = data.get("id")
+                if not s_id:
+                    self._send_json({"error": "Missing sponsor 'id'"}, 400)
+                    return
+                removed = sponsor_manager.remove_sponsor(s_id)
+                self._send_json({
+                    "status": "removed" if removed else "not_found",
+                    "id": s_id,
+                    "state": sponsor_manager.get_state(),
+                }, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
         elif parsed.path == "/api/mesh/cursor":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
@@ -515,12 +605,148 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": str(ve)}, 400)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/board/topics":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                peer_id = data.get("peer_id") or "anonymous-peer"
+                title = data.get("title") or ""
+                body = data.get("body") or ""
+                category = data.get("category") or "cyberspace"
+                tags = data.get("tags") or []
+                if isinstance(tags, str):
+                    tags = [t.strip() for t in tags.split(",") if t.strip()]
+                author_username = data.get("username") or data.get("author_username")
+                require_verification = bool(data.get("require_verification", False))
+                auto_agent_reply = bool(data.get("auto_agent_reply", True))
+
+                result = cyberspace_board.create_topic(
+                    peer_id=peer_id,
+                    title=title,
+                    body=body,
+                    category=category,
+                    tags=tags,
+                    author_username=author_username,
+                    require_verification=require_verification,
+                    auto_agent_reply=auto_agent_reply,
+                )
+                if result.get("require_verification"):
+                    self._send_json(result, 403)
+                    return
+
+                mesh_os.award_xp(peer_id, "cyberspace_post", display_name=result.get("author_username"))
+                mesh_os.record_flight(peer_id, "relay", kind="cyberspace_topic", label=f"#{category}")
+                self._send_json({"status": "created", "topic": result}, 201)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/board/reply":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                topic_id = data.get("topic_id") or ""
+                peer_id = data.get("peer_id") or "anonymous-peer"
+                body = data.get("body") or ""
+                author_username = data.get("username") or data.get("author_username")
+                parent_post_id = data.get("parent_post_id") or ""
+                require_verification = bool(data.get("require_verification", False))
+                auto_agent_reply = bool(data.get("auto_agent_reply", True))
+
+                result = cyberspace_board.create_post(
+                    topic_id=topic_id,
+                    peer_id=peer_id,
+                    body=body,
+                    author_username=author_username,
+                    parent_post_id=parent_post_id,
+                    require_verification=require_verification,
+                    auto_agent_reply=auto_agent_reply,
+                )
+                if result.get("require_verification"):
+                    self._send_json(result, 403)
+                    return
+
+                mesh_os.award_xp(peer_id, "cyberspace_post", display_name=result.get("author_username"))
+                mesh_os.record_flight(peer_id, "relay", kind="cyberspace_reply", label="Board Reply")
+                self._send_json(result, 201)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/board/search":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                query_str = data.get("query") or data.get("q") or ""
+                mode = data.get("mode") or "hybrid"
+                top_k = int(data.get("top_k", 10))
+                max_hops = int(data.get("max_hops", 2))
+                res = cyberspace_board.search(query=query_str, mode=mode, top_k=top_k, max_hops=max_hops)
+                self._send_json(res, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/verify/send":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                peer_id = data.get("peer_id") or "anonymous-peer"
+                username = data.get("username") or data.get("target_username") or ""
+                reason = data.get("reason") or "Mandatory Cyberspace Identity Verification"
+                res = cyberspace_board.dispatch_verification_form(
+                    peer_id=peer_id,
+                    target_username=username,
+                    reason=reason,
+                )
+                mesh_os.record_flight("@verifier-agent", peer_id, kind="verification_form", label="🛡️ Verify Form")
+                self._send_json(res, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/verify/submit":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                peer_id = data.get("peer_id") or ""
+                full_name = data.get("full_name") or data.get("name") or ""
+                username = data.get("username") or ""
+                email = data.get("email") or ""
+                phone_number = data.get("phone_number") or data.get("phone") or ""
+                role = data.get("role") or "Researcher / Student"
+                bio = data.get("bio") or ""
+                consent_pii = bool(data.get("consent_pii", True))
+                request_id = data.get("request_id")
+
+                res = cyberspace_board.submit_verification_form(
+                    peer_id=peer_id,
+                    full_name=full_name,
+                    username=username,
+                    email=email,
+                    phone_number=phone_number,
+                    role=role,
+                    bio=bio,
+                    consent_pii=consent_pii,
+                    request_id=request_id,
+                )
+                try:
+                    mesh_os.award_xp(peer_id, "cyberspace_verified", display_name=f"{full_name} (@{username.lstrip('@')})")
+                    mesh_os.record_flight(peer_id, "@verifier-agent", kind="verified", label="✅ Attested")
+                except Exception:
+                    pass
+                self._send_json(res, 200)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
         else:
             self._send_empty(404)
 
     def do_GET(self):
         parsed = urlparse(self.path)
-        if parsed.path in ("/", "/health", "/call", "/tv", "/os"):
+        if parsed.path in ("/", "/health", "/call", "/tv", "/os", "/board", "/cyberspace"):
             raw, gz, etag = _get_html_Entry(HTML_UI)
             if self.headers.get("If-None-Match") == etag:
                 self.send_response(304)
@@ -587,7 +813,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 "networks": state["networks"],
                 "total_sponsors": len(state["all_sponsors"]),
             }, 200)
-        elif parsed.path == "/api/ads/state":
+        elif parsed.path in ("/api/ads/state", "/api/sponsors", "/api/sponsor/list"):
             self._send_json(sponsor_manager.get_state(), 200)
         elif parsed.path.startswith("/videos/") and parsed.path.endswith(".mp4"):
             from iot_federated_agent_memory.video_playlist import VIDEOS_DIR, download_tiktok_mp4
@@ -716,6 +942,49 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             summary = account_registry.get_billing_summary(peer_id)
             status_code = 200 if "error" not in summary else 404
             self._send_json(summary, status_code)
+        elif parsed.path == "/api/board/topics":
+            query = parse_qs(parsed.query)
+            category = query.get("category", [None])[0]
+            tag = query.get("tag", [None])[0]
+            user = query.get("user", query.get("username", [None]))[0]
+            agent = query.get("agent", [None])[0]
+            limit = int(query.get("limit", ["50"])[0])
+            res = cyberspace_board.list_topics(
+                category=category,
+                tag=tag,
+                mentioned_user=user,
+                mentioned_agent=agent,
+                limit=limit,
+            )
+            self._send_json(res, 200)
+        elif parsed.path == "/api/board/topic":
+            query = parse_qs(parsed.query)
+            topic_id = query.get("id", query.get("topic_id", [None]))[0]
+            if not topic_id:
+                self._send_json({"error": "Missing 'id' or 'topic_id' query parameter"}, 400)
+                return
+            topic = cyberspace_board.get_topic(topic_id)
+            if not topic:
+                self._send_json({"error": f"Topic '{topic_id}' not found"}, 404)
+                return
+            self._send_json({"status": "ok", "topic": topic}, 200)
+        elif parsed.path == "/api/board/search":
+            query = parse_qs(parsed.query)
+            q_str = query.get("q", query.get("query", [""]))[0]
+            mode = query.get("mode", ["hybrid"])[0]
+            top_k = int(query.get("top_k", ["10"])[0])
+            max_hops = int(query.get("max_hops", ["2"])[0])
+            res = cyberspace_board.search(query=q_str, mode=mode, top_k=top_k, max_hops=max_hops)
+            self._send_json(res, 200)
+        elif parsed.path == "/api/board/graph":
+            self._send_json(cyberspace_board.graphrag.get_full_graph_snapshot(), 200)
+        elif parsed.path == "/api/verify/status":
+            query = parse_qs(parsed.query)
+            peer_id = query.get("peer_id", query.get("peer", [None]))[0]
+            if not peer_id:
+                self._send_json({"error": "Missing 'peer_id' query parameter"}, 400)
+                return
+            self._send_json(cyberspace_board.get_verification_status(peer_id), 200)
         elif parsed.path == "/api/status":
             audit = scale.evaluate_current_and_future()
             self._send_json({

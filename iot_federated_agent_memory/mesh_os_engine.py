@@ -68,6 +68,18 @@ QUEST_CATALOG: Dict[str, Dict[str, Any]] = {
         "xp": 150,
         "description": "Raise hand for a Mentor pair-programming or code-review session",
     },
+    "cyberspace_post": {
+        "title": "Cyberspace Architect",
+        "badge": "🌐 Cyberspace Scribe",
+        "xp": 120,
+        "description": "Publish a topic or reply with @username or @agent tags on the Cyberspace Board",
+    },
+    "cyberspace_verified": {
+        "title": "Verified Citizen",
+        "badge": "✅ Verified Citizen",
+        "xp": 200,
+        "description": "Complete the @verifier-agent Identity Verification Form in Cyberspace",
+    },
 }
 
 

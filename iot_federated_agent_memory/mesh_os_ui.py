@@ -1092,6 +1092,159 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           </div>
         </div>
 
+        <!-- Section 3: Video & Sponsored Ad Fleet Studio (Admin CRUD) -->
+        <div class="bg-slate-900/80 border border-pink-900/50 rounded-xl p-3.5 space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+            <div class="text-xs font-bold text-pink-400 font-mono flex items-center gap-1.5">
+              <span>🎬</span>
+              <span>Video &amp; Sponsored Ad Fleet Studio (Admin CRUD)</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button onclick="toggleAdminTab('videos')" id="adminTabBtnVideos" class="px-2 py-0.5 rounded bg-pink-950 text-pink-300 border border-pink-700 text-[10px] font-mono font-bold">Videos (<span id="adminVideosCount">0</span>)</button>
+              <button onclick="toggleAdminTab('sponsors')" id="adminTabBtnSponsors" class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-mono">Sponsor Ads (<span id="adminSponsorsCount">0</span>)</button>
+            </div>
+          </div>
+
+          <!-- Sub-Panel A: Videos CRUD -->
+          <div id="adminVideosPanel" class="space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] text-slate-300 font-mono">Relay Watch Party Collection (S3 Backed)</span>
+              <button onclick="toggleAddVideoDrawer()" class="px-2.5 py-1 bg-pink-600 hover:bg-pink-500 text-white font-mono text-[10px] rounded font-bold transition flex items-center gap-1 active:scale-95">
+                <span>+</span> <span>Add Video / Ingest MP4</span>
+              </button>
+            </div>
+
+            <!-- Add Video Drawer -->
+            <div id="adminAddVideoDrawer" class="hidden p-2.5 bg-slate-950 border border-pink-800/60 rounded-lg space-y-2 text-xs font-mono">
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-[10px] text-slate-400 block mb-0.5">Video URL or TikTok ID *</label>
+                  <input id="adminNewVideoUrl" type="text" placeholder="https://www.tiktok.com/@creator/video/123... or ID" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                </div>
+                <div>
+                  <label class="text-[10px] text-slate-400 block mb-0.5">Display Title</label>
+                  <input id="adminNewVideoTitle" type="text" placeholder="Video Title" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                </div>
+              </div>
+              <div class="grid grid-cols-3 gap-2">
+                <div>
+                  <label class="text-[10px] text-slate-400 block mb-0.5">Creator Handle</label>
+                  <input id="adminNewVideoCreator" type="text" placeholder="@creator" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                </div>
+                <div>
+                  <label class="text-[10px] text-slate-400 block mb-0.5">Category</label>
+                  <select id="adminNewVideoCategory" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                    <option value="spotlight">spotlight</option>
+                    <option value="instruction">instruction</option>
+                    <option value="ad">ad (sponsored)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-[10px] text-slate-400 block mb-0.5">Duration (Seconds)</label>
+                  <input id="adminNewVideoDuration" type="number" value="35" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                </div>
+              </div>
+              <div class="flex justify-end gap-1.5 pt-1">
+                <button onclick="toggleAddVideoDrawer()" class="px-2.5 py-1 bg-slate-800 text-slate-300 rounded text-[10px]">Cancel</button>
+                <button onclick="adminSubmitAddVideo()" class="px-3 py-1 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded text-[10px] active:scale-95">Save &amp; Ingest to S3</button>
+              </div>
+            </div>
+
+            <!-- Videos Table -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-left font-mono text-xs">
+                <thead class="text-slate-400 bg-slate-950/60 border-b border-slate-800 text-[11px]">
+                  <tr>
+                    <th class="px-2.5 py-1.5">ID / Stream</th>
+                    <th class="px-2.5 py-1.5">Title</th>
+                    <th class="px-2.5 py-1.5">Creator</th>
+                    <th class="px-2.5 py-1.5">Category</th>
+                    <th class="px-2.5 py-1.5">Dur</th>
+                    <th class="px-2.5 py-1.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="adminVideosTableBody" class="divide-y divide-slate-800/50">
+                  <tr><td colspan="6" class="px-3 py-3 text-center text-slate-500 text-[11px]">Loading video collection...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Sub-Panel B: Sponsor Ads CRUD -->
+          <div id="adminSponsorsPanel" class="hidden space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] text-slate-300 font-mono">Sponsor Creatives &amp; Ad Subsidies</span>
+              <button onclick="toggleAddSponsorDrawer()" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-slate-950 font-mono text-[10px] rounded font-bold transition flex items-center gap-1 active:scale-95">
+                <span>+</span> <span>Add Sponsor Creative</span>
+              </button>
+            </div>
+
+            <!-- Add Sponsor Drawer -->
+            <div id="adminAddSponsorDrawer" class="hidden p-2.5 bg-slate-950 border border-amber-800/60 rounded-lg space-y-2 text-xs font-mono">
+              <div class="grid grid-cols-3 gap-2">
+                <div>
+                  <label class="text-[10px] text-slate-400 block mb-0.5">Sponsor Name *</label>
+                  <input id="adminNewSponsorName" type="text" placeholder="e.g. Anthropic Claude" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                </div>
+                <div>
+                  <label class="text-[10px] text-slate-400 block mb-0.5">Icon / Emoji</label>
+                  <input id="adminNewSponsorIcon" type="text" value="🌟" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                </div>
+                <div>
+                  <label class="text-[10px] text-slate-400 block mb-0.5">Badge Text</label>
+                  <input id="adminNewSponsorBadge" type="text" value="Partner" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-[10px] text-slate-400 block mb-0.5">Tagline</label>
+                  <input id="adminNewSponsorTagline" type="text" placeholder="Tagline description" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                </div>
+                <div>
+                  <label class="text-[10px] text-slate-400 block mb-0.5">Destination URL</label>
+                  <input id="adminNewSponsorUrl" type="text" placeholder="https://..." class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                </div>
+              </div>
+              <div class="grid grid-cols-3 gap-2">
+                <div>
+                  <label class="text-[10px] text-slate-400 block mb-0.5">CTA Button</label>
+                  <input id="adminNewSponsorCta" type="text" value="Visit Partner ↗" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                </div>
+                <div>
+                  <label class="text-[10px] text-slate-400 block mb-0.5">Reward Tokens</label>
+                  <input id="adminNewSponsorRewardTokens" type="number" value="5000" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                </div>
+                <div>
+                  <label class="text-[10px] text-slate-400 block mb-0.5">Reward USD</label>
+                  <input id="adminNewSponsorRewardUsd" type="number" step="0.01" value="0.05" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                </div>
+              </div>
+              <div class="flex justify-end gap-1.5 pt-1">
+                <button onclick="toggleAddSponsorDrawer()" class="px-2.5 py-1 bg-slate-800 text-slate-300 rounded text-[10px]">Cancel</button>
+                <button onclick="adminSubmitAddSponsor()" class="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded text-[10px] active:scale-95">Save Sponsor Ad</button>
+              </div>
+            </div>
+
+            <!-- Sponsors Table -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-left font-mono text-xs">
+                <thead class="text-slate-400 bg-slate-950/60 border-b border-slate-800 text-[11px]">
+                  <tr>
+                    <th class="px-2.5 py-1.5">Sponsor</th>
+                    <th class="px-2.5 py-1.5">Badge</th>
+                    <th class="px-2.5 py-1.5">Reward</th>
+                    <th class="px-2.5 py-1.5">Telemetry (Imp/Clk/Comp)</th>
+                    <th class="px-2.5 py-1.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="adminSponsorsTableBody" class="divide-y divide-slate-800/50">
+                  <tr><td colspan="5" class="px-3 py-3 text-center text-slate-500 text-[11px]">Loading sponsor creatives...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -1191,7 +1344,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           <!-- Advertising Network & Community Partner Info -->
           <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono px-1">
             <span>Direct Partner Ads • EthicalAds • Google AdSense • Community Ads</span>
-            <button type="button" onclick="openSponsorInfoModal()" class="text-amber-400 hover:underline">How to Advertise ℹ</button>
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="openSponsorInfoModal()" class="text-amber-400 hover:underline">How to Advertise ℹ</button>
+              <button type="button" id="billingAdminSponsorBtn" onclick="openAdminSponsorStudio()" class="hidden px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-600 hover:bg-amber-900 transition">🛡️ Admin Studio</button>
+            </div>
           </div>
         </div>
 
@@ -1261,12 +1417,131 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       </div>
     </div>
 
+    <!-- ===================================================================== -->
+    <!-- Window 8: Cyberspace Discussion Board · GraphRAG + BM25 + @verifier-agent -->
+    <!-- ===================================================================== -->
+    <div id="win-board" class="mesh-window w-[820px] max-w-full" data-window-id="win-board" style="top: 96px; left: 160px; z-index: 27;">
+      <div class="window-header flex items-center justify-between px-3 py-2 bg-gradient-to-r from-indigo-950/95 via-slate-900/95 to-cyan-950/95 border-b border-indigo-500/50">
+        <div class="flex items-center gap-2">
+          <span class="text-base">🌐</span>
+          <span class="text-xs font-bold text-indigo-300 font-mono tracking-wide">Cyberspace Knowledge Board.app</span>
+          <span class="px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 text-[10px] font-mono border border-indigo-500/40 font-semibold">GraphRAG + BM25</span>
+        </div>
+        <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
+          <button onclick="openPopoutWindow('win-board')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
+          <button onclick="minimizeWindow('win-board')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
+          <button onclick="maximizeWindow('win-board')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">⤢</button>
+          <button onclick="toggleWindow('win-board')" class="px-1.5 py-0.5 rounded bg-red-950/80 hover:bg-red-800 text-red-300 text-[11px]">✕</button>
+        </div>
+      </div>
+
+      <div id="board" class="window-body p-4 space-y-4 max-h-[740px] overflow-y-auto text-xs font-sans">
+        <!-- Identity Verification Agent (@verifier-agent) Status & Form Dispatch Banner -->
+        <div id="boardVerifierBanner" class="p-3 bg-gradient-to-r from-emerald-950/60 via-slate-900/90 to-indigo-950/60 rounded-xl border border-emerald-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div class="flex items-center gap-2.5">
+            <span class="text-xl">🛡️</span>
+            <div>
+              <div class="font-mono font-bold text-emerald-300 text-xs flex items-center gap-2">
+                <span>Identity Agent: <span class="text-cyan-300">@verifier-agent</span></span>
+                <span id="boardVerifiedBadge" class="px-2 py-0.5 rounded-full bg-emerald-900/80 text-emerald-300 border border-emerald-600 text-[10px]">Checking...</span>
+              </div>
+              <p id="boardVerifierSubtext" class="text-[11px] text-slate-300">
+                Verify your identity to tag @usernames, summon @ai-agents, and build the Cyberspace Knowledge Graph.
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button type="button" onclick="requestAgentVerificationForm()" class="px-2.5 py-1.5 rounded-lg bg-amber-600/90 hover:bg-amber-500 text-slate-950 font-mono font-bold text-[11px] transition active:scale-95 shadow">
+              📨 Have @verifier-agent Send Form
+            </button>
+            <button type="button" onclick="openAccountModal(false)" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 font-mono text-[11px] transition">
+              ✍️ Fill Form
+            </button>
+          </div>
+        </div>
+
+        <!-- Hybrid Information Retrieval Bar: GraphRAG + Okapi BM25 -->
+        <div class="p-3 bg-slate-900/90 rounded-xl border border-indigo-500/40 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="font-mono font-bold text-indigo-300 flex items-center gap-1.5">
+              <span>🔍</span> <span>Search Topics &amp; Cyberspace Knowledge Base (GraphRAG + BM25)</span>
+            </span>
+            <span id="boardGraphStatsBadge" class="text-[10px] font-mono text-slate-400">Graph: loading...</span>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input id="boardSearchInput" type="text" placeholder="Search topics, @username, @gemini-brain, #graphrag, #bm25, #webrtc..." onkeydown="if(event.key==='Enter') searchCyberspaceBoard()" class="flex-1 px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono text-xs focus:border-indigo-400 focus:outline-none" />
+            <select id="boardSearchMode" onchange="searchCyberspaceBoard()" class="px-2.5 py-2 rounded-lg bg-slate-950 border border-slate-700 text-cyan-300 font-mono text-xs">
+              <option value="hybrid">⚡ Hybrid (GraphRAG + BM25)</option>
+              <option value="graphrag">🕸️ GraphRAG (Multi-Hop Graph)</option>
+              <option value="bm25">📚 BM25 (Lexical IR)</option>
+            </select>
+            <button type="button" onclick="searchCyberspaceBoard()" class="px-3.5 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-cyan-600 hover:brightness-110 text-white font-mono font-bold text-xs transition active:scale-95">
+              Search
+            </button>
+            <button type="button" onclick="resetCyberspaceSearch()" class="px-2.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-xs border border-slate-700">
+              All
+            </button>
+          </div>
+
+          <!-- GraphRAG Synthesis & Subgraph Output Box -->
+          <div id="boardSynthesisBox" class="hidden p-2.5 bg-indigo-950/50 border border-indigo-500/40 rounded-lg space-y-1.5 font-mono text-[11px]">
+            <div id="boardSynthesisText" class="text-indigo-200 leading-relaxed"></div>
+            <div id="boardSubgraphEntities" class="flex flex-wrap gap-1.5 pt-1"></div>
+          </div>
+        </div>
+
+        <!-- Create New Cyberspace Topic + Quick Tagging Bar (@self, @peers, @agents, #tags) -->
+        <details id="boardComposerDetails" class="bg-slate-900/80 rounded-xl border border-slate-800 p-3" open>
+          <summary class="cursor-pointer font-mono font-bold text-cyan-300 text-xs flex items-center justify-between select-none">
+            <span>➕ Start a New Cyberspace Topic (Tag @yourself, @peers, and @ai-agents)</span>
+            <span class="text-[10px] text-slate-400">Click to toggle</span>
+          </summary>
+          <div class="mt-3 space-y-2.5 font-mono">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <input id="boardTopicTitle" type="text" placeholder="Topic Title (e.g. Federated GraphRAG Indexing with @gemini-brain)" class="sm:col-span-2 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs focus:border-cyan-400 focus:outline-none" />
+              <input id="boardTopicCategory" type="text" value="cyberspace" placeholder="Category (e.g. architecture, ai)" class="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-emerald-300 text-xs focus:border-cyan-400 focus:outline-none" />
+            </div>
+
+            <!-- Quick-Tagging Chips -->
+            <div class="flex flex-wrap items-center gap-1 text-[10px]">
+              <span class="text-slate-400 mr-1">Tag:</span>
+              <button type="button" onclick="insertBoardSelfTag()" class="px-2 py-0.5 rounded bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-700">🙋 @Me (Self)</button>
+              <button type="button" onclick="insertBoardTag('@alejandro')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700">@alejandro</button>
+              <button type="button" onclick="insertBoardTag('@harper')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700">@harper</button>
+              <button type="button" onclick="insertBoardTag('@gemini-brain')" class="px-2 py-0.5 rounded bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700">🤖 @gemini-brain</button>
+              <button type="button" onclick="insertBoardTag('@claude-brain')" class="px-2 py-0.5 rounded bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700">🤖 @claude-brain</button>
+              <button type="button" onclick="insertBoardTag('@openai-brain')" class="px-2 py-0.5 rounded bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700">🤖 @openai-brain</button>
+              <button type="button" onclick="insertBoardTag('@grok-brain')" class="px-2 py-0.5 rounded bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700">🤖 @grok-brain</button>
+              <button type="button" onclick="insertBoardTag('@verifier-agent')" class="px-2 py-0.5 rounded bg-amber-950 hover:bg-amber-900 text-amber-300 border border-amber-700">🛡️ @verifier-agent</button>
+              <button type="button" onclick="insertBoardTag('#graphrag')" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-pink-300 border border-slate-700">#graphrag</button>
+              <button type="button" onclick="insertBoardTag('#bm25')" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-pink-300 border border-slate-700">#bm25</button>
+            </div>
+
+            <textarea id="boardTopicBody" rows="3" placeholder="Write your discussion post... Tag yourself (@username), collaborators (@harper), AI agents (@gemini-brain @verifier-agent), and #topics!" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs focus:border-cyan-400 focus:outline-none"></textarea>
+
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] text-slate-400">Tagged @ai-agents automatically synthesize a reply in the thread!</span>
+              <button type="button" onclick="createCyberspaceTopic()" class="px-4 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-cyan-600 hover:brightness-110 text-white font-bold text-xs transition active:scale-95 shadow">
+                🚀 Post Topic to Cyberspace
+              </button>
+            </div>
+          </div>
+        </details>
+
+        <!-- Topics Feed & Active Thread View -->
+        <div id="boardTopicsFeed" class="space-y-3"></div>
+      </div>
+    </div>
+
   </main>
 
   <!-- Bottom OS Dock -->
   <footer id="meshOsDock" class="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 bg-slate-900/90 border border-slate-700/80 rounded-2xl px-3 py-2 flex items-center gap-1.5 sm:gap-2.5 backdrop-blur-md shadow-2xl select-none font-sans">
     <button id="dockBtn-win-terminal" onclick="toggleWindow('win-terminal')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Terminal & Quickstart">
       <span>⚡</span> <span class="hidden md:inline">Terminal</span>
+    </button>
+    <button id="dockBtn-win-board" onclick="toggleWindow('win-board')" class="px-2.5 py-1.5 bg-indigo-950/90 hover:bg-indigo-900 border border-indigo-500/80 text-indigo-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95 font-bold" title="Cyberspace Discussion Board · GraphRAG + BM25">
+      <span>🌐</span> <span class="hidden md:inline">Cyberspace</span>
     </button>
     <button id="dockBtn-win-tv" onclick="toggleWindow('win-tv')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Relay Watch Party TV">
       <span>📺</span> <span class="hidden md:inline">Watch Party TV</span>
@@ -1314,6 +1589,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       else if (window.location.pathname === '/arena') singleWindowParam = 'win-arena';
       else if (window.location.pathname === '/terminal') singleWindowParam = 'win-terminal';
       else if (window.location.pathname === '/billing' || window.location.pathname === '/tokens') singleWindowParam = 'win-billing';
+      else if (window.location.pathname === '/board' || window.location.pathname === '/cyberspace') singleWindowParam = 'win-board';
     }
     if (singleWindowParam && !singleWindowParam.startsWith('win-')) {
       singleWindowParam = 'win-' + singleWindowParam;
@@ -1478,7 +1754,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     // Window Manager: Draggable, Resizable, Focus, Minimize, Maximize, Pop Out
     let highestZ = 30;
-    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-comms', 'win-quests', 'win-moderator', 'win-billing'];
+    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-comms', 'win-quests', 'win-moderator', 'win-billing', 'win-board'];
     const poppedOutWindows = new Set();
 
     function bringToFront(winEl) {
@@ -3404,7 +3680,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       queue.innerHTML = playlistVideos.map((v, idx) => `
         <div onclick="selectPlaylistVideo(${idx})" class="cursor-pointer px-2.5 py-1 rounded border flex justify-between items-center transition ${idx === currentVideoIdx ? 'bg-pink-950/60 border-pink-700 text-white' : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'}">
           <span class="truncate">${idx + 1}. ${v.title} (${v.creator})</span>
-          <span class="text-[10px] uppercase px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 ml-2 shrink-0">${v.category}</span>
+          <div class="flex items-center gap-1.5 ml-2 shrink-0">
+            <span class="text-[10px] uppercase px-1.5 py-0.5 rounded bg-slate-900 text-slate-300">${v.category}</span>
+            ${isAdmin ? `
+              <button onclick="event.stopPropagation(); openEditVideoModal('${v.video_id}')" class="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded text-[10px] border border-slate-700" title="Edit Video">✏️</button>
+              <button onclick="event.stopPropagation(); adminDeleteVideo('${v.video_id}')" class="px-1.5 py-0.5 bg-red-950 hover:bg-red-800 text-red-300 rounded text-[10px] border border-red-800" title="Delete Video">🗑️</button>
+            ` : ''}
+          </div>
         </div>
       `).join('');
     }
@@ -3481,17 +3763,433 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       }
     }
 
-    // Init Playlist & Analytics (Visibility-Aware Polling)
-    loadPlaylist(false);
+    // =========================================================================
+    // Admin Video & Sponsor CRUD Functions
+    // =========================================================================
+    let adminActiveTab = 'videos';
+    let allSponsorsList = [];
+
+    function toggleAdminTab(tab) {
+      adminActiveTab = tab;
+      const vPanel = document.getElementById('adminVideosPanel');
+      const sPanel = document.getElementById('adminSponsorsPanel');
+      const vBtn = document.getElementById('adminTabBtnVideos');
+      const sBtn = document.getElementById('adminTabBtnSponsors');
+      if (tab === 'videos') {
+        if (vPanel) vPanel.classList.remove('hidden');
+        if (sPanel) sPanel.classList.add('hidden');
+        if (vBtn) vBtn.className = 'px-2 py-0.5 rounded bg-pink-950 text-pink-300 border border-pink-700 text-[10px] font-mono font-bold';
+        if (sBtn) sBtn.className = 'px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-mono';
+      } else {
+        if (vPanel) vPanel.classList.add('hidden');
+        if (sPanel) sPanel.classList.remove('hidden');
+        if (vBtn) vBtn.className = 'px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-mono';
+        if (sBtn) sBtn.className = 'px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-700 text-[10px] font-mono font-bold';
+      }
+      renderAdminCrudTables();
+    }
+
+    function toggleAddVideoDrawer() {
+      const d = document.getElementById('adminAddVideoDrawer');
+      if (d) d.classList.toggle('hidden');
+    }
+
+    function toggleAddSponsorDrawer() {
+      const d = document.getElementById('adminAddSponsorDrawer');
+      if (d) d.classList.toggle('hidden');
+    }
+
+    function openAdminSponsorStudio() {
+      toggleWindow('win-moderator');
+      toggleAdminTab('sponsors');
+    }
+
+    async function adminSubmitAddVideo() {
+      const url = document.getElementById('adminNewVideoUrl').value.trim();
+      const title = document.getElementById('adminNewVideoTitle').value.trim();
+      const creator = document.getElementById('adminNewVideoCreator').value.trim();
+      const category = document.getElementById('adminNewVideoCategory').value;
+      const duration = parseInt(document.getElementById('adminNewVideoDuration').value) || 35;
+      if (!url) {
+        alert('Please enter a video URL or ID');
+        return;
+      }
+      try {
+        const res = await fetch('/api/playlist/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input: url, title, creator, category, duration_seconds: duration, peer_id: myPeerId }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          document.getElementById('adminNewVideoUrl').value = '';
+          document.getElementById('adminNewVideoTitle').value = '';
+          document.getElementById('adminNewVideoCreator').value = '';
+          toggleAddVideoDrawer();
+          await loadPlaylist(false);
+          renderAdminCrudTables();
+          playXpChime();
+        } else {
+          alert('Error adding video: ' + (data.error || 'Unknown error'));
+        }
+      } catch (e) {
+        alert('Request failed: ' + e.message);
+      }
+    }
+
+    function openEditVideoModal(vidId) {
+      const v = playlistVideos.find(it => it.video_id === vidId || it.id === vidId);
+      if (!v) return;
+      document.getElementById('editVideoId').value = v.video_id;
+      document.getElementById('editVideoTitle').value = v.title || '';
+      document.getElementById('editVideoCreator').value = v.creator || '';
+      document.getElementById('editVideoCategory').value = v.category || 'spotlight';
+      document.getElementById('editVideoDuration').value = v.duration_seconds || 35;
+      document.getElementById('editVideoEmbedUrl').value = v.embed_url || `/videos/${v.video_id}.mp4`;
+      document.getElementById('adminEditVideoModal').classList.remove('hidden');
+    }
+
+    function closeEditVideoModal() {
+      document.getElementById('adminEditVideoModal').classList.add('hidden');
+    }
+
+    async function adminSubmitSaveVideoEdit() {
+      const vidId = document.getElementById('editVideoId').value;
+      const title = document.getElementById('editVideoTitle').value.trim();
+      const creator = document.getElementById('editVideoCreator').value.trim();
+      const category = document.getElementById('editVideoCategory').value;
+      const duration = parseInt(document.getElementById('editVideoDuration').value) || 35;
+      const embed_url = document.getElementById('editVideoEmbedUrl').value.trim();
+
+      try {
+        const res = await fetch('/api/playlist/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: vidId, title, creator, category, duration_seconds: duration, embed_url }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          closeEditVideoModal();
+          await loadPlaylist(false);
+          renderAdminCrudTables();
+        } else {
+          alert('Error updating video: ' + (data.error || 'Unknown error'));
+        }
+      } catch (e) {
+        alert('Failed to update: ' + e.message);
+      }
+    }
+
+    async function adminDeleteVideo(vidId) {
+      if (!confirm(`Are you sure you want to remove video ${vidId} from the playlist and S3 manifest?`)) return;
+      try {
+        const res = await fetch('/api/playlist/remove', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: vidId }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          await loadPlaylist(false);
+          renderAdminCrudTables();
+        } else {
+          alert('Error deleting video: ' + (data.error || 'Unknown error'));
+        }
+      } catch (e) {
+        alert('Failed to delete: ' + e.message);
+      }
+    }
+
+    async function loadSponsorsData() {
+      try {
+        const res = await fetch('/api/sponsors');
+        if (!res.ok) return;
+        const data = await res.json();
+        allSponsorsList = data.all_sponsors || [];
+        renderAdminCrudTables();
+      } catch (e) {}
+    }
+
+    async function adminSubmitAddSponsor() {
+      const name = document.getElementById('adminNewSponsorName').value.trim();
+      const icon = document.getElementById('adminNewSponsorIcon').value.trim() || '🌟';
+      const badge = document.getElementById('adminNewSponsorBadge').value.trim() || 'Partner';
+      const tagline = document.getElementById('adminNewSponsorTagline').value.trim();
+      const url = document.getElementById('adminNewSponsorUrl').value.trim() || '/';
+      const cta = document.getElementById('adminNewSponsorCta').value.trim() || 'Visit Partner ↗';
+      const rewardTokens = parseInt(document.getElementById('adminNewSponsorRewardTokens').value) || 5000;
+      const rewardUsd = parseFloat(document.getElementById('adminNewSponsorRewardUsd').value) || 0.05;
+
+      if (!name) {
+        alert('Please enter sponsor name');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/sponsors/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, icon, badge, tagline, url, cta, reward_tokens: rewardTokens, reward_usd: rewardUsd }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          document.getElementById('adminNewSponsorName').value = '';
+          document.getElementById('adminNewSponsorTagline').value = '';
+          toggleAddSponsorDrawer();
+          await loadSponsorsData();
+        } else {
+          alert('Error adding sponsor: ' + (data.error || 'Unknown error'));
+        }
+      } catch (e) {
+        alert('Failed to add: ' + e.message);
+      }
+    }
+
+    function openEditSponsorModal(sId) {
+      const s = allSponsorsList.find(it => it.id === sId);
+      if (!s) return;
+      document.getElementById('editSponsorId').value = s.id;
+      document.getElementById('editSponsorName').value = s.name || '';
+      document.getElementById('editSponsorIcon').value = s.icon || '🌟';
+      document.getElementById('editSponsorBadge').value = s.badge || 'Partner';
+      document.getElementById('editSponsorTagline').value = s.tagline || '';
+      document.getElementById('editSponsorCta').value = s.cta || 'Visit Partner ↗';
+      document.getElementById('editSponsorUrl').value = s.url || '/';
+      document.getElementById('editSponsorRewardTokens').value = s.reward_tokens || 5000;
+      document.getElementById('editSponsorRewardUsd').value = s.reward_usd || 0.05;
+      document.getElementById('adminEditSponsorModal').classList.remove('hidden');
+    }
+
+    function closeEditSponsorModal() {
+      document.getElementById('adminEditSponsorModal').classList.add('hidden');
+    }
+
+    async function adminSubmitSaveSponsorEdit() {
+      const sId = document.getElementById('editSponsorId').value;
+      const name = document.getElementById('editSponsorName').value.trim();
+      const icon = document.getElementById('editSponsorIcon').value.trim();
+      const badge = document.getElementById('editSponsorBadge').value.trim();
+      const tagline = document.getElementById('editSponsorTagline').value.trim();
+      const cta = document.getElementById('editSponsorCta').value.trim();
+      const url = document.getElementById('editSponsorUrl').value.trim();
+      const rewardTokens = parseInt(document.getElementById('editSponsorRewardTokens').value) || 5000;
+      const rewardUsd = parseFloat(document.getElementById('editSponsorRewardUsd').value) || 0.05;
+
+      try {
+        const res = await fetch('/api/sponsors/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: sId, name, icon, badge, tagline, cta, url, reward_tokens: rewardTokens, reward_usd: rewardUsd }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          closeEditSponsorModal();
+          await loadSponsorsData();
+        } else {
+          alert('Error updating sponsor: ' + (data.error || 'Unknown error'));
+        }
+      } catch (e) {
+        alert('Failed to update: ' + e.message);
+      }
+    }
+
+    async function adminDeleteSponsor(sId) {
+      if (!confirm(`Are you sure you want to remove sponsor '${sId}' from rotation?`)) return;
+      try {
+        const res = await fetch('/api/sponsors/remove', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: sId }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          await loadSponsorsData();
+        } else {
+          alert('Error deleting sponsor: ' + (data.error || 'Unknown error'));
+        }
+      } catch (e) {
+        alert('Failed to delete: ' + e.message);
+      }
+    }
+
+    function renderAdminCrudTables() {
+      const vCount = document.getElementById('adminVideosCount');
+      const sCount = document.getElementById('adminSponsorsCount');
+      if (vCount) vCount.innerText = playlistVideos.length;
+      if (sCount) sCount.innerText = allSponsorsList.length;
+
+      const vTable = document.getElementById('adminVideosTableBody');
+      if (vTable) {
+        if (!playlistVideos.length) {
+          vTable.innerHTML = '<tr><td colspan="6" class="px-3 py-3 text-center text-slate-500">No videos in playlist</td></tr>';
+        } else {
+          vTable.innerHTML = playlistVideos.map(v => `
+            <tr class="hover:bg-slate-800/40">
+              <td class="px-2.5 py-2 font-mono text-[11px] text-pink-300">
+                <a href="${v.embed_url || `/videos/${v.video_id}.mp4`}" target="_blank" class="hover:underline">${v.video_id}</a>
+              </td>
+              <td class="px-2.5 py-2 font-semibold text-white max-w-[160px] truncate" title="${v.title}">${v.title}</td>
+              <td class="px-2.5 py-2 text-slate-400 font-mono text-[11px]">${v.creator}</td>
+              <td class="px-2.5 py-2">
+                <span class="px-1.5 py-0.5 rounded text-[9px] uppercase font-mono ${v.category === 'ad' ? 'bg-amber-950 text-amber-300 border border-amber-800' : 'bg-slate-800 text-slate-300 border border-slate-700'}">${v.category}</span>
+              </td>
+              <td class="px-2.5 py-2 text-slate-400 font-mono text-[11px]">${v.duration_seconds || 35}s</td>
+              <td class="px-2.5 py-2 text-right space-x-1 shrink-0">
+                <button onclick="openEditVideoModal('${v.video_id}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 text-[10px]">Edit</button>
+                <button onclick="adminDeleteVideo('${v.video_id}')" class="px-2 py-0.5 rounded bg-red-950 hover:bg-red-800 text-red-300 border border-red-800 text-[10px]">Delete</button>
+              </td>
+            </tr>
+          `).join('');
+        }
+      }
+
+      const sTable = document.getElementById('adminSponsorsTableBody');
+      if (sTable) {
+        if (!allSponsorsList.length) {
+          sTable.innerHTML = '<tr><td colspan="5" class="px-3 py-3 text-center text-slate-500">No active sponsors</td></tr>';
+        } else {
+          sTable.innerHTML = allSponsorsList.map(s => `
+            <tr class="hover:bg-slate-800/40">
+              <td class="px-2.5 py-2 font-mono text-[11px]">
+                <div class="flex items-center gap-1.5">
+                  <span>${s.icon || '🌟'}</span>
+                  <span class="font-bold text-white">${s.name}</span>
+                </div>
+                <div class="text-[10px] text-slate-400 truncate max-w-[180px]">${s.tagline || ''}</div>
+              </td>
+              <td class="px-2.5 py-2">
+                <span class="px-1.5 py-0.5 rounded text-[9px] uppercase font-mono bg-indigo-950 text-indigo-300 border border-indigo-800">${s.badge || 'Partner'}</span>
+              </td>
+              <td class="px-2.5 py-2 font-mono text-emerald-400 text-[11px]">+${s.reward_tokens || 5000}</td>
+              <td class="px-2.5 py-2 font-mono text-slate-400 text-[10px]">
+                Imp: ${s.impressions || 0} / Clk: ${s.clicks || 0}
+              </td>
+              <td class="px-2.5 py-2 text-right space-x-1 shrink-0">
+                <button onclick="openEditSponsorModal('${s.id}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 text-[10px]">Edit</button>
+                <button onclick="adminDeleteSponsor('${s.id}')" class="px-2 py-0.5 rounded bg-red-950 hover:bg-red-800 text-red-300 border border-red-800 text-[10px]">Delete</button>
+              </td>
+            </tr>
+          `).join('');
+        }
+      }
+    }
+
+    // Init Playlist, Sponsors & Analytics (Visibility-Aware Polling)
+    loadPlaylist(false).then(() => renderAdminCrudTables());
+    loadSponsorsData();
     loadAnalytics(true);
+    if (isAdmin) {
+      const bBtn = document.getElementById('billingAdminSponsorBtn');
+      if (bBtn) bBtn.classList.remove('hidden');
+    }
     setInterval(() => loadAnalytics(false), 15000);
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
         pollMeshState(true);
         pollSignals(true);
         loadAnalytics(true);
+        loadSponsorsData();
       }
     });
+  </script>
+
+  <!-- Modal: Admin Edit Video -->
+  <div id="adminEditVideoModal" class="hidden fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-pink-700 rounded-xl max-w-md w-full p-4 space-y-3 font-mono text-xs shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+        <span class="font-bold text-pink-300 text-sm flex items-center gap-1.5"><span>✏️</span> Edit Relay Video</span>
+        <button onclick="closeEditVideoModal()" class="text-slate-400 hover:text-white text-base">✕</button>
+      </div>
+      <input type="hidden" id="editVideoId">
+      <div class="space-y-2">
+        <div>
+          <label class="text-[10px] text-slate-400 block mb-0.5">Title</label>
+          <input type="text" id="editVideoTitle" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+        </div>
+        <div>
+          <label class="text-[10px] text-slate-400 block mb-0.5">Creator Handle</label>
+          <input type="text" id="editVideoCreator" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-[10px] text-slate-400 block mb-0.5">Category</label>
+            <select id="editVideoCategory" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+              <option value="spotlight">spotlight</option>
+              <option value="instruction">instruction</option>
+              <option value="ad">ad (sponsored)</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[10px] text-slate-400 block mb-0.5">Duration (Seconds)</label>
+            <input type="number" id="editVideoDuration" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+          </div>
+        </div>
+        <div>
+          <label class="text-[10px] text-slate-400 block mb-0.5">Embed Stream URL</label>
+          <input type="text" id="editVideoEmbedUrl" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+        <button onclick="closeEditVideoModal()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded">Cancel</button>
+        <button onclick="adminSubmitSaveVideoEdit()" class="px-4 py-1.5 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Admin Edit Sponsor -->
+  <div id="adminEditSponsorModal" class="hidden fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-amber-700 rounded-xl max-w-md w-full p-4 space-y-3 font-mono text-xs shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+        <span class="font-bold text-amber-300 text-sm flex items-center gap-1.5"><span>✏️</span> Edit Sponsor Creative</span>
+        <button onclick="closeEditSponsorModal()" class="text-slate-400 hover:text-white text-base">✕</button>
+      </div>
+      <input type="hidden" id="editSponsorId">
+      <div class="space-y-2">
+        <div class="grid grid-cols-3 gap-2">
+          <div class="col-span-2">
+            <label class="text-[10px] text-slate-400 block mb-0.5">Sponsor Name</label>
+            <input type="text" id="editSponsorName" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+          </div>
+          <div>
+            <label class="text-[10px] text-slate-400 block mb-0.5">Icon Emoji</label>
+            <input type="text" id="editSponsorIcon" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+          </div>
+        </div>
+        <div>
+          <label class="text-[10px] text-slate-400 block mb-0.5">Tagline</label>
+          <input type="text" id="editSponsorTagline" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-[10px] text-slate-400 block mb-0.5">CTA Text</label>
+            <input type="text" id="editSponsorCta" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+          </div>
+          <div>
+            <label class="text-[10px] text-slate-400 block mb-0.5">Badge</label>
+            <input type="text" id="editSponsorBadge" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+          </div>
+        </div>
+        <div>
+          <label class="text-[10px] text-slate-400 block mb-0.5">Destination URL</label>
+          <input type="text" id="editSponsorUrl" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-[10px] text-slate-400 block mb-0.5">Reward Tokens</label>
+            <input type="number" id="editSponsorRewardTokens" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+          </div>
+          <div>
+            <label class="text-[10px] text-slate-400 block mb-0.5">Reward USD</label>
+            <input type="number" step="0.01" id="editSponsorRewardUsd" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+        <button onclick="closeEditSponsorModal()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded">Cancel</button>
+        <button onclick="adminSubmitSaveSponsorEdit()" class="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded">Save Sponsor</button>
+      </div>
+    </div>
+  </div>
   </script>
 </body>
 </html>
