@@ -68,7 +68,7 @@ def test_tincan_cli_say_and_call(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "kokoro-say" in out
 
-    rc_call = cli_main(["--dir", str(tmp_path), "call", "--room", "lab-room", "--no-browser", "--json"])
+    rc_call = cli_main(["--dir", str(tmp_path), "--relay", "http://127.0.0.1:9", "call", "--room", "lab-room", "--no-browser", "--json"])
     assert rc_call == 0
     out_call = capsys.readouterr().out
     assert "lab-room" in out_call
