@@ -465,16 +465,30 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         room = args.room or "main"
         mode = "screen" if args.screen else ("voice" if args.voice_only else "video")
-        # Privacy Guard: Use an anonymous key fingerprint instead of leaking os.uname().nodename
+        # Privacy Guard: Use registered operator identity when available instead of anonymous default-*
         anon_id = client.public_key_hex[:8]
         peer_id = f"{args.alias}-{anon_id}"
+        display_name = f"{args.alias} ({anon_id})"
+        acc_file = os.path.join(client.config_dir, "account.json")
+        if os.path.isfile(acc_file):
+            try:
+                with open(acc_file, "r") as f:
+                    acc_data = json.load(f)
+                fn = (acc_data.get("full_name") or "").strip()
+                un = (acc_data.get("username") or "").strip()
+                if fn and un:
+                    display_name = f"{fn} (@{un})"
+                elif fn:
+                    display_name = fn
+            except Exception:
+                pass
         relay_base = args.relay.rstrip("/")
         call_url = f"{relay_base}/?room={urllib.parse.quote(room)}&peer={urllib.parse.quote(peer_id)}&mode={mode}#call"
 
         # Register peer session on relay WebRTC room (peripherals default to False until browser consent)
         reg_payload = {
             "peer_id": peer_id,
-            "display_name": f"{args.alias} ({anon_id})",
+            "display_name": display_name,
             "room": room,
             "has_video": False,
             "has_audio": False,

@@ -128,3 +128,46 @@ def test_account_registry_volume_env_dir(monkeypatch):
         assert reg.db_path == os.path.join(tmp_vol, "peer_accounts.db")
         acc = reg.register_account("vol-peer-1", "Vol User", "+15615550199", "vol@fau.edu")
         assert acc["peer_id"] == "vol-peer-1"
+
+
+def test_server_side_mandatory_identity_gate_blocks_unidentified_peers(perf_server):
+    host, port = perf_server
+    conn = http.client.HTTPConnection(host, port, timeout=5)
+
+    # 1. Unidentified default-* CLI node is rejected with 403
+    conn.request(
+        "POST",
+        "/api/webrtc/register",
+        body=json.dumps({"peer_id": "default-1234abcd", "display_name": "default (1234abcd)", "room": "lab-room"}),
+        headers={"Content-Type": "application/json"},
+    )
+    resp = conn.getresponse()
+    body = json.loads(resp.read().decode("utf-8"))
+    assert resp.status == 403
+    assert body.get("require_identity") is True
+
+    # 2. Unidentified browser cursor (peer-xxxx with no real name/account) is rejected with 403
+    conn.request(
+        "POST",
+        "/api/mesh/cursor",
+        body=json.dumps({"peer_id": "peer-anon99", "display_name": "peer-anon99", "x": 50, "y": 50, "room": "main"}),
+        headers={"Content-Type": "application/json"},
+    )
+    resp2 = conn.getresponse()
+    body2 = json.loads(resp2.read().decode("utf-8"))
+    assert resp2.status == 403
+    assert body2.get("require_identity") is True
+
+    # 3. Identified operator is allowed in both cursor and WebRTC room
+    conn.request(
+        "POST",
+        "/api/webrtc/register",
+        body=json.dumps({"peer_id": "peer-alex01", "display_name": "Alejandro Londono (@alex_londono)", "room": "main"}),
+        headers={"Content-Type": "application/json"},
+    )
+    resp3 = conn.getresponse()
+    body3 = json.loads(resp3.read().decode("utf-8"))
+    assert resp3.status == 200
+    assert body3["display_name"] == "Alejandro Londono (@alex_londono)"
+    conn.close()
+

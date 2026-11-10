@@ -209,11 +209,42 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             post_data = self.rfile.read(content_length)
             try:
                 data = json.loads(post_data.decode("utf-8")) if post_data else {}
-                peer_id = data.get("peer_id")
-                display_name = data.get("display_name") or peer_id or "Peer"
+                peer_id = (data.get("peer_id") or "").strip()
+                display_name = (data.get("display_name") or "").strip()
                 if not peer_id:
                     self._send_json({"error": "Missing 'peer_id'"}, 400)
                     return
+                acc = account_registry.get_account_by_peer(peer_id)
+                if acc:
+                    fn = (acc.get("full_name") or "").strip()
+                    un = (acc.get("username") or "").strip()
+                    if fn and un:
+                        display_name = f"{fn} (@{un})"
+                    elif fn:
+                        display_name = fn
+
+                # Server-Side Mandatory Identity Gate: Reject unidentified anonymous room entries
+                is_unidentified_default = peer_id.startswith("default-") and (
+                    not display_name or display_name.startswith("default (") or display_name == peer_id
+                )
+                is_unidentified_browser = (
+                    peer_id.startswith("peer-")
+                    and not peer_id.startswith(("peer-primary-", "peer-secondary-", "peer-workstation-", "peer-test-"))
+                    and not acc
+                    and (not display_name or display_name == peer_id or display_name.startswith("peer-"))
+                )
+                if is_unidentified_default or is_unidentified_browser:
+                    self._send_json(
+                        {
+                            "error": "Mandatory Identity Gate: You must identify yourself (Full Name, Username, Email & Phone) before entering the room.",
+                            "require_identity": True,
+                        },
+                        403,
+                    )
+                    return
+
+                if not display_name:
+                    display_name = peer_id
                 session = relay.register_peer(
                     peer_id=peer_id,
                     display_name=display_name,
@@ -229,6 +260,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({
                     "status": "registered",
                     "peer_id": session.peer_id,
+                    "display_name": session.display_name,
                     "room": session.room,
                     "peers": relay.get_room_peers(session.room),
                 }, 200)
@@ -323,13 +355,42 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             post_data = self.rfile.read(content_length)
             try:
                 data = json.loads(post_data.decode("utf-8")) if post_data else {}
-                peer_id = data.get("peer_id") or "peer"
+                peer_id = (data.get("peer_id") or "peer").strip()
+                display_name = (data.get("display_name") or "").strip()
+                acc = account_registry.get_account_by_peer(peer_id)
+                if acc:
+                    fn = (acc.get("full_name") or "").strip()
+                    un = (acc.get("username") or "").strip()
+                    if fn and un:
+                        display_name = f"{fn} (@{un})"
+                    elif fn:
+                        display_name = fn
+
+                # Server-Side Mandatory Identity Gate: Reject unidentified browser cursors
+                is_unidentified_cursor = (
+                    peer_id.startswith("peer-")
+                    and not peer_id.startswith(("peer-primary-", "peer-secondary-", "peer-workstation-", "peer-test-"))
+                    and not acc
+                    and (not display_name or display_name == peer_id or display_name.startswith("peer-"))
+                )
+                if is_unidentified_cursor:
+                    with mesh_os._lock:
+                        mesh_os.cursors.pop(peer_id, None)
+                    self._send_json(
+                        {
+                            "error": "Mandatory Identity Gate: Please complete identity registration before entering the room.",
+                            "require_identity": True,
+                        },
+                        403,
+                    )
+                    return
+
                 cursor = mesh_os.update_cursor(
                     peer_id=peer_id,
                     x=float(data.get("x", 0.0)),
                     y=float(data.get("y", 0.0)),
                     window_id=data.get("window_id", "desktop"),
-                    display_name=data.get("display_name"),
+                    display_name=display_name or peer_id,
                     room=data.get("room", "main"),
                 )
                 self._send_json({"status": "ok", "cursor": cursor}, 200)

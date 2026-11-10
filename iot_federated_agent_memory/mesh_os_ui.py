@@ -1301,7 +1301,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
   <script>
     // URL Params & Core Identity
     const urlParams = new URLSearchParams(window.location.search);
-    const myPeerId = urlParams.get('peer') || ('peer-' + Math.random().toString(36).substring(2, 8));
+    const savedPeerId = localStorage.getItem('tincan_peer_id');
+    const myPeerId = urlParams.get('peer') || savedPeerId || ('peer-' + Math.random().toString(36).substring(2, 8));
+    localStorage.setItem('tincan_peer_id', myPeerId);
     const currentRoom = urlParams.get('room') || 'main';
     let singleWindowParam = urlParams.get('window');
 
@@ -1877,6 +1879,37 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     // =========================================================================
     const REGISTRATION_EPOCH = 'epoch_20261109_v3_strict_pii';
 
+    function isIdentityVerified() {
+      return (
+        localStorage.getItem('tincan_registration_epoch') === REGISTRATION_EPOCH &&
+        Boolean((localStorage.getItem('tincan_fullname') || '').trim()) &&
+        Boolean((localStorage.getItem('tincan_username') || '').trim()) &&
+        Boolean((localStorage.getItem('tincan_email') || '').trim()) &&
+        Boolean((localStorage.getItem('tincan_phone') || '').trim()) &&
+        localStorage.getItem('tincan_consent_pii') === 'true'
+      );
+    }
+
+    function getVerifiedDisplayName() {
+      const fn = (localStorage.getItem('tincan_fullname') || '').trim();
+      const un = (localStorage.getItem('tincan_username') || '').trim();
+      if (fn && un) return `${fn} (@${un})`;
+      if (un) return `@${un}`;
+      if (fn) return fn;
+      return myPeerId;
+    }
+
+    function requireVerifiedIdentity(actionDescription = 'enter the room') {
+      if (isIdentityVerified()) return true;
+      openAccountModal(true);
+      const errEl = document.getElementById('accFormError');
+      if (errEl) {
+        errEl.innerText = `Mandatory Identity Gate: You must identify yourself (Full Name, Username, Email, Phone & PII Consent) to ${actionDescription}.`;
+        errEl.classList.remove('hidden');
+      }
+      return false;
+    }
+
     function openAccountModal(isMandatory = false) {
       const modal = document.getElementById('accountSetupModal');
       const peerLabel = document.getElementById('modalPeerIdLabel');
@@ -2025,12 +2058,25 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           localStorage.setItem('tincan_consent_pii', 'true');
           const hudName = document.getElementById('hudAccountName');
           if (hudName) hudName.innerText = '@' + username;
+          const localLbl = document.getElementById('localPeerLabel');
+          if (localLbl) localLbl.innerText = getVerifiedDisplayName();
 
           if (sfxEnabled) playXpChime();
           awardLocalXp(100, `Verified identity @${username}`);
           const modal = document.getElementById('accountSetupModal');
           if (modal) modal.classList.add('hidden');
           refreshBillingWindow();
+          fetch('/api/mesh/cursor', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              peer_id: myPeerId,
+              display_name: getVerifiedDisplayName(),
+              x: 120,
+              y: 120,
+              room: currentRoom
+            })
+          }).catch(() => {});
           alert(`🎉 Identity Verified! Welcome Operator @${username}. 50,000 tokens have been credited to your account.`);
         } else {
           if (errEl) {
@@ -2065,7 +2111,24 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
       if (savedUser) {
         if (hudName) hudName.innerText = '@' + savedUser;
-        refreshBillingWindow();
+        const localLbl = document.getElementById('localPeerLabel');
+        if (localLbl) localLbl.innerText = getVerifiedDisplayName();
+        // Re-sync localStorage identity to server in case container restarted
+        fetch('/api/account/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            peer_id: myPeerId,
+            full_name: localStorage.getItem('tincan_fullname') || savedUser,
+            name: localStorage.getItem('tincan_fullname') || savedUser,
+            username: savedUser,
+            email: localStorage.getItem('tincan_email') || `${savedUser}@mesh.local`,
+            phone: localStorage.getItem('tincan_phone') || '+10000000000',
+            phone_number: localStorage.getItem('tincan_phone') || '+10000000000',
+            role: localStorage.getItem('tincan_role') || 'Mesh Operator',
+            consent_pii: true
+          })
+        }).then(() => refreshBillingWindow()).catch(() => {});
         return;
       }
 
@@ -2545,13 +2608,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     // =========================================================================
-    // Multiplayer Cursor Telemetry (Throttled & Visibility-Gated)
+    // Multiplayer Cursor Telemetry (Throttled, Visibility & Identity-Gated)
     // =========================================================================
     let lastCursorSend = 0;
     let lastCursorX = -1;
     let lastCursorY = -1;
     window.addEventListener('mousemove', (e) => {
-      if (document.hidden) return;
+      if (document.hidden || !isIdentityVerified()) return;
       const now = Date.now();
       const dx = Math.abs(e.clientX - lastCursorX);
       const dy = Math.abs(e.clientY - lastCursorY);
@@ -2564,7 +2627,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             peer_id: myPeerId,
-            display_name: myPeerId,
+            display_name: getVerifiedDisplayName(),
             x: e.clientX,
             y: e.clientY,
             room: currentRoom
@@ -2765,7 +2828,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                             `<span class="text-slate-500">○ ${diff}s ago</span>`;
               return `
                 <tr class="hover:bg-slate-800/40 transition">
-                  <td class="px-2.5 py-1.5 text-white font-bold">${c.peer_id} ${isLocal ? '<span class="text-[10px] text-cyan-400">(you)</span>' : ''}</td>
+                  <td class="px-2.5 py-1.5 text-white font-bold">${escapeHtml(c.display_name || c.peer_id)} <span class="text-[10px] text-slate-400 font-mono">(${escapeHtml(c.peer_id)})</span> ${isLocal ? '<span class="text-[10px] text-cyan-400">(you)</span>' : ''}</td>
                   <td class="px-2.5 py-1.5 text-slate-300">${c.room || 'main'}</td>
                   <td class="px-2.5 py-1.5 text-slate-400">${c.window_id || 'desktop'}</td>
                   <td class="px-2.5 py-1.5 text-slate-400 font-mono">(${Math.round(c.x || 0)}, ${Math.round(c.y || 0)})</td>
@@ -2894,6 +2957,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     async function startCall(mode = 'video') {
+      if (!requireVerifiedIdentity('join a live WebRTC call')) return;
       try {
         const room = document.getElementById('roomInput').value.trim() || 'main';
         setCallStatus('Requesting mic/cam...', 'amber');
@@ -2908,7 +2972,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             peer_id: myPeerId,
-            display_name: myPeerId,
+            display_name: getVerifiedDisplayName(),
             room,
             has_video: mode === 'video',
             has_audio: true,
@@ -2928,6 +2992,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     async function startScreenShare() {
+      if (!requireVerifiedIdentity('share your screen in a room')) return;
       try {
         const room = document.getElementById('roomInput').value.trim() || 'main';
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
@@ -2939,7 +3004,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             peer_id: myPeerId,
-            display_name: myPeerId + ' (Screen)',
+            display_name: getVerifiedDisplayName() + ' (Screen)',
             room,
             has_video: true,
             has_audio: true,
@@ -3113,14 +3178,16 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     async function sendChatMessage() {
+      if (!requireVerifiedIdentity('send messages in the room chat')) return;
       const input = document.getElementById('chatInput');
       if (!input) return;
       const text = input.value.trim();
       if (!text) return;
       input.value = '';
       const room = document.getElementById('roomInput').value.trim() || 'main';
+      const senderLabel = getVerifiedDisplayName();
 
-      appendChatMessage(myPeerId, text, true, Date.now());
+      appendChatMessage(senderLabel, text, true, Date.now());
       playXpChime();
 
       try {
@@ -3134,7 +3201,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             room: room,
             payload: {
               text: text,
-              sender: myPeerId,
+              sender: senderLabel,
               timestamp: Date.now()
             }
           })
