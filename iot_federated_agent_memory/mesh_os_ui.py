@@ -134,6 +134,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       max-height: calc(100vh - 64px) !important;
       z-index: 100 !important;
       border-radius: 12px !important;
+      background: #020617 !important;
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.9) !important;
     }
 
     .mesh-window.popout-fullscreen .window-body {
@@ -1301,10 +1303,22 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     const urlParams = new URLSearchParams(window.location.search);
     const myPeerId = urlParams.get('peer') || ('peer-' + Math.random().toString(36).substring(2, 8));
     const currentRoom = urlParams.get('room') || 'main';
-    const singleWindowParam = urlParams.get('window');
+    let singleWindowParam = urlParams.get('window');
 
-    document.getElementById('roomInput').value = currentRoom;
-    document.getElementById('localPeerLabel').innerText = myPeerId;
+    // Route alias normalization: support /tv, /call, or window=tv, window=call, etc.
+    if (!singleWindowParam) {
+      if (window.location.pathname === '/tv') singleWindowParam = 'win-tv';
+      else if (window.location.pathname === '/call') singleWindowParam = 'win-comms';
+      else if (window.location.pathname === '/arena') singleWindowParam = 'win-arena';
+      else if (window.location.pathname === '/terminal') singleWindowParam = 'win-terminal';
+      else if (window.location.pathname === '/billing' || window.location.pathname === '/tokens') singleWindowParam = 'win-billing';
+    }
+    if (singleWindowParam && !singleWindowParam.startsWith('win-')) {
+      singleWindowParam = 'win-' + singleWindowParam;
+    }
+
+    if (document.getElementById('roomInput')) document.getElementById('roomInput').value = currentRoom;
+    if (document.getElementById('localPeerLabel')) document.getElementById('localPeerLabel').innerText = myPeerId;
 
     // Admin Moderator State & Controls
     let isAdmin = (urlParams.get('role') === 'admin' || urlParams.get('admin') === 'true' || localStorage.getItem('tincan_admin') === 'true');
@@ -1810,6 +1824,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             w.classList.remove('hidden', 'minimized');
             w.classList.add('popout-fullscreen');
             w.style.display = 'flex';
+            bringToFront(w);
 
             // Transform the Pop Out button in header into a Redock button
             const popBtn = w.querySelector('button[onclick*="openPopoutWindow"]');
@@ -1827,6 +1842,14 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             // Hide the maximize button in popout window
             const maxBtn = w.querySelector('button[onclick*="maximizeWindow"]');
             if (maxBtn) maxBtn.style.display = 'none';
+
+            // If this is the TV watch party, ensure video starts playing
+            if (id === 'win-tv') {
+              const vid = document.getElementById('relayNativeVideo');
+              if (vid) {
+                vid.play().catch(e => console.warn('Pop-out video autoplay notice:', e));
+              }
+            }
           } else {
             w.style.display = 'none';
             w.classList.add('hidden');
@@ -1834,7 +1857,11 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         }
       });
 
-      // Hide dock in popout window for maximum workspace
+      // In pop-out mode, hide background topology canvas, cursors, and dock to maximize app workspace
+      const bgCanvas = document.getElementById('meshTopologyCanvas');
+      if (bgCanvas) bgCanvas.style.display = 'none';
+      const cursors = document.getElementById('multiplayerCursorsLayer');
+      if (cursors) cursors.style.display = 'none';
       const dock = document.getElementById('meshOsDock');
       if (dock) dock.style.display = 'none';
 
