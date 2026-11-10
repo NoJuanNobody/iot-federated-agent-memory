@@ -1,0 +1,49 @@
+{
+  "autoplay": true,
+  "loop_collection": true,
+  "total": 3,
+  "videos": [
+    {
+      "id": "video-7705677376465767711",
+      "video_id": "7705677376465767711",
+      "platform": "mp4",
+      "creator": "@nojuannobody",
+      "title": "TinCan Mesh Walkthrough",
+      "category": "instruction",
+      "cite_url": "/videos/7705677376465767711.mp4",
+      "embed_url": "/videos/7705677376465767711.mp4",
+      "duration_seconds": 35,
+      "added_at": 1794275806.1219342,
+      "local_mp4_path": null,
+      "s3_uri": null
+    },
+    {
+      "id": "video-7705963225849892126",
+      "video_id": "7705963225849892126",
+      "platform": "mp4",
+      "creator": "@nojuannobody",
+      "title": "AI Messiah Non-Profit AI Lab",
+      "category": "ad",
+      "cite_url": "/videos/7705963225849892126.mp4",
+      "embed_url": "/videos/7705963225849892126.mp4",
+      "duration_seconds": 35,
+      "added_at": 1794275806.121963,
+      "local_mp4_path": null,
+      "s3_uri": null
+    },
+    {
+      "id": "video-7704099297763003678",
+      "video_id": "7704099297763003678",
+      "platform": "mp4",
+      "creator": "@nojuannobody",
+      "title": "Deconstructing the Frame (HARP)",
+      "category": "spotlight",
+      "cite_url": "/videos/7704099297763003678.mp4",
+      "embed_url": "/videos/7704099297763003678.mp4",
+      "duration_seconds": 35,
+      "added_at": 1794275806.121974,
+      "local_mp4_path": null,
+      "s3_uri": null
+    }
+  ]
+}

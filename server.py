@@ -530,12 +530,20 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             self._send_json(sponsor_manager.get_state(), 200)
         elif parsed.path.startswith("/videos/") and parsed.path.endswith(".mp4"):
             from iot_federated_agent_memory.video_playlist import VIDEOS_DIR, download_tiktok_mp4
+            from iot_federated_agent_memory.s3_storage import s3_get_object
             import re
 
             fname = os.path.basename(parsed.path)
             vid = os.path.splitext(fname)[0]
             file_path = os.path.join(VIDEOS_DIR, f"{vid}.mp4")
-            if not os.path.isfile(file_path):
+            if not os.path.isfile(file_path) or os.path.getsize(file_path) < 1024:
+                # 1. Attempt immediate synchronous pull from persistent Railway S3 bucket
+                try:
+                    s3_get_object(f"videos/{vid}.mp4", file_path)
+                except Exception:
+                    pass
+
+            if not os.path.isfile(file_path) or os.path.getsize(file_path) < 1024:
                 with _downloading_lock:
                     already_downloading = vid in _downloading_videos
                     if not already_downloading:
@@ -551,7 +559,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
 
                     threading.Thread(target=_bg_download, args=(vid, VIDEOS_DIR), daemon=True).start()
 
-            if not os.path.isfile(file_path):
+            if not os.path.isfile(file_path) or os.path.getsize(file_path) < 1024:
                 self._send_empty(404)
                 return
 

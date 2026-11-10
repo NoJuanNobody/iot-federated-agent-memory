@@ -10,7 +10,8 @@ import os
 import subprocess
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, Optional
+import xml.etree.ElementTree as ET
+from typing import Any, Dict, List, Optional
 
 _CACHED_CREDS: Optional[Dict[str, str]] = None
 
@@ -81,6 +82,7 @@ def _build_sigv4_headers(
     payload_bytes: bytes,
     creds: Dict[str, str],
     extra_headers: Optional[Dict[str, str]] = None,
+    canonical_querystring: str = "",
 ) -> Dict[str, str]:
     now = datetime.datetime.now(datetime.timezone.utc)
     amz_date = now.strftime("%Y%m%dT%H%M%SZ")
@@ -105,7 +107,7 @@ def _build_sigv4_headers(
     canonical_request = "\n".join([
         method.upper(),
         canonical_uri,
-        "",  # query string
+        canonical_querystring,
         canonical_headers,
         signed_headers,
         payload_hash,
@@ -218,3 +220,163 @@ def s3_get_object(
     except Exception:
         pass
     return False
+
+
+def s3_list_objects(
+    prefix: str = "",
+    creds: Optional[Dict[str, str]] = None,
+) -> List[Dict[str, Any]]:
+    """List objects in the Railway S3 bucket matching the given prefix."""
+    resolved = creds or get_s3_credentials()
+    if not resolved:
+        return []
+
+    parsed_ep = urllib.parse.urlparse(resolved["endpoint"])
+    host = f"{resolved['bucket']}.{parsed_ep.netloc}"
+    canonical_uri = "/"
+
+    params = [("list-type", "2")]
+    if prefix:
+        params.append(("prefix", prefix))
+    params.sort(key=lambda x: x[0])
+    canonical_querystring = urllib.parse.urlencode(params)
+    url = f"{parsed_ep.scheme}://{host}/?{canonical_querystring}"
+
+    headers = _build_sigv4_headers(
+        method="GET",
+        host=host,
+        canonical_uri=canonical_uri,
+        payload_bytes=b"",
+        creds=resolved,
+        canonical_querystring=canonical_querystring,
+    )
+
+    try:
+        req = urllib.request.Request(url, headers=headers, method="GET")
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            xml_data = resp.read().decode("utf-8")
+
+        root = ET.fromstring(xml_data)
+        ns = ""
+        if root.tag.startswith("{"):
+            ns = root.tag.split("}")[0] + "}"
+
+        objects: List[Dict[str, Any]] = []
+        for contents in root.findall(f"{ns}Contents"):
+            key_el = contents.find(f"{ns}Key")
+            size_el = contents.find(f"{ns}Size")
+            etag_el = contents.find(f"{ns}ETag")
+            lm_el = contents.find(f"{ns}LastModified")
+            if key_el is not None and key_el.text:
+                objects.append({
+                    "key": key_el.text,
+                    "size": int(size_el.text) if size_el is not None and size_el.text else 0,
+                    "etag": (etag_el.text or "").strip('"') if etag_el is not None else "",
+                    "last_modified": lm_el.text if lm_el is not None else "",
+                    "s3_uri": f"s3://{resolved['bucket']}/{key_el.text}",
+                })
+        return objects
+    except Exception:
+        return []
+
+
+def s3_put_json(
+    data: Any,
+    object_key: str,
+    creds: Optional[Dict[str, str]] = None,
+) -> bool:
+    """Store arbitrary JSON document into the Railway S3 bucket."""
+    resolved = creds or get_s3_credentials()
+    if not resolved:
+        return False
+
+    payload = json.dumps(data, indent=2).encode("utf-8")
+    parsed_ep = urllib.parse.urlparse(resolved["endpoint"])
+    host = f"{resolved['bucket']}.{parsed_ep.netloc}"
+    clean_key = object_key.lstrip("/")
+    canonical_uri = "/" + urllib.parse.quote(clean_key, safe="/-_.~")
+    url = f"{parsed_ep.scheme}://{host}{canonical_uri}"
+
+    headers = _build_sigv4_headers(
+        method="PUT",
+        host=host,
+        canonical_uri=canonical_uri,
+        payload_bytes=payload,
+        creds=resolved,
+        extra_headers={
+            "Content-Type": "application/json",
+            "Content-Length": str(len(payload)),
+        },
+    )
+
+    try:
+        req = urllib.request.Request(url, data=payload, headers=headers, method="PUT")
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return resp.status in (200, 204)
+    except Exception:
+        return False
+
+
+def s3_get_json(
+    object_key: str,
+    creds: Optional[Dict[str, str]] = None,
+) -> Optional[Any]:
+    """Retrieve and deserialize a JSON document from the Railway S3 bucket."""
+    resolved = creds or get_s3_credentials()
+    if not resolved:
+        return None
+
+    parsed_ep = urllib.parse.urlparse(resolved["endpoint"])
+    host = f"{resolved['bucket']}.{parsed_ep.netloc}"
+    clean_key = object_key.lstrip("/")
+    canonical_uri = "/" + urllib.parse.quote(clean_key, safe="/-_.~")
+    url = f"{parsed_ep.scheme}://{host}{canonical_uri}"
+
+    headers = _build_sigv4_headers(
+        method="GET",
+        host=host,
+        canonical_uri=canonical_uri,
+        payload_bytes=b"",
+        creds=resolved,
+    )
+
+    try:
+        req = urllib.request.Request(url, headers=headers, method="GET")
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            raw = resp.read().decode("utf-8")
+        return json.loads(raw)
+    except Exception:
+        return None
+
+
+def s3_delete_object(
+    object_key: str,
+    creds: Optional[Dict[str, str]] = None,
+) -> bool:
+    """Delete an object from the Railway S3 bucket."""
+    resolved = creds or get_s3_credentials()
+    if not resolved:
+        return False
+
+    parsed_ep = urllib.parse.urlparse(resolved["endpoint"])
+    host = f"{resolved['bucket']}.{parsed_ep.netloc}"
+    clean_key = object_key.lstrip("/")
+    canonical_uri = "/" + urllib.parse.quote(clean_key, safe="/-_.~")
+    url = f"{parsed_ep.scheme}://{host}{canonical_uri}"
+
+    headers = _build_sigv4_headers(
+        method="DELETE",
+        host=host,
+        canonical_uri=canonical_uri,
+        payload_bytes=b"",
+        creds=resolved,
+    )
+
+    try:
+        req = urllib.request.Request(url, headers=headers, method="DELETE")
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return resp.status in (200, 204)
+    except Exception:
+        return False
+
+

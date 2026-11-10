@@ -7,15 +7,24 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import time
 import urllib.request
 from dataclasses import dataclass, asdict
 from typing import Any, Dict, List, Optional
 
-from .s3_storage import s3_get_object, s3_put_object
+from .s3_storage import (
+    s3_get_object,
+    s3_put_object,
+    s3_list_objects,
+    s3_put_json,
+    s3_get_json,
+)
 
 VIDEOS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "videos")
+PLAYLIST_LOCAL_FILE = os.path.join(VIDEOS_DIR, "playlist.json")
+PLAYLIST_S3_KEY = "playlist.json"
 
 
 @dataclass
@@ -161,7 +170,7 @@ def parse_video_input(
 
 
 class RelayVideoPlaylist:
-    """Thread-safe native MP4 video collection manager for the TinCan Relay."""
+    """Thread-safe native MP4 video collection manager for the TinCan Relay with Railway S3 persistent sync."""
 
     DEFAULT_COLLECTION = [
         {
@@ -184,22 +193,129 @@ class RelayVideoPlaylist:
         },
     ]
 
-    def __init__(self, seed_default_only_first: bool = False) -> None:
-        self._lock = threading.Lock()
+    def __init__(
+        self,
+        seed_default_only_first: bool = False,
+        sync_s3: Optional[bool] = None,
+        local_file_path: Optional[str] = None,
+    ) -> None:
+        self._lock = threading.RLock()
         self.items: List[PlaylistItem] = []
         self.autoplay: bool = True
         self.loop_collection: bool = True
-        os.makedirs(VIDEOS_DIR, exist_ok=True)
-        seeds = self.DEFAULT_COLLECTION[:1] if seed_default_only_first else self.DEFAULT_COLLECTION
-        for s in seeds:
-            self.add_video(
-                raw_input=s["id"],
-                title=s["title"],
-                creator=s["creator"],
-                category=s["category"],
-                duration_seconds=35,
-                auto_download=False,
+        is_test = "pytest" in sys.modules or "unittest" in sys.modules or bool(os.environ.get("PYTEST_CURRENT_TEST"))
+        self.sync_s3: bool = sync_s3 if sync_s3 is not None else (not is_test)
+        self.local_file_path: str = local_file_path or PLAYLIST_LOCAL_FILE
+        os.makedirs(os.path.dirname(os.path.abspath(self.local_file_path)), exist_ok=True)
+
+        loaded = False
+        # 1. Hydrate from persistent Railway S3 bucket if enabled
+        if self.sync_s3:
+            try:
+                s3_data = s3_get_json(PLAYLIST_S3_KEY)
+                if s3_data and isinstance(s3_data, dict) and s3_data.get("videos"):
+                    self._load_from_dict(s3_data)
+                    loaded = True
+            except Exception:
+                pass
+
+        # 2. Fallback: load from local JSON cache if S3 was unavailable (skip in test mode unless explicit)
+        can_load_local = not is_test or (local_file_path is not None)
+        if not loaded and can_load_local and os.path.isfile(self.local_file_path):
+            try:
+                with open(self.local_file_path, "r", encoding="utf-8") as f:
+                    local_data = json.load(f)
+                if local_data and isinstance(local_data, dict) and local_data.get("videos"):
+                    self._load_from_dict(local_data)
+                    loaded = True
+            except Exception:
+                pass
+
+        # 3. If neither S3 nor local cache had data, initialize default seed collection
+        if not loaded or not self.items:
+            seeds = self.DEFAULT_COLLECTION[:1] if seed_default_only_first else self.DEFAULT_COLLECTION
+            for s in seeds:
+                self.add_video(
+                    raw_input=s["id"],
+                    title=s["title"],
+                    creator=s["creator"],
+                    category=s["category"],
+                    duration_seconds=35,
+                    auto_download=False,
+                    persist=False,
+                )
+
+        # 4. Discover any existing videos stored in the S3 bucket and persist authoritative state
+        if self.sync_s3:
+            self._discover_s3_videos()
+            self._save_state()
+
+    def _load_from_dict(self, data: Dict[str, Any]) -> None:
+        self.autoplay = bool(data.get("autoplay", True))
+        self.loop_collection = bool(data.get("loop_collection", True))
+        self.items = []
+        for v in data.get("videos", []):
+            item = PlaylistItem(
+                id=v.get("id") or f"video-{v.get('video_id', 'unknown')}",
+                video_id=str(v.get("video_id", "")),
+                platform=v.get("platform", "mp4"),
+                creator=v.get("creator", "@nojuannobody"),
+                title=v.get("title", "TinCan Video"),
+                category=v.get("category", "spotlight"),
+                cite_url=v.get("cite_url", f"/videos/{v.get('video_id')}.mp4"),
+                embed_url=v.get("embed_url", f"/videos/{v.get('video_id')}.mp4"),
+                duration_seconds=int(v.get("duration_seconds", 35)),
+                added_at=float(v.get("added_at", time.time())),
+                local_mp4_path=v.get("local_mp4_path"),
+                s3_uri=v.get("s3_uri"),
             )
+            self.items.append(item)
+
+    def _discover_s3_videos(self) -> None:
+        """Scan Railway S3 bucket videos/ and add any unindexed objects into the active playlist."""
+        try:
+            objs = s3_list_objects(prefix="videos/")
+            known_ids = {it.video_id for it in self.items}
+            for obj in objs:
+                key = obj.get("key", "")
+                if key.endswith(".mp4"):
+                    v_id = os.path.splitext(os.path.basename(key))[0]
+                    if v_id and v_id not in known_ids:
+                        embed_url = f"/videos/{v_id}.mp4"
+                        item = PlaylistItem(
+                            id=f"video-{v_id}",
+                            video_id=v_id,
+                            platform="mp4",
+                            creator="@nojuannobody",
+                            title=f"S3 Stored Video ({v_id})",
+                            category="spotlight",
+                            cite_url=embed_url,
+                            embed_url=embed_url,
+                            duration_seconds=35,
+                            added_at=time.time(),
+                            s3_uri=obj.get("s3_uri"),
+                        )
+                        self.items.append(item)
+                        known_ids.add(v_id)
+        except Exception:
+            pass
+
+    def _save_state(self) -> None:
+        """Persist current playlist state to both local filesystem and Railway S3 bucket."""
+        if not self.sync_s3:
+            return
+
+        data = self.get_playlist()
+        try:
+            with open(self.local_file_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+        except Exception:
+            pass
+
+        try:
+            s3_put_json(data, PLAYLIST_S3_KEY)
+        except Exception:
+            pass
 
     def add_video(
         self,
@@ -209,6 +325,7 @@ class RelayVideoPlaylist:
         category: str = "spotlight",
         duration_seconds: int = 35,
         auto_download: bool = True,
+        persist: bool = True,
     ) -> Dict[str, Any]:
         item = parse_video_input(
             raw_input=raw_input,
@@ -219,20 +336,36 @@ class RelayVideoPlaylist:
             auto_download=auto_download,
         )
         with self._lock:
+            # Sync local file to S3 bucket if available
+            if item.local_mp4_path and os.path.isfile(item.local_mp4_path) and self.sync_s3:
+                try:
+                    s3_res = s3_put_object(item.local_mp4_path, f"videos/{item.video_id}.mp4")
+                    if s3_res:
+                        item.s3_uri = s3_res.get("s3_uri")
+                except Exception:
+                    pass
+
             for idx, existing in enumerate(self.items):
                 if existing.video_id == item.video_id:
                     self.items[idx] = item
+                    if persist:
+                        self._save_state()
                     return asdict(item)
             self.items.append(item)
+            if persist:
+                self._save_state()
             return asdict(item)
 
-    def remove_video(self, video_id_or_id: str) -> bool:
+    def remove_video(self, video_id_or_id: str, persist: bool = True) -> bool:
         with self._lock:
             before = len(self.items)
             self.items = [
                 it for it in self.items if it.id != video_id_or_id and it.video_id != video_id_or_id
             ]
-            return len(self.items) < before
+            removed = len(self.items) < before
+            if removed and persist:
+                self._save_state()
+            return removed
 
     def get_playlist(self) -> Dict[str, Any]:
         with self._lock:
