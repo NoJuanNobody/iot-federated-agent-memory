@@ -3406,6 +3406,18 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
               showAdminBanner(txt, sig.from);
               playXpChime();
             }
+          } else if (sig.type === 'verification_form') {
+            const sigKey = `verify-${sig.seq || ''}-${sig.from}-${sig.timestamp || ''}`;
+            if (!seenChatIds.has(sigKey)) {
+              seenChatIds.add(sigKey);
+              playXpChime();
+              openAccountModal(true);
+              const errEl = document.getElementById('accFormError');
+              if (errEl && sig.payload) {
+                errEl.innerText = `🛡️ @verifier-agent sent you a verification form (${sig.payload.reason || 'Identity Verification'}). Please fill out and sign below!`;
+                errEl.classList.remove('hidden');
+              }
+            }
           }
         }
       } catch (e) {}
@@ -4074,9 +4086,349 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       }
     }
 
-    // Init Playlist, Sponsors & Analytics (Visibility-Aware Polling)
+    // =========================================================================
+    // Cyberspace Discussion Board · GraphRAG + BM25 + @verifier-agent Engine
+    // =========================================================================
+    let activeBoardTopicId = null;
+
+    function formatBoardMentions(text) {
+      const safe = escapeHtml(text || '');
+      return safe
+        .replace(/(?<![\w.])@([a-zA-Z0-9_\-]+)/g, (m, handle) => {
+          const low = handle.toLowerCase();
+          const isAgent = low.endsWith('-brain') || low.endsWith('-agent') || low === 'claude-sonnet' || low === 'gpt-4o' || low === 'deepseek-r1';
+          if (isAgent) {
+            return `<span onclick="quickSearchBoardEntity('@${handle}')" class="cursor-pointer px-1.5 py-0.2 rounded bg-indigo-950 text-indigo-300 border border-indigo-700 font-mono text-[11px] font-bold">🤖 @${handle}</span>`;
+          }
+          return `<span onclick="quickSearchBoardEntity('@${handle}')" class="cursor-pointer px-1.5 py-0.2 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-700/70 font-mono text-[11px] font-semibold">@${handle}</span>`;
+        })
+        .replace(/(?<![\w.])#([a-zA-Z0-9_\-]+)/g, (m, tag) => {
+          return `<span onclick="quickSearchBoardEntity('#${tag}')" class="cursor-pointer px-1.5 py-0.2 rounded bg-pink-950/60 text-pink-300 border border-pink-800/60 font-mono text-[11px]">#${tag}</span>`;
+        });
+    }
+
+    function insertBoardTag(tagStr, targetId = 'boardTopicBody') {
+      const el = document.getElementById(targetId);
+      if (!el) return;
+      const cur = el.value;
+      const prefix = (cur && !cur.endsWith(' ')) ? ' ' : '';
+      el.value = cur + prefix + tagStr + ' ';
+      el.focus();
+    }
+
+    function insertBoardSelfTag(targetId = 'boardTopicBody') {
+      const un = (localStorage.getItem('tincan_username') || '').trim().replace(/^@/, '');
+      if (!un) {
+        requestAgentVerificationForm();
+        return;
+      }
+      insertBoardTag('@' + un, targetId);
+    }
+
+    function quickSearchBoardEntity(entityToken) {
+      const inp = document.getElementById('boardSearchInput');
+      if (inp) {
+        inp.value = entityToken;
+        searchCyberspaceBoard();
+      }
+    }
+
+    async function refreshBoardVerificationBadge() {
+      const badge = document.getElementById('boardVerifiedBadge');
+      const subtext = document.getElementById('boardVerifierSubtext');
+      if (!badge) return;
+      try {
+        const res = await fetch(`/api/verify/status?peer_id=${encodeURIComponent(myPeerId)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const un = localStorage.getItem('tincan_username') || (data.profile && data.profile.username);
+        if (data.verified || isIdentityVerified()) {
+          badge.innerText = `✅ Verified (@${(un || myPeerId).replace(/^@/, '')})`;
+          badge.className = 'px-2 py-0.5 rounded-full bg-emerald-900/90 text-emerald-300 border border-emerald-500 text-[10px] font-bold';
+          if (subtext) {
+            subtext.innerText = `Attested by @verifier-agent. You can tag yourself (@${(un || '').replace(/^@/, '')}), tag peers, and summon @ai-agents.`;
+          }
+        } else {
+          badge.innerText = '⚠️ Unverified Peer';
+          badge.className = 'px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-600 text-[10px] font-bold';
+        }
+      } catch (e) {}
+    }
+
+    async function requestAgentVerificationForm() {
+      const un = (localStorage.getItem('tincan_username') || '').trim();
+      try {
+        const res = await fetch('/api/verify/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            peer_id: myPeerId,
+            username: un,
+            reason: 'Requested Identity Verification Form from Cyberspace Discussion Board'
+          })
+        });
+        const data = await res.json();
+        playXpChime();
+        spawnPacketFlight('@verifier-agent', myPeerId, 'verification_form', '🛡️ Verify Form');
+        openAccountModal(false);
+        const errEl = document.getElementById('accFormError');
+        if (errEl) {
+          errEl.className = 'text-emerald-300 text-[11px] p-2.5 bg-emerald-950/60 border border-emerald-600 rounded font-mono';
+          errEl.innerText = `🛡️ @verifier-agent dispatched Form #${data.request_id || 'vrf'}: "${(data.form && data.form.instructions) || 'Please fill out this form to verify who you are.'}"`;
+          errEl.classList.remove('hidden');
+        }
+      } catch (err) {
+        openAccountModal(false);
+      }
+    }
+
+    async function loadCyberspaceBoard() {
+      refreshBoardVerificationBadge();
+      try {
+        const res = await fetch('/api/board/topics?limit=30');
+        if (!res.ok) return;
+        const data = await res.json();
+        const gBadge = document.getElementById('boardGraphStatsBadge');
+        if (gBadge && data.graph_stats) {
+          gBadge.innerText = `Graph: ${data.graph_stats.total_nodes || 0} nodes · ${data.graph_stats.total_edges || 0} edges`;
+        }
+        renderCyberspaceTopics(data.topics || [], false);
+      } catch (e) {}
+    }
+
+    async function searchCyberspaceBoard() {
+      const inp = document.getElementById('boardSearchInput');
+      const modeSel = document.getElementById('boardSearchMode');
+      const q = inp ? inp.value.trim() : '';
+      const mode = modeSel ? modeSel.value : 'hybrid';
+      if (!q) {
+        resetCyberspaceSearch();
+        return;
+      }
+      try {
+        const res = await fetch(`/api/board/search?q=${encodeURIComponent(q)}&mode=${encodeURIComponent(mode)}&top_k=15`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const synBox = document.getElementById('boardSynthesisBox');
+        const synText = document.getElementById('boardSynthesisText');
+        const subEntities = document.getElementById('boardSubgraphEntities');
+        if (synBox && synText) {
+          synBox.classList.remove('hidden');
+          synText.innerHTML = `<strong>🧠 ${escapeHtml(data.synthesis || '')}</strong>`;
+          const nodes = (data.subgraph && data.subgraph.nodes) || [];
+          if (subEntities) {
+            subEntities.innerHTML = nodes.slice(0, 12).map(n => {
+              const badgeTone = n.type === 'agent' ? 'bg-indigo-950 text-indigo-300 border-indigo-700' :
+                                n.type === 'user' ? 'bg-cyan-950 text-cyan-300 border-cyan-700' :
+                                n.type === 'tag' ? 'bg-pink-950/70 text-pink-300 border-pink-800' :
+                                'bg-slate-800 text-slate-300 border-slate-700';
+              return `<span onclick="quickSearchBoardEntity('${escapeHtml(n.label)}')" class="cursor-pointer px-1.5 py-0.5 rounded border text-[10px] ${badgeTone}">${escapeHtml(n.type)}: ${escapeHtml(n.label)}</span>`;
+            }).join('');
+          }
+        }
+        renderCyberspaceTopics(data.results || [], true);
+        playXpChime();
+      } catch (e) {}
+    }
+
+    function resetCyberspaceSearch() {
+      const inp = document.getElementById('boardSearchInput');
+      if (inp) inp.value = '';
+      const synBox = document.getElementById('boardSynthesisBox');
+      if (synBox) synBox.classList.add('hidden');
+      loadCyberspaceBoard();
+    }
+
+    function renderCyberspaceTopics(topics, isSearchResult = false) {
+      const feed = document.getElementById('boardTopicsFeed');
+      if (!feed) return;
+      if (!topics.length) {
+        feed.innerHTML = '<div class="p-4 bg-slate-900/60 rounded-xl border border-slate-800 text-center text-slate-400 font-mono">No matching Cyberspace topics found. Start a new topic above!</div>';
+        return;
+      }
+
+      feed.innerHTML = topics.map(t => {
+        const author = (t.author_username || 'peer').replace(/^@/, '');
+        const posts = t.posts || [];
+        const isExpanded = activeBoardTopicId === t.topic_id || isSearchResult;
+        const scoreBadges = (t.bm25_score !== undefined || t.graphrag_score !== undefined) ? `
+          <div class="flex items-center gap-1.5 font-mono text-[10px]">
+            <span class="px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700">Hybrid: ${Number(t.score || 0).toFixed(3)}</span>
+            <span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">BM25: ${Number(t.bm25_score || 0).toFixed(3)}</span>
+            <span class="px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-700">GraphRAG: ${Number(t.graphrag_score || 0).toFixed(3)}</span>
+          </div>
+        ` : '';
+
+        const graphPathsHtml = (t.graph_paths && t.graph_paths.length) ? `
+          <div class="mt-1.5 p-2 bg-slate-950/90 rounded border border-indigo-900/60 font-mono text-[10px] text-indigo-300">
+            <span class="font-bold text-cyan-300">🕸️ GraphRAG Traversal Paths:</span> ${t.graph_paths.map(p => escapeHtml(p)).join(' · ')}
+          </div>
+        ` : '';
+
+        const tagsHtml = (t.tags || []).map(tag =>
+          `<span onclick="quickSearchBoardEntity('#${escapeHtml(tag)}')" class="cursor-pointer px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-pink-300 border border-slate-700 font-mono text-[10px]">#${escapeHtml(tag)}</span>`
+        ).join('');
+
+        const postsHtml = posts.map(p => {
+          const pAuthor = (p.author_username || 'peer').replace(/^@/, '');
+          const isAgent = Boolean(p.is_agent);
+          return `
+            <div class="p-2.5 rounded-lg border ${isAgent ? 'bg-indigo-950/40 border-indigo-700/60' : 'bg-slate-950/80 border-slate-800'} space-y-1">
+              <div class="flex items-center justify-between font-mono text-[10px]">
+                <span class="font-bold ${isAgent ? 'text-indigo-300' : 'text-cyan-300'}">
+                  ${isAgent ? '🤖' : '✅'} @${escapeHtml(pAuthor)}
+                </span>
+                <span class="text-slate-500">${p.created_at ? new Date(p.created_at * 1000).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : ''}</span>
+              </div>
+              <div class="text-slate-200 text-xs leading-relaxed">${formatBoardMentions(p.body)}</div>
+            </div>
+          `;
+        }).join('');
+
+        return `
+          <div class="p-3.5 bg-slate-900/90 rounded-xl border border-slate-800 hover:border-indigo-500/50 transition space-y-2.5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800 font-mono text-[10px] uppercase font-bold">${escapeHtml(t.category || 'cyberspace')}</span>
+                <h4 onclick="toggleBoardTopicThread('${t.topic_id}')" class="cursor-pointer font-bold text-white text-sm hover:text-cyan-300 transition">${escapeHtml(t.title)}</h4>
+              </div>
+              ${scoreBadges}
+            </div>
+
+            <div class="text-slate-200 text-xs leading-relaxed">${formatBoardMentions(t.body)}</div>
+
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="font-mono text-[10px] text-emerald-400 font-semibold">✅ @${escapeHtml(author)}</span>
+                <span class="text-slate-600">·</span>
+                ${tagsHtml}
+              </div>
+              <button type="button" onclick="toggleBoardTopicThread('${t.topic_id}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 font-mono text-[11px] border border-slate-700">
+                💬 ${posts.length} Repl${posts.length === 1 ? 'y' : 'ies'} / Thread
+              </button>
+            </div>
+
+            ${graphPathsHtml}
+
+            <div id="boardThread-${t.topic_id}" class="${isExpanded ? '' : 'hidden'} pt-2 space-y-2 border-t border-slate-800">
+              <div class="space-y-2">${postsHtml || '<div class="text-slate-500 font-mono text-[11px]">No replies yet. Tag an @username or @gemini-brain below!</div>'}</div>
+              <div class="flex flex-wrap gap-1 pt-1 font-mono text-[10px]">
+                <button type="button" onclick="insertBoardSelfTag('replyInput-${t.topic_id}')" class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">🙋 @Me</button>
+                <button type="button" onclick="insertBoardTag('@gemini-brain', 'replyInput-${t.topic_id}')" class="px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">🤖 @gemini-brain</button>
+                <button type="button" onclick="insertBoardTag('@claude-brain', 'replyInput-${t.topic_id}')" class="px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">🤖 @claude-brain</button>
+                <button type="button" onclick="insertBoardTag('@verifier-agent', 'replyInput-${t.topic_id}')" class="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800">🛡️ @verifier-agent</button>
+              </div>
+              <div class="flex gap-2">
+                <input id="replyInput-${t.topic_id}" type="text" placeholder="Reply with @username, @gemini-brain, @verifier-agent, or #tags..." onkeydown="if(event.key==='Enter') replyCyberspaceTopic('${t.topic_id}')" class="flex-1 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono text-xs focus:border-cyan-400 focus:outline-none" />
+                <button type="button" onclick="replyCyberspaceTopic('${t.topic_id}')" class="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-mono font-bold text-xs">
+                  Reply
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleBoardTopicThread(topicId) {
+      activeBoardTopicId = (activeBoardTopicId === topicId) ? null : topicId;
+      const el = document.getElementById(`boardThread-${topicId}`);
+      if (el) el.classList.toggle('hidden');
+    }
+
+    async function createCyberspaceTopic() {
+      if (!requireVerifiedIdentity('create a topic on the Cyberspace Knowledge Board')) {
+        requestAgentVerificationForm();
+        return;
+      }
+      const titleEl = document.getElementById('boardTopicTitle');
+      const catEl = document.getElementById('boardTopicCategory');
+      const bodyEl = document.getElementById('boardTopicBody');
+      const title = titleEl ? titleEl.value.trim() : '';
+      const category = catEl ? catEl.value.trim() || 'cyberspace' : 'cyberspace';
+      const body = bodyEl ? bodyEl.value.trim() : '';
+      if (!title || !body) {
+        alert('Please enter both a Topic Title and Post Body.');
+        return;
+      }
+      const username = (localStorage.getItem('tincan_username') || '').trim();
+      try {
+        const res = await fetch('/api/board/topics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            peer_id: myPeerId,
+            username,
+            title,
+            category,
+            body,
+            auto_agent_reply: true
+          })
+        });
+        const data = await res.json();
+        if (res.status === 403 && data.require_verification) {
+          requestAgentVerificationForm();
+          return;
+        }
+        if (res.ok && data.topic) {
+          if (titleEl) titleEl.value = '';
+          if (bodyEl) bodyEl.value = '';
+          activeBoardTopicId = data.topic.topic_id;
+          playXpChime();
+          spawnPacketFlight(myPeerId, 'relay', 'cyberspace_topic', `#${category}`);
+          await loadCyberspaceBoard();
+        } else {
+          alert('Could not create topic: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Failed to post topic: ' + err.message);
+      }
+    }
+
+    async function replyCyberspaceTopic(topicId) {
+      if (!requireVerifiedIdentity('reply on the Cyberspace Knowledge Board')) {
+        requestAgentVerificationForm();
+        return;
+      }
+      const inp = document.getElementById(`replyInput-${topicId}`);
+      const body = inp ? inp.value.trim() : '';
+      if (!body) return;
+      const username = (localStorage.getItem('tincan_username') || '').trim();
+      try {
+        const res = await fetch('/api/board/reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            topic_id: topicId,
+            peer_id: myPeerId,
+            username,
+            body,
+            auto_agent_reply: true
+          })
+        });
+        const data = await res.json();
+        if (res.status === 403 && data.require_verification) {
+          requestAgentVerificationForm();
+          return;
+        }
+        if (res.ok) {
+          if (inp) inp.value = '';
+          activeBoardTopicId = topicId;
+          playXpChime();
+          spawnPacketFlight(myPeerId, 'relay', 'cyberspace_reply', '💬 Board Reply');
+          await loadCyberspaceBoard();
+        } else {
+          alert('Reply error: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Reply failed: ' + err.message);
+      }
+    }
+
+    // Init Playlist, Sponsors, Cyberspace Board & Analytics (Visibility-Aware Polling)
     loadPlaylist(false).then(() => renderAdminCrudTables());
     loadSponsorsData();
+    loadCyberspaceBoard();
     loadAnalytics(true);
     if (isAdmin) {
       const bBtn = document.getElementById('billingAdminSponsorBtn');

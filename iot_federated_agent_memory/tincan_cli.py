@@ -212,6 +212,27 @@ def main(argv: Optional[List[str]] = None) -> int:
     upg_p = subparsers.add_parser("upgrade", help="Upgrade TinCan CLI and mesh bundles to the latest production release (Approval-Gated)")
     upg_p.add_argument("--yes", "-y", action="store_true", help="Approve upgrade non-interactively")
 
+    # board (Cyberspace Discussion Board · GraphRAG + BM25)
+    board_p = subparsers.add_parser("board", help="Cyberspace Discussion Board (Topics, @username/@agent tags, GraphRAG + BM25 search)")
+    board_p.add_argument("board_action", nargs="?", default="list", choices=["list", "new", "reply", "search", "graph"], help="Board action")
+    board_p.add_argument("target", nargs="?", default=None, help="Search query, Topic Title (for 'new'), or Topic ID (for 'reply')")
+    board_p.add_argument("body", nargs="?", default=None, help="Topic body (for 'new') or reply text (for 'reply')")
+    board_p.add_argument("--category", default="cyberspace", help="Topic category (default: cyberspace)")
+    board_p.add_argument("--mode", default="hybrid", choices=["hybrid", "graphrag", "bm25"], help="Search retrieval mode (hybrid, graphrag, bm25)")
+    board_p.add_argument("--username", "-u", default=None, help="Author @username handle")
+    board_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # verify (Identity Verification Agent @verifier-agent)
+    verify_p = subparsers.add_parser("verify", help="Identity Verification Agent (@verifier-agent) form dispatch and attestation")
+    verify_p.add_argument("verify_action", nargs="?", default="status", choices=["status", "send-form", "submit"], help="Verification action")
+    verify_p.add_argument("--peer", default=None, help="Target peer ID")
+    verify_p.add_argument("--name", default=None, help="Full Legal Name (for 'submit')")
+    verify_p.add_argument("--username", "-u", default=None, help="Cyberspace @username (for 'send-form' or 'submit')")
+    verify_p.add_argument("--email", "-e", default=None, help="Contact Email (for 'submit')")
+    verify_p.add_argument("--phone", "-p", default=None, help="Phone Number (for 'submit')")
+    verify_p.add_argument("--role", default="FAU Graduate School / Academic", help="Affiliation / Role")
+    verify_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
     args = parser.parse_args(argv)
 
     # Privacy & Consent Guard: Automatic background `curl | bash` upgrades are disabled.
@@ -1164,6 +1185,124 @@ def main(argv: Optional[List[str]] = None) -> int:
         except Exception as exc:
             print(f"[-] Broadcast error: {exc}", file=sys.stderr)
             return 1
+
+    if args.command == "board":
+        from .cyberspace_board import CyberspaceBoardEngine
+        from .account_registry import PeerAccountRegistry
+
+        reg = PeerAccountRegistry()
+        engine = CyberspaceBoardEngine(account_registry=reg)
+        pub_hex = client.identity.verify_key.encode().hex()[:8]
+        peer_id = f"{args.alias}-{pub_hex}"
+        act = args.board_action or "list"
+
+        if act == "list":
+            res = engine.list_topics(limit=25)
+            if args.json:
+                print(json.dumps(res, indent=2))
+            else:
+                print(f"\033[1;36m=== 🌐 TinCan Cyberspace Discussion Board ({res['total_topics']} topics) ===\033[0m")
+                for t in res["topics"]:
+                    tags_s = " ".join(f"#{x}" for x in t.get("tags", [])[:5])
+                    print(f"  • [{t['topic_id']}] \033[1;37m{t['title']}\033[0m (by @{t['author_username']}) — {t['reply_count']} replies | {tags_s}")
+            return 0
+        elif act == "new":
+            if not args.target or not args.body:
+                print("[-] Usage: tincan board new \"<Title>\" \"<Body with @username and @agent tags>\"", file=sys.stderr)
+                return 1
+            topic = engine.create_topic(
+                peer_id=peer_id,
+                title=args.target,
+                body=args.body,
+                category=args.category,
+                author_username=args.username or args.alias,
+            )
+            if args.json:
+                print(json.dumps(topic, indent=2))
+            else:
+                print(f"\033[1;32m[+] Created Cyberspace Topic [{topic['topic_id']}]: {topic['title']}\033[0m")
+                print(f"    Mentions: users={topic['user_mentions']} | agents={topic['agent_mentions']} | replies={topic['reply_count']}")
+            return 0
+        elif act == "reply":
+            if not args.target or not args.body:
+                print("[-] Usage: tincan board reply <topic_id> \"<Reply body with @username or @agent>\"", file=sys.stderr)
+                return 1
+            rep = engine.create_post(
+                topic_id=args.target,
+                peer_id=peer_id,
+                body=args.body,
+                author_username=args.username or args.alias,
+            )
+            if args.json:
+                print(json.dumps(rep, indent=2))
+            else:
+                print(f"\033[1;32m[+] Posted reply [{rep['post_id']}] in {args.target}\033[0m")
+            return 0
+        elif act == "search":
+            res = engine.search(query=args.target or "", mode=args.mode, top_k=10)
+            if args.json:
+                print(json.dumps(res, indent=2))
+            else:
+                print(f"\033[1;35m=== 🔍 Cyberspace Search ({res['mode'].upper()}): \"{res['query']}\" ===\033[0m")
+                print(f"  {res['synthesis']}")
+                for r in res["results"]:
+                    print(
+                        f"  • [{r['topic_id']}] \033[1;37m{r['title']}\033[0m "
+                        f"(Score: {r['score']:.3f} | BM25: {r['bm25_score']:.3f} | GraphRAG: {r['graphrag_score']:.3f})"
+                    )
+            return 0
+        elif act == "graph":
+            snap = engine.graphrag.get_full_graph_snapshot()
+            if args.json:
+                print(json.dumps(snap, indent=2))
+            else:
+                print(f"\033[1;36m=== 🕸️ Cyberspace Knowledge Graph ===\033[0m")
+                print(f"  Nodes: {snap['stats']['total_nodes']} | Edges: {snap['stats']['total_edges']} | Types: {snap['stats']['by_type']}")
+            return 0
+
+    if args.command == "verify":
+        from .cyberspace_board import CyberspaceBoardEngine
+        from .account_registry import PeerAccountRegistry
+
+        reg = PeerAccountRegistry()
+        engine = CyberspaceBoardEngine(account_registry=reg)
+        pub_hex = client.identity.verify_key.encode().hex()[:8]
+        peer_id = args.peer or f"{args.alias}-{pub_hex}"
+        v_act = args.verify_action or "status"
+
+        if v_act == "status":
+            st = engine.get_verification_status(peer_id)
+            if args.json:
+                print(json.dumps(st, indent=2))
+            else:
+                badge = "✅ VERIFIED" if st["verified"] else "⚠️ UNVERIFIED"
+                print(f"[🛡️ @verifier-agent] Peer {peer_id}: {badge} (Pending forms: {len(st['pending_forms'])})")
+            return 0
+        elif v_act == "send-form":
+            disp = engine.dispatch_verification_form(peer_id=peer_id, target_username=args.username or "")
+            if args.json:
+                print(json.dumps(disp, indent=2))
+            else:
+                print(f"\033[1;33m[🛡️ @verifier-agent] Dispatched Verification Form [{disp['request_id']}] to {peer_id}\033[0m")
+            return 0
+        elif v_act == "submit":
+            if not (args.name and args.username and args.email and args.phone):
+                print("[-] Usage: tincan verify submit --name \"Full Name\" --username handle --email a@b.com --phone +15615550199", file=sys.stderr)
+                return 1
+            sub = engine.submit_verification_form(
+                peer_id=peer_id,
+                full_name=args.name,
+                username=args.username,
+                email=args.email,
+                phone_number=args.phone,
+                role=args.role,
+                consent_pii=True,
+            )
+            if args.json:
+                print(json.dumps(sub, indent=2))
+            else:
+                print(f"\033[1;32m[✅ @verifier-agent] Verified {sub['username']} ({sub['full_name']})! Attestation: {sub['attestation_hash']}\033[0m")
+            return 0
 
     return 0
 
