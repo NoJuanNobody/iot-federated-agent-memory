@@ -642,6 +642,45 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": str(ve)}, 400)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/board/topic/update":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                topic_id = data.get("topic_id") or data.get("id") or ""
+                peer_id = data.get("peer_id") or "anonymous-peer"
+                tags = data.get("tags")
+                if isinstance(tags, str):
+                    tags = [t.strip() for t in tags.split(",") if t.strip()]
+                result = cyberspace_board.update_topic(
+                    topic_id=topic_id,
+                    peer_id=peer_id,
+                    title=data.get("title"),
+                    body=data.get("body"),
+                    category=data.get("category"),
+                    tags=tags,
+                    pinned=data.get("pinned"),
+                    locked=data.get("locked"),
+                    resolved=data.get("resolved"),
+                )
+                self._send_json(result, 200)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/board/topic/delete":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                topic_id = data.get("topic_id") or data.get("id") or ""
+                peer_id = data.get("peer_id") or "anonymous-peer"
+                result = cyberspace_board.delete_topic(topic_id=topic_id, peer_id=peer_id)
+                self._send_json(result, 200)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
         elif parsed.path == "/api/board/reply":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
@@ -671,6 +710,54 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 mesh_os.award_xp(peer_id, "cyberspace_post", display_name=result.get("author_username"))
                 mesh_os.record_flight(peer_id, "relay", kind="cyberspace_reply", label="Board Reply")
                 self._send_json(result, 201)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/board/post/delete":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                post_id = data.get("post_id") or data.get("id") or ""
+                peer_id = data.get("peer_id") or "anonymous-peer"
+                result = cyberspace_board.delete_post(post_id=post_id, peer_id=peer_id)
+                self._send_json(result, 200)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/board/vote":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                target_type = data.get("target_type") or "topic"
+                target_id = data.get("target_id") or data.get("id") or ""
+                peer_id = data.get("peer_id") or "anonymous-peer"
+                direction = data.get("direction") or "up"
+                result = cyberspace_board.vote_item(
+                    target_type=target_type,
+                    target_id=target_id,
+                    peer_id=peer_id,
+                    direction=direction,
+                )
+                mesh_os.award_xp(peer_id, "cyberspace_vote")
+                self._send_json(result, 200)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/board/solution":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                topic_id = data.get("topic_id") or ""
+                post_id = data.get("post_id") or ""
+                peer_id = data.get("peer_id") or "anonymous-peer"
+                result = cyberspace_board.accept_solution(topic_id=topic_id, post_id=post_id, peer_id=peer_id)
+                self._send_json(result, 200)
             except ValueError as ve:
                 self._send_json({"error": str(ve)}, 400)
             except Exception as e:
@@ -719,6 +806,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 bio = data.get("bio") or ""
                 consent_pii = bool(data.get("consent_pii", True))
                 request_id = data.get("request_id")
+                challenge_code = data.get("challenge_code")
 
                 res = cyberspace_board.submit_verification_form(
                     peer_id=peer_id,
@@ -730,6 +818,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     bio=bio,
                     consent_pii=consent_pii,
                     request_id=request_id,
+                    challenge_code=challenge_code,
                 )
                 try:
                     mesh_os.award_xp(peer_id, "cyberspace_verified", display_name=f"{full_name} (@{username.lstrip('@')})")
@@ -948,12 +1037,16 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             tag = query.get("tag", [None])[0]
             user = query.get("user", query.get("username", [None]))[0]
             agent = query.get("agent", [None])[0]
+            sort_by = query.get("sort_by", query.get("sort", ["hot"]))[0]
+            verified_only = query.get("verified_only", ["0"])[0] in ("1", "true", "yes")
             limit = int(query.get("limit", ["50"])[0])
             res = cyberspace_board.list_topics(
                 category=category,
                 tag=tag,
                 mentioned_user=user,
                 mentioned_agent=agent,
+                sort_by=sort_by,
+                verified_only=verified_only,
                 limit=limit,
             )
             self._send_json(res, 200)
@@ -963,7 +1056,8 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             if not topic_id:
                 self._send_json({"error": "Missing 'id' or 'topic_id' query parameter"}, 400)
                 return
-            topic = cyberspace_board.get_topic(topic_id)
+            inc_views = query.get("increment_views", ["1"])[0] not in ("0", "false", "no")
+            topic = cyberspace_board.get_topic(topic_id, increment_views=inc_views)
             if not topic:
                 self._send_json({"error": f"Topic '{topic_id}' not found"}, 404)
                 return
@@ -978,13 +1072,31 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             self._send_json(res, 200)
         elif parsed.path == "/api/board/graph":
             self._send_json(cyberspace_board.graphrag.get_full_graph_snapshot(), 200)
+        elif parsed.path == "/api/board/graph/path":
+            query = parse_qs(parsed.query)
+            src = query.get("from", query.get("source", [""]))[0]
+            dst = query.get("to", query.get("target", [""]))[0]
+            max_hops = int(query.get("max_hops", ["5"])[0])
+            self._send_json(cyberspace_board.graphrag.find_entity_path(src, dst, max_hops=max_hops), 200)
+        elif parsed.path == "/api/board/roster":
+            self._send_json(cyberspace_board.get_roster_and_profiles(), 200)
+        elif parsed.path == "/api/board/profile":
+            query = parse_qs(parsed.query)
+            user_or_peer = query.get("user", query.get("username", query.get("peer_id", [""])))[0]
+            if not user_or_peer:
+                self._send_json({"error": "Missing 'user' or 'peer_id' query parameter"}, 400)
+                return
+            self._send_json(cyberspace_board.get_user_profile(user_or_peer), 200)
         elif parsed.path == "/api/verify/status":
             query = parse_qs(parsed.query)
             peer_id = query.get("peer_id", query.get("peer", [None]))[0]
-            if not peer_id:
-                self._send_json({"error": "Missing 'peer_id' query parameter"}, 400)
+            username = query.get("username", query.get("user", [None]))[0]
+            if not peer_id and not username:
+                self._send_json({"error": "Missing 'peer_id' or 'username' query parameter"}, 400)
                 return
-            self._send_json(cyberspace_board.get_verification_status(peer_id), 200)
+            self._send_json(cyberspace_board.get_verification_status(peer_id=peer_id or "", username=username), 200)
+        elif parsed.path == "/api/verify/list":
+            self._send_json(cyberspace_board.list_verifications(), 200)
         elif parsed.path == "/api/status":
             audit = scale.evaluate_current_and_future()
             self._send_json({

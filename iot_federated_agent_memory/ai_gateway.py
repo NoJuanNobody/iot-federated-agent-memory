@@ -343,12 +343,27 @@ class DynamicAIGatewayRouter:
             headers=headers,
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            usage = data.get("usage", {})
-            prompt_toks = int(usage.get("prompt_tokens", 0))
-            comp_toks = int(usage.get("completion_tokens", 0))
-            total_toks = int(usage.get("total_tokens", prompt_toks + comp_toks))
-            cost = float(usage.get("cost") or 0.0)
-            self.record_usage(alias, prompt_toks, comp_toks, total_toks, cost)
-            return data
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as http_err:
+            # If a configured model alias is unavailable on OpenRouter (400/404), retry with google/gemini-2.5-flash
+            if http_err.code in (400, 404) and payload.get("model") != "google/gemini-2.5-flash":
+                fallback_payload = dict(payload, model="google/gemini-2.5-flash")
+                req_fb = urllib.request.Request(
+                    config.endpoint,
+                    data=json.dumps(fallback_payload).encode("utf-8"),
+                    headers=headers,
+                    method="POST",
+                )
+                with urllib.request.urlopen(req_fb, timeout=30) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+            else:
+                raise
+        usage = data.get("usage", {})
+        prompt_toks = int(usage.get("prompt_tokens", 0))
+        comp_toks = int(usage.get("completion_tokens", 0))
+        total_toks = int(usage.get("total_tokens", prompt_toks + comp_toks))
+        cost = float(usage.get("cost") or 0.0)
+        self.record_usage(alias, prompt_toks, comp_toks, total_toks, cost)
+        return data
