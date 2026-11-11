@@ -6476,3 +6476,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 </body>
 </html>
 """
+
+# Zen startup shell (calm feed + launcher), injected so the classic markup above stays untouched.
+from .zen_shell import apply_zen_shell  # noqa: E402
+
+MESH_OS_HTML_UI = apply_zen_shell(MESH_OS_HTML_UI)

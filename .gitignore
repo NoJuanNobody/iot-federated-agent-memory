@@ -9,3 +9,4 @@ __pycache__/
 *.egg-info/
 agent_spaces/
 iot_federated_agent_memory/spaces/
+.impeccable/review/
