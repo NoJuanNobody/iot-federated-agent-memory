@@ -26,7 +26,16 @@ from iot_federated_agent_memory.tincan_relay import TinCanBlindRelay
 from iot_federated_agent_memory.video_playlist import RelayVideoPlaylist
 from iot_federated_agent_memory.mesh_os_engine import TinCanMeshOSEngine
 from iot_federated_agent_memory.mesh_os_ui import MESH_OS_HTML_UI
-from iot_federated_agent_memory.account_registry import PeerAccountRegistry
+from iot_federated_agent_memory.account_registry import (
+    EMAIL_EXISTS_MESSAGE,
+    EmailAlreadyRegisteredError,
+    PeerAccountRegistry,
+)
+from iot_federated_agent_memory.passkey_auth import (
+    PasskeyAuthService,
+    PasskeyError,
+    resolve_relying_party,
+)
 from iot_federated_agent_memory.thread_fs import (
     ANONYMOUS_PEER_ID,
     ThreadFsError,
@@ -94,6 +103,7 @@ sponsor_manager.sync_from_playlist([asdict(it) for it in playlist.items])
 mesh_os = TinCanMeshOSEngine(seed=True)
 account_registry = PeerAccountRegistry()
 set_thread_account_registry(account_registry)
+passkey_auth = PasskeyAuthService(account_registry)
 
 # --- Token minting lockdown -------------------------------------------------
 # Credits are only ever added by the server: after a Stripe-signed payment
@@ -812,6 +822,47 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.end_headers()
 
+    def _client_key(self) -> str:
+        fwd = (self.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+        return fwd or (self.client_address[0] if self.client_address else "unknown")
+
+    def _handle_passkey_post(self, path: str) -> None:
+        content_length = int(self.headers.get("Content-Length", 0) or 0)
+        if content_length > 64 * 1024:
+            self._send_json({"error": "Request too large"}, 413)
+            return
+        post_data = self.rfile.read(content_length)
+        try:
+            data = json.loads(post_data.decode("utf-8")) if post_data else {}
+            if not isinstance(data, dict):
+                raise PasskeyError("bad_request", "Invalid request.")
+            peer_id = str(data.get("peer_id") or "").strip()
+            host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host", "")
+            if path == "/api/passkey/register/options":
+                rp_id, origins = resolve_relying_party(host)
+                out = passkey_auth.begin_registration(peer_id, str(data.get("enroll_token") or ""), rp_id, origins)
+                self._send_json(out, 200)
+            elif path == "/api/passkey/register/verify":
+                account = passkey_auth.finish_registration(peer_id, str(data.get("challenge_id") or ""), data.get("credential"))
+                self._send_json({"status": "passkey_registered", "account": account}, 200)
+            elif path == "/api/passkey/login/options":
+                rp_id, origins = resolve_relying_party(host)
+                out = passkey_auth.begin_authentication(peer_id, rp_id, origins, email=str(data.get("email") or ""))
+                self._send_json(out, 200)
+            elif path == "/api/passkey/login/verify":
+                account = passkey_auth.finish_authentication(peer_id, str(data.get("challenge_id") or ""), data.get("credential"))
+                self._send_json({"status": "signed_in", "account": account}, 200)
+            elif path == "/api/account/recovery/request":
+                out = passkey_auth.request_recovery_code(str(data.get("email") or ""), client_key=self._client_key())
+                self._send_json(out, 200)
+            elif path == "/api/account/recovery/verify":
+                token = passkey_auth.verify_recovery_code(str(data.get("email") or ""), str(data.get("code") or ""))
+                self._send_json({"status": "code_verified", "enroll_token": token}, 200)
+        except PasskeyError as pe:
+            self._send_json({"error": pe.message, "code": pe.code}, pe.status)
+        except Exception:
+            self._send_json({"error": "Something went wrong with passkey sign-in. Please try again.", "code": "server_error"}, 500)
+
     def do_POST(self):
         parsed = urlparse(self.path)
         if parsed.path == "/api/tincan/send":
@@ -1340,6 +1391,11 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 username = data.get("username") or name
                 role = data.get("role", "Researcher / Student")
                 consent_pii = bool(data.get("consent_pii", True))
+                existing = account_registry.get_account_by_peer(peer_id) if (peer_id or "").strip() else None
+                # New signup, or upgrading an auto-created guest placeholder (@mesh.local).
+                is_new = bool((peer_id or "").strip()) and (
+                    existing is None or str(existing.get("email", "")).endswith("@mesh.local")
+                )
                 account = account_registry.register_account(
                     peer_id=peer_id,
                     full_name=name,
@@ -1353,11 +1409,30 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     mesh_os.award_xp(peer_id, "account_created")
                 except Exception:
                     pass
-                self._send_json({"status": "success", "account": account}, 201)
+                body = {
+                    "status": "success",
+                    "account": account,
+                    "has_passkey": passkey_auth.has_passkey(account["peer_id"]),
+                }
+                if is_new and not body["has_passkey"]:
+                    # Brand-new account: allow this browser to attach its first passkey.
+                    body["enroll_token"] = passkey_auth.issue_enrollment_grant(account["peer_id"], purpose="signup")
+                self._send_json(body, 201)
+            except EmailAlreadyRegisteredError:
+                self._send_json({"error": EMAIL_EXISTS_MESSAGE, "code": "email_exists"}, 409)
             except ValueError as ve:
                 self._send_json({"error": str(ve)}, 400)
-            except Exception as e:
-                self._send_json({"error": str(e)}, 500)
+            except Exception:
+                self._send_json({"error": "Could not register this account right now. Please try again."}, 500)
+        elif parsed.path in (
+            "/api/passkey/register/options",
+            "/api/passkey/register/verify",
+            "/api/passkey/login/options",
+            "/api/passkey/login/verify",
+            "/api/account/recovery/request",
+            "/api/account/recovery/verify",
+        ):
+            self._handle_passkey_post(parsed.path)
         elif parsed.path == "/api/ads/click":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)

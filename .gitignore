@@ -10,3 +10,5 @@ __pycache__/
 agent_spaces/
 iot_federated_agent_memory/spaces/
 .impeccable/review/
+
+auth_secret.key

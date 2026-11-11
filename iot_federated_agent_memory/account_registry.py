@@ -12,6 +12,22 @@ import time
 from typing import Dict, List, Optional
 
 
+EMAIL_EXISTS_MESSAGE = "You already have an account \u2014 sign in with your passkey."
+
+
+class EmailAlreadyRegisteredError(ValueError):
+    """Raised when a registration uses an email that belongs to another account.
+
+    Subclasses ValueError so existing callers that catch ValueError keep working,
+    and so the raw sqlite IntegrityError never reaches a user.
+    """
+
+    code = "email_exists"
+
+    def __init__(self, message: str = EMAIL_EXISTS_MESSAGE):
+        super().__init__(message)
+
+
 class PeerAccountRegistry:
     DEFAULT_INITIAL_TOKENS = 10
     DEFAULT_INITIAL_CREDIT_USD = 0.10
@@ -68,6 +84,24 @@ class PeerAccountRegistry:
                 cursor.execute("ALTER TABLE accounts ADD COLUMN consent_pii INTEGER DEFAULT 1")
             if "consent_timestamp" not in columns:
                 cursor.execute("ALTER TABLE accounts ADD COLUMN consent_timestamp REAL DEFAULT 0.0")
+
+            # Extra devices (browser peer_ids) signed in to an account. The account's
+            # own peer_id stays the primary key of `accounts`, so existing lookups,
+            # ledgers and Stripe metadata keep working unchanged. Additive and
+            # idempotent: safe to run against the existing /data volume DB.
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS account_peer_links (
+                    peer_id TEXT PRIMARY KEY,
+                    account_peer_id TEXT NOT NULL,
+                    linked_at REAL NOT NULL,
+                    linked_via TEXT NOT NULL DEFAULT ''
+                )
+                """
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_peer_links_account ON account_peer_links(account_peer_id)"
+            )
 
             # Idempotency log for every credit (purchase, ad reward, admin grant).
             # ref is unique, so one payment or one ad view can only ever credit once.
@@ -147,41 +181,124 @@ class PeerAccountRegistry:
         if not consent_pii:
             raise ValueError("PII and operator telemetry consent is mandatory to access TinCan Mesh OS")
 
+        # A device that signed in with a passkey writes to the account it is linked to.
+        peer_id = self.resolve_account_peer_id(peer_id)
+
         now = time.time()
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                """
-                INSERT INTO accounts (
-                    peer_id, full_name, phone_number, email, username, role,
-                    consent_pii, consent_timestamp, created_at, status,
-                    token_balance, credit_balance_usd, total_tokens_used, total_billed_usd
+            owner = cursor.execute(
+                "SELECT peer_id FROM accounts WHERE email = ? AND peer_id != ?",
+                (email, peer_id),
+            ).fetchone()
+            if owner:
+                raise EmailAlreadyRegisteredError()
+            try:
+                self._upsert_account(
+                    cursor, peer_id, full_name, phone_number, email, username, role,
+                    consent_pii, now, initial_tokens, initial_credit_usd,
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, 0, 0.0)
-                ON CONFLICT(peer_id) DO UPDATE SET
-                    full_name=excluded.full_name,
-                    phone_number=excluded.phone_number,
-                    email=excluded.email,
-                    username=excluded.username,
-                    role=excluded.role,
-                    consent_pii=excluded.consent_pii,
-                    consent_timestamp=excluded.consent_timestamp,
-                    created_at=excluded.created_at
-                """,
-                (
-                    peer_id, full_name, phone_number, email, username, role,
-                    1 if consent_pii else 0, now, now, initial_tokens, initial_credit_usd
-                ),
-            )
+            except sqlite3.IntegrityError as exc:
+                # Lost a race with another signup using the same email.
+                if "email" in str(exc).lower():
+                    raise EmailAlreadyRegisteredError() from None
+                raise ValueError("Could not save this account. Please try again.") from None
             conn.commit()
 
         return self.get_account_by_peer(peer_id)
 
+    @staticmethod
+    def _upsert_account(
+        cursor, peer_id, full_name, phone_number, email, username, role,
+        consent_pii, now, initial_tokens, initial_credit_usd,
+    ):
+        cursor.execute(
+            """
+            INSERT INTO accounts (
+                peer_id, full_name, phone_number, email, username, role,
+                consent_pii, consent_timestamp, created_at, status,
+                token_balance, credit_balance_usd, total_tokens_used, total_billed_usd
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, 0, 0.0)
+            ON CONFLICT(peer_id) DO UPDATE SET
+                full_name=excluded.full_name,
+                phone_number=excluded.phone_number,
+                email=excluded.email,
+                username=excluded.username,
+                role=excluded.role,
+                consent_pii=excluded.consent_pii,
+                consent_timestamp=excluded.consent_timestamp,
+                created_at=excluded.created_at
+            """,
+            (
+                peer_id, full_name, phone_number, email, username, role,
+                1 if consent_pii else 0, now, now, initial_tokens, initial_credit_usd
+            ),
+        )
+
+    # ------------------------------------------------------------------ peers
+    def resolve_account_peer_id(self, peer_id: str) -> str:
+        """Map a device peer_id to the primary peer_id of the account it belongs to.
+
+        A linked device (signed in with a passkey) resolves to its account; any
+        other peer_id resolves to itself, so existing lookups are unchanged.
+        """
+        peer_id = (peer_id or "").strip()
+        if not peer_id:
+            return peer_id
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT account_peer_id FROM account_peer_links WHERE peer_id = ?", (peer_id,)
+            ).fetchone()
+        return row[0] if row else peer_id
+
+    def link_peer(self, peer_id: str, account_peer_id: str, via: str = "passkey") -> Dict:
+        """Link a device peer_id to an existing account (multiple devices per account)."""
+        peer_id = (peer_id or "").strip()
+        account_peer_id = self.resolve_account_peer_id(account_peer_id)
+        if not peer_id:
+            raise ValueError("peer_id is required")
+        with sqlite3.connect(self.db_path) as conn:
+            if not conn.execute("SELECT 1 FROM accounts WHERE peer_id = ?", (account_peer_id,)).fetchone():
+                raise ValueError("Account not found")
+            if peer_id != account_peer_id:
+                conn.execute(
+                    """
+                    INSERT INTO account_peer_links (peer_id, account_peer_id, linked_at, linked_via)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(peer_id) DO UPDATE SET
+                        account_peer_id=excluded.account_peer_id,
+                        linked_at=excluded.linked_at,
+                        linked_via=excluded.linked_via
+                    """,
+                    (peer_id, account_peer_id, time.time(), via),
+                )
+                conn.commit()
+        return self.get_account_by_peer(account_peer_id)
+
+    def list_linked_peers(self, account_peer_id: str) -> List[str]:
+        with sqlite3.connect(self.db_path) as conn:
+            rows = conn.execute(
+                "SELECT peer_id FROM account_peer_links WHERE account_peer_id = ? ORDER BY linked_at",
+                (account_peer_id.strip(),),
+            ).fetchall()
+        return [r[0] for r in rows]
+
+    def get_account_by_email(self, email: str) -> Optional[Dict]:
+        email = (email or "").strip().lower()
+        if not email:
+            return None
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute("SELECT * FROM accounts WHERE email = ?", (email,)).fetchone()
+            return dict(row) if row else None
+
     def get_account_by_peer(self, peer_id: str) -> Optional[Dict]:
+        peer_id = self.resolve_account_peer_id(peer_id)
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM accounts WHERE peer_id = ?", (peer_id.strip(),))
+            cursor.execute("SELECT * FROM accounts WHERE peer_id = ?", (peer_id,))
             row = cursor.fetchone()
             return dict(row) if row else None
 
@@ -194,7 +311,7 @@ class PeerAccountRegistry:
 
     def top_up_credits(self, peer_id: str, amount_usd: float = 0.0, tokens: int = 0) -> Dict:
         """Top up token balance and/or credit USD for an account."""
-        peer_id = peer_id.strip()
+        peer_id = self.resolve_account_peer_id(peer_id)
         account = self.get_account_by_peer(peer_id)
         if not account:
             raise ValueError(f"Account for peer '{peer_id}' not found. Please register first.")
@@ -219,7 +336,7 @@ class PeerAccountRegistry:
 
         Returns {"applied": bool, "account": dict}. applied is False when the ref was already credited.
         """
-        peer_id = peer_id.strip()
+        peer_id = self.resolve_account_peer_id(peer_id)
         if not self.get_account_by_peer(peer_id):
             raise ValueError(f"Account for peer '{peer_id}' not found. Please register first.")
         with sqlite3.connect(self.db_path) as conn:
@@ -242,7 +359,7 @@ class PeerAccountRegistry:
         with sqlite3.connect(self.db_path) as conn:
             row = conn.execute(
                 "SELECT COUNT(*) FROM credit_events WHERE peer_id = ? AND kind = ? AND timestamp >= ?",
-                (peer_id.strip(), kind, since_ts),
+                (self.resolve_account_peer_id(peer_id), kind, since_ts),
             ).fetchone()
         return int(row[0]) if row else 0
 
@@ -257,7 +374,7 @@ class PeerAccountRegistry:
         allow_overage: bool = True,
     ) -> Dict:
         """Bill a peer account for AI model token consumption."""
-        peer_id = peer_id.strip()
+        peer_id = self.resolve_account_peer_id(peer_id)
         account = self.get_account_by_peer(peer_id)
         if not account:
             # Auto-provision temporary guest billing account if unregistered
@@ -322,6 +439,7 @@ class PeerAccountRegistry:
 
     def get_billing_summary(self, peer_id: str, limit: int = 10) -> Dict:
         """Retrieve token billing balance and recent ledger invoices for a peer."""
+        peer_id = self.resolve_account_peer_id(peer_id)
         account = self.get_account_by_peer(peer_id)
         if not account:
             return {"error": "Account not found", "peer_id": peer_id}
@@ -337,7 +455,7 @@ class PeerAccountRegistry:
                 ORDER BY timestamp DESC
                 LIMIT ?
                 """,
-                (peer_id.strip(), limit),
+                (peer_id, limit),
             )
             ledger_entries = [dict(row) for row in cursor.fetchall()]
 
