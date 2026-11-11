@@ -13,8 +13,8 @@ from typing import Dict, List, Optional
 
 
 class PeerAccountRegistry:
-    DEFAULT_INITIAL_TOKENS = 50_000
-    DEFAULT_INITIAL_CREDIT_USD = 1.00
+    DEFAULT_INITIAL_TOKENS = 10
+    DEFAULT_INITIAL_CREDIT_USD = 0.10
 
     def __init__(self, db_path: Optional[str] = None):
         if db_path is None:
@@ -42,8 +42,8 @@ class PeerAccountRegistry:
                     email TEXT NOT NULL UNIQUE,
                     created_at REAL NOT NULL,
                     status TEXT DEFAULT 'active',
-                    token_balance INTEGER DEFAULT 50000,
-                    credit_balance_usd REAL DEFAULT 1.00,
+                    token_balance INTEGER DEFAULT 10,
+                    credit_balance_usd REAL DEFAULT 0.10,
                     total_tokens_used INTEGER DEFAULT 0,
                     total_billed_usd REAL DEFAULT 0.0
                 )
@@ -53,9 +53,9 @@ class PeerAccountRegistry:
             cursor.execute("PRAGMA table_info(accounts)")
             columns = [col[1] for col in cursor.fetchall()]
             if "token_balance" not in columns:
-                cursor.execute("ALTER TABLE accounts ADD COLUMN token_balance INTEGER DEFAULT 50000")
+                cursor.execute("ALTER TABLE accounts ADD COLUMN token_balance INTEGER DEFAULT 10")
             if "credit_balance_usd" not in columns:
-                cursor.execute("ALTER TABLE accounts ADD COLUMN credit_balance_usd REAL DEFAULT 1.00")
+                cursor.execute("ALTER TABLE accounts ADD COLUMN credit_balance_usd REAL DEFAULT 0.10")
             if "total_tokens_used" not in columns:
                 cursor.execute("ALTER TABLE accounts ADD COLUMN total_tokens_used INTEGER DEFAULT 0")
             if "total_billed_usd" not in columns:

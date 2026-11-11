@@ -676,6 +676,10 @@ space_manager = _get_space_manager()
 relay.register_peer("peer-primary-mac", "Mac Studio (M1 Chip)", "redacted", 50004, has_video=False, has_audio=False, has_screen=False)
 relay.register_peer("peer-secondary-node", "Collaborator Node", "redacted", 50006, has_video=False, has_audio=False, has_screen=False)
 
+# Moderator registry for space/mesh bans & reported digital artifacts
+banned_peers: Dict[str, Dict[str, Any]] = {}
+reported_artifacts: List[Dict[str, Any]] = []
+
 HTML_UI = MESH_OS_HTML_UI
 
 
@@ -757,6 +761,10 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             post_data = self.rfile.read(content_length)
             try:
                 data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                peer_id = data.get("peer_id") or "peer"
+                if peer_id in banned_peers:
+                    self._send_json({"error": f"Banned: {banned_peers[peer_id].get('reason', 'Policy violation')}", "banned": True}, 403)
+                    return
                 model_alias = data.get("model", "gemini-brain")
                 prompt = data.get("prompt")
                 messages = data.get("messages")
@@ -1148,6 +1156,73 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"status": "voted", **res}, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/moderator/ban":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                peer_id = (data.get("peer_id") or "").strip()
+                action = data.get("action", "ban").lower()
+                reason = data.get("reason", "Moderator action: Policy violation")
+                space_id = data.get("space_id", "")
+                admin_id = data.get("admin_id", "moderator")
+
+                if not peer_id:
+                    self._send_json({"error": "Missing 'peer_id'"}, 400)
+                    return
+
+                if action == "unban":
+                    banned_peers.pop(peer_id, None)
+                    self._send_json({"status": "unbanned", "peer_id": peer_id}, 200)
+                else:
+                    banned_record = {
+                        "peer_id": peer_id,
+                        "reason": reason,
+                        "space_id": space_id,
+                        "banned_by": admin_id,
+                        "banned_at": time.time(),
+                    }
+                    banned_peers[peer_id] = banned_record
+                    self._send_json({"status": "banned", **banned_record}, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/moderator/report":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                reporter_id = data.get("reporter_id") or "anonymous_peer"
+                reported_peer = data.get("reported_peer") or ""
+                space_id = data.get("space_id") or "default_user"
+                artifact_path = data.get("artifact_path") or ""
+                reason = data.get("reason") or "Suspicious digital artifact"
+                report_id = f"rep_{uuid.uuid4().hex[:8]}"
+
+                content_preview = ""
+                if artifact_path:
+                    try:
+                        sm = _get_space_manager()
+                        sp = sm.get_or_create_space(scope="user", owner_id=space_id)
+                        frec = sp.read_file(artifact_path, as_text=True)
+                        content_preview = frec.get("content", "")[:500]
+                    except Exception:
+                        pass
+
+                rep_record = {
+                    "report_id": report_id,
+                    "reporter_id": reporter_id,
+                    "reported_peer": reported_peer,
+                    "space_id": space_id,
+                    "artifact_path": artifact_path,
+                    "reason": reason,
+                    "content_preview": content_preview,
+                    "created_at": time.time(),
+                    "status": "pending_review",
+                }
+                reported_artifacts.append(rep_record)
+                self._send_json({"status": "reported", "report": rep_record}, 201)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
         elif parsed.path == "/api/account/register":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
@@ -1501,12 +1576,16 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 data = json.loads(post_data.decode("utf-8")) if post_data else {}
                 scope = data.get("scope", "user")
                 owner_id = data.get("owner_id") or data.get("peer_id") or data.get("topic_id") or "default_user"
+                updated_by = data.get("updated_by", "user")
+                if owner_id in banned_peers or updated_by in banned_peers:
+                    b_id = owner_id if owner_id in banned_peers else updated_by
+                    self._send_json({"error": f"Banned: {banned_peers[b_id].get('reason', 'Policy violation')}", "banned": True}, 403)
+                    return
                 path = data.get("path")
                 if not path:
                     self._send_json({"error": "Missing 'path'"}, 400)
                     return
                 action = data.get("action", "write")
-                updated_by = data.get("updated_by", "user")
                 content = data.get("content", "")
                 target = data.get("target")
                 replacement = data.get("replacement")
@@ -1570,6 +1649,78 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     author=author,
                 )
                 self._send_json(out, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/space/create":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                scope = data.get("scope", "dynamic")
+                owner_id = data.get("owner_id") or data.get("space_id")
+                title = data.get("title")
+                description = data.get("description")
+                template = data.get("template", "python")
+
+                sm = _get_space_manager()
+                if hasattr(sm, "create_space"):
+                    sp = sm.create_space(scope=scope, owner_id=owner_id, title=title, description=description, template=template)
+                else:
+                    sp = sm.get_or_create_space(scope=scope, owner_id=owner_id, title=title, description=description)
+                self._send_json({"status": "created", **sp.get_summary()}, 201)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path in ("/api/space/run", "/api/space/runner/execute"):
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                scope = data.get("scope", "dynamic")
+                owner_id = data.get("owner_id") or data.get("space_id") or "default_user"
+                prompt = data.get("prompt")
+                code = data.get("code") or data.get("code_override")
+                entrypoint = data.get("entrypoint", "/src/main.py")
+                runtime = data.get("runtime", "auto")
+                model_alias = data.get("model") or data.get("model_alias", "google/gemini-2.5-flash")
+                author = data.get("author", "agent_runner")
+                args = data.get("args") or []
+
+                sm = _get_space_manager()
+                sp = sm.get_or_create_space(scope=scope, owner_id=owner_id)
+
+                agent_result = None
+                exec_result = None
+
+                # 1. If prompt is given, run autonomous agent in dynamic space
+                if prompt:
+                    agent_result = sm.run_agent(
+                        scope=scope,
+                        owner_id=owner_id,
+                        prompt=prompt,
+                        model_alias=model_alias,
+                        author=author,
+                    )
+                # 2. If code is given or no prompt, run code playground in sandbox
+                if code or not prompt:
+                    if code:
+                        sp.write_file(entrypoint, code, updated_by=author)
+                    exec_result = sm.run_playground(
+                        scope=scope,
+                        owner_id=owner_id,
+                        entrypoint=entrypoint,
+                        runtime=runtime,
+                        code_override=code,
+                        args=args,
+                    )
+
+                self._send_json({
+                    "status": "success",
+                    "scope": scope,
+                    "owner_id": owner_id,
+                    "agent_result": agent_result,
+                    "exec_result": exec_result,
+                    "vfs": sp.get_summary(),
+                }, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
         elif parsed.path == "/api/space/fork":
@@ -1959,6 +2110,10 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             self._send_json(cyberspace_board.get_verification_status(peer_id=peer_id or "", username=username), 200)
         elif parsed.path == "/api/verify/list":
             self._send_json(cyberspace_board.list_verifications(), 200)
+        elif parsed.path == "/api/moderator/banned":
+            self._send_json({"banned_peers": list(banned_peers.values()), "count": len(banned_peers)}, 200)
+        elif parsed.path == "/api/moderator/artifacts":
+            self._send_json({"reported_artifacts": reported_artifacts, "count": len(reported_artifacts)}, 200)
         elif parsed.path == "/api/status":
             audit = scale.evaluate_current_and_future()
             self._send_json({
@@ -2017,6 +2172,15 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 "version": "2.2.0",
                 "relay_url": "https://iot-federated-agent-memory-production.up.railway.app",
             })
+        elif parsed.path in ("/api/models/available", "/api/models/openrouter"):
+            models = router.get_available_models() if hasattr(router, "get_available_models") else []
+            self._send_json({"models": models, "count": len(models)}, 200)
+        elif parsed.path == "/api/spaces":
+            query = parse_qs(parsed.query)
+            scope = query.get("scope", [None])[0]
+            sm = _get_space_manager()
+            spaces = sm.list_spaces(scope=scope) if hasattr(sm, "list_spaces") else []
+            self._send_json({"spaces": spaces, "count": len(spaces)}, 200)
         elif parsed.path == "/api/3d/balance":
             billing = _get_hyper3d_billing(router)
             self._send_json(billing, 200)

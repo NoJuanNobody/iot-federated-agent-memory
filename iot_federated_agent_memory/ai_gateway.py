@@ -111,6 +111,166 @@ class LabProviderConfig:
     total_cost: float = 0.0
 
 
+
+DEFAULT_OPENROUTER_MODELS: List[Dict[str, Any]] = [
+    # Ronin 3D generative models
+    {
+        "id": "ronin/hyper3d-rodin-v2",
+        "name": "Ronin / Hyper3D Rodin v2 (3D Mesh & PBR)",
+        "provider": "Ronin",
+        "description": "Generates 3D quad-mesh geometry, glTF/GLB models, and PBR textures from prompt.",
+        "category": "3D Generative",
+        "context_length": 4096,
+        "pricing": {"prompt": "0.50/gen", "completion": "0.00"},
+    },
+    {
+        "id": "ronin/regular",
+        "name": "Ronin Regular 3D Mesh",
+        "provider": "Ronin",
+        "description": "Standard high-fidelity 3D mesh reconstruction.",
+        "category": "3D Generative",
+        "context_length": 4096,
+        "pricing": {"prompt": "0.50/gen", "completion": "0.00"},
+    },
+    {
+        "id": "ronin/sketch",
+        "name": "Ronin Sketch 3D Mesh",
+        "provider": "Ronin",
+        "description": "Rapid draft 3D concept blockout mesh.",
+        "category": "3D Generative",
+        "context_length": 4096,
+        "pricing": {"prompt": "0.25/gen", "completion": "0.00"},
+    },
+    {
+        "id": "ronin/detail",
+        "name": "Ronin Detail 3D Mesh",
+        "provider": "Ronin",
+        "description": "Ultra high-density surface detail 3D mesh.",
+        "category": "3D Generative",
+        "context_length": 4096,
+        "pricing": {"prompt": "1.00/gen", "completion": "0.00"},
+    },
+    {
+        "id": "ronin/smooth",
+        "name": "Ronin Smooth 3D Quad-Mesh",
+        "provider": "Ronin",
+        "description": "Organic smoothed topology 3D quad-mesh.",
+        "category": "3D Generative",
+        "context_length": 4096,
+        "pricing": {"prompt": "0.75/gen", "completion": "0.00"},
+    },
+    # OpenRouter Top LLM / Reasoning models
+    {
+        "id": "google/gemini-2.5-flash",
+        "name": "Google Gemini 2.5 Flash",
+        "provider": "Google",
+        "description": "Ultra-fast multimodal reasoning, 1M context.",
+        "category": "Fast Reasoning",
+        "context_length": 1048576,
+        "pricing": {"prompt": "0.00000015", "completion": "0.0000006"},
+    },
+    {
+        "id": "google/gemini-2.5-pro",
+        "name": "Google Gemini 2.5 Pro",
+        "provider": "Google",
+        "description": "State-of-the-art coding and complex logical deduction.",
+        "category": "Advanced Reasoning",
+        "context_length": 1048576,
+        "pricing": {"prompt": "0.00000125", "completion": "0.000005"},
+    },
+    {
+        "id": "anthropic/claude-3.7-sonnet",
+        "name": "Anthropic Claude 3.7 Sonnet",
+        "provider": "Anthropic",
+        "description": "Hybrid thinking and coding frontier model.",
+        "category": "Advanced Reasoning",
+        "context_length": 200000,
+        "pricing": {"prompt": "0.000003", "completion": "0.000015"},
+    },
+    {
+        "id": "anthropic/claude-3.5-sonnet",
+        "name": "Anthropic Claude 3.5 Sonnet",
+        "provider": "Anthropic",
+        "description": "Benchmark-leading frontend, design, and coding agent model.",
+        "category": "Coding & Design",
+        "context_length": 200000,
+        "pricing": {"prompt": "0.000003", "completion": "0.000015"},
+    },
+    {
+        "id": "openai/gpt-4o",
+        "name": "OpenAI GPT-4o",
+        "provider": "OpenAI",
+        "description": "Omni-modal flagship reasoning model.",
+        "category": "General Purpose",
+        "context_length": 128000,
+        "pricing": {"prompt": "0.0000025", "completion": "0.00001"},
+    },
+    {
+        "id": "openai/o3-mini",
+        "name": "OpenAI o3-mini",
+        "provider": "OpenAI",
+        "description": "High-speed STEM reasoning and algorithmic code synthesis.",
+        "category": "Deep Reasoning",
+        "context_length": 200000,
+        "pricing": {"prompt": "0.0000011", "completion": "0.0000044"},
+    },
+    {
+        "id": "deepseek/deepseek-r1",
+        "name": "DeepSeek R1",
+        "provider": "DeepSeek",
+        "description": "Open weights reasoning model with chain-of-thought verification.",
+        "category": "Deep Reasoning",
+        "context_length": 128000,
+        "pricing": {"prompt": "0.00000055", "completion": "0.00000219"},
+    },
+    {
+        "id": "deepseek/deepseek-chat",
+        "name": "DeepSeek V3",
+        "provider": "DeepSeek",
+        "description": "671B parameter mixture-of-experts model.",
+        "category": "General Purpose",
+        "context_length": 128000,
+        "pricing": {"prompt": "0.00000014", "completion": "0.00000028"},
+    },
+    {
+        "id": "meta-llama/llama-3.3-70b-instruct",
+        "name": "Meta Llama 3.3 70B Instruct",
+        "provider": "Meta",
+        "description": "Top-tier open-source instruct model with 128k context.",
+        "category": "Open Weights",
+        "context_length": 131072,
+        "pricing": {"prompt": "0.00000018", "completion": "0.00000018"},
+    },
+    {
+        "id": "qwen/qwen-2.5-72b-instruct",
+        "name": "Qwen 2.5 72B Instruct",
+        "provider": "Alibaba",
+        "description": "Exceptional coding, math, and multilingual performance.",
+        "category": "Open Weights",
+        "context_length": 131072,
+        "pricing": {"prompt": "0.00000035", "completion": "0.0000004"},
+    },
+    {
+        "id": "mistralai/mistral-large-2411",
+        "name": "Mistral Large 2411",
+        "provider": "Mistral AI",
+        "description": "Flagship 128k context frontier reasoning model.",
+        "category": "Frontier",
+        "context_length": 128000,
+        "pricing": {"prompt": "0.000002", "completion": "0.000006"},
+    },
+    {
+        "id": "x-ai/grok-2-1212",
+        "name": "xAI Grok 2",
+        "provider": "xAI",
+        "description": "State-of-the-art vision and real-time reasoning model.",
+        "category": "Frontier",
+        "context_length": 131072,
+        "pricing": {"prompt": "0.000002", "completion": "0.00001"},
+    },
+]
+
+
 class DynamicAIGatewayRouter:
     """Manages hot-swappable AI provider models, live OpenRouter billing/credits, and per-call cost tracking."""
 
@@ -198,10 +358,86 @@ class DynamicAIGatewayRouter:
         self._rodin_billing_refreshing: bool = False
         self._rodin_billing_lock = threading.Lock()
 
+        # Available models cache (OpenRouter + Ronin)
+        self._available_models_cache: Optional[List[Dict[str, Any]]] = None
+        self._available_models_cached_at: float = 0.0
+
+    def get_available_models(self, force_refresh: bool = False) -> List[Dict[str, Any]]:
+        """Return full catalog of OpenRouter and Ronin/Hyper3D models with caching."""
+        now = time.time()
+        if not force_refresh and self._available_models_cache and (now - self._available_models_cached_at < 600.0):
+            return list(self._available_models_cache)
+
+        models = [dict(m) for m in DEFAULT_OPENROUTER_MODELS]
+        api_key = self.openrouter_key if self.openrouter_key is not None else os.environ.get("OPENROUTER_API_KEY")
+
+        if api_key:
+            try:
+                headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/json"}
+                req = urllib.request.Request("https://openrouter.ai/api/v1/models", headers=headers, method="GET")
+                with urllib.request.urlopen(req, timeout=5.0) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    raw_list = data.get("data", [])
+                    known_ids = {m["id"] for m in models}
+                    for item in raw_list:
+                        m_id = item.get("id")
+                        if m_id and m_id not in known_ids:
+                            pricing = item.get("pricing", {})
+                            models.append({
+                                "id": m_id,
+                                "name": item.get("name") or m_id,
+                                "provider": m_id.split("/")[0].capitalize(),
+                                "description": item.get("description", ""),
+                                "context_length": item.get("context_length", 8192),
+                                "category": "OpenRouter",
+                                "pricing": pricing,
+                            })
+                            known_ids.add(m_id)
+            except Exception:
+                pass
+
+        self._available_models_cache = models
+        self._available_models_cached_at = now
+        return models
+
     def route_request(self, requested_alias: str, estimated_cost: float = 0.02) -> LabProviderConfig:
         """Route request to the target lab, or fallback if credit pool is exhausted."""
         primary = self.providers.get(requested_alias)
-        if primary and primary.is_active and primary.available_credits >= estimated_cost:
+        if not primary:
+            # Dynamically register custom model alias (OpenRouter or Ronin)
+            if requested_alias.startswith(("ronin/", "rodin/", "hyper3d/")):
+                tier = "Regular"
+                if "sketch" in requested_alias.lower():
+                    tier = "Sketch"
+                elif "detail" in requested_alias.lower():
+                    tier = "Detail"
+                elif "smooth" in requested_alias.lower():
+                    tier = "Smooth"
+                primary = LabProviderConfig(
+                    lab_id="ronin",
+                    display_name=f"Ronin Hyper3D ({tier})",
+                    model_alias=requested_alias,
+                    endpoint=self.RODIN_GENERATE_URL,
+                    api_key_env="HYPER3D_API_KEY",
+                    available_credits=100.0,
+                    is_active=True,
+                )
+            else:
+                parts = requested_alias.split("/")
+                lab_id = parts[0] if len(parts) > 1 else "openrouter"
+                model_name = parts[-1].replace("-", " ").title()
+                primary = LabProviderConfig(
+                    lab_id=lab_id,
+                    display_name=f"{lab_id.capitalize()} {model_name}",
+                    model_alias=requested_alias,
+                    endpoint=self.OPENROUTER_ENDPOINT,
+                    api_key_env="OPENROUTER_API_KEY",
+                    available_credits=100.0,
+                    is_active=True,
+                )
+            self.providers[requested_alias] = primary
+
+        if primary.is_active and primary.available_credits >= estimated_cost:
             primary.available_credits -= estimated_cost
             self.routing_log.append({
                 "timestamp": time.time(),
@@ -637,7 +873,50 @@ class DynamicAIGatewayRouter:
         temperature: float = 0.7,
         max_tokens: int = 1024,
     ) -> Dict[str, Any]:
-        """Dispatch real chat completion to OpenRouter using single OPENROUTER_API_KEY."""
+        """Dispatch chat completion to OpenRouter, Ronin 3D, or simulated fallback."""
+        if alias.startswith(("ronin/", "rodin/", "hyper3d/")) or alias in ("ronin", "rodin", "hyper3d"):
+            prompt_text = " ".join([m.get("content", "") for m in messages if m.get("role") != "system"]).strip()
+            if not prompt_text:
+                prompt_text = "3D generative mesh"
+            tier = "Regular"
+            alias_lower = alias.lower()
+            if "sketch" in alias_lower:
+                tier = "Sketch"
+            elif "detail" in alias_lower:
+                tier = "Detail"
+            elif "smooth" in alias_lower:
+                tier = "Smooth"
+            rodin_res = self.dispatch_rodin_generation(prompt=prompt_text, tier=tier, geometry_file_format="glb")
+            status_desc = "Live Hyper3D API" if not rodin_res.get("simulated") else "Local Generative Engine"
+            content = (
+                f"🎨 [Hyper3D Ronin 3D Asset Generated]\n"
+                f"Task UUID: {rodin_res.get('uuid')}\n"
+                f"Tier: {rodin_res.get('tier')} | Format: {rodin_res.get('format', 'glb').upper()} | Mesh Mode: {rodin_res.get('mesh_mode', 'Quad')}\n"
+                f"Engine: {status_desc} | Status: {rodin_res.get('status')}\n"
+                f"Cost: ${rodin_res.get('cost_usd', 0.50):.2f}\n"
+                f"Ready in Agent Space VFS: `/models3d/{rodin_res.get('uuid')}.glb`"
+            )
+            cost_usd = float(rodin_res.get("cost_usd", 0.50))
+            self.record_usage(alias, len(prompt_text.split()), 48, len(prompt_text.split()) + 48, cost_usd)
+            return {
+                "id": f"ronin-{rodin_res.get('uuid')}",
+                "model": alias,
+                "choices": [{
+                    "message": {
+                        "role": "assistant",
+                        "content": content,
+                    }
+                }],
+                "usage": {
+                    "prompt_tokens": len(prompt_text.split()),
+                    "completion_tokens": 48,
+                    "total_tokens": len(prompt_text.split()) + 48,
+                    "cost": cost_usd,
+                },
+                "cost_usd": cost_usd,
+                "rodin_asset": rodin_res,
+            }
+
         config = self.route_request(alias)
         api_key = self.openrouter_key if self.openrouter_key is not None else os.environ.get("OPENROUTER_API_KEY")
 

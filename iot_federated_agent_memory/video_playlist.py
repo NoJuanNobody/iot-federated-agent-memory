@@ -166,6 +166,23 @@ def parse_video_input(
             added_at=time.time(),
         )
 
+    # 3. Alphanumeric slug or custom ID (e.g. ad-artcraft-studio, meme-vfs-sqlite)
+    if re.match(r"^[a-zA-Z0-9_\.-]{3,64}$", text):
+        vid = text
+        embed_url = f"/videos/{vid}.mp4"
+        return PlaylistItem(
+            id=f"video-{vid}",
+            video_id=vid,
+            platform="mp4",
+            creator=creator or "@tincan",
+            title=title or f"TinCan Video ({vid})",
+            category=category or ("ad" if vid.startswith("ad") else "meme" if vid.startswith("meme") else "spotlight"),
+            cite_url=embed_url,
+            embed_url=embed_url,
+            duration_seconds=int(duration_seconds),
+            added_at=time.time(),
+        )
+
     raise ValueError(f"Unrecognized video URL, ID, or embed snippet: {text[:80]}")
 
 
@@ -175,21 +192,33 @@ class RelayVideoPlaylist:
     DEFAULT_COLLECTION = [
         {
             "id": "7705677376465767711",
-            "title": "TinCan Mesh Walkthrough",
+            "title": "[MEME] When CI Passes on the First Push",
             "creator": "@nojuannobody",
-            "category": "instruction",
+            "category": "meme",
         },
         {
             "id": "7705963225849892126",
-            "title": "AI Messiah Non-Profit AI Lab",
-            "creator": "@nojuannobody",
+            "title": "[SPONSOR AD] Hyper3D Rodin v2 Generative 3D Mesh Engine",
+            "creator": "@hyper3d",
             "category": "ad",
         },
         {
             "id": "7704099297763003678",
-            "title": "Deconstructing the Frame (HARP)",
+            "title": "[MEME] Deploying to Production on Friday at 4:59 PM",
             "creator": "@nojuannobody",
-            "category": "spotlight",
+            "category": "meme",
+        },
+        {
+            "id": "ad-artcraft-studio",
+            "title": "[SPONSOR AD] ArtCraft 15-Domain Meta-Studio Suite",
+            "creator": "@storytold",
+            "category": "ad",
+        },
+        {
+            "id": "meme-vfs-sqlite",
+            "title": "[MEME] VFS Inside Single-File SQLite: It Just Works",
+            "creator": "@tincan",
+            "category": "meme",
         },
     ]
 

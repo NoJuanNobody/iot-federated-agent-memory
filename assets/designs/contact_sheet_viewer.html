@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TinCan Mesh OS — Zen Interior Design System & Contact Sheet Viewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --sumi: #0e0d0b;
+      --sumi-soft: #17150f;
+      --sumi-card: #201d16;
+      --sumi-well: #0a0907;
+      --washi: #ece6da;
+      --washi-quiet: rgba(236, 230, 218, 0.70);
+      --washi-dim: rgba(236, 230, 218, 0.40);
+      --washi-line: rgba(236, 230, 218, 0.14);
+      --kaki: #d0703f;
+      --kaki-dim: rgba(208, 112, 63, 0.20);
+      --rust: #964622;
+      --moss: #42522e;
+      --indigo: #2e365c;
+      --green: #34a853;
+      --font-mincho: "Shippori Mincho", "Hiragino Mincho ProN", serif;
+      --font-gothic: "Zen Kaku Gothic New", "Hiragino Sans", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--sumi);
+      color: var(--washi);
+      font-family: var(--font-gothic);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    header {
+      background: var(--sumi-well);
+      border-bottom: 1px solid var(--washi-line);
+      padding: 1.5rem 2.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(12px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .brand-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--kaki);
+      box-shadow: 0 0 12px var(--kaki-dim);
+    }
+
+    h1 {
+      font-family: var(--font-mincho);
+      font-size: 1.4rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    .meta {
+      font-size: 0.85rem;
+      color: var(--washi-quiet);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      background: var(--sumi-soft);
+      padding: 0.3rem;
+      border-radius: 999px;
+      border: 1px solid var(--washi-line);
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--washi-quiet);
+      padding: 0.4rem 1rem;
+      border-radius: 999px;
+      font-family: var(--font-gothic);
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active, .tab-btn:hover {
+      background: var(--sumi-card);
+      color: var(--washi);
+    }
+
+    main {
+      flex: 1;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .sheet-card {
+      background: var(--sumi-soft);
+      border: 1px solid var(--washi-line);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--washi-line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--sumi);
+    }
+
+    .card-title {
+      font-family: var(--font-mincho);
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: var(--washi);
+    }
+
+    .zoom-controls {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .btn {
+      background: var(--sumi-card);
+      border: 1px solid var(--washi-line);
+      color: var(--washi);
+      padding: 0.35rem 0.85rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover {
+      background: var(--kaki);
+      border-color: var(--kaki);
+    }
+
+    .viewer-viewport {
+      width: 100%;
+      height: 720px;
+      overflow: auto;
+      background: #000;
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+    }
+
+    .viewer-viewport img {
+      max-width: none;
+      width: 100%;
+      height: auto;
+      display: block;
+      transition: transform 0.2s ease;
+      transform-origin: top center;
+    }
+
+    .grid-inspector {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .window-spec-card {
+      background: var(--sumi-soft);
+      border: 1px solid var(--washi-line);
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      transition: border-color 0.2s ease;
+    }
+
+    .window-spec-card:hover {
+      border-color: var(--kaki);
+    }
+
+    .window-badge {
+      display: inline-block;
+      align-self: flex-start;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      background: var(--sumi-card);
+      border: 1px solid var(--washi-line);
+      font-size: 0.75rem;
+      color: var(--kaki);
+      font-family: monospace;
+    }
+
+    .window-name {
+      font-family: var(--font-mincho);
+      font-size: 1.2rem;
+      color: var(--washi);
+    }
+
+    .window-desc {
+      font-size: 0.85rem;
+      color: var(--washi-quiet);
+      line-height: 1.5;
+    }
+
+    .token-pill-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.4rem;
+    }
+
+    .token-pill {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      background: var(--sumi-well);
+      border: 1px solid var(--washi-line);
+      color: var(--washi-dim);
+    }
+
+    footer {
+      border-top: 1px solid var(--washi-line);
+      padding: 1.5rem 2.5rem;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--washi-dim);
+      background: var(--sumi-well);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-dot"></div>
+      <div>
+        <h1>TinCan Mesh OS · Zen Interior Design System</h1>
+        <div class="meta">Pre-Build Visual Verification &amp; Contact Sheet · Florida Atlantic University (FAU) · Z23961745</div>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="setView('fit')">Fit to Screen</button>
+      <button class="tab-btn" onclick="setView('100')">100% Native Scale</button>
+      <button class="tab-btn" onclick="setView('150')">150% Detail Zoom</button>
+      <a href="tincan_zen_windows_contact_sheet.png" download class="btn" style="text-decoration:none;">Download PNG</a>
+      <a href="tincan_zen_windows.figcraft" download class="btn" style="text-decoration:none;">Download .figcraft</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- Visual Sheet Canvas Viewer -->
+    <div class="sheet-card">
+      <div class="card-header">
+        <div class="card-title">Master FigCraft Contact Sheet (4400 × 3600 px · 11 Windows + Tokens Guide)</div>
+        <div class="zoom-controls">
+          <button class="btn" onclick="adjustZoom(-0.15)">- Zoom Out</button>
+          <span id="zoomLevel" style="font-size: 0.85rem; min-width: 45px; text-align: center;">100%</span>
+          <button class="btn" onclick="adjustZoom(0.15)">+ Zoom In</button>
+          <button class="btn" onclick="resetZoom()">Reset</button>
+        </div>
+      </div>
+      <div class="viewer-viewport" id="viewport">
+        <img id="sheetImg" src="tincan_zen_windows_contact_sheet.png" alt="TinCan Mesh OS Zen Windows Contact Sheet">
+      </div>
+    </div>
+
+    <!-- Window Inspector Grid -->
+    <h2 style="font-family: var(--font-mincho); font-weight: 500; font-size: 1.4rem;">Window-by-Window Interior Redesign Specifications</h2>
+    <div class="grid-inspector">
+      <div class="window-spec-card">
+        <span class="window-badge">win-tv</span>
+        <h3 class="window-name">01. Watch Party (Relay TV)</h3>
+        <p class="window-desc">Vertical 9:16 player stage with subtle atmospheric dirty-rust rim, Kaki persimmon progress scrub bar (#d0703f), Shippori Mincho caption titles, capsule sound toggle, and in-sync observer counter.</p>
+        <div class="token-pill-list">
+          <span class="token-pill">--zen-sumi-well</span>
+          <span class="token-pill">--zen-kaki</span>
+          <span class="token-pill">--zen-rust</span>
+          <span class="token-pill">9:16 aspect</span>
+        </div>
+      </div>
+
+      <div class="window-spec-card">
+        <span class="window-badge">win-comms</span>
+        <h3 class="window-name">02. Talk &amp; Media (Room Comms)</h3>
+        <p class="window-desc">Matte charcoal viewports for local preview &amp; remote WebRTC peer stream, audio visualizer wave bars in Kaki, capsule call controls (Mute, Camera, Screen Share), and quiet P2P message thread.</p>
+        <div class="token-pill-list">
+          <span class="token-pill">WebRTC UDP</span>
+          <span class="token-pill">--zen-green</span>
+          <span class="token-pill">Visualizer Wave</span>
+          <span class="token-pill">XSalsa20 Chat</span>
+        </div>
+      </div>
+
+      <div class="window-spec-card">
+        <span class="window-badge">win-board</span>
+        <h3 class="window-name">03. Cyberspace Board</h3>
+        <p class="window-desc">Minimalist search HUD with Hybrid/GraphRAG/BM25 mode selector, Shippori Mincho topic cards, quiet hairline dividers, verified citizen badges, and connected knowledge graph preview.</p>
+        <div class="token-pill-list">
+          <span class="token-pill">PPR GraphRAG</span>
+          <span class="token-pill">BM25 Hybrid</span>
+          <span class="token-pill">Verified Citizen</span>
+          <span class="token-pill">Graph Topology</span>
+        </div>
+      </div>
+
+      <div class="window-spec-card">
+        <span class="window-badge">win-agentspace</span>
+        <h3 class="window-name">04. AgentSpace (.space VFS)</h3>
+        <p class="window-desc">Dual-persistence studio: left-side .space VFS tree with persistence status, right-side neural Markdown notes editor with Kaki 'Apply AI Edits' and S3 bucket synchronization triggers.</p>
+        <div class="token-pill-list">
+          <span class="token-pill">/data/.space VFS</span>
+          <span class="token-pill">S3 Mirror</span>
+          <span class="token-pill">Notes -> Apply</span>
+          <span class="token-pill">Wasm Runtime</span>
+        </div>
+      </div>
+
+      <div class="window-spec-card">
+        <span class="window-badge">win-terminal</span>
+        <h3 class="window-name">05. Terminal &amp; Quickstart</h3>
+        <p class="window-desc">Clean monospace cards for one-line curl installer, npx skills add command block, and interactive local CLI status display showing tc: address, public key, and TOFU contacts.</p>
+        <div class="token-pill-list">
+          <span class="token-pill">One-Line Curl</span>
+          <span class="token-pill">npx skills</span>
+          <span class="token-pill">tincan whoami</span>
+          <span class="token-pill">JetBrains Mono</span>
+        </div>
+      </div>
+
+      <div class="window-spec-card">
+        <span class="window-badge">win-arena</span>
+        <h3 class="window-name">06. AI Brain Arena</h3>
+        <p class="window-desc">High-contrast editorial model duel between Gemini and Claude: tok/s and TTFT latency telemetry, side-by-side code evaluation panes, Kaki vote buttons, and cumulative win-rate footer.</p>
+        <div class="token-pill-list">
+          <span class="token-pill">Gemini 2.5 Pro</span>
+          <span class="token-pill">Claude 3.7 Sonnet</span>
+          <span class="token-pill">+150 XP Vote</span>
+          <span class="token-pill">Token Telemetry</span>
+        </div>
+      </div>
+
+      <div class="window-spec-card">
+        <span class="window-badge">win-network</span>
+        <h3 class="window-name">07. Network &amp; Peers</h3>
+        <p class="window-desc">Four-metric telemetry banner (Peers, Visitors, RTT, Bandwidth), quiet active peer node rows with direct Call/Screen Share actions, and live Web visitor tracker with window focus coordinates.</p>
+        <div class="token-pill-list">
+          <span class="token-pill">24ms RTT</span>
+          <span class="token-pill">3.2 Mbps</span>
+          <span class="token-pill">Peer Handshake</span>
+          <span class="token-pill">Visitor Focus</span>
+        </div>
+      </div>
+
+      <div class="window-spec-card">
+        <span class="window-badge">win-quests</span>
+        <h3 class="window-name">08. Quests &amp; Tier Progression</h3>
+        <p class="window-desc">Tier L3 Cryptographic Multi-Account Bridge banner with persimmon XP progress bar, unlocked theme badges, and 6 structured quest achievement cards with verification status.</p>
+        <div class="token-pill-list">
+          <span class="token-pill">Tier L3 Bridge</span>
+          <span class="token-pill">550/1000 XP</span>
+          <span class="token-pill">Theme Unlocks</span>
+          <span class="token-pill">6 Quests</span>
+        </div>
+      </div>
+
+      <div class="window-spec-card">
+        <span class="window-badge">win-billing</span>
+        <h3 class="window-name">09. Tokens &amp; Sponsoring</h3>
+        <p class="window-desc">Large Shippori Mincho token balance banner (14,500 Tokens), sponsored video ad player with 15s reward countdown, and 3 transparent credit purchase tiers with zero platform surcharge.</p>
+        <div class="token-pill-list">
+          <span class="token-pill">14,500 Tokens</span>
+          <span class="token-pill">Watch to Earn</span>
+          <span class="token-pill">+50 XP Reward</span>
+          <span class="token-pill">Starter / Node</span>
+        </div>
+      </div>
+
+      <div class="window-spec-card">
+        <span class="window-badge">win-moderator</span>
+        <h3 class="window-name">10. Mesh Moderator (Admin)</h3>
+        <p class="window-desc">Administrator security console with verified operator privilege, emergency mesh broadcast transmitter, active peer enforcement table (Kick/Mute), and S3 playlist ingestion drawer.</p>
+        <div class="token-pill-list">
+          <span class="token-pill">Admin Console</span>
+          <span class="token-pill">Peer Ban/Kick</span>
+          <span class="token-pill">Broadcast</span>
+          <span class="token-pill">S3 Studio</span>
+        </div>
+      </div>
+
+      <div class="window-spec-card">
+        <span class="window-badge">gate-modal</span>
+        <h3 class="window-name">11. Citizen Registration Gate</h3>
+        <p class="window-desc">Centered washi paper identity modal: persimmon ink stamp (✍️), Shippori Mincho title, input fields for Name, Cyberspace Handle, Email, and FAU Graduate School Affiliation (Z23961745).</p>
+        <div class="token-pill-list">
+          <span class="token-pill">FAU Graduate</span>
+          <span class="token-pill">Z23961745</span>
+          <span class="token-pill">SHA-256 Hash</span>
+          <span class="token-pill">Persimmon Stamp</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    TinCan Mesh OS v2.2 · Verified Design Handoff &amp; Architectural Pre-Build Plan · Zero-Knowledge Cryptographic Relay
+  </footer>
+
+  <script>
+    let currentZoom = 1.0;
+    const img = document.getElementById('sheetImg');
+    const zoomText = document.getElementById('zoomLevel');
+
+    function applyZoom() {
+      img.style.width = (currentZoom * 100) + '%';
+      zoomText.textContent = Math.round(currentZoom * 100) + '%';
+    }
+
+    function adjustZoom(delta) {
+      currentZoom = Math.max(0.3, Math.min(3.0, currentZoom + delta));
+      applyZoom();
+    }
+
+    function resetZoom() {
+      currentZoom = 1.0;
+      applyZoom();
+    }
+
+    function setView(mode) {
+      if (mode === 'fit') {
+        currentZoom = 1.0;
+      } else if (mode === '100') {
+        currentZoom = 1.35;
+      } else if (mode === '150') {
+        currentZoom = 2.0;
+      }
+      applyZoom();
+    }
+  </script>
+</body>
+</html>

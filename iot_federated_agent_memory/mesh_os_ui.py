@@ -242,12 +242,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           <span class="text-3xl">🛡️</span>
           <div>
             <h3 class="text-sm font-bold text-white font-mono flex items-center gap-2">
-              <span>Mandatory Operator Registration</span>
-              <span class="px-2 py-0.5 rounded-full bg-red-950 border border-red-500 text-red-300 text-[9px] uppercase font-bold tracking-wider">Non-Negotiable</span>
+              <span>Interactive Mesh Gate &amp; Operator Registry</span>
+              <span class="px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-500 text-cyan-300 text-[9px] uppercase font-bold tracking-wider">Watching is Free</span>
             </h3>
-            <p class="text-[11px] text-slate-400">Mesh security protocol requires verified identity &amp; PII consent before entry</p>
+            <p class="text-[11px] text-slate-400">Watching TV &amp; spectator feeds is 100% free! Registering your call-sign unlocks interactive chat, terminal CLI link, and agent sandboxes.</p>
           </div>
         </div>
+        <button type="button" onclick="continueAsSpectator()" class="text-slate-400 hover:text-white text-lg px-1.5" title="Continue watching free as spectator">✕</button>
       </div>
 
       <!-- Starter Perks Banner -->
@@ -257,11 +258,11 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         </div>
         <div class="flex justify-between text-slate-300 pl-4">
           <span>• Complimentary Tokens:</span>
-          <span class="font-bold text-emerald-400">50,000 🪙</span>
+          <span class="font-bold text-emerald-400">10 🪙 Starter Pack</span>
         </div>
         <div class="flex justify-between text-slate-300 pl-4">
           <span>• Sandbox API Credit:</span>
-          <span class="font-bold text-cyan-400">$1.00 USD</span>
+          <span class="font-bold text-cyan-400">$0.10 USD</span>
         </div>
         <div class="flex justify-between text-slate-300 pl-4">
           <span>• Hardware Node Peer ID:</span>
@@ -362,7 +363,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <div class="flex items-center gap-2">
       <!-- User Account & Token Chip -->
       <button id="hudAccountBtn" onclick="openAccountModal()" class="text-xs font-mono px-2.5 py-1 rounded border border-emerald-600/70 bg-emerald-950/80 text-emerald-300 hover:bg-emerald-900 transition flex items-center gap-1.5 active:scale-95 shadow-sm font-semibold" title="View or manage your mesh account & token billing balance">
-        <span>👤</span> <span id="hudAccountName">Set Username</span> <span id="hudTokenPill" class="px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-bold">50k 🪙</span>
+        <span>👤</span> <span id="hudAccountName">Set Username</span> <span id="hudTokenPill" class="px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-bold">10 🪙</span>
       </button>
 
       <!-- Admin Mode Toggle & Mod Panel -->
@@ -415,8 +416,77 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       <button onclick="togglePopoutGuide()" class="text-xs font-mono px-2 py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 transition">
         ↗ Pop Out Guide
       </button>
+
+      <!-- Terminal Operator Quick Start CLI -->
+      <button onclick="openTerminalQuickStart()" class="text-xs font-mono px-2.5 py-1 rounded border border-cyan-500/70 bg-cyan-950/80 text-cyan-300 hover:bg-cyan-900 transition flex items-center gap-1.5 active:scale-95 shadow-sm font-semibold" title="Terminal Operator Quick Start: Install CLI & Connect">
+        <span>⚡</span> <span>>_ Quick Start CLI</span>
+      </button>
     </div>
   </header>
+
+  <!-- ===================================================================== -->
+  <!-- Terminal Operator Quick Start CLI Modal -->
+  <!-- ===================================================================== -->
+  <div id="terminalQuickStartModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-950 border border-cyan-500/60 rounded-2xl w-[660px] max-w-full overflow-hidden shadow-2xl space-y-4 p-5 font-mono text-xs">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">⚡</span>
+          <div>
+            <h2 class="text-sm font-bold text-white uppercase tracking-wider">Terminal Operator Quick Start CLI</h2>
+            <p class="text-[11px] text-slate-400">Install the TinCan CLI and link your terminal workstation to the mesh in 10 seconds.</p>
+          </div>
+        </div>
+        <button onclick="closeTerminalQuickStart()" class="text-slate-400 hover:text-white text-base">✕</button>
+      </div>
+
+      <!-- Step 1: Automated Installer -->
+      <div class="space-y-1.5">
+        <div class="text-[11px] font-bold text-cyan-400 flex items-center gap-1.5">
+          <span>1.</span> <span>Install TinCan CLI via Terminal</span>
+        </div>
+        <div class="relative bg-slate-900 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between">
+          <code class="text-emerald-400 text-xs overflow-x-auto select-all">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code>
+          <button onclick="copyToClipboard('curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash')" class="ml-2 px-2.5 py-1 bg-cyan-700/80 hover:bg-cyan-600 text-white rounded text-[11px] shrink-0 active:scale-95 transition">
+            📋 Copy
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: Check Identity -->
+      <div class="space-y-1.5">
+        <div class="text-[11px] font-bold text-indigo-300 flex items-center gap-1.5">
+          <span>2.</span> <span>Verify Cryptographic Peer Identity (Zero Accounts)</span>
+        </div>
+        <div class="relative bg-slate-900 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between">
+          <code class="text-indigo-300 text-xs select-all">tincan whoami</code>
+          <button onclick="copyToClipboard('tincan whoami')" class="ml-2 px-2.5 py-1 bg-indigo-700/80 hover:bg-indigo-600 text-white rounded text-[11px] shrink-0 active:scale-95 transition">
+            📋 Copy
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 3: Connect -->
+      <div class="space-y-1.5">
+        <div class="text-[11px] font-bold text-emerald-300 flex items-center gap-1.5">
+          <span>3.</span> <span>Connect Workstation &amp; Live Telemetry</span>
+        </div>
+        <div class="relative bg-slate-900 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between">
+          <code class="text-emerald-300 text-xs select-all">tincan connect --relay https://iot-federated-agent-memory-production.up.railway.app</code>
+          <button onclick="copyToClipboard('tincan connect --relay https://iot-federated-agent-memory-production.up.railway.app')" class="ml-2 px-2.5 py-1 bg-emerald-700/80 hover:bg-emerald-600 text-white rounded text-[11px] shrink-0 active:scale-95 transition">
+            📋 Copy
+          </button>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center pt-3 border-t border-slate-800">
+        <span class="text-[10px] text-slate-500">Watching the TV stream is always free. No account required.</span>
+        <button onclick="closeTerminalQuickStart()" class="px-4 py-1.5 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:brightness-110 text-white font-bold rounded-lg text-xs transition active:scale-95">
+          Enter Mesh OS 🚀
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Desktop Spatial Workspace (Houses Draggable .mesh-window Containers) -->
   <main id="desktopWorkspace" class="relative w-full min-h-screen pt-16 pb-24 px-3 sm:px-6 z-10 select-text">
@@ -514,14 +584,14 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     </div>
 
     <!-- ===================================================================== -->
-    <!-- Window 2: Relay TV Watch Party.app -->
+    <!-- Window 2: Relay TV Watch Party.app (Baked-in Ads & Memes) -->
     <!-- ===================================================================== -->
     <div id="win-tv" class="mesh-window w-[520px]" data-window-id="win-tv" style="top: 72px; right: 24px; z-index: 21;">
       <div class="window-header flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-slate-800">
         <div class="flex items-center gap-2">
           <span class="text-base">📺</span>
-          <span class="text-xs font-bold text-white font-mono">Relay TV Watch Party.app</span>
-          <span class="w-2 h-2 rounded-full bg-pink-500"></span>
+          <span class="text-xs font-bold text-white font-mono">Watch Party TV (Ads &amp; Memes).app</span>
+          <span class="px-1.5 py-0.2 rounded-full bg-pink-500/20 text-pink-300 text-[9px] font-mono border border-pink-500/40 font-bold">ADS &amp; MEMES</span>
         </div>
         <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
           <button onclick="openPopoutWindow('win-tv')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
@@ -532,7 +602,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       <div id="tv" class="window-body p-4 space-y-3 max-h-[620px] overflow-y-auto">
         <div class="w-full flex items-center justify-between">
           <div>
-            <h2 class="font-bold text-white text-sm">Relay Video Channel &amp; Collection</h2>
+            <h2 class="font-bold text-white text-sm">Relay Video Channel (Ads &amp; Memes Feed)</h2>
             <p id="nowPlayingTitle" class="text-[11px] text-slate-400">Self-hosted Native MP4 · <span class="text-pink-400 font-mono">@nojuannobody</span></p>
           </div>
           <span id="playlistCounterBadge" class="text-[10px] bg-pink-950 text-pink-300 border border-pink-800 px-2.5 py-0.5 rounded-full font-mono uppercase">1 / 1 · Loop</span>
@@ -540,6 +610,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
         <!-- Video Player with Overlay for Multiplayer Floating Reactions -->
         <div class="relative w-full flex flex-col items-center justify-center overflow-hidden rounded-lg bg-black border border-slate-800 h-[380px]">
+          <div class="absolute top-2 right-2 z-20 bg-pink-950/80 border border-pink-600 text-pink-200 text-[9px] font-mono px-2 py-0.5 rounded-full pointer-events-none">
+            📣 ADS &amp; MEMES FEED
+          </div>
           <video
             id="relayNativeVideo"
             src="/videos/7705677376465767711.mp4"
@@ -702,25 +775,26 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     </div>
 
     <!-- ===================================================================== -->
-    <!-- Window 4: WebRTC Comms & Screenshare Studio.app -->
+    <!-- Window 4A: WebRTC Video & Voice Studio.app -->
     <!-- ===================================================================== -->
-    <div id="win-comms" class="mesh-window w-[540px]" data-window-id="win-comms" style="top: 720px; right: 24px; z-index: 23;">
+    <div id="win-call" class="mesh-window w-[540px]" data-window-id="win-call" style="top: 720px; right: 24px; z-index: 23;">
       <div class="window-header flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-slate-800">
         <div class="flex items-center gap-2">
           <span class="text-base">📹</span>
-          <span class="text-xs font-bold text-white font-mono">WebRTC Comms Studio.app</span>
+          <span class="text-xs font-bold text-white font-mono">WebRTC Video Studio.app</span>
           <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
         </div>
         <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
-          <button onclick="openPopoutWindow('win-comms')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
-          <button onclick="minimizeWindow('win-comms')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
-          <button onclick="maximizeWindow('win-comms')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">□</button>
+          <button onclick="openPopoutWindow('win-call')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
+          <button onclick="minimizeWindow('win-call')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
+          <button onclick="maximizeWindow('win-call')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">□</button>
+          <button onclick="toggleWindow('win-call')" class="px-1.5 py-0.5 rounded bg-red-950/80 hover:bg-red-800 text-red-300 text-[11px]">✕</button>
         </div>
       </div>
       <div id="call" class="window-body p-4 space-y-3 max-h-[620px] overflow-y-auto">
         <div class="flex flex-wrap justify-between items-center gap-2">
           <div>
-            <h2 class="text-xs font-bold text-white uppercase tracking-wider">P2P Encrypted Mesh Comms</h2>
+            <h2 class="text-xs font-bold text-white uppercase tracking-wider">WebRTC Video &amp; Voice Studio</h2>
             <p class="text-[11px] text-slate-400">Multi-peer voice calling, H.264 video &amp; desktop screenshare</p>
           </div>
           <div class="flex items-center gap-1.5 text-xs font-mono">
@@ -785,104 +859,174 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             </div>
           </div>
         </div>
+      </div>
+    </div>
 
-        <!-- Live Room & Peer Chat Messaging -->
-        <div class="pt-3 border-t border-slate-800 space-y-2">
-          <div class="flex items-center justify-between">
-            <span class="text-[11px] font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
-              <span>💬</span> Live Mesh &amp; Peer Chat
-            </span>
-            <span id="chatCounterBadge" class="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">0 messages</span>
+    <!-- ===================================================================== -->
+    <!-- Window 4B: Encrypted Mesh Chat & Comms.app (Separated from Video) -->
+    <!-- ===================================================================== -->
+    <div id="win-comms" class="mesh-window w-[480px]" data-window-id="win-comms" style="top: 720px; left: 620px; z-index: 23;">
+      <div class="window-header flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-cyan-900/50">
+        <div class="flex items-center gap-2">
+          <span class="text-base">💬</span>
+          <span class="text-xs font-bold text-cyan-300 font-mono">Encrypted Mesh Chat &amp; Comms.app</span>
+          <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+        </div>
+        <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
+          <button onclick="openPopoutWindow('win-comms')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
+          <button onclick="minimizeWindow('win-comms')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
+          <button onclick="maximizeWindow('win-comms')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">□</button>
+          <button onclick="toggleWindow('win-comms')" class="px-1.5 py-0.5 rounded bg-red-950/80 hover:bg-red-800 text-red-300 text-[11px]">✕</button>
+        </div>
+      </div>
+      <div class="window-body p-4 space-y-3 max-h-[620px] overflow-y-auto">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <span>🔒</span> Zero-Account Blind Relay Chat
+            </h2>
+            <p class="text-[11px] text-slate-400">Ed25519 sealed blind messaging across federated peers</p>
           </div>
+          <span id="chatCounterBadge" class="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-800">0 messages</span>
+        </div>
 
-          <!-- Message stream -->
-          <div id="chatMessagesList" class="h-44 overflow-y-auto p-2.5 bg-slate-950/90 border border-slate-800 rounded-lg space-y-2 text-xs font-mono">
-            <div class="text-slate-500 text-[11px] italic">No messages yet. Send a broadcast to all active room peers below.</div>
-          </div>
+        <!-- Chat Filter / Recipient Bar -->
+        <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2 flex items-center gap-2 text-xs font-mono">
+          <span class="text-slate-400 text-[11px]">Channel:</span>
+          <select id="chatChannelSelect" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-cyan-300 text-xs focus:outline-none">
+            <option value="room">🌐 Room Broadcast (main)</option>
+            <option value="direct">👤 Direct Sealed P2P</option>
+          </select>
+          <input id="chatDirectPeerInput" type="text" placeholder="Peer ID (for direct sealed msg)" class="hidden flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+        </div>
 
-          <!-- Message input -->
-          <div class="flex gap-1.5">
-            <input id="chatInput" type="text" placeholder="Type a message to room peers..." class="flex-1 bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white font-mono placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" onkeydown="if(event.key==='Enter') sendChatMessage()">
-            <button onclick="sendChatMessage()" class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs font-bold font-mono transition active:scale-95 shrink-0 flex items-center gap-1">
-              <span>Send</span>
-              <span>↵</span>
-            </button>
-          </div>
+        <!-- Message stream -->
+        <div id="chatMessagesList" class="h-64 overflow-y-auto p-3 bg-slate-950/90 border border-slate-800 rounded-lg space-y-2 text-xs font-mono">
+          <div class="text-slate-500 text-[11px] italic">No messages yet. Send a broadcast to all active room peers below.</div>
+        </div>
+
+        <!-- Message input -->
+        <div class="flex gap-1.5">
+          <input id="chatInput" type="text" placeholder="Type a message to room peers..." class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" onkeydown="if(event.key==='Enter') sendChatMessage()">
+          <button onclick="sendChatMessage()" class="px-4 py-2 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:brightness-110 text-white rounded-lg text-xs font-bold font-mono transition active:scale-95 shrink-0 flex items-center gap-1 shadow">
+            <span>Send</span>
+            <span>↵</span>
+          </button>
         </div>
       </div>
     </div>
 
     <!-- ===================================================================== -->
-    <!-- Window 5: Quests, Arena & Operator Leaderboard.app -->
+    <!-- Window 5: Rewards, Arena & Operator Leaderboard.app -->
     <!-- ===================================================================== -->
     <div id="win-quests" class="mesh-window w-[1100px] max-w-full" data-window-id="win-quests" style="top: 1380px; left: 24px; z-index: 24;">
       <div class="window-header flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-slate-800">
         <div class="flex items-center gap-2">
-          <span class="text-base">🎯</span>
-          <span class="text-xs font-bold text-white font-mono">Quests, Arena &amp; Operator Leaderboard.app</span>
+          <span class="text-base">🪙</span>
+          <span class="text-xs font-bold text-amber-300 font-mono">Rewards &amp; Token Minting Program.app</span>
           <span class="w-2 h-2 rounded-full bg-amber-400"></span>
         </div>
         <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
           <button onclick="openPopoutWindow('win-quests')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
           <button onclick="minimizeWindow('win-quests')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
           <button onclick="maximizeWindow('win-quests')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">□</button>
+          <button onclick="toggleWindow('win-quests')" class="px-1.5 py-0.5 rounded bg-red-950/80 hover:bg-red-800 text-red-300 text-[11px]">✕</button>
         </div>
       </div>
       <div class="window-body p-4 space-y-6 max-h-[750px] overflow-y-auto">
 
-        <!-- Top Section: Cooperative Quest Deck -->
-        <div>
-          <div class="flex items-center justify-between mb-3">
-            <div>
-              <h2 class="text-sm font-bold text-white flex items-center gap-2">
-                <span>⚔️</span> Cooperative Quest Deck &amp; L1 $\rightarrow$ L5 Ascension Loop
-              </h2>
-              <p class="text-xs text-slate-400">Complete peer actions to award Squad XP, unlock desktop themes, and level up the mesh.</p>
+        <!-- Top Section: Utility Token Minting Ledger & Proof-of-Uptime Program -->
+        <div class="space-y-4">
+          <div class="p-4 bg-gradient-to-r from-amber-950/60 via-slate-900/90 to-emerald-950/60 rounded-xl border border-amber-500/50 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5">
+                <span class="text-2xl">🪙</span>
+                <div>
+                  <h2 class="text-sm font-bold text-white font-mono flex items-center gap-2">
+                    <span>$TINCAN Utility Token Minting Program</span>
+                    <span class="px-2 py-0.5 rounded-full bg-emerald-900/80 text-emerald-300 border border-emerald-500 text-[10px] font-bold uppercase tracking-wider animate-pulse">MINTING LIVE</span>
+                  </h2>
+                  <p class="text-xs text-slate-300">Decentralized proof-of-uptime, relay operations &amp; dual-model evaluation reward ledger.</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 font-mono">
+                <button onclick="mintTincanRewardTokens(10)" class="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-emerald-500 hover:brightness-110 text-slate-950 font-bold rounded-lg text-xs transition active:scale-95 shadow flex items-center gap-1.5">
+                  <span>🔨</span> <span>Mint 10 $TINCAN</span>
+                </button>
+              </div>
             </div>
-            <span class="text-xs font-mono text-amber-400 bg-amber-950/60 border border-amber-800 px-2.5 py-1 rounded">
-              Active Squad Quests
-            </span>
+
+            <!-- Token Ledger KPI Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-center pt-1">
+              <div class="p-2 bg-slate-950/80 rounded-lg border border-slate-800">
+                <div class="text-[10px] text-slate-400">Your Minted Balance</div>
+                <div id="rewardsMintedBalance" class="text-base font-bold text-amber-300 mt-0.5">10 $TINCAN</div>
+              </div>
+              <div class="p-2 bg-slate-950/80 rounded-lg border border-slate-800">
+                <div class="text-[10px] text-slate-400">Mesh Mint Supply</div>
+                <div class="text-base font-bold text-emerald-400 mt-0.5">1,000,000 $TC</div>
+              </div>
+              <div class="p-2 bg-slate-950/80 rounded-lg border border-slate-800">
+                <div class="text-[10px] text-slate-400">Uptime Reward Rate</div>
+                <div class="text-base font-bold text-cyan-300 mt-0.5">+5 $TC / hr</div>
+              </div>
+              <div class="p-2 bg-slate-950/80 rounded-lg border border-slate-800">
+                <div class="text-[10px] text-slate-400">Arbiter Vote Reward</div>
+                <div class="text-base font-bold text-indigo-300 mt-0.5">+2 $TC / vote</div>
+              </div>
+            </div>
           </div>
 
-          <div id="questDeckGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            <!-- Dynamically populated or rendered via JS from /api/mesh/state -->
-            <div class="p-3 bg-slate-950/80 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
-              <div>
-                <div class="flex justify-between items-center">
-                  <span class="font-bold text-xs text-emerald-400 font-mono">L1 Sealed Courier</span>
-                  <span class="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-1.5 py-0.5 rounded font-mono">+100 XP</span>
-                </div>
-                <p class="text-xs text-slate-300 mt-1">Dispatch an Ed25519 sealed envelope through TinCan Blind Relay.</p>
+          <!-- Proof-of-Uptime & Activity Deck (Preserving questDeckGrid ID for test invariants) -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                <span>⚡</span> <span>Active Utility Minting Activities</span>
               </div>
-              <button onclick="triggerQuestAction('sealed_courier')" class="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-mono font-semibold transition active:scale-95">
-                🥫 Dispatch Sealed Ping (+100 XP)
-              </button>
+              <span class="text-[11px] font-mono text-amber-400 bg-amber-950/60 border border-amber-800 px-2 py-0.5 rounded">
+                Proof-of-Contribution Pool
+              </span>
             </div>
 
-            <div class="p-3 bg-slate-950/80 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
-              <div>
-                <div class="flex justify-between items-center">
-                  <span class="font-bold text-xs text-indigo-400 font-mono">L4 Synapse Battle</span>
-                  <span class="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800 px-1.5 py-0.5 rounded font-mono">+150 XP</span>
+            <div id="questDeckGrid" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div class="p-3 bg-slate-950/80 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
+                <div>
+                  <div class="flex justify-between items-center">
+                    <span class="font-bold text-xs text-emerald-400 font-mono">1. Sealed Courier Relay</span>
+                    <span class="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-1.5 py-0.5 rounded font-mono">+2 $TINCAN</span>
+                  </div>
+                  <p class="text-xs text-slate-300 mt-1">Dispatch an Ed25519 sealed envelope through TinCan Blind Relay.</p>
                 </div>
-                <p class="text-xs text-slate-300 mt-1">Run dual completion duel and vote for winning AI brain.</p>
+                <button onclick="triggerQuestAction('sealed_courier')" class="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-mono font-semibold transition active:scale-95">
+                  🥫 Relay Packet (+2 $TINCAN)
+                </button>
               </div>
-              <button onclick="triggerQuestAction('arena_vote')" class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-mono font-semibold transition active:scale-95">
-                🧠 Run Blind Arena Battle (+150 XP)
-              </button>
-            </div>
 
-            <div class="p-3 bg-slate-950/80 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
-              <div>
-                <div class="flex justify-between items-center">
-                  <span class="font-bold text-xs text-amber-400 font-mono">L5 HITL Trigger</span>
-                  <span class="text-[10px] bg-amber-950 text-amber-300 border border-amber-800 px-1.5 py-0.5 rounded font-mono">+200 XP</span>
+              <div class="p-3 bg-slate-950/80 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
+                <div>
+                  <div class="flex justify-between items-center">
+                    <span class="font-bold text-xs text-indigo-400 font-mono">2. AI Arbiter Duel Vote</span>
+                    <span class="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800 px-1.5 py-0.5 rounded font-mono">+2 $TINCAN</span>
+                  </div>
+                  <p class="text-xs text-slate-300 mt-1">Run dual completion duel and vote for winning AI brain.</p>
                 </div>
-                <p class="text-xs text-slate-300 mt-1">Execute human-in-the-loop approved peer command.</p>
+                <button onclick="triggerQuestAction('arena_vote')" class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-mono font-semibold transition active:scale-95">
+                  🧠 Evaluate Models (+2 $TINCAN)
+                </button>
               </div>
-              <button onclick="triggerQuestAction('coop_action')" class="w-full py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs font-mono font-semibold transition active:scale-95">
-                ⚡ Trigger Co-Op Action (+200 XP)
-              </button>
+
+              <div class="p-3 bg-slate-950/80 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
+                <div>
+                  <div class="flex justify-between items-center">
+                    <span class="font-bold text-xs text-amber-400 font-mono">3. Sandboxed Agent Run</span>
+                    <span class="text-[10px] bg-amber-950 text-amber-300 border border-amber-800 px-1.5 py-0.5 rounded font-mono">+5 $TINCAN</span>
+                  </div>
+                  <p class="text-xs text-slate-300 mt-1">Execute sandboxed code or dynamic agent run in isolated VFS.</p>
+                </div>
+                <button onclick="triggerQuestAction('coop_action')" class="w-full py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs font-mono font-semibold transition active:scale-95">
+                  ⚡ Execute Sandbox (+5 $TINCAN)
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -894,11 +1038,45 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
               <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5">
                 <span>⚔️</span> Side-by-Side AI Brain Arena Duel
               </h3>
-              <p class="text-[11px] text-slate-400">Dispatch dual completion to Gemini 2.5 vs Claude 3.7 and vote for the best response (+150 XP).</p>
+              <p class="text-[11px] text-slate-400">Dispatch dual completions to any OpenRouter or Ronin model and vote for the best response (+150 XP).</p>
             </div>
-            <span class="text-[11px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800 px-2 py-0.5 rounded">
-              Blind Duel Protocol
-            </span>
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800 px-2 py-0.5 rounded">
+                Dynamic OpenRouter &amp; Ronin Arbiter
+              </span>
+            </div>
+          </div>
+
+          <!-- Dynamic Model A & Model B Pickers -->
+          <datalist id="arenaModelsDatalist">
+            <option value="google/gemini-2.5-flash">Google Gemini 2.5 Flash</option>
+            <option value="google/gemini-2.5-pro">Google Gemini 2.5 Pro</option>
+            <option value="anthropic/claude-3.7-sonnet">Anthropic Claude 3.7 Sonnet</option>
+            <option value="anthropic/claude-3.5-sonnet">Anthropic Claude 3.5 Sonnet</option>
+            <option value="openai/gpt-4o">OpenAI GPT-4o</option>
+            <option value="openai/o3-mini">OpenAI o3-mini</option>
+            <option value="deepseek/deepseek-r1">DeepSeek R1</option>
+            <option value="deepseek/deepseek-chat">DeepSeek V3</option>
+            <option value="meta-llama/llama-3.3-70b-instruct">Meta Llama 3.3 70B</option>
+            <option value="qwen/qwen-2.5-72b-instruct">Qwen 2.5 72B</option>
+            <option value="mistralai/mistral-large-2411">Mistral Large</option>
+            <option value="x-ai/grok-2-1212">xAI Grok 2</option>
+            <option value="ronin/hyper3d-rodin-v2">Ronin / Hyper3D Rodin v2 (3D Mesh &amp; PBR)</option>
+            <option value="ronin/regular">Ronin Regular 3D Mesh</option>
+            <option value="ronin/sketch">Ronin Fast Sketch 3D</option>
+            <option value="ronin/detail">Ronin Detail 3D Mesh</option>
+            <option value="ronin/smooth">Ronin Smooth 3D Quad-Mesh</option>
+          </datalist>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            <div class="bg-slate-900/70 border border-emerald-900/60 rounded-lg p-2 flex items-center gap-2">
+              <span class="text-[11px] font-mono text-emerald-400 font-bold shrink-0">Model A:</span>
+              <input list="arenaModelsDatalist" id="arenaModelAInput" value="google/gemini-2.5-flash" oninput="updateArenaModelLabels()" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-xs text-emerald-300 font-mono focus:border-emerald-500 focus:outline-none" placeholder="Any OpenRouter or Ronin model ID...">
+            </div>
+            <div class="bg-slate-900/70 border border-cyan-900/60 rounded-lg p-2 flex items-center gap-2">
+              <span class="text-[11px] font-mono text-cyan-400 font-bold shrink-0">Model B:</span>
+              <input list="arenaModelsDatalist" id="arenaModelBInput" value="anthropic/claude-3.7-sonnet" oninput="updateArenaModelLabels()" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-xs text-cyan-300 font-mono focus:border-cyan-500 focus:outline-none" placeholder="Any OpenRouter or Ronin model ID...">
+            </div>
           </div>
 
           <div class="flex gap-2">
@@ -909,32 +1087,42 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-            <!-- Brain A: Gemini -->
+            <!-- Brain A -->
             <div class="p-3 bg-slate-900/90 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
               <div class="flex justify-between items-center pb-1.5 border-b border-slate-800">
-                <span class="font-bold text-xs text-emerald-300 font-mono">Brain A (gemini-brain)</span>
-                <span class="text-[10px] text-slate-400 font-mono">Gemini 2.5 Flash</span>
+                <span class="font-bold text-xs text-emerald-300 font-mono">Brain A</span>
+                <span id="arenaLabelA" class="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">google/gemini-2.5-flash</span>
               </div>
               <div id="arenaResultA" class="text-xs font-mono text-slate-200 min-h-[90px] max-h-[160px] overflow-y-auto whitespace-pre-wrap bg-black/40 p-2.5 rounded">
                 Click "Battle 2 Brains" above to dispatch simultaneous prompts...
               </div>
-              <button onclick="voteArenaWinner('gemini-brain')" class="w-full py-1.5 bg-emerald-700/80 hover:bg-emerald-600 text-white font-semibold rounded text-xs transition active:scale-95 font-mono">
-                🏆 Vote Brain A (+150 XP)
-              </button>
+              <div class="space-y-1.5 pt-1">
+                <button id="arenaVoteBtnA" onclick="voteArenaWinner('A')" class="w-full py-1.5 bg-emerald-700/80 hover:bg-emerald-600 text-white font-semibold rounded text-xs transition active:scale-95 font-mono">
+                  🏆 Vote Brain A (+150 XP)
+                </button>
+                <button onclick="sendArenaResultToSpace('A')" class="w-full py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-mono flex items-center justify-center gap-1 border border-slate-700 transition active:scale-95" title="Copy code/output to Dynamic Agent Space and execute in sandbox">
+                  🚀 Use in Agent Space &amp; Sandbox
+                </button>
+              </div>
             </div>
 
-            <!-- Brain B: Claude -->
+            <!-- Brain B -->
             <div class="p-3 bg-slate-900/90 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
               <div class="flex justify-between items-center pb-1.5 border-b border-slate-800">
-                <span class="font-bold text-xs text-cyan-300 font-mono">Brain B (claude-brain)</span>
-                <span class="text-[10px] text-slate-400 font-mono">Claude 3.7 Sonnet</span>
+                <span class="font-bold text-xs text-cyan-300 font-mono">Brain B</span>
+                <span id="arenaLabelB" class="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">anthropic/claude-3.7-sonnet</span>
               </div>
               <div id="arenaResultB" class="text-xs font-mono text-slate-200 min-h-[90px] max-h-[160px] overflow-y-auto whitespace-pre-wrap bg-black/40 p-2.5 rounded">
                 Click "Battle 2 Brains" above to dispatch simultaneous prompts...
               </div>
-              <button onclick="voteArenaWinner('claude-brain')" class="w-full py-1.5 bg-cyan-700/80 hover:bg-cyan-600 text-white font-semibold rounded text-xs transition active:scale-95 font-mono">
-                🏆 Vote Brain B (+150 XP)
-              </button>
+              <div class="space-y-1.5 pt-1">
+                <button id="arenaVoteBtnB" onclick="voteArenaWinner('B')" class="w-full py-1.5 bg-cyan-700/80 hover:bg-cyan-600 text-white font-semibold rounded text-xs transition active:scale-95 font-mono">
+                  🏆 Vote Brain B (+150 XP)
+                </button>
+                <button onclick="sendArenaResultToSpace('B')" class="w-full py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-mono flex items-center justify-center gap-1 border border-slate-700 transition active:scale-95" title="Copy code/output to Dynamic Agent Space and execute in sandbox">
+                  🚀 Use in Agent Space &amp; Sandbox
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1259,6 +1447,75 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           </div>
         </div>
 
+        <!-- Section 4: Peer Ban Management (Ban & Revoke Access) -->
+        <div class="bg-slate-900/80 border border-red-900/60 rounded-xl p-3.5 space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+            <div class="text-xs font-bold text-red-400 font-mono flex items-center gap-1.5">
+              <span>🚫</span>
+              <span>Peer Ban Management (Spaces &amp; Mesh Access)</span>
+            </div>
+            <button onclick="fetchBannedPeers()" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-mono border border-slate-700">⟳ Refresh</button>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <input id="adminBanPeerInput" type="text" placeholder="Peer ID or Username to ban..." class="bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-white text-xs font-mono focus:border-red-500 focus:outline-none">
+            <input id="adminBanReasonInput" type="text" placeholder="Reason (e.g. Malicious code execution, abuse)" class="bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-white text-xs font-mono focus:border-red-500 focus:outline-none">
+            <button onclick="adminBanPeerAction()" class="px-3 py-1 bg-red-700 hover:bg-red-600 text-white font-mono text-xs font-bold rounded transition active:scale-95 flex items-center justify-center gap-1">
+              <span>🚫</span> <span>Ban Peer from Mesh</span>
+            </button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left font-mono text-xs">
+              <thead class="text-slate-400 bg-slate-950/60 border-b border-slate-800 text-[11px]">
+                <tr>
+                  <th class="px-2.5 py-1.5">Banned Peer</th>
+                  <th class="px-2.5 py-1.5">Reason</th>
+                  <th class="px-2.5 py-1.5">Banned By</th>
+                  <th class="px-2.5 py-1.5">Date</th>
+                  <th class="px-2.5 py-1.5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="modBannedPeersTable" class="divide-y divide-slate-800/50">
+                <tr><td colspan="5" class="px-3 py-2 text-center text-slate-500 text-[11px]">No peers currently banned.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Section 5: Reported Digital Artifacts Inspector -->
+        <div class="bg-slate-900/80 border border-purple-900/60 rounded-xl p-3.5 space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+            <div class="text-xs font-bold text-purple-300 font-mono flex items-center gap-1.5">
+              <span>🔎</span>
+              <span>Reported Digital Artifacts Inspector</span>
+            </div>
+            <button onclick="fetchReportedArtifacts()" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-mono border border-slate-700">⟳ Refresh</button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left font-mono text-xs">
+              <thead class="text-slate-400 bg-slate-950/60 border-b border-slate-800 text-[11px]">
+                <tr>
+                  <th class="px-2.5 py-1.5">Report ID</th>
+                  <th class="px-2.5 py-1.5">Reported Peer</th>
+                  <th class="px-2.5 py-1.5">Artifact Path</th>
+                  <th class="px-2.5 py-1.5">Reason</th>
+                  <th class="px-2.5 py-1.5 text-right">Moderator Review</th>
+                </tr>
+              </thead>
+              <tbody id="modReportedArtifactsTable" class="divide-y divide-slate-800/50">
+                <tr><td colspan="5" class="px-3 py-2 text-center text-slate-500 text-[11px]">No reported artifacts to review.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- Artifact Preview Box -->
+          <div id="reportedArtifactViewer" class="hidden p-3 bg-slate-950 border border-purple-800/60 rounded-lg space-y-2 text-xs font-mono">
+            <div class="flex items-center justify-between">
+              <span id="reportedArtifactTitle" class="text-purple-300 font-bold">Artifact Details</span>
+              <button onclick="document.getElementById('reportedArtifactViewer').classList.add('hidden')" class="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <pre id="reportedArtifactContent" class="p-2 bg-black/80 rounded border border-slate-800 text-slate-300 max-h-40 overflow-y-auto whitespace-pre-wrap"></pre>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -1285,10 +1542,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           <div>
             <div class="text-[11px] text-slate-400 font-mono">Connected Peer Token Balance</div>
             <div class="flex items-baseline gap-2 mt-0.5">
-              <span id="billingWindowTokens" class="text-2xl font-bold font-mono text-emerald-400">50,000</span>
-              <span class="text-slate-400 text-xs font-mono">tokens</span>
+              <span id="billingWindowTokens" class="text-2xl font-bold font-mono text-emerald-400">10</span>
+              <span class="text-slate-400 text-xs font-mono">credits</span>
               <span class="text-slate-600">|</span>
-              <span id="billingWindowCredits" class="text-sm font-mono text-cyan-300 font-bold">$1.00 USD</span>
+              <span id="billingWindowCredits" class="text-sm font-mono text-cyan-300 font-bold">$0.10 USD</span>
             </div>
           </div>
           <button onclick="refreshBillingWindow()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-mono flex items-center gap-1 active:scale-95">
@@ -1305,7 +1562,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             </div>
             <div class="flex items-center gap-1.5">
               <button type="button" onclick="fetchNextSponsor()" title="Rotate to next sponsor" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-mono border border-slate-700 active:scale-95 transition">⟳ Next Sponsor</button>
-              <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono border border-amber-500/30 font-bold">+5,000 TOKENS</span>
+              <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono border border-amber-500/30 font-bold">+5 CREDITS</span>
             </div>
           </div>
           <p class="text-[11px] text-slate-300">
@@ -1375,32 +1632,32 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800 hover:border-emerald-500/60 transition flex flex-col justify-between">
               <div>
                 <div class="text-xs font-bold text-white">Starter Pack</div>
-                <div class="text-lg font-bold font-mono text-emerald-400 mt-1">$1.00</div>
-                <div class="text-[11px] text-slate-400 mt-0.5">50,000 Tokens</div>
+                <div class="text-lg font-bold font-mono text-emerald-400 mt-1">$0.10</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">10 Credits</div>
               </div>
-              <button onclick="buyTokens(1.00, 50000)" class="mt-3 w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95">
-                Pay $1
+              <button onclick="buyTokens(0.10, 10)" class="mt-3 w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95">
+                Pay $0.10
               </button>
             </div>
             <div class="p-3 bg-slate-900/90 rounded-xl border border-emerald-500/80 shadow-md hover:border-emerald-400 transition flex flex-col justify-between relative overflow-hidden">
               <div class="absolute top-0 right-0 bg-emerald-500 text-slate-950 font-bold text-[9px] px-1.5 py-0.2 rounded-bl uppercase">Popular</div>
               <div>
                 <div class="text-xs font-bold text-white">Developer Pack</div>
-                <div class="text-lg font-bold font-mono text-emerald-400 mt-1">$5.00</div>
-                <div class="text-[11px] text-slate-400 mt-0.5">275,000 Tokens <span class="text-emerald-400 font-semibold">(+10%)</span></div>
+                <div class="text-lg font-bold font-mono text-emerald-400 mt-1">$0.50</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">55 Credits <span class="text-emerald-400 font-semibold">(+10%)</span></div>
               </div>
-              <button onclick="buyTokens(5.00, 275000)" class="mt-3 w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95">
-                Pay $5
+              <button onclick="buyTokens(0.50, 55)" class="mt-3 w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95">
+                Pay $0.50
               </button>
             </div>
             <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800 hover:border-cyan-500/60 transition flex flex-col justify-between">
               <div>
                 <div class="text-xs font-bold text-white">Fleet Pro Pack</div>
-                <div class="text-lg font-bold font-mono text-cyan-400 mt-1">$20.00</div>
-                <div class="text-[11px] text-slate-400 mt-0.5">1,200,000 Tokens <span class="text-cyan-400 font-semibold">(+20%)</span></div>
+                <div class="text-lg font-bold font-mono text-cyan-400 mt-1">$1.00</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">120 Credits <span class="text-cyan-400 font-semibold">(+20%)</span></div>
               </div>
-              <button onclick="buyTokens(20.00, 1200000)" class="mt-3 w-full py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95">
-                Pay $20
+              <button onclick="buyTokens(1.00, 120)" class="mt-3 w-full py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95">
+                Pay $1.00
               </button>
             </div>
           </div>
@@ -1737,7 +1994,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 class="text-xs font-bold text-cyan-300 uppercase tracking-wider">🕸️ Cyberspace Multi-Relational Knowledge Graph</h3>
-                <p class="text-[11px] text-slate-400 font-sans">Click any node on the canvas to inspect its neighborhood, or compute the shortest relational path between any two Cyberspace entities.</p>
+                <p class="text-[11px] text-slate-400 font-sans">Multi-entity semantic topology linking posts, authors, and AI agents.</p>
               </div>
               <div class="flex items-center gap-2 text-[10px]">
                 <span class="px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700">● Topic</span>
@@ -1748,23 +2005,42 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
               </div>
             </div>
 
-            <!-- Shortest-Path Entity Finder -->
-            <div class="p-2.5 bg-slate-950/90 rounded-lg border border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 text-xs">
-              <span class="text-slate-400 text-[11px] shrink-0">Shortest Path:</span>
-              <input id="graphPathSource" type="text" value="@alejandro" placeholder="From (e.g. @alejandro, #bm25)" class="px-2.5 py-1 rounded bg-slate-900 border border-slate-700 text-cyan-300 text-xs flex-1" />
-              <span class="text-slate-500 text-center">⟶</span>
-              <input id="graphPathTarget" type="text" value="@verifier-agent" placeholder="To (e.g. @verifier-agent, #graphrag)" class="px-2.5 py-1 rounded bg-slate-900 border border-slate-700 text-indigo-300 text-xs flex-1" />
-              <button type="button" onclick="findCyberspaceEntityPath()" class="px-3 py-1 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shrink-0">
-                Find Relational Path
-              </button>
+            <!-- Knowledge Graph Architecture Explanation & Collapsible Toggle -->
+            <div class="p-3 bg-gradient-to-r from-indigo-950/80 to-slate-900 border border-indigo-700/60 rounded-xl space-y-1.5 font-sans">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-base">💡</span>
+                  <span class="text-xs font-bold text-indigo-300 font-mono">What is the Cyberspace Knowledge Graph showing?</span>
+                </div>
+                <button type="button" onclick="toggleKnowledgeGraphView()" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-[10px] border border-slate-700 transition">
+                  <span id="kgToggleText">👁️ Hide Canvas</span>
+                </button>
+              </div>
+              <p class="text-[11px] text-slate-300 leading-relaxed">
+                The Cyberspace Knowledge Graph visualizes multi-relational connections between discussion topics, registered operators (<code class="text-emerald-400">@users</code>), AI models (<code class="text-amber-400">@agents</code>), and topical hashtags (<code class="text-pink-400">#tags</code>). Edges represent cryptographic co-authoring, thread citations, and semantic co-occurrence. GraphRAG uses this topology to execute Personalized PageRank ($\alpha=0.85$), enabling AI agents to synthesize cross-topic answers without keyword hallucination.
+              </p>
             </div>
-            <div id="graphPathOutput" class="hidden p-2.5 bg-cyan-950/50 border border-cyan-600/50 rounded-lg text-[11px] text-cyan-200"></div>
 
-            <!-- Interactive HTML5 Canvas -->
-            <div class="relative bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
-              <canvas id="boardGraphCanvas" width="860" height="380" class="w-full h-[380px] cursor-grab active:cursor-grabbing"></canvas>
-              <div id="boardGraphNodeInspector" class="absolute bottom-2 left-2 right-2 p-2 bg-slate-900/95 border border-slate-700 rounded-lg text-[10px] text-slate-300 flex items-center justify-between">
-                <span>Click any node on the graph canvas to inspect its connections and filter topics.</span>
+            <!-- Canvas & Path Container (Collapsible) -->
+            <div id="boardGraphCanvasContainer" class="space-y-3">
+              <!-- Shortest-Path Entity Finder -->
+              <div class="p-2.5 bg-slate-950/90 rounded-lg border border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 text-xs">
+                <span class="text-slate-400 text-[11px] shrink-0">Shortest Path:</span>
+                <input id="graphPathSource" type="text" value="@alejandro" placeholder="From (e.g. @alejandro, #bm25)" class="px-2.5 py-1 rounded bg-slate-900 border border-slate-700 text-cyan-300 text-xs flex-1" />
+                <span class="text-slate-500 text-center">⟶</span>
+                <input id="graphPathTarget" type="text" value="@verifier-agent" placeholder="To (e.g. @verifier-agent, #graphrag)" class="px-2.5 py-1 rounded bg-slate-900 border border-slate-700 text-indigo-300 text-xs flex-1" />
+                <button type="button" onclick="findCyberspaceEntityPath()" class="px-3 py-1 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shrink-0">
+                  Find Relational Path
+                </button>
+              </div>
+              <div id="graphPathOutput" class="hidden p-2.5 bg-cyan-950/50 border border-cyan-600/50 rounded-lg text-[11px] text-cyan-200"></div>
+
+              <!-- Interactive HTML5 Canvas -->
+              <div class="relative bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
+                <canvas id="boardGraphCanvas" width="860" height="380" class="w-full h-[380px] cursor-grab active:cursor-grabbing"></canvas>
+                <div id="boardGraphNodeInspector" class="absolute bottom-2 left-2 right-2 p-2 bg-slate-900/95 border border-slate-700 rounded-lg text-[10px] text-slate-300 flex items-center justify-between">
+                  <span>Click any node on the graph canvas to inspect its connections and filter topics.</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1976,14 +2252,14 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     </div>
 
     <!-- ===================================================================== -->
-    <!-- Window 9: 🧪 AgentSpace & Wasm Studio.app -->
+    <!-- Window 9: 📁 Mesh Finder & Filesystem (Ranger VFS).app -->
     <!-- ===================================================================== -->
-    <div id="win-agentspace" class="mesh-window w-[920px] max-w-full hidden" data-window-id="win-agentspace" style="top: 76px; left: 140px; z-index: 35;">
-      <div class="window-header flex items-center justify-between px-3 py-2 bg-gradient-to-r from-purple-950/95 via-slate-900/95 to-indigo-950/95 border-b border-purple-500/50">
+    <div id="win-agentspace" class="mesh-window w-[980px] max-w-full hidden" data-window-id="win-agentspace" style="top: 76px; left: 140px; z-index: 35;">
+      <div class="window-header flex items-center justify-between px-3 py-2 bg-gradient-to-r from-slate-900 via-purple-950/80 to-slate-900 border-b border-purple-500/40">
         <div class="flex items-center gap-2">
-          <span class="text-base">🧪</span>
-          <span class="text-xs font-bold text-purple-300 font-mono tracking-wide">AgentSpace &amp; Wasm Studio.app</span>
-          <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 text-[10px] font-mono border border-purple-500/40 font-semibold">SINGLE-FILE VFS · RODIN 3D · 15 ARTCRAFT APPS</span>
+          <span class="text-base">📁</span>
+          <span class="text-xs font-bold text-slate-100 font-mono tracking-wide">Mesh Finder &amp; Filesystem (Ranger VFS) · AgentSpace &amp; Wasm Studio.app</span>
+          <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 text-[10px] font-mono border border-purple-500/40 font-semibold">MAC-UNIX VFS · RANGER NAVIGATION · MULTI-FORMAT PREVIEW · VS CODE EXTENSIONS</span>
         </div>
         <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
           <button onclick="openPopoutWindow('win-agentspace')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
@@ -1992,11 +2268,11 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           <button onclick="toggleWindow('win-agentspace')" class="px-1.5 py-0.5 rounded bg-red-950/80 hover:bg-red-800 text-red-300 text-[11px]">✕</button>
         </div>
       </div>
-      <div class="window-body p-4 space-y-4 max-h-[760px] overflow-y-auto text-xs font-sans">
-        <!-- Scope Selector & VFS Header -->
-        <div class="p-3 bg-slate-900/90 rounded-xl border border-purple-500/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+      <div class="window-body p-4 space-y-4 max-h-[780px] overflow-y-auto text-xs font-sans">
+        <!-- Scope Selector & Breadcrumb Header -->
+        <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
           <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-[11px] font-mono text-slate-400 font-bold">Space Target:</span>
+            <span class="text-[11px] font-mono text-slate-400 font-bold">Space / VFS:</span>
             <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800 font-mono text-xs">
               <button id="scopeUserBtn" onclick="switchSpaceScope('user')" class="px-2.5 py-1 rounded bg-purple-900 text-purple-200 font-semibold active:scale-95 transition">
                 👤 User Space
@@ -2004,8 +2280,11 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
               <button id="scopeTopicBtn" onclick="switchSpaceScope('topic')" class="px-2.5 py-1 rounded text-slate-400 hover:text-white active:scale-95 transition">
                 💬 Forum Topic Space
               </button>
+              <button id="scopeDynamicBtn" onclick="switchSpaceScope('dynamic')" class="px-2.5 py-1 rounded text-slate-400 hover:text-white active:scale-95 transition">
+                ⚡ Dynamic Sandbox
+              </button>
             </div>
-            <input id="spaceOwnerInput" type="text" placeholder="Owner ID / Topic ID" class="bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-white font-mono text-xs w-48 focus:border-purple-500 focus:outline-none">
+            <input id="spaceOwnerInput" type="text" placeholder="Owner ID / Space ID" class="bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-white font-mono text-xs w-44 focus:border-purple-500 focus:outline-none">
             <button onclick="refreshAgentSpace()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 font-mono text-xs active:scale-95 transition">
               🔄 Load Space
             </button>
@@ -2018,19 +2297,49 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- Main Studio Split View: File Tree + Code Editor -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <!-- Left Column: File Explorer & Rodin 3D Generator -->
-          <div class="space-y-3">
+        <!-- Mode Navigation Tabs: Finder VFS | VS Code Extensions | ArtCraft Wasm -->
+        <div class="flex items-center gap-1.5 border-b border-slate-800 pb-2 font-mono text-xs">
+          <button id="finderTabBtn-files" onclick="switchFinderTab('files')" class="px-3 py-1.5 rounded-lg bg-purple-600 text-white font-bold transition flex items-center gap-1.5">
+            <span>📁</span> <span>Ranger Filesystem</span>
+          </button>
+          <button id="finderTabBtn-vscode" onclick="switchFinderTab('vscode')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5">
+            <span>🧩</span> <span>VS Code Marketplace</span>
+          </button>
+          <button id="finderTabBtn-artcraft" onclick="switchFinderTab('artcraft')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5">
+            <span>🎨</span> <span>ArtCraft 15 Suite</span>
+          </button>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- TAB 1: RANGER 3-COLUMN FILESYSTEM & MULTI-FORMAT PREVIEWER -->
+        <!-- =============================================================== -->
+        <div id="finderTab-files" class="grid grid-cols-1 md:grid-cols-12 gap-3">
+          <!-- Col 1: Places & Directory Tree (3 cols) -->
+          <div class="md:col-span-3 space-y-3">
             <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
               <div class="flex items-center justify-between">
-                <span class="font-mono font-bold text-slate-300 text-xs">📁 Filesystem Tree</span>
-                <button onclick="promptCreateFile()" class="text-[10px] px-2 py-0.5 rounded bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-800 font-mono">
-                  + New File
-                </button>
+                <span class="font-mono font-bold text-slate-300 text-xs">Places / Nav</span>
+                <span class="text-[10px] text-slate-500 font-mono">UNIX</span>
               </div>
-              <div id="spaceFileList" class="space-y-1 max-h-48 overflow-y-auto font-mono text-[11px] text-slate-300 divide-y divide-slate-800/40">
-                <div class="text-slate-500 py-2 text-center text-xs">Loading .space VFS...</div>
+              <div class="space-y-1 font-mono text-xs">
+                <button onclick="navigateFinderPath('/src')" class="w-full text-left px-2 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-200 flex items-center gap-1.5 transition">
+                  <span>📂</span> <span>/src (Code)</span>
+                </button>
+                <button onclick="navigateFinderPath('/media/videos')" class="w-full text-left px-2 py-1.5 rounded hover:bg-slate-900 text-slate-300 flex items-center gap-1.5 transition">
+                  <span>🎬</span> <span>/media/videos</span>
+                </button>
+                <button onclick="navigateFinderPath('/media/audio')" class="w-full text-left px-2 py-1.5 rounded hover:bg-slate-900 text-slate-300 flex items-center gap-1.5 transition">
+                  <span>🎵</span> <span>/media/audio</span>
+                </button>
+                <button onclick="navigateFinderPath('/models3d')" class="w-full text-left px-2 py-1.5 rounded hover:bg-slate-900 text-slate-300 flex items-center gap-1.5 transition">
+                  <span>🧊</span> <span>/models3d (GLB)</span>
+                </button>
+                <button onclick="navigateFinderPath('/docs')" class="w-full text-left px-2 py-1.5 rounded hover:bg-slate-900 text-slate-300 flex items-center gap-1.5 transition">
+                  <span>📄</span> <span>/docs (Markdown)</span>
+                </button>
+                <button onclick="navigateFinderPath('/artcraft')" class="w-full text-left px-2 py-1.5 rounded hover:bg-slate-900 text-slate-300 flex items-center gap-1.5 transition">
+                  <span>🎨</span> <span>/artcraft (Assets)</span>
+                </button>
               </div>
             </div>
 
@@ -2059,16 +2368,31 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                 </select>
               </div>
               <button id="generateRodinBtn" onclick="generateAgentSpaceRodin3D()" class="w-full py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95 flex items-center justify-center gap-1.5">
-                <span>🧊</span> Generate 3D &amp; Save to Space
+                <span>🧊</span> Generate 3D &amp; Save
               </button>
               <div id="rodinStatusNotice" class="text-[10px] font-mono text-slate-400 text-center truncate">Ready to generate 3D assets.</div>
             </div>
           </div>
 
-          <!-- Right Column: Code Editor & Playground Console -->
-          <div class="md:col-span-2 space-y-3">
+          <!-- Col 2: Ranger Files List (4 cols) -->
+          <div class="md:col-span-4 space-y-3">
             <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
               <div class="flex items-center justify-between">
+                <span class="font-mono font-bold text-slate-300 text-xs">Files in VFS</span>
+                <button onclick="promptCreateFile()" class="text-[10px] px-2 py-0.5 rounded bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-800 font-mono">
+                  + New File
+                </button>
+              </div>
+              <div id="spaceFileList" class="space-y-1 max-h-[380px] overflow-y-auto font-mono text-[11px] text-slate-300 divide-y divide-slate-800/40">
+                <div class="text-slate-500 py-2 text-center text-xs">Loading .space VFS...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Col 3: Multi-Format Previewer & Sandboxed Code Editor (5 cols) -->
+          <div class="md:col-span-5 space-y-3">
+            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between border-b border-slate-800 pb-2">
                 <div class="flex items-center gap-2">
                   <span class="font-mono text-purple-400 font-bold text-xs" id="activeFilePath">/src/main.py</span>
                   <span id="activeFileMime" class="text-[9px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono">text/plain</span>
@@ -2082,13 +2406,41 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                   </button>
                 </div>
               </div>
-              <textarea id="agentspaceEditor" rows="10" class="w-full bg-slate-900/90 border border-slate-700 rounded-lg p-2.5 text-slate-100 font-mono text-xs focus:border-purple-500 focus:outline-none select-text" placeholder="Write Python, JS, or Wasm bytecode..."></textarea>
+
+              <!-- Multimedia Preview Containers (Switched by extension) -->
+              <div id="finderMediaPreviewBox" class="space-y-2">
+                <!-- Video Player Preview (for .mp4, .webm) -->
+                <div id="finderVideoContainer" class="hidden relative bg-black rounded-lg overflow-hidden border border-slate-800 aspect-video flex items-center justify-center">
+                  <video id="finderVideoPlayer" controls class="w-full h-full object-contain"></video>
+                </div>
+
+                <!-- Audio Player Preview (for .mp3, .wav) -->
+                <div id="finderAudioContainer" class="hidden p-3 bg-slate-900 rounded-lg border border-slate-800 text-center space-y-2">
+                  <div class="text-xs font-mono text-cyan-300">🎵 Audio Playback</div>
+                  <audio id="finderAudioPlayer" controls class="w-full"></audio>
+                </div>
+
+                <!-- 3D GLB Model Wireframe/Render Preview -->
+                <div id="finder3dContainer" class="hidden relative bg-slate-900 rounded-lg overflow-hidden border border-cyan-700/60 aspect-video flex flex-col items-center justify-center text-center p-3 font-mono">
+                  <span class="text-3xl mb-1">🧊</span>
+                  <div class="text-xs font-bold text-cyan-300">3D Mesh Asset (.glb/.gltf)</div>
+                  <p class="text-[10px] text-slate-400 mt-1">Single-file SQLite VFS 3D Asset ready for three.js or Rodin engine</p>
+                  <button onclick="launchArtCraftWasmApp('cadcraft')" class="mt-2 px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] rounded transition">
+                    Open in CadCraft Web ↗
+                  </button>
+                </div>
+
+                <!-- Text/Code Editor -->
+                <div id="finderCodeContainer">
+                  <textarea id="agentspaceEditor" rows="8" class="w-full bg-slate-900/90 border border-slate-700 rounded-lg p-2.5 text-slate-100 font-mono text-xs focus:border-purple-500 focus:outline-none select-text" placeholder="Write Python, JS, or Wasm bytecode..."></textarea>
+                </div>
+              </div>
               
               <!-- Playground Run Bar -->
-              <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
-                <div class="flex items-center gap-2">
-                  <span class="text-[11px] font-mono text-slate-400">Runtime:</span>
-                  <select id="playgroundRuntimeSelect" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono text-[11px]">
+              <div class="flex flex-wrap items-center justify-between gap-2 pt-1 font-mono text-xs">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[11px] text-slate-400">Sandbox:</span>
+                  <select id="playgroundRuntimeSelect" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-[11px]">
                     <option value="auto">auto (detect)</option>
                     <option value="python">pyodide-wasm (Python)</option>
                     <option value="js">quickjs-wasm (JS)</option>
@@ -2096,30 +2448,144 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                     <option value="three-glb-viewer">three-glb-viewer (3D)</option>
                   </select>
                 </div>
-                <div class="flex items-center gap-2">
-                  <button onclick="runAgentSpaceAgent()" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs rounded transition active:scale-95 flex items-center gap-1">
-                    <span>🤖</span> Ask Space Agent
+                <div class="flex items-center gap-1.5">
+                  <button onclick="runAgentSpaceAgent()" class="px-2 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded transition active:scale-95 flex items-center gap-1">
+                    <span>🤖</span> Space Agent
                   </button>
-                  <button onclick="runAgentSpacePlayground()" class="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white font-mono text-xs font-bold rounded transition active:scale-95 flex items-center gap-1 shadow-sm">
-                    <span>🚀</span> Run Code / Wasm
+                  <button onclick="runAgentSpacePlayground()" class="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded transition active:scale-95 flex items-center gap-1 shadow-sm">
+                    <span>🚀</span> Run Sandbox
                   </button>
                 </div>
               </div>
 
               <!-- Playground Output Console -->
-              <div class="mt-2 p-2.5 bg-black/90 border border-slate-800 rounded-lg font-mono text-xs text-slate-300 max-h-36 overflow-y-auto">
+              <div class="mt-2 p-2.5 bg-black/90 border border-slate-800 rounded-lg font-mono text-xs text-slate-300 max-h-32 overflow-y-auto">
                 <div class="text-[10px] text-slate-500 mb-1 flex items-center justify-between">
-                  <span>TERMINAL OUTPUT</span>
+                  <span>SANDBOX TERMINAL OUTPUT</span>
                   <span id="playgroundExitCode" class="text-slate-400">Exit: 0</span>
                 </div>
-                <pre id="agentspaceOutput" class="whitespace-pre-wrap select-text text-emerald-400">Ready. Click 'Run Code / Wasm' to execute.</pre>
+                <pre id="agentspaceOutput" class="whitespace-pre-wrap select-text text-emerald-400">Ready. Click 'Run Sandbox' to execute in isolated mini-environment.</pre>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Section: ArtCraft 15 Wasm Applications Suite (?host=parent postMessage Bridge) -->
-        <div class="p-3 bg-gradient-to-r from-slate-900/90 via-purple-950/40 to-slate-900/90 rounded-xl border border-purple-500/30 space-y-3">
+        <!-- =============================================================== -->
+        <!-- TAB 2: VS CODE & OPEN VSX PLUGIN EXTENSIONS MARKETPLACE -->
+        <!-- =============================================================== -->
+        <div id="finderTab-vscode" class="hidden space-y-4 font-mono">
+          <div class="p-3.5 bg-slate-900/90 rounded-xl border border-blue-500/40 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 class="text-xs font-bold text-blue-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <span>🧩</span> <span>VS Code &amp; Open VSX Extensions Repository Integration</span>
+                </h3>
+                <p class="text-[11px] text-slate-400 font-sans">Tap into the worldwide VS Code extension ecosystem. Install tools, formatters, and viewers to interact with VFS files and execute services.</p>
+              </div>
+              <span class="px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-700 text-[10px]">Open VSX Compatible</span>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="flex gap-2">
+              <input id="vscodeExtensionSearchInput" type="text" placeholder="Search VS Code extensions (e.g. Python, Prettier, glTF, ESLint, Docker)..." class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-600 focus:border-blue-500 focus:outline-none">
+              <button onclick="searchVsCodeExtensions()" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs transition active:scale-95">
+                Search Marketplace
+              </button>
+            </div>
+
+            <!-- Featured Extensions Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
+              <div class="p-2.5 bg-slate-950/80 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
+                <div class="flex items-start gap-2.5">
+                  <span class="text-2xl">🐍</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-bold text-xs text-white truncate">ms-python.python</div>
+                    <div class="text-[10px] text-slate-400">Python Language Server, Pyodide Wasm Runner &amp; Linting</div>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between text-[10px] pt-1 border-t border-slate-800">
+                  <span class="text-emerald-400">● Installed (VFS)</span>
+                  <button onclick="launchPluginService('python')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded">Run Service ➔</button>
+                </div>
+              </div>
+
+              <div class="p-2.5 bg-slate-950/80 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
+                <div class="flex items-start gap-2.5">
+                  <span class="text-2xl">🧊</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-bold text-xs text-white truncate">cesium.gltf-tools</div>
+                    <div class="text-[10px] text-slate-400">glTF &amp; GLB 3D Model Inspector, PBR Validator &amp; Mesh View</div>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between text-[10px] pt-1 border-t border-slate-800">
+                  <span class="text-emerald-400">● Installed (VFS)</span>
+                  <button onclick="launchPluginService('gltf')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded">Run Service ➔</button>
+                </div>
+              </div>
+
+              <div class="p-2.5 bg-slate-950/80 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
+                <div class="flex items-start gap-2.5">
+                  <span class="text-2xl">✨</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-bold text-xs text-white truncate">esbenp.prettier-vscode</div>
+                    <div class="text-[10px] text-slate-400">Opinionated Code Formatter for JS, TS, HTML, CSS &amp; JSON</div>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between text-[10px] pt-1 border-t border-slate-800">
+                  <span class="text-cyan-400">Ready</span>
+                  <button onclick="installVsCodePlugin('prettier')" class="px-2 py-0.5 bg-blue-700 hover:bg-blue-600 text-white rounded">Install to VFS</button>
+                </div>
+              </div>
+
+              <div class="p-2.5 bg-slate-950/80 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
+                <div class="flex items-start gap-2.5">
+                  <span class="text-2xl">🎬</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-bold text-xs text-white truncate">humao.media-previewer</div>
+                    <div class="text-[10px] text-slate-400">High-Performance H.264 Video, WebM &amp; Audio Stream Inspector</div>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between text-[10px] pt-1 border-t border-slate-800">
+                  <span class="text-emerald-400">● Installed (VFS)</span>
+                  <button onclick="launchPluginService('media')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded">Run Service ➔</button>
+                </div>
+              </div>
+
+              <div class="p-2.5 bg-slate-950/80 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
+                <div class="flex items-start gap-2.5">
+                  <span class="text-2xl">📄</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-bold text-xs text-white truncate">shd101wyy.markdown-preview</div>
+                    <div class="text-[10px] text-slate-400">Markdown Preview Enhanced with MathJax &amp; Mermaid Diagrams</div>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between text-[10px] pt-1 border-t border-slate-800">
+                  <span class="text-cyan-400">Ready</span>
+                  <button onclick="installVsCodePlugin('markdown')" class="px-2 py-0.5 bg-blue-700 hover:bg-blue-600 text-white rounded">Install to VFS</button>
+                </div>
+              </div>
+
+              <div class="p-2.5 bg-slate-950/80 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
+                <div class="flex items-start gap-2.5">
+                  <span class="text-2xl">🐳</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-bold text-xs text-white truncate">ms-azuretools.vscode-docker</div>
+                    <div class="text-[10px] text-slate-400">Sandboxed Container &amp; Isolated Process Task Runner</div>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between text-[10px] pt-1 border-t border-slate-800">
+                  <span class="text-cyan-400">Ready</span>
+                  <button onclick="installVsCodePlugin('docker')" class="px-2 py-0.5 bg-blue-700 hover:bg-blue-600 text-white rounded">Install to VFS</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- TAB 3: ARTCRAFT 15 WASM META-STUDIO SUITE -->
+        <!-- =============================================================== -->
+        <div id="finderTab-artcraft" class="hidden p-3 bg-gradient-to-r from-slate-900/90 via-purple-950/40 to-slate-900/90 rounded-xl border border-purple-500/30 space-y-3">
           <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div class="flex items-center gap-2">
               <span class="text-lg">🎨</span>
@@ -2173,29 +2639,30 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <button id="dockBtn-win-terminal" onclick="toggleWindow('win-terminal')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Terminal & Quickstart">
       <span>⚡</span> <span class="hidden md:inline">Terminal</span>
     </button>
-    <button id="dockBtn-win-board" onclick="toggleWindow('win-board')" class="px-2.5 py-1.5 bg-indigo-950/90 hover:bg-indigo-900 border border-indigo-500/80 text-indigo-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95 font-bold" title="Cyberspace Discussion Board · GraphRAG + BM25">
-      <span>🌐</span> <span class="hidden md:inline">Cyberspace</span>
-    </button>
-    <button id="dockBtn-win-agentspace" onclick="toggleWindow('win-agentspace')" class="px-2.5 py-1.5 bg-purple-950/90 hover:bg-purple-900 border border-purple-500/80 text-purple-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95 font-bold" title="AgentSpace &amp; Wasm Studio · Single-File SQLite VFS, Rodin 3D &amp; 15 ArtCraft Apps">
-      <span>🧪</span> <span class="hidden md:inline">AgentSpace &amp; Wasm</span>
-    </button>
-    <button id="dockBtn-win-tv" onclick="toggleWindow('win-tv')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Relay Watch Party TV">
+    <button id="dockBtn-win-tv" onclick="toggleWindow('win-tv')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Relay Watch Party TV (Ads &amp; Memes)">
       <span>📺</span> <span class="hidden md:inline">Watch Party TV</span>
     </button>
-    <button id="dockBtn-win-arena" onclick="toggleWindow('win-arena')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="AI Brain Router & Arena">
-      <span>🧠</span> <span class="hidden md:inline">AI Arena</span>
+    <button id="dockBtn-win-board" onclick="toggleWindow('win-board')" class="px-2.5 py-1.5 bg-indigo-950/90 hover:bg-indigo-900 border border-indigo-500/80 text-indigo-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95 font-bold" title="Cyberspace Discussion Board · GraphRAG + BM25">
+      <span>🌐</span> <span class="hidden md:inline">Cyberspace</span>
     </button>
     <button id="dockBtn-win-network" onclick="toggleWindow('win-network')" class="px-2.5 py-1.5 bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-500/80 text-emerald-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95 font-bold" title="Active Network Roster, Live Visitors & Standalone Leaderboard">
       <span>👥</span> <span class="hidden md:inline">2 Active &amp; Ranks</span>
     </button>
-    <button id="dockBtn-chat" onclick="focusChatWindow()" class="px-2.5 py-1.5 bg-cyan-950 hover:bg-cyan-900 border border-cyan-800 text-cyan-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Live Mesh Chat &amp; Comms">
-      <span>💬</span> <span class="font-bold">Live Chat</span>
+    <button id="dockBtn-win-arena" onclick="toggleWindow('win-arena')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="AI Brain Router & Arena">
+      <span>🧠</span> <span class="hidden md:inline">AI Arena</span>
     </button>
-    <button id="dockBtn-win-comms" onclick="toggleWindow('win-comms')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="WebRTC Video &amp; Voice Comms">
-      <span>📹</span> <span class="hidden md:inline">Video/Voice</span>
+    <button id="dockBtn-win-call" onclick="toggleWindow('win-call')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="WebRTC Video &amp; Voice Studio">
+      <span>📹</span> <span class="hidden md:inline">Video Studio</span>
     </button>
-    <button id="dockBtn-win-quests" onclick="toggleWindow('win-quests')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Quests, Arena & Leaderboard">
-      <span>🎯</span> <span class="hidden md:inline">Quests &amp; Leaderboard</span>
+    <button id="dockBtn-win-comms" onclick="toggleWindow('win-comms')" class="px-2.5 py-1.5 bg-cyan-950 hover:bg-cyan-900 border border-cyan-800 text-cyan-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Encrypted Mesh Chat &amp; Sealed Messaging">
+      <span>💬</span> <span class="hidden md:inline font-bold">Mesh Chat</span>
+    </button>
+    <button id="dockBtn-chat" onclick="focusChatWindow()" class="hidden"></button>
+    <button id="dockBtn-win-quests" onclick="toggleWindow('win-quests')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Rewards &amp; Token Minting Program">
+      <span>🪙</span> <span class="hidden md:inline">Rewards &amp; Mint</span>
+    </button>
+    <button id="dockBtn-win-agentspace" onclick="toggleWindow('win-agentspace')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Mesh Finder &amp; Ranger VFS Filesystem (Code, Video, 3D)">
+      <span>📁</span> <span class="hidden md:inline">Files / Finder</span>
     </button>
     <button id="dockBtn-win-billing" onclick="toggleWindow('win-billing')" class="px-2.5 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/80 text-emerald-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95 font-semibold" title="Token Billing, Store &amp; Sponsor Ads">
       <span>💳</span> <span class="hidden md:inline">Tokens &amp; Ads</span>
@@ -2224,11 +2691,14 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     // Route alias normalization: support /tv, /call, or window=tv, window=call, etc.
     if (!singleWindowParam) {
       if (window.location.pathname === '/tv') singleWindowParam = 'win-tv';
-      else if (window.location.pathname === '/call') singleWindowParam = 'win-comms';
+      else if (window.location.pathname === '/call') singleWindowParam = 'win-call';
+      else if (window.location.pathname === '/comms' || window.location.pathname === '/chat') singleWindowParam = 'win-comms';
       else if (window.location.pathname === '/arena') singleWindowParam = 'win-arena';
       else if (window.location.pathname === '/terminal') singleWindowParam = 'win-terminal';
       else if (window.location.pathname === '/billing' || window.location.pathname === '/tokens') singleWindowParam = 'win-billing';
       else if (window.location.pathname === '/board' || window.location.pathname === '/cyberspace') singleWindowParam = 'win-board';
+      else if (window.location.pathname === '/files' || window.location.pathname === '/finder' || window.location.pathname === '/agentspace') singleWindowParam = 'win-agentspace';
+      else if (window.location.pathname === '/rewards' || window.location.pathname === '/quests') singleWindowParam = 'win-quests';
     }
     if (singleWindowParam && !singleWindowParam.startsWith('win-')) {
       singleWindowParam = 'win-' + singleWindowParam;
@@ -2393,7 +2863,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     // Window Manager: Draggable, Resizable, Focus, Minimize, Maximize, Pop Out
     let highestZ = 30;
-    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-comms', 'win-quests', 'win-moderator', 'win-billing', 'win-board', 'win-network'];
+    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-call', 'win-comms', 'win-quests', 'win-moderator', 'win-billing', 'win-board', 'win-network', 'win-agentspace'];
     const poppedOutWindows = new Set();
 
     function switchNetTab(tabName) {
@@ -4045,7 +4515,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     function startDirectCall(peerId) {
-      toggleWindow('win-comms');
+      toggleWindow('win-call');
       const roomEl = document.getElementById('roomInput');
       if (roomEl && peerId && !roomEl.value.trim()) {
         roomEl.value = 'main';
@@ -6466,6 +6936,287 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         }
       }
     });
+
+    // =========================================================================
+    // Quick Start CLI & Spectator Mode
+    // =========================================================================
+    function openTerminalQuickStart() {
+      const modal = document.getElementById('terminalQuickStartModal');
+      if (modal) modal.classList.remove('hidden');
+    }
+    function closeTerminalQuickStart() {
+      const modal = document.getElementById('terminalQuickStartModal');
+      if (modal) modal.classList.add('hidden');
+      localStorage.setItem('tincan_quickstart_seen', 'true');
+    }
+    async function copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        showQuickNotification('Copied: ' + text);
+      } catch (e) {
+        window.prompt('Copy command:', text);
+      }
+    }
+    function continueAsSpectator() {
+      const modal = document.getElementById('accountSetupModal');
+      if (modal) modal.classList.add('hidden');
+      localStorage.setItem('tincan_spectator_mode', 'true');
+      showQuickNotification('👀 Spectator Mode: Watching TV & feeds is 100% free.');
+    }
+
+    // =========================================================================
+    // Knowledge Graph Collapsible Toggle
+    // =========================================================================
+    function toggleKnowledgeGraphView() {
+      const container = document.getElementById('boardGraphCanvasContainer');
+      const toggleText = document.getElementById('kgToggleText');
+      if (!container) return;
+      const isHidden = container.classList.toggle('hidden');
+      if (toggleText) {
+        toggleText.innerText = isHidden ? '👁️ Show Canvas' : '👁️ Hide Canvas';
+      }
+    }
+
+    // =========================================================================
+    // Utility Token Minting Program ($TINCAN)
+    // =========================================================================
+    let mintedRewardBalance = 10;
+    function mintTincanRewardTokens(amount = 10) {
+      mintedRewardBalance += amount;
+      const el = document.getElementById('rewardsMintedBalance');
+      if (el) el.innerText = `${mintedRewardBalance} $TINCAN`;
+      const pill = document.getElementById('hudTokenPill');
+      if (pill) pill.innerText = `${mintedRewardBalance} 🪙`;
+      if (sfxEnabled) playXpChime();
+      awardLocalXp(amount * 10, `Minted ${amount} $TINCAN tokens`);
+      showQuickNotification(`🎉 Successfully minted ${amount} $TINCAN utility tokens!`);
+    }
+
+    // =========================================================================
+    // Moderator Ban Management & Reported Artifacts Inspector
+    // =========================================================================
+    async function fetchBannedPeers() {
+      try {
+        const res = await fetch('/api/moderator/banned');
+        if (!res.ok) return;
+        const data = await res.json();
+        const tbody = document.getElementById('modBannedPeersTable');
+        if (!tbody) return;
+        const peers = data.banned_peers || [];
+        if (peers.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="px-3 py-2 text-center text-slate-500 text-[11px]">No peers currently banned.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = peers.map(p => `
+          <tr class="hover:bg-slate-900/60 font-mono text-xs">
+            <td class="px-2.5 py-1.5 font-bold text-red-400">${escapeHtml(p.peer_id || '')}</td>
+            <td class="px-2.5 py-1.5 text-slate-300">${escapeHtml(p.reason || 'Banned')}</td>
+            <td class="px-2.5 py-1.5 text-slate-400">${escapeHtml(p.banned_by || 'admin')}</td>
+            <td class="px-2.5 py-1.5 text-slate-500">${new Date((p.banned_at || 0) * 1000).toLocaleTimeString()}</td>
+            <td class="px-2.5 py-1.5 text-right">
+              <button onclick="adminUnbanPeer('${escapeHtml(p.peer_id || '')}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-800 text-[10px] transition active:scale-95">Unban</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error('Error fetching banned peers:', err);
+      }
+    }
+
+    async function adminBanPeerAction(specifiedPeerId = '', customReason = '') {
+      const peerInput = document.getElementById('adminBanPeerInput');
+      const reasonInput = document.getElementById('adminBanReasonInput');
+      const peerId = (specifiedPeerId || (peerInput ? peerInput.value.trim() : '')).trim();
+      const reason = (customReason || (reasonInput ? reasonInput.value.trim() : 'Moderator ban')).trim();
+      if (!peerId) {
+        alert('Please specify a peer ID or username to ban.');
+        return;
+      }
+      try {
+        const res = await fetch('/api/moderator/ban', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ peer_id: peerId, reason, admin_id: myPeerId, action: 'ban' })
+        });
+        const out = await res.json();
+        if (res.ok) {
+          if (peerInput) peerInput.value = '';
+          if (reasonInput) reasonInput.value = '';
+          alert(`🚫 Peer '${peerId}' has been banned from the mesh.`);
+          fetchBannedPeers();
+        } else {
+          alert('Ban failed: ' + (out.error || 'unknown error'));
+        }
+      } catch (err) {
+        alert('Ban request error: ' + err);
+      }
+    }
+
+    async function adminUnbanPeer(peerId) {
+      if (!peerId) return;
+      try {
+        await fetch('/api/moderator/ban', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ peer_id: peerId, action: 'unban', admin_id: myPeerId })
+        });
+        fetchBannedPeers();
+      } catch (err) {
+        alert('Unban request error: ' + err);
+      }
+    }
+
+    async function fetchReportedArtifacts() {
+      try {
+        const res = await fetch('/api/moderator/artifacts');
+        if (!res.ok) return;
+        const data = await res.json();
+        const tbody = document.getElementById('modReportedArtifactsTable');
+        if (!tbody) return;
+        const artifacts = data.reported_artifacts || [];
+        if (artifacts.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="px-3 py-2 text-center text-slate-500 text-[11px]">No reported artifacts to review.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = artifacts.map(a => `
+          <tr class="hover:bg-slate-900/60 font-mono text-xs">
+            <td class="px-2.5 py-1.5 font-bold text-amber-300">${escapeHtml(a.id || '')}</td>
+            <td class="px-2.5 py-1.5 text-cyan-300">${escapeHtml(a.reported_peer || '')}</td>
+            <td class="px-2.5 py-1.5 text-slate-300">${escapeHtml(a.artifact_path || '')}</td>
+            <td class="px-2.5 py-1.5 text-slate-400">${escapeHtml(a.reason || '')}</td>
+            <td class="px-2.5 py-1.5 text-right space-x-1">
+              <button onclick="inspectReportedArtifact('${escapeHtml(a.id || '')}')" class="px-2 py-0.5 rounded bg-purple-900 hover:bg-purple-800 text-purple-200 border border-purple-700 text-[10px]">Inspect</button>
+              <button onclick="adminBanPeerAction('${escapeHtml(a.reported_peer || '')}', 'Reported artifact violation: ${escapeHtml(a.artifact_path || '')}')" class="px-2 py-0.5 rounded bg-red-900 hover:bg-red-800 text-red-200 border border-red-700 text-[10px]">Ban Author</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error('Error fetching reported artifacts:', err);
+      }
+    }
+
+    async function inspectReportedArtifact(reportId) {
+      try {
+        const res = await fetch('/api/moderator/artifacts');
+        const data = await res.json();
+        const rep = (data.reported_artifacts || []).find(r => r.id === reportId);
+        if (!rep) return;
+        const viewer = document.getElementById('reportedArtifactViewer');
+        const titleEl = document.getElementById('reportedArtifactTitle');
+        const contentEl = document.getElementById('reportedArtifactContent');
+        if (viewer && titleEl && contentEl) {
+          titleEl.innerText = `Artifact Report: ${rep.artifact_path} (By @${rep.reported_peer})`;
+          contentEl.innerText = `Reported By: ${rep.reporter_id}\nReason: ${rep.reason}\nSpace: ${rep.space_id}\nDate: ${new Date(rep.timestamp * 1000).toLocaleString()}\n\n--- Content Preview ---\n${rep.content_preview || '(empty or binary artifact)'}`;
+          viewer.classList.remove('hidden');
+        }
+      } catch (err) {
+        alert('Could not inspect artifact: ' + err);
+      }
+    }
+
+    // =========================================================================
+    // Finder VFS & Ranger Multi-Format Previewer
+    // =========================================================================
+    function switchFinderTab(tab) {
+      ['files', 'vscode', 'artcraft'].forEach(t => {
+        const btn = document.getElementById(`finderTabBtn-${t}`);
+        const panel = document.getElementById(`finderTab-${t}`);
+        if (btn) {
+          if (t === tab) {
+            btn.className = 'px-3 py-1.5 rounded-lg bg-purple-600 text-white font-bold transition flex items-center gap-1.5';
+          } else {
+            btn.className = 'px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5';
+          }
+        }
+        if (panel) panel.classList.toggle('hidden', t !== tab);
+      });
+    }
+
+    function navigateFinderPath(path) {
+      const activePathEl = document.getElementById('activeFilePath');
+      if (activePathEl) activePathEl.innerText = path;
+      previewFileInFinder(path);
+    }
+
+    function previewFileInFinder(fpath, content = '') {
+      const lower = (fpath || '').toLowerCase();
+      const videoBox = document.getElementById('finderVideoContainer');
+      const audioBox = document.getElementById('finderAudioContainer');
+      const model3dBox = document.getElementById('finder3dContainer');
+      const codeBox = document.getElementById('finderCodeContainer');
+      const editor = document.getElementById('agentspaceEditor');
+
+      if (videoBox) videoBox.classList.add('hidden');
+      if (audioBox) audioBox.classList.add('hidden');
+      if (model3dBox) model3dBox.classList.add('hidden');
+      if (codeBox) codeBox.classList.remove('hidden');
+
+      if (lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mov')) {
+        if (videoBox) {
+          videoBox.classList.remove('hidden');
+          const vp = document.getElementById('finderVideoPlayer');
+          if (vp) vp.src = '/media/demo.mp4';
+        }
+      } else if (lower.endsWith('.mp3') || lower.endsWith('.wav') || lower.endsWith('.ogg')) {
+        if (audioBox) {
+          audioBox.classList.remove('hidden');
+          const ap = document.getElementById('finderAudioPlayer');
+          if (ap) ap.src = '/media/demo.mp3';
+        }
+      } else if (lower.endsWith('.glb') || lower.endsWith('.gltf') || lower.endsWith('.obj')) {
+        if (model3dBox) model3dBox.classList.remove('hidden');
+      } else {
+        if (editor && content) {
+          editor.value = content;
+        }
+      }
+    }
+
+    function searchVsCodeExtensions() {
+      const q = document.getElementById('vscodeExtensionSearchInput')?.value.trim();
+      showQuickNotification(`Filtering Open VSX extensions for: "${q || 'all'}"`);
+    }
+
+    function installVsCodePlugin(pluginId) {
+      showQuickNotification(`✅ Installed ${pluginId} extension to VFS sandbox`);
+    }
+
+    function launchPluginService(serviceId) {
+      showQuickNotification(`🚀 Launching ${serviceId} microservice in dynamic space`);
+      switchFinderTab('files');
+    }
+
+    // =========================================================================
+    // Arena Models & Sandbox Code Pipeline
+    // =========================================================================
+    function updateArenaModelLabels() {
+      const mA = document.getElementById('arenaModelAInput')?.value.trim() || 'Brain A';
+      const mB = document.getElementById('arenaModelBInput')?.value.trim() || 'Brain B';
+      const lblA = document.getElementById('arenaLabelA');
+      const lblB = document.getElementById('arenaLabelB');
+      if (lblA) lblA.innerText = mA;
+      if (lblB) lblB.innerText = mB;
+    }
+
+    function sendArenaResultToSpace(winner) {
+      const resEl = document.getElementById(winner === 'A' ? 'arenaResultA' : 'arenaResultB');
+      const content = resEl ? resEl.innerText : '';
+      if (!content) return;
+      const editor = document.getElementById('agentspaceEditor');
+      if (editor) editor.value = content;
+      toggleWindow('win-agentspace');
+      showQuickNotification(`Transferred Brain ${winner} output to Dynamic Agent Space sandbox!`);
+    }
+
+    function showQuickNotification(msg) {
+      const banner = document.getElementById('adminBroadcastBanner');
+      const textEl = document.getElementById('adminBroadcastText');
+      if (banner && textEl) {
+        textEl.innerText = msg;
+        banner.classList.remove('hidden');
+        setTimeout(() => { banner.classList.add('hidden'); }, 3500);
+      }
+    }
 
     setTimeout(() => {
       const ownerInput = document.getElementById('spaceOwnerInput');

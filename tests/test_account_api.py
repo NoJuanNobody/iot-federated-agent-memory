@@ -35,7 +35,7 @@ def test_account_registration_billing_and_topup_api(live_server):
     with urllib.request.urlopen(req) as response:
         assert response.status == 201
         data = json.loads(response.read().decode("utf-8"))
-        assert data["account"]["token_balance"] == 50000
+        assert data["account"]["token_balance"] == 10
 
     # 2. Top-up tokens
     topup_payload = {
@@ -52,11 +52,11 @@ def test_account_registration_billing_and_topup_api(live_server):
     with urllib.request.urlopen(topup_req) as response:
         assert response.status == 200
         data = json.loads(response.read().decode("utf-8"))
-        assert data["account"]["token_balance"] == 75000
+        assert data["account"]["token_balance"] == 25010
 
     # 3. Query billing summary
     with urllib.request.urlopen(f"{live_server}/api/account/billing?peer_id={peer_id}") as resp:
         assert resp.status == 200
         data = json.loads(resp.read().decode("utf-8"))
-        assert data["token_balance"] == 75000
+        assert data["token_balance"] == 25010
         assert data["peer_id"] == peer_id

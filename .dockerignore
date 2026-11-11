@@ -1,0 +1,10 @@
+.git
+.github
+docs/
+.impeccable/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.db
+tincan-desktop/target/
+.worktrees/

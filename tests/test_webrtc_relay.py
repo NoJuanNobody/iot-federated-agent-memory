@@ -80,7 +80,8 @@ def test_relay_video_playlist_collection():
 
     pl = RelayVideoPlaylist()
     state = pl.get_playlist()
-    assert state["total"] == 3
+    default_total = len(RelayVideoPlaylist.DEFAULT_COLLECTION)
+    assert state["total"] == default_total
     assert state["videos"][0]["video_id"] == "7705677376465767711"
     assert state["videos"][0]["creator"] == "@nojuannobody"
 
@@ -89,11 +90,11 @@ def test_relay_video_playlist_collection():
     added = pl.add_video(snippet, title="Part 2 Walkthrough", category="ad", auto_download=False)
     assert added["video_id"] == "7705677376465767799"
     assert added["embed_url"] == "/videos/7705677376465767799.mp4"
-    assert pl.get_playlist()["total"] == 4
+    assert pl.get_playlist()["total"] == default_total + 1
 
     # Remove the extra video
     assert pl.remove_video("7705677376465767799") is True
-    assert pl.get_playlist()["total"] == 3
+    assert pl.get_playlist()["total"] == default_total
 
 
 def test_tincan_cli_disconnect(tmp_path, monkeypatch, capsys):

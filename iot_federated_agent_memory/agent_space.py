@@ -1516,6 +1516,17 @@ class WasmAndCodePlaygroundRunner:
                 if args:
                     cmd.extend(args)
 
+                sandbox_env = {
+                    "PATH": os.environ.get("PATH", "/usr/bin:/bin:/usr/local/bin"),
+                    "TMPDIR": tmpdir,
+                    "HOME": tmpdir,
+                    "PYTHONPATH": tmpdir,
+                    "LANG": "en_US.UTF-8",
+                    "SANDBOX": "1",
+                }
+                if "VIRTUAL_ENV" in os.environ:
+                    sandbox_env["VIRTUAL_ENV"] = os.environ["VIRTUAL_ENV"]
+
                 try:
                     proc = subprocess.run(
                         cmd,
@@ -1523,6 +1534,7 @@ class WasmAndCodePlaygroundRunner:
                         input=stdin_text.encode("utf-8") if stdin_text else None,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
+                        env=sandbox_env,
                         timeout=timeout_sec,
                     )
                     stdout = proc.stdout.decode("utf-8", errors="replace")
@@ -1912,8 +1924,8 @@ class AgentSpaceManager:
         if not os.path.exists(spaces_root):
             return results
 
-        scope_to_dir = {"user": "users", "topic": "topics"}
-        dir_to_scope = {"users": "user", "topics": "topic"}
+        scope_to_dir = {"user": "users", "topic": "topics", "dynamic": "dynamic"}
+        dir_to_scope = {"users": "user", "topics": "topic", "dynamic": "dynamic"}
 
         if scope:
             norm_scope = scope.lower().strip()
@@ -1933,6 +1945,55 @@ class AgentSpaceManager:
                     results.append(space.get_summary())
 
         return sorted(results, key=lambda x: (x["scope"], x["owner_id"]))
+
+    def create_space(
+        self,
+        scope: str = "dynamic",
+        owner_id: Optional[str] = None,
+        title: Optional[str] = None,
+        description: Optional[str] = None,
+        template: str = "python",
+    ) -> SingleFileSpaceVFS:
+        """Create a new dynamic space container with initial template files."""
+        if not owner_id:
+            owner_id = f"space_{uuid.uuid4().hex[:8]}"
+        clean_scope = scope.lower().strip() or "dynamic"
+        space = self.get_or_create_space(
+            scope=clean_scope,
+            owner_id=owner_id,
+            title=title or f"Dynamic Space {owner_id}",
+            description=description or "Dynamic Agent Execution Space",
+        )
+        if template == "web":
+            space.write_file(
+                "/src/index.html",
+                "<!DOCTYPE html>\n<html>\n<head><title>Dynamic Space</title></head>\n<body>\n  <h1>Dynamic Agent Space</h1>\n  <div id='app'></div>\n  <script src='app.js'></script>\n</body>\n</html>\n",
+                mime_type="text/html",
+                updated_by="template",
+            )
+            space.write_file(
+                "/src/app.js",
+                "console.log('Dynamic web space loaded');\ndocument.getElementById('app').innerHTML = '<p>Sandboxed Web Agent Mini-Environment Ready</p>';\n",
+                mime_type="application/javascript",
+                updated_by="template",
+            )
+        elif template == "3d":
+            glb_bytes = generate_minimal_glb_bytes("dynamic_scene")
+            space.write_file("/models3d/scene.glb", glb_bytes, mime_type="model/gltf-binary", updated_by="template")
+            space.write_file(
+                "/src/view_3d.py",
+                "# 3D Scene loader\nprint('3D Scene loaded: /models3d/scene.glb')\n",
+                mime_type="text/x-python",
+                updated_by="template",
+            )
+        elif template == "artcraft":
+            space.write_file(
+                "/artcraft/spec.cadcraft",
+                "0\nSECTION\n2\nENTITIES\n0\nLINE\n8\n0\n10\n0.0\n20\n0.0\n11\n100.0\n21\n100.0\n0\nENDSEC\n0\nEOF\n",
+                mime_type="application/json",
+                updated_by="template",
+            )
+        return space
 
     def run_playground(
         self,
