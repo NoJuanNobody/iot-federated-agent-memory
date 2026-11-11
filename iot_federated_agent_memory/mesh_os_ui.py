@@ -3727,6 +3727,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       }
     }
 
+    let currentAdViewToken = null;
+
     function watchSponsoredAd() {
       if (isWatchingAd) return;
       isWatchingAd = true;
@@ -3742,6 +3744,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       if (bar) bar.style.width = '0%';
 
       const duration = currentSponsor.duration_seconds || 10;
+      currentAdViewToken = null;
+      fetch('/api/ads/view/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ peer_id: myPeerId, sponsor_id: currentSponsor.id })
+      }).then(r => r.json()).then(d => { currentAdViewToken = d.view_token || null; if (d.error) console.warn('Ad reward unavailable:', d.error); })
+        .catch(e => console.warn('Ad view start failed:', e));
       let secondsLeft = duration;
       if (timerText) timerText.innerText = `${secondsLeft}s remaining`;
       if (progressText) progressText.innerText = `Streaming ${currentSponsor.name || 'sponsor'} video...`;
@@ -3790,26 +3799,23 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       if (btn) btn.disabled = false;
       isWatchingAd = false;
 
-      const sponsorId = (currentSponsor && currentSponsor.id) ? currentSponsor.id : 'sponsor-default';
-      const rewardTokens = (currentSponsor && currentSponsor.reward_tokens) ? currentSponsor.reward_tokens : 5000;
-      const rewardUsd = (currentSponsor && currentSponsor.reward_usd) ? currentSponsor.reward_usd : 0.05;
-
+      if (!currentAdViewToken) return;
       try {
-        const resp = await fetch('/api/account/billing/topup', {
+        const resp = await fetch('/api/ads/view/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            peer_id: myPeerId,
-            tokens: rewardTokens,
-            amount_usd: rewardUsd,
-            sponsor_id: sponsorId
-          })
+          body: JSON.stringify({ peer_id: myPeerId, view_token: currentAdViewToken })
         });
+        currentAdViewToken = null;
+        const data = await resp.json();
         if (resp.ok) {
+          const rewardTokens = data.reward_tokens || 0;
           if (sfxEnabled) playXpChime();
           awardLocalXp(50, `Sponsored Ad Watched (+${rewardTokens.toLocaleString()} Tokens)`);
           refreshBillingWindow();
           alert(`🎉 Sponsor video completed! +${rewardTokens.toLocaleString()} Free Tokens credited from ${currentSponsor.name || 'Sponsor'}.`);
+        } else {
+          console.warn('Ad reward not credited:', data.error);
         }
       } catch (e) {
         console.error('Failed to credit ad tokens:', e);
@@ -3817,21 +3823,20 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     async function buyTokens(amountUsd, tokens) {
+      // Server prices the pack and returns a Stripe-hosted checkout; tokens are credited
+      // only when Stripe's signed webhook confirms payment.
+      const pack = `pack_${Math.round(amountUsd * 100)}`;  // price in cents, e.g. pack_50
       try {
-        const resp = await fetch('/api/account/billing/topup', {
+        const resp = await fetch('/api/billing/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            peer_id: myPeerId,
-            tokens: tokens,
-            amount_usd: amountUsd
-          })
+          body: JSON.stringify({ peer_id: myPeerId, pack: pack })
         });
-        if (resp.ok) {
-          if (sfxEnabled) playXpChime();
-          awardLocalXp(100, `Purchased ${tokens.toLocaleString()} Tokens`);
-          refreshBillingWindow();
-          alert(`💎 Deposit confirmed! +${tokens.toLocaleString()} tokens ($${amountUsd.toFixed(2)}) funded to ${myPeerId}.`);
+        const data = await resp.json();
+        if (resp.ok && data.checkout_url) {
+          window.location.href = data.checkout_url;
+        } else {
+          alert('Checkout unavailable: ' + (data.error || resp.status));
         }
       } catch (e) {
         alert('Top-up request failed: ' + e);

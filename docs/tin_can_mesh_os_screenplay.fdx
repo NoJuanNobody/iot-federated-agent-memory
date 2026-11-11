@@ -179,6 +179,186 @@
       <Text>Alejandro leans back, typing `tincan screensaver`. The terminal dissolves into the animated half-block AI MESSIAH artwork pulsing peacefully in the dark.</Text>
     </Paragraph>
     <Paragraph Type="Transition">
+      <Text>CUT TO:</Text>
+    </Paragraph>
+    <Paragraph Type="Scene Heading">
+      <SceneProperties Title="">
+        <Summary>
+          <Paragraph Type="Action">
+            <Text>Alejandro pushes the full upgrade to main. Railway rebuilds the mesh live while the Council, his room of AI agents, watches the deploy log.</Text>
+          </Paragraph>
+        </Summary>
+      </SceneProperties>
+      <Text>INT. BOCA RATON CYBER LAB - 2:09 AM</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>The rain has stopped. Empty energy drink cans form a skyline beside the keyboard.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Alejandro hits ENTER on `git push origin main`. A deploy log scrolls up the right monitor: `BUILD HEALTHY. VOLUME /data MOUNTED (5 GB).`</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>ALEJANDRO</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Arbiter models, agent spaces, video calls, the Ranger file browser, the token program. All of it. Live.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>A chat window labeled THE COUNCIL fills with typing indicators. Six agent avatars pulse in a row.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>COUNCIL AGENT (V.O.)</Text>
+    </Paragraph>
+    <Paragraph Type="Parenthetical">
+      <Text>(calm, synthetic)</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Before you celebrate. The top-up endpoint is still open. Anyone can mint themselves tokens. No login, no payment.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Alejandro freezes mid-sip.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>ALEJANDRO</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Anyone?</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>COUNCIL AGENT (V.O.)</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Anyone. The paywall you built tonight is still sitting uncommitted on your laptop.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>He swivels to the second monitor. A red counter labeled `$TINCAN SUPPLY` ticks upward on its own.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>ALEJANDRO</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Lock it. Tokens come from a paid checkout, a fully watched sponsor ad, or an admin key. Nothing else. Every credit lands once.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>COUNCIL AGENT (V.O.)</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Porting the lockdown to a branch. You&apos;ll see the diff before it touches main.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>The red counter stops.</Text>
+    </Paragraph>
+    <Paragraph Type="Scene Heading">
+      <SceneProperties Title="">
+        <Summary>
+          <Paragraph Type="Action">
+            <Text>Maya opens a new conversation and gets her own sandboxed folder: an agent space that remembers.</Text>
+          </Paragraph>
+        </Summary>
+      </SceneProperties>
+      <Text>INT. TORONTO LOFTS - CONTINUOUS</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Maya, hood down now, drags a fresh chat window open in TinCan Mesh OS. A small folder icon unfolds beside it like origami.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>On screen: `/data/threads/maya/7f3c...a91e/files/`</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>MAYA</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Every conversation gets its own room now?</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>ALEJANDRO (V.O.)</Text>
+    </Paragraph>
+    <Paragraph Type="Parenthetical">
+      <Text>(through the tin-can string)</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Its own ID, its own folder, nested under you. The agent can read and write there and nowhere else. Try to climb out with dot-dot-slash and it slams the door.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Maya types `../../etc/passwd` into the agent prompt, just to see. A small amber shield flashes: `THREAD ERROR: PATH ESCAPE REJECTED.`</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>MAYA</Text>
+    </Paragraph>
+    <Paragraph Type="Parenthetical">
+      <Text>(grinning)</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Rude. I like it.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>She tags the thread `scam-case`. Three files fan out into the folder before she&apos;s asked for anything: a case brief, an evidence inbox, a README.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>MAYA (CONT&apos;D)</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>It already has the case file.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>ALEJANDRO (V.O.)</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Scam cases start loaded. The runner works the case right inside that folder.</Text>
+    </Paragraph>
+    <Paragraph Type="Scene Heading">
+      <SceneProperties Title="">
+        <Summary>
+          <Paragraph Type="Action">
+            <Text>Alejandro pitches the bigger dream: a services economy where people trade work for tokens over the blind relay. The Council pumps the brakes.</Text>
+          </Paragraph>
+        </Summary>
+      </SceneProperties>
+      <Text>INT. BOCA RATON CYBER LAB - LATER</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Dawn creeps blue across the blinds. Alejandro paces, talking with his hands.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>ALEJANDRO</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Picture it. Anyone mints in from anywhere, any exchange. You need a lawyer? You don&apos;t pay cash. You trade a service. Code for counsel. Video edit for a tax return. A whole economy of people helping people, running on a relay that can&apos;t read a word of it.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>COUNCIL AGENT (V.O.)</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Beautiful. Also: securities law, money transmission, barter income tax, and bar rules for the lawyers.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>ALEJANDRO</Text>
+    </Paragraph>
+    <Paragraph Type="Parenthetical">
+      <Text>(beat)</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>So, phase two.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>COUNCIL AGENT (V.O.)</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>Phase two. After the legal review. For now, the paywall is the only door in.</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Alejandro sinks back into his chair. On the topology canvas, the tin-can string between Boca and Toronto hums steady and gold.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>ALEJANDRO</Text>
+    </Paragraph>
+    <Paragraph Type="Parenthetical">
+      <Text>(quietly)</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>One door. Locked. For now.</Text>
+    </Paragraph>
+    <Paragraph Type="Transition">
       <Text>FADE OUT.</Text>
     </Paragraph>
   </Content>
@@ -188,42 +368,42 @@
   </MoresAndContinueds>
   <SceneNumberOptions LeftLocation="0.75" NumberScheme="1A" RightLocation="7.38" ShowNumbersOnLeft="No" ShowNumbersOnRight="No"/>
   <ElementSettings Type="Scene Heading">
-    <FontSpec Font="Courier Prime" Size="12" Style="AllCaps"/>
+    <FontSpec Font="Courier Badi" Size="12" Style="AllCaps"/>
     <ParagraphSpec Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="1.50" RightIndent="7.50" SpaceBefore="12" Spacing="1" StartsNewPage="No"/>
     <Behavior PaginateAs="Scene Heading" ReturnKey="Action" Shortcut="1"/>
   </ElementSettings>
   <ElementSettings Type="Action">
-    <FontSpec Font="Courier Prime" Size="12"/>
+    <FontSpec Font="Courier Badi" Size="12"/>
     <ParagraphSpec Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="1.50" RightIndent="7.50" SpaceBefore="12" Spacing="1" StartsNewPage="No"/>
     <Behavior PaginateAs="Action" ReturnKey="Action" Shortcut="2"/>
   </ElementSettings>
   <ElementSettings Type="Character">
-    <FontSpec Font="Courier Prime" Size="12" Style="AllCaps"/>
+    <FontSpec Font="Courier Badi" Size="12" Style="AllCaps"/>
     <ParagraphSpec Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="3.70" RightIndent="7.50" SpaceBefore="12" Spacing="1" StartsNewPage="No"/>
     <Behavior PaginateAs="Character" ReturnKey="Dialogue" Shortcut="3"/>
   </ElementSettings>
   <ElementSettings Type="Parenthetical">
-    <FontSpec Font="Courier Prime" Size="12"/>
+    <FontSpec Font="Courier Badi" Size="12"/>
     <ParagraphSpec Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="3.10" RightIndent="5.60" SpaceBefore="0" Spacing="1" StartsNewPage="No"/>
     <Behavior PaginateAs="Parenthetical" ReturnKey="Dialogue" Shortcut="4"/>
   </ElementSettings>
   <ElementSettings Type="Dialogue">
-    <FontSpec Font="Courier Prime" Size="12"/>
+    <FontSpec Font="Courier Badi" Size="12"/>
     <ParagraphSpec Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="2.50" RightIndent="6.00" SpaceBefore="0" Spacing="1" StartsNewPage="No"/>
     <Behavior PaginateAs="Dialogue" ReturnKey="Action" Shortcut="5"/>
   </ElementSettings>
   <ElementSettings Type="Transition">
-    <FontSpec Font="Courier Prime" Size="12" Style="AllCaps"/>
+    <FontSpec Font="Courier Badi" Size="12" Style="AllCaps"/>
     <ParagraphSpec Alignment="Right" FirstIndent="0.00" Leading="Regular" LeftIndent="4.00" RightIndent="7.50" SpaceBefore="12" Spacing="1" StartsNewPage="No"/>
     <Behavior PaginateAs="Transition" ReturnKey="Scene Heading" Shortcut="6"/>
   </ElementSettings>
   <ElementSettings Type="Shot">
-    <FontSpec Font="Courier Prime" Size="12" Style="AllCaps"/>
+    <FontSpec Font="Courier Badi" Size="12" Style="AllCaps"/>
     <ParagraphSpec Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="1.50" RightIndent="7.50" SpaceBefore="12" Spacing="1" StartsNewPage="No"/>
     <Behavior PaginateAs="Shot" ReturnKey="Action" Shortcut="7"/>
   </ElementSettings>
   <ElementSettings Type="General">
-    <FontSpec Font="Courier Prime" Size="12"/>
+    <FontSpec Font="Courier Badi" Size="12"/>
     <ParagraphSpec Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="1.50" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No"/>
     <Behavior PaginateAs="General" ReturnKey="General" Shortcut="8"/>
   </ElementSettings>
@@ -348,7 +528,7 @@
         <Text>https://iot-federated-agent-memory-production.up.railway.app</Text>
       </Paragraph>
       <Paragraph Alignment="Right" FirstIndent="0.00" Leading="Regular" LeftIndent="1.00" RightIndent="7.50" SpaceBefore="0" Spacing="1" StartsNewPage="No" ScriptCraftField="draftDate">
-        <Text>November 8, 2026</Text>
+        <Text>November 11, 2026</Text>
       </Paragraph>
     </Content>
   </TitlePage>

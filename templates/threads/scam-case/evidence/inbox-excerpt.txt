@@ -1,0 +1,9 @@
+PLACEHOLDER inbox excerpt — fictional, not a real message.
+
+From: [placeholder sender]
+To: [placeholder recipient]
+Subject: [placeholder] unsolicited payment request
+
+This excerpt is a seed file so a newly minted scam-case thread has a
+files/ workspace to read. It is not a real email and makes no allegation
+about any real person.

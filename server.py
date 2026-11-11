@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 import gzip
 import hashlib
+import hmac
 import io
 import json
 import os
+import secrets
 import subprocess
 import tarfile
 import threading
@@ -12,6 +14,8 @@ import uuid
 import time
 import sqlite3
 import sys
+import urllib.parse
+import urllib.request
 from typing import Any, Dict, List, Optional
 from http.server import ThreadingHTTPServer as HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -23,6 +27,18 @@ from iot_federated_agent_memory.video_playlist import RelayVideoPlaylist
 from iot_federated_agent_memory.mesh_os_engine import TinCanMeshOSEngine
 from iot_federated_agent_memory.mesh_os_ui import MESH_OS_HTML_UI
 from iot_federated_agent_memory.account_registry import PeerAccountRegistry
+from iot_federated_agent_memory.thread_fs import (
+    ANONYMOUS_PEER_ID,
+    ThreadFsError,
+    sanitize_peer_id,
+    start_or_continue_thread,
+)
+from iot_federated_agent_memory.thread_api import (
+    api_list_files,
+    api_read_file,
+    api_write_file,
+    set_account_registry as set_thread_account_registry,
+)
 from iot_federated_agent_memory.sponsor_ads import SponsorAdManager
 from iot_federated_agent_memory.cyberspace_board import CyberspaceBoardEngine
 from iot_federated_agent_memory.crdt_mesh import CRDTMeshGossipSync, CRDTDeltaMessage
@@ -77,6 +93,63 @@ sponsor_manager = SponsorAdManager()
 sponsor_manager.sync_from_playlist([asdict(it) for it in playlist.items])
 mesh_os = TinCanMeshOSEngine(seed=True)
 account_registry = PeerAccountRegistry()
+set_thread_account_registry(account_registry)
+
+# --- Token minting lockdown -------------------------------------------------
+# Credits are only ever added by the server: after a Stripe-signed payment
+# webhook, after a server-timed ad view, or by an operator holding the admin key.
+# Prices live here, never in the request, so a client can't name its own amount.
+TOKEN_PACKS = {  # pack id -> (price in US cents, tokens). Matches the Mesh OS UI buttons.
+    "pack_10": (10, 10),
+    "pack_50": (50, 55),
+    "pack_100": (100, 120),
+}
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+TINCAN_ADMIN_KEY = os.environ.get("TINCAN_ADMIN_KEY", "")
+AD_DAILY_REWARD_CAP = int(os.environ.get("TINCAN_AD_DAILY_CAP", "5"))
+AD_MIN_WATCH_FRACTION = 0.9
+_ad_views = {}  # view_token -> {peer_id, sponsor_id, started, duration, reward_tokens, reward_usd}
+_ad_views_lock = threading.Lock()
+
+
+def verify_stripe_signature(payload: bytes, sig_header: str, secret: str, tolerance: int = 300) -> bool:
+    """Verify a Stripe-Signature header (t=...,v1=...) per Stripe's webhook signing scheme."""
+    if not secret or not sig_header:
+        return False
+    try:
+        parts = dict(p.split("=", 1) for p in sig_header.split(",") if "=" in p)
+        ts = int(parts.get("t", "0"))
+    except ValueError:
+        return False
+    if abs(time.time() - ts) > tolerance:
+        return False
+    expected = hmac.new(secret.encode(), f"{ts}.".encode() + payload, hashlib.sha256).hexdigest()
+    candidates = [v for k, v in (p.split("=", 1) for p in sig_header.split(",") if "=" in p) if k == "v1"]
+    return any(hmac.compare_digest(expected, c) for c in candidates)
+
+
+def create_stripe_checkout(peer_id: str, pack_id: str, base_url: str) -> str:
+    cents, tokens = TOKEN_PACKS[pack_id]
+    form = urllib.parse.urlencode({
+        "mode": "payment",
+        "client_reference_id": peer_id,
+        "metadata[peer_id]": peer_id,
+        "metadata[pack]": pack_id,
+        "line_items[0][quantity]": "1",
+        "line_items[0][price_data][currency]": "usd",
+        "line_items[0][price_data][unit_amount]": str(cents),
+        "line_items[0][price_data][product_data][name]": f"TinCan {tokens:,} tokens",
+        "success_url": f"{base_url}/?checkout=success",
+        "cancel_url": f"{base_url}/?checkout=cancel",
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.stripe.com/v1/checkout/sessions", data=form, method="POST",
+        headers={"Authorization": f"Bearer {STRIPE_SECRET_KEY}"},
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        return json.loads(resp.read().decode())["url"]
+
 cyberspace_board = CyberspaceBoardEngine(
     account_registry=account_registry,
     ai_router=router,
@@ -772,6 +845,31 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     if not prompt:
                         prompt = "Hello from TinCan 2 / IoT Federated Mesh!"
                     messages = [{"role": "user", "content": prompt}]
+                acct = account_registry.get_account_by_peer(peer_id)
+                if acct and acct.get("token_balance", 0) <= 0:
+                    self._send_json({"error": "Insufficient tokens: balance is 0. Top up to continue."}, 402)
+                    return
+                # Per-thread workspace: mint a UUID-4 hex id on first turn, or
+                # continue only if the client thread_id already exists for this
+                # peer. A missing/blank peer_id uses the "anonymous" bucket.
+                # An unsanitary peer_id skips FS setup without aborting chat.
+                raw_peer_id = data.get("peer_id")
+                thread_error = None
+                thread_id = None
+                if raw_peer_id is None or (isinstance(raw_peer_id, str) and not raw_peer_id.strip()):
+                    fs_peer_id = ANONYMOUS_PEER_ID
+                else:
+                    fs_peer_id = raw_peer_id
+                try:
+                    sanitize_peer_id(fs_peer_id)
+                    tdir = start_or_continue_thread(
+                        fs_peer_id,
+                        data.get("thread_id"),
+                        template=data.get("template") or data.get("kind"),
+                    )
+                    thread_id = tdir.name
+                except ThreadFsError as te:
+                    thread_error = str(te)
                 completion = router.dispatch_completion(
                     alias=model_alias,
                     messages=messages,
@@ -793,10 +891,17 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                         total_tokens=t_toks,
                         cost_usd=cost,
                         model=model_alias,
+                        # Charge the balance down to zero for the final request; the
+                        # pre-dispatch check above refuses the next one at 402.
+                        allow_overage=True,
                     )
                     completion["billing"] = billing_receipt
                 except Exception as b_err:
                     completion["billing_error"] = str(b_err)
+                if not thread_error:
+                    completion["thread_id"] = thread_id
+                else:
+                    completion["thread_error"] = thread_error
                 self._send_json(completion, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
@@ -1264,18 +1369,137 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
         elif parsed.path == "/api/account/billing/topup":
+            # Operator-only manual grant. Clients can no longer credit themselves here.
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            admin_key = self.headers.get("X-Admin-Key", "")
+            if not TINCAN_ADMIN_KEY or not hmac.compare_digest(admin_key, TINCAN_ADMIN_KEY):
+                self._send_json({"error": "Forbidden: top-ups go through /api/billing/checkout"}, 403)
+                return
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                peer_id = data.get("peer_id") or ""
+                result = account_registry.credit_once(
+                    ref=f"admin:{secrets.token_hex(8)}", peer_id=peer_id, kind="admin_grant",
+                    tokens=int(data.get("tokens", 0)), amount_usd=float(data.get("amount_usd", 0.0)),
+                )
+                self._send_json({"status": "topup_success", "account": result["account"]}, 200)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/billing/checkout":
+            # Client may *request* a purchase; it only gets a Stripe-hosted payment link back.
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
             try:
                 data = json.loads(post_data.decode("utf-8")) if post_data else {}
-                peer_id = data.get("peer_id")
-                tokens = int(data.get("tokens", 0))
-                amount_usd = float(data.get("amount_usd", 0.0))
-                sponsor_id = data.get("sponsor_id")
-                if sponsor_id:
-                    sponsor_manager.record_completion(sponsor_id)
-                account = account_registry.top_up_credits(peer_id, amount_usd=amount_usd, tokens=tokens)
-                self._send_json({"status": "topup_success", "account": account}, 200)
+                peer_id = (data.get("peer_id") or "").strip()
+                pack_id = data.get("pack")
+                if pack_id not in TOKEN_PACKS:
+                    self._send_json({"error": f"Unknown pack. Choose one of {sorted(TOKEN_PACKS)}"}, 400)
+                    return
+                if not peer_id or not account_registry.get_account_by_peer(peer_id):
+                    self._send_json({"error": "Register an account before buying tokens"}, 400)
+                    return
+                if not STRIPE_SECRET_KEY:
+                    self._send_json({"error": "Payments are not configured on this relay"}, 503)
+                    return
+                base_url = os.environ.get("TINCAN_PUBLIC_URL") or f"http://{self.headers.get('Host', 'localhost')}"
+                self._send_json({"checkout_url": create_stripe_checkout(peer_id, pack_id, base_url)}, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/billing/webhook":
+            # The ONLY path that credits purchased tokens: a Stripe-signed, paid checkout session.
+            content_length = int(self.headers.get("Content-Length", 0))
+            payload = self.rfile.read(content_length)
+            if not verify_stripe_signature(payload, self.headers.get("Stripe-Signature", ""), STRIPE_WEBHOOK_SECRET):
+                self._send_json({"error": "Invalid signature"}, 400)
+                return
+            try:
+                event = json.loads(payload.decode("utf-8"))
+                if event.get("type") != "checkout.session.completed":
+                    self._send_json({"status": "ignored"}, 200)
+                    return
+                session = event["data"]["object"]
+                meta = session.get("metadata") or {}
+                pack = TOKEN_PACKS.get(meta.get("pack"))
+                if session.get("payment_status") != "paid" or not pack:
+                    self._send_json({"status": "ignored"}, 200)
+                    return
+                cents, tokens = pack
+                if session.get("amount_total") != cents or (session.get("currency") or "").lower() != "usd":
+                    self._send_json({"error": "Amount does not match pack"}, 400)
+                    return
+                result = account_registry.credit_once(
+                    ref=f"stripe:{session['id']}", peer_id=meta.get("peer_id", ""), kind="purchase",
+                    tokens=tokens, amount_usd=cents / 100.0,
+                )
+                self._send_json({"status": "credited" if result["applied"] else "duplicate"}, 200)
+            except Exception as e:
+                # 500 makes Stripe retry; credit_once keeps retries from double-crediting.
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/ads/view/start":
+            # Server issues a one-time view token and starts the clock.
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                peer_id = (data.get("peer_id") or "").strip()
+                sponsor_id = data.get("sponsor_id") or ""
+                creative = next((s for s in sponsor_manager.sponsors if s.id == sponsor_id), None)
+                if not creative:
+                    self._send_json({"error": "Unknown sponsor"}, 400)
+                    return
+                if not peer_id or not account_registry.get_account_by_peer(peer_id):
+                    self._send_json({"error": "Register an account to earn ad rewards"}, 400)
+                    return
+                if account_registry.count_credit_events(peer_id, "ad_reward", time.time() - 86400) >= AD_DAILY_REWARD_CAP:
+                    self._send_json({"error": "Daily ad reward limit reached"}, 429)
+                    return
+                token = secrets.token_urlsafe(24)
+                now = time.time()
+                with _ad_views_lock:
+                    for t in [t for t, v in _ad_views.items() if now - v["started"] > v["duration"] + 600]:
+                        _ad_views.pop(t, None)
+                    _ad_views[token] = {
+                        "peer_id": peer_id, "sponsor_id": sponsor_id, "started": now,
+                        "duration": max(1, int(creative.duration_seconds)),
+                        "reward_tokens": creative.reward_tokens, "reward_usd": creative.reward_usd,
+                    }
+                self._send_json({"view_token": token, "min_seconds": creative.duration_seconds}, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/ads/view/complete":
+            # Credits only if the server-side clock confirms the ad ran its length. Token is single-use.
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                token = data.get("view_token") or ""
+                with _ad_views_lock:
+                    view = _ad_views.get(token)
+                    if not view or view["peer_id"] != (data.get("peer_id") or "").strip():
+                        view = None
+                    else:
+                        elapsed = time.time() - view["started"]
+                        if elapsed < view["duration"] * AD_MIN_WATCH_FRACTION:
+                            self._send_json({"error": "View not complete yet"}, 400)
+                            return
+                        if elapsed > view["duration"] + 600:
+                            _ad_views.pop(token, None)
+                            view = None
+                        else:
+                            _ad_views.pop(token, None)
+                if not view:
+                    self._send_json({"error": "Invalid or expired view token"}, 400)
+                    return
+                result = account_registry.credit_once(
+                    ref=f"ad:{token}", peer_id=view["peer_id"], kind="ad_reward",
+                    tokens=view["reward_tokens"], amount_usd=view["reward_usd"],
+                )
+                sponsor_manager.record_completion(view["sponsor_id"])
+                self._send_json({"status": "credited", "reward_tokens": view["reward_tokens"], "account": result["account"]}, 200)
             except ValueError as ve:
                 self._send_json({"error": str(ve)}, 400)
             except Exception as e:
@@ -1820,8 +2044,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 topic = data.get("topic") or f"devices/{data.get('device_id', 'sensor-01')}/telemetry"
                 flush_now = bool(data.get("flush", False))
                 wallet_id = data.get("wallet_id")
-                if wallet_id and vending_machine.get_balance(wallet_id) <= 0.0 and data.get("mint_usd"):
-                    vending_machine.mint_credits(wallet_id, float(data["mint_usd"]))
+                # mint_usd is ignored: telemetry clients can no longer fund their own wallet.
                 if wallet_id:
                     mqtt_adapter.wallet_id = wallet_id
                 pkt = mqtt_adapter.receive_message(topic, data)
@@ -1841,6 +2064,21 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": str(ce), "code": "CREDIT_EXHAUSTED"}, 402)
             except ValueError as ve:
                 self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/thread/file":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                code, body = api_write_file(
+                    data.get("peer_id"),
+                    data.get("thread_id"),
+                    data.get("path") or data.get("relpath"),
+                    data.get("content"),
+                    registry=account_registry,
+                )
+                self._send_json(body, code)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
         else:
@@ -2021,6 +2259,24 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": "Missing 'peer_id' query parameter"}, 400)
                 return
             self._send_json(relay.poll_signals(receiver_id=peer_id, room=room, since_seq=since_seq), 200)
+        elif parsed.path == "/api/thread/files":
+            query = parse_qs(parsed.query)
+            code, body = api_list_files(
+                query.get("peer_id", [None])[0],
+                query.get("thread_id", [None])[0],
+                subpath=query.get("subpath", [""])[0] or "",
+                registry=account_registry,
+            )
+            self._send_json(body, code)
+        elif parsed.path == "/api/thread/file":
+            query = parse_qs(parsed.query)
+            code, body = api_read_file(
+                query.get("peer_id", [None])[0],
+                query.get("thread_id", [None])[0],
+                query.get("path", [None])[0] or query.get("relpath", [None])[0],
+                registry=account_registry,
+            )
+            self._send_json(body, code)
         elif parsed.path == "/api/account/get":
             query = parse_qs(parsed.query)
             peer_id = query.get("peer_id", [None])[0]

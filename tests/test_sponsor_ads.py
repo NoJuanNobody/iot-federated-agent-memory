@@ -2,6 +2,7 @@
 
 import json
 import threading
+import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
 
@@ -103,7 +104,7 @@ def test_http_sponsor_endpoints(live_server):
     with urllib.request.urlopen(reg_req) as reg_resp:
         assert reg_resp.status == 201
 
-    # 5. POST /api/account/billing/topup with sponsor_id
+    # 5. Clients can no longer self-credit ad rewards via /api/account/billing/topup
     req2 = urllib.request.Request(
         f"{live_server}/api/account/billing/topup",
         data=json.dumps({
@@ -115,11 +116,28 @@ def test_http_sponsor_endpoints(live_server):
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req2) as resp:
-        assert resp.status == 200
-        res2 = json.loads(resp.read().decode("utf-8"))
-        assert res2["status"] == "topup_success"
-        assert res2["account"]["token_balance"] >= 55000
+    with pytest.raises(urllib.error.HTTPError) as exc:
+        urllib.request.urlopen(req2)
+    assert exc.value.code == 403
+
+    # 6. Server-timed ad view: completing immediately is rejected
+    start_req = urllib.request.Request(
+        f"{live_server}/api/ads/view/start",
+        data=json.dumps({"peer_id": peer_id, "sponsor_id": "railway"}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(start_req) as resp:
+        view_token = json.loads(resp.read().decode("utf-8"))["view_token"]
+    done_req = urllib.request.Request(
+        f"{live_server}/api/ads/view/complete",
+        data=json.dumps({"peer_id": peer_id, "view_token": view_token}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with pytest.raises(urllib.error.HTTPError) as exc:
+        urllib.request.urlopen(done_req)
+    assert exc.value.code == 400
 
 
 def test_admin_video_and_sponsor_crud_endpoints(live_server):

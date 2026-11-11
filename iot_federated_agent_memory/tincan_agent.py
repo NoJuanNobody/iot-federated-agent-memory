@@ -17,9 +17,17 @@ Keep your answers sharp, technical, and concise. Help the user interact with pee
 class TinCanAgentChat:
     """Agentic REPL loop supporting natural queries, commands, and live model completions."""
 
-    def __init__(self, relay_url: str, model_alias: str = "gemini-brain"):
+    def __init__(
+        self,
+        relay_url: str,
+        model_alias: str = "gemini-brain",
+        thread_id: Optional[str] = None,
+        peer_id: Optional[str] = None,
+    ):
         self.relay_url = relay_url.rstrip("/")
         self.model_alias = model_alias
+        self.thread_id = thread_id
+        self.peer_id = peer_id
         self.history: List[Dict[str, str]] = [
             {"role": "system", "content": SYSTEM_PROMPT}
         ]
@@ -32,6 +40,10 @@ class TinCanAgentChat:
             "temperature": 0.7,
             "max_tokens": 1024,
         }
+        if self.thread_id:
+            payload["thread_id"] = self.thread_id
+        if self.peer_id:
+            payload["peer_id"] = self.peer_id
 
         try:
             req = urllib.request.Request(
@@ -45,6 +57,9 @@ class TinCanAgentChat:
                 reply = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
                 if not reply:
                     reply = "[No response returned from model]"
+                returned_thread = data.get("thread_id")
+                if returned_thread:
+                    self.thread_id = returned_thread
                 self.history.append({"role": "assistant", "content": reply})
                 return reply
         except Exception as e:
@@ -178,6 +193,7 @@ class TinCanAgentChat:
                     continue
                 elif cmd == "/clear":
                     self.history = [{"role": "system", "content": SYSTEM_PROMPT}]
+                    self.thread_id = None
                     print("[+] Conversation memory cleared.")
                     continue
                 elif cmd == "/help":

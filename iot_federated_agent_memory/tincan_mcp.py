@@ -343,6 +343,46 @@ MCP_TOOLS_DEFINITIONS = [
             "required": [],
         },
     },
+    {
+        "name": "tincan_thread_list_files",
+        "description": "List files in a TinCan thread workspace (files/), scoped by peer_id and thread_id. Uses the same token gate as /api/chat.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "peer_id": {"type": "string", "description": "Peer that owns the thread. Blank uses the anonymous bucket."},
+                "thread_id": {"type": "string", "description": "Server-minted thread id."},
+                "subpath": {"type": "string", "description": "Optional subdirectory under files/.", "default": ""},
+            },
+            "required": ["thread_id"],
+        },
+    },
+    {
+        "name": "tincan_thread_read_file",
+        "description": "Read a file from a TinCan thread workspace, scoped by peer_id and thread_id.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "peer_id": {"type": "string", "description": "Peer that owns the thread. Blank uses the anonymous bucket."},
+                "thread_id": {"type": "string", "description": "Server-minted thread id."},
+                "path": {"type": "string", "description": "Relative path under files/."},
+            },
+            "required": ["thread_id", "path"],
+        },
+    },
+    {
+        "name": "tincan_thread_write_file",
+        "description": "Write a file in a TinCan thread workspace, scoped by peer_id and thread_id. Over-tier writes debit tokens via PeerAccountRegistry.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "peer_id": {"type": "string", "description": "Peer that owns the thread. Blank uses the anonymous bucket."},
+                "thread_id": {"type": "string", "description": "Server-minted thread id."},
+                "path": {"type": "string", "description": "Relative path under files/."},
+                "content": {"type": "string", "description": "File contents to write."},
+            },
+            "required": ["thread_id", "path", "content"],
+        },
+    },
 ]
 
 
@@ -1049,6 +1089,44 @@ def tincan_space_agent(prompt: str, **kwargs) -> Dict[str, Any]:
     return get_default_client().tincan_space_agent(prompt=prompt, **kwargs)
 
 
+def tincan_thread_list_files(
+    thread_id: str,
+    peer_id: Optional[str] = None,
+    subpath: str = "",
+    **kwargs,
+) -> Dict[str, Any]:
+    from .thread_api import api_list_files
+
+    _code, body = api_list_files(peer_id, thread_id, subpath=subpath or "")
+    return body
+
+
+def tincan_thread_read_file(
+    thread_id: str,
+    path: str,
+    peer_id: Optional[str] = None,
+    **kwargs,
+) -> Dict[str, Any]:
+    from .thread_api import api_read_file
+
+    _code, body = api_read_file(peer_id, thread_id, path)
+    return body
+
+
+def tincan_thread_write_file(
+    thread_id: str,
+    path: str,
+    content: str,
+    peer_id: Optional[str] = None,
+    **kwargs,
+) -> Dict[str, Any]:
+    from .thread_api import api_write_file
+
+    _code, body = api_write_file(peer_id, thread_id, path, content)
+    return body
+
+
+
 # -----------------------------------------------------------------------------
 # MCP JSON-RPC 2.0 Protocol Handler
 # -----------------------------------------------------------------------------
@@ -1125,6 +1203,12 @@ def handle_mcp_request(
                 result = cl.tincan_space_notes(**arguments)
             elif tool_name == "tincan_space_apply":
                 result = cl.tincan_space_apply(**arguments)
+            elif tool_name == "tincan_thread_list_files":
+                result = tincan_thread_list_files(**arguments)
+            elif tool_name == "tincan_thread_read_file":
+                result = tincan_thread_read_file(**arguments)
+            elif tool_name == "tincan_thread_write_file":
+                result = tincan_thread_write_file(**arguments)
             else:
                 return {
                     "jsonrpc": "2.0",

@@ -2,7 +2,7 @@ Title: STRING THEORY (THE TINCAN MESH PROTOCOL)
 Credit: Written by
 Author: Alejandro Londono & Antigravity
 Source: Based on TinCan 2.2 & IoT Federated Agent Mesh OS
-Draft date: November 8, 2026
+Draft date: November 11, 2026
 Contact:
     Florida Atlantic University (FAU) — Z23961745
     https://iot-federated-agent-memory-production.up.railway.app
@@ -102,5 +102,96 @@ MAYA
 Patched, verified, and zero keys exposed.
 
 Alejandro leans back, typing `tincan screensaver`. The terminal dissolves into the animated half-block AI MESSIAH artwork pulsing peacefully in the dark.
+
+CUT TO:
+
+INT. BOCA RATON CYBER LAB - 2:09 AM
+
+= Alejandro pushes the full upgrade to main. Railway rebuilds the mesh live while the Council, his room of AI agents, watches the deploy log.
+
+The rain has stopped. Empty energy drink cans form a skyline beside the keyboard.
+
+Alejandro hits ENTER on `git push origin main`. A deploy log scrolls up the right monitor: `BUILD HEALTHY. VOLUME /data MOUNTED (5 GB).`
+
+ALEJANDRO
+Arbiter models, agent spaces, video calls, the Ranger file browser, the token program. All of it. Live.
+
+A chat window labeled THE COUNCIL fills with typing indicators. Six agent avatars pulse in a row.
+
+COUNCIL AGENT (V.O.)
+(calm, synthetic)
+Before you celebrate. The top-up endpoint is still open. Anyone can mint themselves tokens. No login, no payment.
+
+Alejandro freezes mid-sip.
+
+ALEJANDRO
+Anyone?
+
+COUNCIL AGENT (V.O.)
+Anyone. The paywall you built tonight is still sitting uncommitted on your laptop.
+
+He swivels to the second monitor. A red counter labeled `$TINCAN SUPPLY` ticks upward on its own.
+
+ALEJANDRO
+Lock it. Tokens come from a paid checkout, a fully watched sponsor ad, or an admin key. Nothing else. Every credit lands once.
+
+COUNCIL AGENT (V.O.)
+Porting the lockdown to a branch. You'll see the diff before it touches main.
+
+The red counter stops.
+
+INT. TORONTO LOFTS - CONTINUOUS
+
+= Maya opens a new conversation and gets her own sandboxed folder: an agent space that remembers.
+
+Maya, hood down now, drags a fresh chat window open in TinCan Mesh OS. A small folder icon unfolds beside it like origami.
+
+On screen: `/data/threads/maya/7f3c...a91e/files/`
+
+MAYA
+Every conversation gets its own room now?
+
+ALEJANDRO (V.O.)
+(through the tin-can string)
+Its own ID, its own folder, nested under you. The agent can read and write there and nowhere else. Try to climb out with dot-dot-slash and it slams the door.
+
+Maya types `../../etc/passwd` into the agent prompt, just to see. A small amber shield flashes: `THREAD ERROR: PATH ESCAPE REJECTED.`
+
+MAYA
+(grinning)
+Rude. I like it.
+
+She tags the thread `scam-case`. Three files fan out into the folder before she's asked for anything: a case brief, an evidence inbox, a README.
+
+MAYA (CONT'D)
+It already has the case file.
+
+ALEJANDRO (V.O.)
+Scam cases start loaded. The runner works the case right inside that folder.
+
+INT. BOCA RATON CYBER LAB - LATER
+
+= Alejandro pitches the bigger dream: a services economy where people trade work for tokens over the blind relay. The Council pumps the brakes.
+
+Dawn creeps blue across the blinds. Alejandro paces, talking with his hands.
+
+ALEJANDRO
+Picture it. Anyone mints in from anywhere, any exchange. You need a lawyer? You don't pay cash. You trade a service. Code for counsel. Video edit for a tax return. A whole economy of people helping people, running on a relay that can't read a word of it.
+
+COUNCIL AGENT (V.O.)
+Beautiful. Also: securities law, money transmission, barter income tax, and bar rules for the lawyers.
+
+ALEJANDRO
+(beat)
+So, phase two.
+
+COUNCIL AGENT (V.O.)
+Phase two. After the legal review. For now, the paywall is the only door in.
+
+Alejandro sinks back into his chair. On the topology canvas, the tin-can string between Boca and Toronto hums steady and gold.
+
+ALEJANDRO
+(quietly)
+One door. Locked. For now.
 
 >FADE OUT.

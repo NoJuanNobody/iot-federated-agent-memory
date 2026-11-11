@@ -1,8 +1,10 @@
 import json
 import threading
+import urllib.error
 import urllib.request
 import uuid
 import pytest
+import server
 from server import HTTPServer, MeshGatewayHandler
 
 
@@ -16,7 +18,7 @@ def live_server():
     httpd.shutdown()
 
 
-def test_account_registration_billing_and_topup_api(live_server):
+def test_account_registration_billing_and_topup_api(live_server, monkeypatch):
     peer_id = f"test-peer-{uuid.uuid4().hex[:8]}"
     email = f"{peer_id}@fau.edu"
     # 1. Register account
@@ -37,16 +39,27 @@ def test_account_registration_billing_and_topup_api(live_server):
         data = json.loads(response.read().decode("utf-8"))
         assert data["account"]["token_balance"] == 10
 
-    # 2. Top-up tokens
+    # 2. Top-up tokens: refused without the admin key, allowed as an operator grant with it
     topup_payload = {
         "peer_id": peer_id,
         "tokens": 25000,
         "amount_usd": 2.50,
     }
-    topup_req = urllib.request.Request(
+    anon_req = urllib.request.Request(
         f"{live_server}/api/account/billing/topup",
         data=json.dumps(topup_payload).encode("utf-8"),
         headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with pytest.raises(urllib.error.HTTPError) as exc:
+        urllib.request.urlopen(anon_req)
+    assert exc.value.code == 403
+
+    monkeypatch.setattr(server, "TINCAN_ADMIN_KEY", "test-admin-key")
+    topup_req = urllib.request.Request(
+        f"{live_server}/api/account/billing/topup",
+        data=json.dumps(topup_payload).encode("utf-8"),
+        headers={"Content-Type": "application/json", "X-Admin-Key": "test-admin-key"},
         method="POST",
     )
     with urllib.request.urlopen(topup_req) as response:

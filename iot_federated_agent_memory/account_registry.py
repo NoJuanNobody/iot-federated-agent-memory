@@ -69,6 +69,21 @@ class PeerAccountRegistry:
             if "consent_timestamp" not in columns:
                 cursor.execute("ALTER TABLE accounts ADD COLUMN consent_timestamp REAL DEFAULT 0.0")
 
+            # Idempotency log for every credit (purchase, ad reward, admin grant).
+            # ref is unique, so one payment or one ad view can only ever credit once.
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS credit_events (
+                    ref TEXT PRIMARY KEY,
+                    peer_id TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    tokens INTEGER NOT NULL,
+                    amount_usd REAL NOT NULL,
+                    timestamp REAL NOT NULL
+                )
+                """
+            )
+
             # Ledger table for token audit transactions
             cursor.execute(
                 """
@@ -198,6 +213,38 @@ class PeerAccountRegistry:
             conn.commit()
 
         return self.get_account_by_peer(peer_id)
+
+    def credit_once(self, ref: str, peer_id: str, kind: str, tokens: int, amount_usd: float = 0.0) -> Dict:
+        """Credit an account exactly once per server-verified ref (Stripe session id, ad view token).
+
+        Returns {"applied": bool, "account": dict}. applied is False when the ref was already credited.
+        """
+        peer_id = peer_id.strip()
+        if not self.get_account_by_peer(peer_id):
+            raise ValueError(f"Account for peer '{peer_id}' not found. Please register first.")
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute(
+                    "INSERT INTO credit_events (ref, peer_id, kind, tokens, amount_usd, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
+                    (ref, peer_id, kind, max(0, int(tokens)), max(0.0, float(amount_usd)), time.time()),
+                )
+            except sqlite3.IntegrityError:
+                return {"applied": False, "account": self.get_account_by_peer(peer_id)}
+            cursor.execute(
+                "UPDATE accounts SET token_balance = token_balance + ?, credit_balance_usd = credit_balance_usd + ? WHERE peer_id = ?",
+                (max(0, int(tokens)), max(0.0, float(amount_usd)), peer_id),
+            )
+            conn.commit()
+        return {"applied": True, "account": self.get_account_by_peer(peer_id)}
+
+    def count_credit_events(self, peer_id: str, kind: str, since_ts: float) -> int:
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM credit_events WHERE peer_id = ? AND kind = ? AND timestamp >= ?",
+                (peer_id.strip(), kind, since_ts),
+            ).fetchone()
+        return int(row[0]) if row else 0
 
     def bill_tokens(
         self,
