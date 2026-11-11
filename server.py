@@ -100,9 +100,9 @@ set_thread_account_registry(account_registry)
 # webhook, after a server-timed ad view, or by an operator holding the admin key.
 # Prices live here, never in the request, so a client can't name its own amount.
 TOKEN_PACKS = {  # pack id -> (price in US cents, tokens). Matches the Mesh OS UI buttons.
-    "pack_10": (10, 10),
-    "pack_50": (50, 55),
-    "pack_100": (100, 120),
+    "pack_100": (100, 120),     # $1  (Stripe's USD minimum is $0.50, so no sub-$1 packs)
+    "pack_500": (500, 650),     # $5
+    "pack_2000": (2000, 2800),  # $20
 }
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
