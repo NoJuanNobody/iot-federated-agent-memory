@@ -41,6 +41,10 @@ class SponsorCreative:
     category: str = "direct_partner"
 
 
+# Backward compatibility and alternative naming
+SponsorAd = SponsorCreative
+
+
 DEFAULT_SPONSORS: List[SponsorCreative] = [
     SponsorCreative(
         id="railway",
@@ -92,6 +96,20 @@ DEFAULT_SPONSORS: List[SponsorCreative] = [
         url="https://openrouter.ai?utm_source=tincan-mesh",
         icon="🌐",
         badge="AI Gateway",
+        video_url="/videos/7705963225849892126.mp4",
+        video_id="7705963225849892126",
+        duration_seconds=10,
+        reward_tokens=5000,
+        reward_usd=0.05,
+    ),
+    SponsorCreative(
+        id="hyper3d-rodin",
+        name="Hyper3D Rodin (Ronin) 3D Gateway",
+        tagline="State-of-the-art generative 3D meshes, PBR materials, and game-ready assets with instant API dispatch.",
+        cta="Generate 3D Assets ↗",
+        url="https://hyper3d.ai?utm_source=tincan-mesh",
+        icon="🧊",
+        badge="3D GenAI Partner",
         video_url="/videos/7705963225849892126.mp4",
         video_id="7705963225849892126",
         duration_seconds=10,
