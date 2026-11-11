@@ -121,6 +121,180 @@ MCP_TOOLS_DEFINITIONS = [
             "required": ["alias", "address"],
         },
     },
+    {
+        "name": "tincan_rodin_generate",
+        "description": "Dispatches generative 3D mesh creation via Hyper3D Rodin (Ronin), returns task UUID, status, and GLB mesh assets.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "Natural language prompt describing the 3D model to generate.",
+                },
+                "tier": {
+                    "type": "string",
+                    "description": "Generation tier: Regular ($0.50), Sketch ($0.25), Detail ($1.00), Smooth ($0.75).",
+                    "enum": ["Regular", "Sketch", "Detail", "Smooth"],
+                    "default": "Regular",
+                },
+                "format": {
+                    "type": "string",
+                    "description": "3D asset format (glb, fbx, obj, usdz).",
+                    "enum": ["glb", "fbx", "obj", "usdz"],
+                    "default": "glb",
+                },
+                "mesh_mode": {
+                    "type": "string",
+                    "description": "Mesh topology mode (Quad, Triangle).",
+                    "default": "Quad",
+                },
+                "scope": {
+                    "type": "string",
+                    "description": "VFS target space scope ('user' or 'topic').",
+                    "default": "user",
+                },
+                "owner_id": {
+                    "type": "string",
+                    "description": "Owner ID or Topic ID if saving into .space VFS.",
+                },
+                "save_path": {
+                    "type": "string",
+                    "description": "Optional VFS path inside .space (e.g. /models3d/model.glb).",
+                },
+            },
+            "required": ["prompt"],
+        },
+    },
+    {
+        "name": "tincan_space_ls",
+        "description": "Lists all files, sizes, MIME types, and Merkle root in a single-file SQLite .space VFS.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "scope": {
+                    "type": "string",
+                    "description": "Target space scope ('user' or 'topic').",
+                    "enum": ["user", "topic"],
+                    "default": "user",
+                },
+                "owner_id": {
+                    "type": "string",
+                    "description": "Owner peer ID or Forum Topic ID (defaults to local identity).",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "tincan_space_write",
+        "description": "Writes, patches, or deletes a file inside a single-file SQLite .space VFS.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Virtual file path (e.g. /src/main.py, /artcraft/design.dxf).",
+                },
+                "content": {
+                    "type": "string",
+                    "description": "File text content or base64 binary payload.",
+                },
+                "scope": {
+                    "type": "string",
+                    "description": "Target space scope ('user' or 'topic').",
+                    "enum": ["user", "topic"],
+                    "default": "user",
+                },
+                "owner_id": {
+                    "type": "string",
+                    "description": "Owner peer ID or Forum Topic ID.",
+                },
+                "action": {
+                    "type": "string",
+                    "description": "File action ('write', 'patch', or 'delete').",
+                    "enum": ["write", "patch", "delete"],
+                    "default": "write",
+                },
+                "target": {
+                    "type": "string",
+                    "description": "Target string to replace when action is 'patch'.",
+                },
+                "replacement": {
+                    "type": "string",
+                    "description": "Replacement string when action is 'patch'.",
+                },
+            },
+            "required": ["path", "content"],
+        },
+    },
+    {
+        "name": "tincan_space_exec",
+        "description": "Executes playground code or Wasm runtime inside a single-file SQLite .space VFS.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "entrypoint": {
+                    "type": "string",
+                    "description": "Path to entrypoint script (e.g. /src/main.py).",
+                    "default": "/src/main.py",
+                },
+                "runtime": {
+                    "type": "string",
+                    "description": "Runtime environment ('auto', 'python', 'js', 'wasm', 'artcraft-wasm').",
+                    "default": "auto",
+                },
+                "scope": {
+                    "type": "string",
+                    "description": "Target space scope ('user' or 'topic').",
+                    "default": "user",
+                },
+                "owner_id": {
+                    "type": "string",
+                    "description": "Owner peer ID or Forum Topic ID.",
+                },
+                "code_override": {
+                    "type": "string",
+                    "description": "Optional inline code string to execute instead of file.",
+                },
+                "args": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Optional CLI arguments to pass to the script.",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "tincan_space_agent",
+        "description": "Runs an autonomous coding agent turn inside a single-file SQLite .space VFS.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "Coding instruction or task for the space agent.",
+                },
+                "model": {
+                    "type": "string",
+                    "description": "AI model alias (gemini-brain, claude-brain, grok-brain, openai-brain).",
+                    "default": "gemini-brain",
+                },
+                "scope": {
+                    "type": "string",
+                    "description": "Target space scope ('user' or 'topic').",
+                    "default": "user",
+                },
+                "owner_id": {
+                    "type": "string",
+                    "description": "Owner peer ID or Forum Topic ID.",
+                },
+            },
+            "required": ["prompt"],
+        },
+    },
 ]
 
 
@@ -529,6 +703,177 @@ class TinCanMCPClient:
             "trust_mentor_tts": bool(meta.get("trust_mentor_tts", False)),
         }
 
+    def tincan_rodin_generate(
+        self,
+        prompt: str,
+        tier: str = "Regular",
+        format: str = "glb",
+        mesh_mode: str = "Quad",
+        scope: str = "user",
+        owner_id: Optional[str] = None,
+        save_path: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Dispatch a 3D generative model request."""
+        target_owner = owner_id or self.address
+        payload = {
+            "prompt": prompt,
+            "tier": tier,
+            "format": format,
+            "mesh_mode": mesh_mode,
+            "scope": scope,
+            "owner_id": target_owner,
+            "save_path": save_path,
+            "peer_id": self.address,
+        }
+        try:
+            return self._http_post("/api/3d/generate", payload)
+        except Exception:
+            # Fallback local generation if relay server is offline
+            from .tincan_cli import _get_cli_space_manager
+            from .ai_gateway import DynamicAIGatewayRouter
+            router_inst = DynamicAIGatewayRouter()
+            if hasattr(router_inst, "dispatch_rodin_generation"):
+                res = router_inst.dispatch_rodin_generation(prompt=prompt, tier=tier, geometry_file_format=format)
+            else:
+                fake_glb = b"glTF\x02\x00\x00\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                res = {
+                    "uuid": f"rodin-task-{uuid.uuid4().hex[:12]}",
+                    "subscription_key": f"sub-{uuid.uuid4().hex[:12]}",
+                    "prompt": prompt,
+                    "tier": tier,
+                    "format": format,
+                    "status": "Done",
+                    "cost_usd": 0.50,
+                    "glb_bytes_b64": base64.b64encode(fake_glb).decode("ascii"),
+                    "simulated": True,
+                }
+            if save_path or owner_id:
+                try:
+                    sm = _get_cli_space_manager()
+                    sp = sm.get_or_create_space(scope, target_owner)
+                    sp_p = save_path or f"/models3d/{res.get('uuid', 'model')}.{format}"
+                    sp.write_file(sp_p, res.get("glb_bytes_b64", ""), is_base64=True, mime_type="model/gltf-binary", updated_by=self.address)
+                    res["saved_to_space"] = {"scope": scope, "owner_id": target_owner, "path": sp_p}
+                except Exception as e:
+                    res["space_save_error"] = str(e)
+            return res
+
+    def tincan_space_ls(
+        self,
+        scope: str = "user",
+        owner_id: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """List files in .space VFS."""
+        target_owner = owner_id or self.address
+        try:
+            return self._http_get(f"/api/space/ls?scope={scope}&owner_id={urllib.parse.quote(target_owner)}")
+        except Exception:
+            from .tincan_cli import _get_cli_space_manager
+            sm = _get_cli_space_manager()
+            sp = sm.get_or_create_space(scope, target_owner)
+            return sp.get_summary()
+
+    def tincan_space_write(
+        self,
+        path: str,
+        content: str,
+        scope: str = "user",
+        owner_id: Optional[str] = None,
+        action: str = "write",
+        target: Optional[str] = None,
+        replacement: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Write, patch, or delete a file in .space VFS."""
+        target_owner = owner_id or self.address
+        payload = {
+            "path": path,
+            "content": content,
+            "scope": scope,
+            "owner_id": target_owner,
+            "action": action,
+            "target": target,
+            "replacement": replacement,
+            "updated_by": self.address,
+        }
+        try:
+            return self._http_post("/api/space/file", payload)
+        except Exception:
+            from .tincan_cli import _get_cli_space_manager
+            sm = _get_cli_space_manager()
+            sp = sm.get_or_create_space(scope, target_owner)
+            if action == "delete":
+                return sp.delete_file(path)
+            elif action == "patch":
+                return sp.patch_file(path, target or "", replacement or "", updated_by=self.address)
+            return sp.write_file(path, content, updated_by=self.address)
+
+    def tincan_space_exec(
+        self,
+        entrypoint: str = "/src/main.py",
+        runtime: str = "auto",
+        scope: str = "user",
+        owner_id: Optional[str] = None,
+        code_override: Optional[str] = None,
+        args: Optional[List[str]] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Execute playground code or Wasm runtime in .space VFS."""
+        target_owner = owner_id or self.address
+        payload = {
+            "entrypoint": entrypoint,
+            "runtime": runtime,
+            "scope": scope,
+            "owner_id": target_owner,
+            "code_override": code_override,
+            "args": args or [],
+        }
+        try:
+            return self._http_post("/api/space/exec", payload)
+        except Exception:
+            from .tincan_cli import _get_cli_space_manager
+            sm = _get_cli_space_manager()
+            return sm.run_playground(
+                scope=scope,
+                owner_id=target_owner,
+                entrypoint=entrypoint,
+                runtime=runtime,
+                code_override=code_override,
+                args=args,
+            )
+
+    def tincan_space_agent(
+        self,
+        prompt: str,
+        model: str = "gemini-brain",
+        scope: str = "user",
+        owner_id: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Run an autonomous agent turn inside .space VFS."""
+        target_owner = owner_id or self.address
+        payload = {
+            "prompt": prompt,
+            "model_alias": model,
+            "scope": scope,
+            "owner_id": target_owner,
+            "author": self.address,
+        }
+        try:
+            return self._http_post("/api/space/agent", payload)
+        except Exception:
+            from .tincan_cli import _get_cli_space_manager
+            sm = _get_cli_space_manager()
+            return sm.run_agent(
+                scope=scope,
+                owner_id=target_owner,
+                prompt=prompt,
+                model_alias=model,
+                author=self.address,
+            )
+
 
 # -----------------------------------------------------------------------------
 # Module-level tool exports & Singleton Management
@@ -582,6 +927,31 @@ def tincan_list_contacts(**kwargs) -> List[Dict[str, Any]]:
 def tincan_add_contact(alias: str, address: str, **kwargs) -> Dict[str, Any]:
     """Pins contact key."""
     return get_default_client().tincan_add_contact(alias=alias, address=address, **kwargs)
+
+
+def tincan_rodin_generate(prompt: str, **kwargs) -> Dict[str, Any]:
+    """Dispatches generative 3D mesh creation."""
+    return get_default_client().tincan_rodin_generate(prompt=prompt, **kwargs)
+
+
+def tincan_space_ls(**kwargs) -> Dict[str, Any]:
+    """Lists files in .space VFS."""
+    return get_default_client().tincan_space_ls(**kwargs)
+
+
+def tincan_space_write(path: str, content: str, **kwargs) -> Dict[str, Any]:
+    """Writes, patches, or deletes file in .space VFS."""
+    return get_default_client().tincan_space_write(path=path, content=content, **kwargs)
+
+
+def tincan_space_exec(entrypoint: str = "/src/main.py", **kwargs) -> Dict[str, Any]:
+    """Executes playground code or Wasm runtime in .space VFS."""
+    return get_default_client().tincan_space_exec(entrypoint=entrypoint, **kwargs)
+
+
+def tincan_space_agent(prompt: str, **kwargs) -> Dict[str, Any]:
+    """Runs autonomous agent turn in .space VFS."""
+    return get_default_client().tincan_space_agent(prompt=prompt, **kwargs)
 
 
 # -----------------------------------------------------------------------------
@@ -644,6 +1014,16 @@ def handle_mcp_request(
                 result = cl.tincan_list_contacts(**arguments)
             elif tool_name == "tincan_add_contact":
                 result = cl.tincan_add_contact(**arguments)
+            elif tool_name == "tincan_rodin_generate":
+                result = cl.tincan_rodin_generate(**arguments)
+            elif tool_name == "tincan_space_ls":
+                result = cl.tincan_space_ls(**arguments)
+            elif tool_name == "tincan_space_write":
+                result = cl.tincan_space_write(**arguments)
+            elif tool_name == "tincan_space_exec":
+                result = cl.tincan_space_exec(**arguments)
+            elif tool_name == "tincan_space_agent":
+                result = cl.tincan_space_agent(**arguments)
             else:
                 return {
                     "jsonrpc": "2.0",

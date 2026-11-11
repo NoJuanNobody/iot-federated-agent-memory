@@ -1428,6 +1428,41 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             </table>
           </div>
         </div>
+
+        <!-- Section 4: Hyper3D Rodin (Ronin) 3D Generative Credit Pool -->
+        <div class="p-3 bg-gradient-to-r from-cyan-950/40 to-slate-900/80 rounded-xl border border-cyan-500/40 space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-cyan-400 text-sm">🧊</span>
+              <span class="font-bold text-cyan-300 font-mono">Hyper3D Rodin (Ronin) 3D Generative Credit Pool</span>
+            </div>
+            <span id="rodinBillingStatusBadge" class="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-mono border border-cyan-500/40 font-bold">ONLINE / POOLED</span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[11px]">
+            <div class="p-2 bg-slate-950/80 rounded border border-slate-800">
+              <span class="text-slate-400 block text-[9px]">CREDITS LEFT</span>
+              <span id="rodinBalanceCredits" class="text-cyan-400 font-bold text-sm">100.0</span>
+            </div>
+            <div class="p-2 bg-slate-950/80 rounded border border-slate-800">
+              <span class="text-slate-400 block text-[9px]">USD BALANCE</span>
+              <span id="rodinBalanceUsd" class="text-emerald-400 font-bold text-sm">$50.00</span>
+            </div>
+            <div class="p-2 bg-slate-950/80 rounded border border-slate-800">
+              <span class="text-slate-400 block text-[9px]">SESSION 3D TASKS</span>
+              <span id="rodinSessionTasks" class="text-white font-bold text-sm">0</span>
+            </div>
+            <div class="p-2 bg-slate-950/80 rounded border border-slate-800">
+              <span class="text-slate-400 block text-[9px]">ACTIVE KEY</span>
+              <span id="rodinKeyLabel" class="text-slate-300 font-semibold text-[10px] truncate block" title="pooled-rodin">pooled-rodin</span>
+            </div>
+          </div>
+          <div class="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[10px] font-mono text-slate-400">
+            <span>Tier Pricing: Regular ($0.50) · Sketch ($0.25) · Detail ($1.00) · Smooth ($0.75)</span>
+            <button onclick="toggleWindow('win-agentspace')" class="px-2 py-1 bg-cyan-900/80 hover:bg-cyan-800 text-cyan-200 rounded text-[10px] font-mono border border-cyan-700 active:scale-95 transition">
+              🧪 Open AgentSpace 3D Studio →
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1940,6 +1975,191 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       </div>
     </div>
 
+    <!-- ===================================================================== -->
+    <!-- Window 9: 🧪 AgentSpace & Wasm Studio.app -->
+    <!-- ===================================================================== -->
+    <div id="win-agentspace" class="mesh-window w-[920px] max-w-full hidden" data-window-id="win-agentspace" style="top: 76px; left: 140px; z-index: 35;">
+      <div class="window-header flex items-center justify-between px-3 py-2 bg-gradient-to-r from-purple-950/95 via-slate-900/95 to-indigo-950/95 border-b border-purple-500/50">
+        <div class="flex items-center gap-2">
+          <span class="text-base">🧪</span>
+          <span class="text-xs font-bold text-purple-300 font-mono tracking-wide">AgentSpace &amp; Wasm Studio.app</span>
+          <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 text-[10px] font-mono border border-purple-500/40 font-semibold">SINGLE-FILE VFS · RODIN 3D · 15 ARTCRAFT APPS</span>
+        </div>
+        <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
+          <button onclick="openPopoutWindow('win-agentspace')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
+          <button onclick="minimizeWindow('win-agentspace')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
+          <button onclick="maximizeWindow('win-agentspace')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">⤢</button>
+          <button onclick="toggleWindow('win-agentspace')" class="px-1.5 py-0.5 rounded bg-red-950/80 hover:bg-red-800 text-red-300 text-[11px]">✕</button>
+        </div>
+      </div>
+      <div class="window-body p-4 space-y-4 max-h-[760px] overflow-y-auto text-xs font-sans">
+        <!-- Scope Selector & VFS Header -->
+        <div class="p-3 bg-slate-900/90 rounded-xl border border-purple-500/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-[11px] font-mono text-slate-400 font-bold">Space Target:</span>
+            <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800 font-mono text-xs">
+              <button id="scopeUserBtn" onclick="switchSpaceScope('user')" class="px-2.5 py-1 rounded bg-purple-900 text-purple-200 font-semibold active:scale-95 transition">
+                👤 User Space
+              </button>
+              <button id="scopeTopicBtn" onclick="switchSpaceScope('topic')" class="px-2.5 py-1 rounded text-slate-400 hover:text-white active:scale-95 transition">
+                💬 Forum Topic Space
+              </button>
+            </div>
+            <input id="spaceOwnerInput" type="text" placeholder="Owner ID / Topic ID" class="bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-white font-mono text-xs w-48 focus:border-purple-500 focus:outline-none">
+            <button onclick="refreshAgentSpace()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 font-mono text-xs active:scale-95 transition">
+              🔄 Load Space
+            </button>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <span id="spaceFileCountBadge" class="px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800 font-mono text-[10px]">0 Files</span>
+            <button onclick="exportAgentSpace()" class="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white font-mono text-xs rounded transition active:scale-95">
+              📦 Export .space
+            </button>
+          </div>
+        </div>
+
+        <!-- Main Studio Split View: File Tree + Code Editor -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <!-- Left Column: File Explorer & Rodin 3D Generator -->
+          <div class="space-y-3">
+            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="font-mono font-bold text-slate-300 text-xs">📁 Filesystem Tree</span>
+                <button onclick="promptCreateFile()" class="text-[10px] px-2 py-0.5 rounded bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-800 font-mono">
+                  + New File
+                </button>
+              </div>
+              <div id="spaceFileList" class="space-y-1 max-h-48 overflow-y-auto font-mono text-[11px] text-slate-300 divide-y divide-slate-800/40">
+                <div class="text-slate-500 py-2 text-center text-xs">Loading .space VFS...</div>
+              </div>
+            </div>
+
+            <!-- Rodin 3D Generative Mesh Tool -->
+            <div class="p-3 bg-gradient-to-br from-cyan-950/40 to-slate-950 rounded-xl border border-cyan-500/40 space-y-2">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-cyan-400">🧊</span>
+                  <span class="font-bold text-cyan-300 font-mono text-xs">Hyper3D Rodin 3D</span>
+                </div>
+                <span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-mono">GEN-3D</span>
+              </div>
+              <input id="rodinPromptInput" type="text" placeholder="e.g. Cyberpunk hovercar mesh" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-white font-mono text-xs focus:border-cyan-500 focus:outline-none">
+              <div class="grid grid-cols-2 gap-2 text-xs font-mono">
+                <select id="rodinTierSelect" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-[11px]">
+                  <option value="Regular">Regular ($0.50)</option>
+                  <option value="Sketch">Sketch ($0.25)</option>
+                  <option value="Detail">Detail ($1.00)</option>
+                  <option value="Smooth">Smooth ($0.75)</option>
+                </select>
+                <select id="rodinFormatSelect" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-[11px]">
+                  <option value="glb">GLB (Binary)</option>
+                  <option value="fbx">FBX</option>
+                  <option value="obj">OBJ</option>
+                  <option value="usdz">USDZ</option>
+                </select>
+              </div>
+              <button id="generateRodinBtn" onclick="generateAgentSpaceRodin3D()" class="w-full py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95 flex items-center justify-center gap-1.5">
+                <span>🧊</span> Generate 3D &amp; Save to Space
+              </button>
+              <div id="rodinStatusNotice" class="text-[10px] font-mono text-slate-400 text-center truncate">Ready to generate 3D assets.</div>
+            </div>
+          </div>
+
+          <!-- Right Column: Code Editor & Playground Console -->
+          <div class="md:col-span-2 space-y-3">
+            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="font-mono text-purple-400 font-bold text-xs" id="activeFilePath">/src/main.py</span>
+                  <span id="activeFileMime" class="text-[9px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono">text/plain</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <button onclick="saveAgentSpaceFile()" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs rounded transition active:scale-95">
+                    💾 Save
+                  </button>
+                  <button onclick="deleteAgentSpaceFile()" class="px-2 py-1 bg-red-950 hover:bg-red-900 text-red-300 font-mono text-xs rounded border border-red-800 transition active:scale-95">
+                    ✕
+                  </button>
+                </div>
+              </div>
+              <textarea id="agentspaceEditor" rows="10" class="w-full bg-slate-900/90 border border-slate-700 rounded-lg p-2.5 text-slate-100 font-mono text-xs focus:border-purple-500 focus:outline-none select-text" placeholder="Write Python, JS, or Wasm bytecode..."></textarea>
+              
+              <!-- Playground Run Bar -->
+              <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-[11px] font-mono text-slate-400">Runtime:</span>
+                  <select id="playgroundRuntimeSelect" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono text-[11px]">
+                    <option value="auto">auto (detect)</option>
+                    <option value="python">pyodide-wasm (Python)</option>
+                    <option value="js">quickjs-wasm (JS)</option>
+                    <option value="wasm">wasi-wasm (Bytecode)</option>
+                    <option value="three-glb-viewer">three-glb-viewer (3D)</option>
+                  </select>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button onclick="runAgentSpaceAgent()" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs rounded transition active:scale-95 flex items-center gap-1">
+                    <span>🤖</span> Ask Space Agent
+                  </button>
+                  <button onclick="runAgentSpacePlayground()" class="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white font-mono text-xs font-bold rounded transition active:scale-95 flex items-center gap-1 shadow-sm">
+                    <span>🚀</span> Run Code / Wasm
+                  </button>
+                </div>
+              </div>
+
+              <!-- Playground Output Console -->
+              <div class="mt-2 p-2.5 bg-black/90 border border-slate-800 rounded-lg font-mono text-xs text-slate-300 max-h-36 overflow-y-auto">
+                <div class="text-[10px] text-slate-500 mb-1 flex items-center justify-between">
+                  <span>TERMINAL OUTPUT</span>
+                  <span id="playgroundExitCode" class="text-slate-400">Exit: 0</span>
+                </div>
+                <pre id="agentspaceOutput" class="whitespace-pre-wrap select-text text-emerald-400">Ready. Click 'Run Code / Wasm' to execute.</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: ArtCraft 15 Wasm Applications Suite (?host=parent postMessage Bridge) -->
+        <div class="p-3 bg-gradient-to-r from-slate-900/90 via-purple-950/40 to-slate-900/90 rounded-xl border border-purple-500/30 space-y-3">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">🎨</span>
+              <div>
+                <span class="font-bold text-white font-mono text-xs">ArtCraft 15 Wasm Meta-Studio Suite</span>
+                <span class="text-[10px] text-purple-300 font-mono block">Zero-Latency In-Browser WebAssembly Bridge (?host=parent)</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span id="artcraftStatusPill" class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[10px] font-mono">STANDBY</span>
+              <select id="artcraftAppSelect" class="bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-white font-mono text-xs">
+                <option value="cadcraft">📐 CadCraft Web (3D CAD, DXF, STL)</option>
+                <option value="vectorcraft">✒️ VectorCraft Web (SVG &amp; Vector)</option>
+                <option value="deckcraft">📊 DeckCraft Web (Presentations &amp; Decks)</option>
+                <option value="designcraft">📰 DesignCraft Web (Editorial &amp; Layout)</option>
+                <option value="effectcraft">✨ EffectCraft Web (VFX &amp; Motion)</option>
+                <option value="figcraft">🎨 FigCraft Web (UI/UX Components)</option>
+                <option value="filmcraft">🎬 FilmCraft Web (Video Sequences)</option>
+                <option value="gridcraft">📈 GridCraft Web (Spreadsheets &amp; Data)</option>
+                <option value="lightcraft">💡 LightCraft Web (RAW &amp; Color Grade)</option>
+                <option value="pdfcraft">📄 PdfCraft Web (PDF &amp; Forms)</option>
+                <option value="photocraft">🖼️ PhotoCraft Web (Raster Imaging)</option>
+                <option value="scriptcraft">📜 ScriptCraft Web (Screenplays)</option>
+                <option value="soundcraft">🎵 SoundCraft Web (DAW &amp; Audio)</option>
+                <option value="wordcraft">📝 WordCraft Web (Prose &amp; Markdown)</option>
+                <option value="artcraft">🛸 ArtCraft Meta-Studio (Launcher)</option>
+              </select>
+              <button onclick="launchArtCraftWasmApp()" class="px-3 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:brightness-110 text-white font-mono text-xs font-bold rounded-lg transition active:scale-95 shadow-md">
+                🎨 Launch in Wasm
+              </button>
+            </div>
+          </div>
+          <!-- ArtCraft Iframe Container -->
+          <div id="artcraftIframeWrapper" class="hidden relative w-full aspect-video bg-black rounded-lg border border-purple-500/40 overflow-hidden shadow-2xl">
+            <iframe id="artcraftWasmFrame" src="about:blank" class="w-full h-full border-0"></iframe>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <!-- Bottom OS Dock -->
@@ -1949,6 +2169,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     </button>
     <button id="dockBtn-win-board" onclick="toggleWindow('win-board')" class="px-2.5 py-1.5 bg-indigo-950/90 hover:bg-indigo-900 border border-indigo-500/80 text-indigo-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95 font-bold" title="Cyberspace Discussion Board · GraphRAG + BM25">
       <span>🌐</span> <span class="hidden md:inline">Cyberspace</span>
+    </button>
+    <button id="dockBtn-win-agentspace" onclick="toggleWindow('win-agentspace')" class="px-2.5 py-1.5 bg-purple-950/90 hover:bg-purple-900 border border-purple-500/80 text-purple-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95 font-bold" title="AgentSpace &amp; Wasm Studio · Single-File SQLite VFS, Rodin 3D &amp; 15 ArtCraft Apps">
+      <span>🧪</span> <span class="hidden md:inline">AgentSpace &amp; Wasm</span>
     </button>
     <button id="dockBtn-win-tv" onclick="toggleWindow('win-tv')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Relay Watch Party TV">
       <span>📺</span> <span class="hidden md:inline">Watch Party TV</span>
@@ -3004,6 +3227,25 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             }).join('');
           }
         }
+        try {
+          const rResp = await fetch('/api/3d/balance');
+          if (rResp.ok) {
+            const rData = await rResp.json();
+            const badge = document.getElementById('rodinBillingStatusBadge');
+            const creds = document.getElementById('rodinBalanceCredits');
+            const usd = document.getElementById('rodinBalanceUsd');
+            const tasks = document.getElementById('rodinSessionTasks');
+            const keyLbl = document.getElementById('rodinKeyLabel');
+            if (badge) {
+              badge.textContent = rData.connected ? 'ONLINE / POOLED' : 'SIMULATED / ACTIVE';
+              badge.className = rData.connected ? 'px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono border border-emerald-500/40 font-bold' : 'px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-mono border border-cyan-500/40 font-bold';
+            }
+            if (creds) creds.textContent = (rData.account_remaining_credits || 0).toFixed(1);
+            if (usd) usd.textContent = '$' + (rData.account_remaining_balance_usd || 0).toFixed(2);
+            if (tasks) tasks.textContent = (rData.session_total_tasks || 0);
+            if (keyLbl) keyLbl.textContent = rData.key_label || 'pooled-key';
+          }
+        } catch (rErr) {}
       } catch (err) {
         console.warn('Billing refresh failed:', err);
       }
@@ -5824,6 +6066,376 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       </div>
     </div>
   </div>
+
+    // -------------------------------------------------------------------------
+    // AgentSpace & Wasm Studio (Single-File SQLite VFS + Rodin 3D + 15 ArtCraft Apps)
+    // -------------------------------------------------------------------------
+    let currentSpaceScope = 'user';
+    let currentSpaceOwner = '';
+    let currentSpaceFile = '/src/main.py';
+
+    function switchSpaceScope(scope) {
+      currentSpaceScope = scope;
+      const userBtn = document.getElementById('scopeUserBtn');
+      const topicBtn = document.getElementById('scopeTopicBtn');
+      const ownerInput = document.getElementById('spaceOwnerInput');
+      if (scope === 'user') {
+        if (userBtn) { userBtn.className = 'px-2.5 py-1 rounded bg-purple-900 text-purple-200 font-semibold active:scale-95 transition'; }
+        if (topicBtn) { topicBtn.className = 'px-2.5 py-1 rounded text-slate-400 hover:text-white active:scale-95 transition'; }
+        if (ownerInput) { ownerInput.value = myPeerId || ''; ownerInput.placeholder = 'User Peer ID'; }
+      } else {
+        if (topicBtn) { topicBtn.className = 'px-2.5 py-1 rounded bg-indigo-900 text-indigo-200 font-semibold active:scale-95 transition'; }
+        if (userBtn) { userBtn.className = 'px-2.5 py-1 rounded text-slate-400 hover:text-white active:scale-95 transition'; }
+        if (ownerInput) { ownerInput.placeholder = 'Topic ID (e.g. topic-abc123)'; if (!ownerInput.value.startsWith('topic-')) ownerInput.value = ''; }
+      }
+      refreshAgentSpace();
+    }
+
+    async function refreshAgentSpace() {
+      const ownerInput = document.getElementById('spaceOwnerInput');
+      currentSpaceOwner = (ownerInput && ownerInput.value.trim()) || (myPeerId || 'default');
+      const fileListEl = document.getElementById('spaceFileList');
+      const badgeEl = document.getElementById('spaceFileCountBadge');
+      if (!fileListEl) return;
+      fileListEl.innerHTML = '<div class="text-slate-500 py-2 text-center text-xs">Fetching .space VFS...</div>';
+
+      try {
+        const resp = await fetch(`/api/space/ls?scope=${currentSpaceScope}&owner_id=${encodeURIComponent(currentSpaceOwner)}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        const files = data.files || [];
+        if (badgeEl) badgeEl.textContent = `${files.length} Files`;
+
+        if (files.length === 0) {
+          fileListEl.innerHTML = '<div class="text-slate-500 py-2 text-center text-xs">No files in space yet. Click + New File or Generate 3D.</div>';
+          return;
+        }
+
+        fileListEl.innerHTML = files.map(f => {
+          const isSelected = f.path === currentSpaceFile;
+          const bg = isSelected ? 'bg-purple-950/80 text-purple-200 font-bold border-l-2 border-purple-400' : 'hover:bg-slate-900 text-slate-300';
+          const icon = f.path.endsWith('.glb') ? '🧊' : (f.path.endsWith('.py') ? '🐍' : (f.path.endsWith('.js') ? '⚡' : '📄'));
+          return `
+            <div onclick="openAgentSpaceFile('${f.path}')" class="px-2 py-1.5 cursor-pointer flex items-center justify-between transition ${bg}">
+              <div class="flex items-center gap-1.5 truncate">
+                <span>${icon}</span>
+                <span class="truncate">${f.path}</span>
+              </div>
+              <span class="text-[9px] text-slate-500 shrink-0 font-mono">${f.size_bytes}b</span>
+            </div>
+          `;
+        }).join('');
+
+        if (!document.getElementById('agentspaceEditor').value && files.length > 0) {
+          openAgentSpaceFile(files[0].path);
+        }
+      } catch (err) {
+        fileListEl.innerHTML = `<div class="text-red-400 py-2 text-center text-xs">Error loading space: ${err.message}</div>`;
+      }
+    }
+
+    async function openAgentSpaceFile(path) {
+      currentSpaceFile = path;
+      const pathEl = document.getElementById('activeFilePath');
+      const mimeEl = document.getElementById('activeFileMime');
+      const editor = document.getElementById('agentspaceEditor');
+      if (pathEl) pathEl.textContent = path;
+      if (editor) editor.value = 'Loading...';
+
+      try {
+        const resp = await fetch(`/api/space/file?scope=${currentSpaceScope}&owner_id=${encodeURIComponent(currentSpaceOwner)}&path=${encodeURIComponent(path)}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const rec = await resp.json();
+        if (mimeEl) mimeEl.textContent = rec.mime_type || 'text/plain';
+        if (editor) {
+          if (rec.content !== null && rec.content !== undefined) {
+            editor.value = rec.content;
+          } else {
+            editor.value = `[Binary Asset: ${rec.size_bytes} bytes | SHA256: ${rec.sha256}]\n(Base64 payload available in .space)`;
+          }
+        }
+      } catch (err) {
+        if (editor) editor.value = `Error loading file: ${err.message}`;
+      }
+    }
+
+    async function saveAgentSpaceFile() {
+      const editor = document.getElementById('agentspaceEditor');
+      if (!editor) return;
+      const content = editor.value;
+      try {
+        const resp = await fetch('/api/space/file', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scope: currentSpaceScope,
+            owner_id: currentSpaceOwner,
+            path: currentSpaceFile,
+            content: content,
+            action: 'write',
+            updated_by: myPeerId || 'user'
+          })
+        });
+        if (resp.ok) {
+          if (typeof playXpChime === 'function') playXpChime();
+          refreshAgentSpace();
+          const outEl = document.getElementById('agentspaceOutput');
+          if (outEl) outEl.textContent = `[+] File ${currentSpaceFile} saved to ${currentSpaceScope}:${currentSpaceOwner}.space!`;
+        } else {
+          alert('Save failed: ' + resp.statusText);
+        }
+      } catch (err) {
+        alert('Save error: ' + err.message);
+      }
+    }
+
+    async function deleteAgentSpaceFile() {
+      if (!confirm(`Delete ${currentSpaceFile} from space?`)) return;
+      try {
+        const resp = await fetch('/api/space/file', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scope: currentSpaceScope,
+            owner_id: currentSpaceOwner,
+            path: currentSpaceFile,
+            action: 'delete'
+          })
+        });
+        if (resp.ok) {
+          currentSpaceFile = '/src/main.py';
+          refreshAgentSpace();
+        }
+      } catch (err) {
+        alert('Delete error: ' + err.message);
+      }
+    }
+
+    function promptCreateFile() {
+      const name = prompt('Enter new file path inside space (e.g. /src/solution.py, /artcraft/notes.md):', '/src/script.py');
+      if (!name) return;
+      currentSpaceFile = name;
+      const editor = document.getElementById('agentspaceEditor');
+      if (editor) editor.value = '# New file in AgentSpace VFS\n';
+      saveAgentSpaceFile();
+    }
+
+    async function runAgentSpacePlayground() {
+      const outEl = document.getElementById('agentspaceOutput');
+      const exitEl = document.getElementById('playgroundExitCode');
+      const rtSelect = document.getElementById('playgroundRuntimeSelect');
+      const editor = document.getElementById('agentspaceEditor');
+      const runtime = (rtSelect && rtSelect.value) || 'auto';
+      if (outEl) outEl.textContent = '🚀 Running code / Wasm bridge...';
+
+      try {
+        const resp = await fetch('/api/space/exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scope: currentSpaceScope,
+            owner_id: currentSpaceOwner,
+            entrypoint: currentSpaceFile,
+            runtime: runtime,
+            code_override: editor ? editor.value : null
+          })
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        if (exitEl) exitEl.textContent = `Exit: ${data.exit_code}`;
+        let txt = '';
+        if (data.stdout) txt += data.stdout;
+        if (data.stderr) txt += (txt ? '\n' : '') + data.stderr;
+        if (!txt) txt = `[Execution finished with exit code ${data.exit_code}]`;
+        if (outEl) {
+          outEl.textContent = txt;
+          outEl.className = data.exit_code === 0 ? 'whitespace-pre-wrap select-text text-emerald-400' : 'whitespace-pre-wrap select-text text-red-400';
+        }
+      } catch (err) {
+        if (outEl) {
+          outEl.textContent = `Execution error: ${err.message}`;
+          outEl.className = 'whitespace-pre-wrap select-text text-red-400';
+        }
+      }
+    }
+
+    async function runAgentSpaceAgent() {
+      const promptText = prompt('Ask Space Agent (generates solutions inside this VFS):', 'Refactor and test this code');
+      if (!promptText) return;
+      const outEl = document.getElementById('agentspaceOutput');
+      if (outEl) outEl.textContent = `🤖 Space Agent analyzing ${currentSpaceFile}...`;
+
+      try {
+        const resp = await fetch('/api/space/agent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scope: currentSpaceScope,
+            owner_id: currentSpaceOwner,
+            prompt: promptText,
+            model_alias: 'gemini-brain',
+            author: myPeerId || 'user'
+          })
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        if (outEl) {
+          outEl.textContent = `[🤖 ${data.model}]\n${data.reply}`;
+          outEl.className = 'whitespace-pre-wrap select-text text-cyan-300';
+        }
+      } catch (err) {
+        if (outEl) outEl.textContent = `Space agent error: ${err.message}`;
+      }
+    }
+
+    async function generateAgentSpaceRodin3D() {
+      const pInput = document.getElementById('rodinPromptInput');
+      const tSelect = document.getElementById('rodinTierSelect');
+      const fSelect = document.getElementById('rodinFormatSelect');
+      const notice = document.getElementById('rodinStatusNotice');
+      const btn = document.getElementById('generateRodinBtn');
+      const promptVal = (pInput && pInput.value.trim()) || 'futuristic rover 3d mesh';
+      const tierVal = (tSelect && tSelect.value) || 'Regular';
+      const formatVal = (fSelect && fSelect.value) || 'glb';
+
+      if (btn) btn.disabled = true;
+      if (notice) notice.textContent = 'Dispatched to Hyper3D Rodin...';
+
+      try {
+        const savePath = `/models3d/${promptVal.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase().slice(0, 20)}.${formatVal}`;
+        const resp = await fetch('/api/3d/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: promptVal,
+            tier: tierVal,
+            format: formatVal,
+            scope: currentSpaceScope,
+            owner_id: currentSpaceOwner,
+            save_path: savePath,
+            peer_id: myPeerId || 'user'
+          })
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        if (notice) notice.textContent = `✅ Generated 3D: ${data.uuid} (Saved: ${savePath})`;
+        refreshAgentSpace();
+        refreshBillingWindow();
+      } catch (err) {
+        if (notice) notice.textContent = `Generation error: ${err.message}`;
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    function launchArtCraftWasmApp() {
+      const appSelect = document.getElementById('artcraftAppSelect');
+      const wrapper = document.getElementById('artcraftIframeWrapper');
+      const frame = document.getElementById('artcraftWasmFrame');
+      const statusPill = document.getElementById('artcraftStatusPill');
+      const appId = (appSelect && appSelect.value) || 'cadcraft';
+      if (!wrapper || !frame) return;
+
+      wrapper.classList.remove('hidden');
+      if (statusPill) {
+        statusPill.textContent = 'CONNECTING (?host=parent)';
+        statusPill.className = 'px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-mono border border-purple-500/40 font-semibold';
+      }
+
+      const appUrl = `https://${appId}.getartcraft.com/?host=parent`;
+      frame.src = appUrl;
+    }
+
+    async function exportAgentSpace() {
+      try {
+        const resp = await fetch(`/api/space/export?scope=${currentSpaceScope}&owner_id=${encodeURIComponent(currentSpaceOwner)}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        const blob = new Blob([Uint8Array.from(atob(data.space_b64), c => c.charCodeAt(0))], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = data.filename || `${currentSpaceOwner}.space`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        alert('Export error: ' + err.message);
+      }
+    }
+
+    // ArtCraft Wasm (?host=parent) PostMessage Bridge
+    window.addEventListener("message", async function(event) {
+      const data = event.data;
+      if (!data || typeof data !== 'object') return;
+      const eventType = data.type || data.event || '';
+
+      if (eventType.endsWith(':ready')) {
+        const appPrefix = eventType.split(':')[0];
+        console.log(`[ArtCraft Wasm Bridge] App ${appPrefix} is READY. Sending ${appPrefix}:open...`);
+        const statusEl = document.getElementById('artcraftStatusPill');
+        if (statusEl) {
+          statusEl.textContent = 'READY';
+          statusEl.className = 'px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono border border-emerald-500/40 font-semibold';
+        }
+        const editor = document.getElementById('agentspaceEditor');
+        const content = editor ? editor.value : '';
+        const frame = document.getElementById('artcraftWasmFrame');
+        if (frame && frame.contentWindow) {
+          frame.contentWindow.postMessage({
+            type: `${appPrefix}:open`,
+            name: currentSpaceFile.split('/').pop(),
+            path: currentSpaceFile,
+            content: content,
+            format: currentSpaceFile.split('.').pop()
+          }, '*');
+        }
+      } else if (eventType.endsWith(':dirty')) {
+        const statusEl = document.getElementById('artcraftStatusPill');
+        if (statusEl) {
+          statusEl.textContent = data.dirty ? 'UNSAVED CHANGES' : 'CLEAN';
+          statusEl.className = data.dirty ? 'px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono border border-amber-500/40 font-semibold' : 'px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[10px] font-mono';
+        }
+      } else if (eventType.endsWith(':save')) {
+        const appPrefix = eventType.split(':')[0];
+        console.log(`[ArtCraft Wasm Bridge] Received ${appPrefix}:save event. Writing to .space VFS...`);
+        const savePath = data.path || currentSpaceFile;
+        const saveContent = data.content !== undefined ? data.content : (data.bytes || '');
+        const isB64 = Boolean(data.is_base64 || data.bytes);
+        try {
+          const resp = await fetch('/api/space/file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              scope: currentSpaceScope,
+              owner_id: currentSpaceOwner || (myPeerId || 'default'),
+              path: savePath,
+              content: saveContent,
+              action: 'write',
+              is_base64: isB64,
+              updated_by: myPeerId || 'user'
+            })
+          });
+          if (resp.ok) {
+            const statusEl = document.getElementById('artcraftStatusPill');
+            if (statusEl) {
+              statusEl.textContent = 'SAVED TO VFS';
+              statusEl.className = 'px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono border border-emerald-500/40 font-semibold';
+            }
+            refreshAgentSpace();
+          }
+        } catch (e) {
+          console.error('[ArtCraft Wasm Bridge] Failed to save file:', e);
+        }
+      }
+    });
+
+    setTimeout(() => {
+      const ownerInput = document.getElementById('spaceOwnerInput');
+      if (ownerInput && myPeerId) ownerInput.value = myPeerId;
+      refreshAgentSpace();
+    }, 2000);
   </script>
 </body>
 </html>
