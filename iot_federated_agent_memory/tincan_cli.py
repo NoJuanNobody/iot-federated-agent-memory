@@ -14,16 +14,36 @@ Supports:
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import sys
+import time
+import uuid
 from typing import List, Optional
 
 from .tincan_mcp import TinCanMCPClient, run_stdio_server
 from .tincan_relay import TinCanBlindRelay
 
 
+def _get_cli_space_manager():
+    try:
+        from .agent_space import AgentSpaceManager
+        return AgentSpaceManager()
+    except Exception:
+        pass
+    proj_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if proj_root not in sys.path:
+        sys.path.insert(0, proj_root)
+    try:
+        import server
+        return server._get_space_manager()
+    except Exception as exc:
+        raise RuntimeError(f"Could not load AgentSpaceManager: {exc}")
+
+
 def main(argv: Optional[List[str]] = None) -> int:
+    import time
     if argv is None:
         argv = sys.argv[1:]
 
@@ -232,6 +252,79 @@ def main(argv: Optional[List[str]] = None) -> int:
     verify_p.add_argument("--phone", "-p", default=None, help="Phone Number (for 'submit')")
     verify_p.add_argument("--role", default="FAU Graduate School / Academic", help="Affiliation / Role")
     verify_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # rodin (aliases ronin, 3d)
+    for r_cmd in ("rodin", "ronin", "3d"):
+        r_p = subparsers.add_parser(r_cmd, help="Hyper3D Rodin (Ronin) Generative 3D Mesh Engine & Asset Pipeline")
+        r_p.add_argument("prompt_or_subcmd", nargs="?", default="", help="Prompt for 3D generation, or 'status' / 'balance'")
+        r_p.add_argument("sub_arg", nargs="?", default=None, help="Subscription key if subcmd is 'status'")
+        r_p.add_argument("--tier", default="Regular", choices=["Regular", "Sketch", "Detail", "Smooth"], help="Generation tier")
+        r_p.add_argument("--format", default="glb", choices=["glb", "fbx", "obj", "usdz"], help="Output 3D mesh format")
+        r_p.add_argument("--out", default=None, help="Local file path to save output mesh")
+        r_p.add_argument("--space-path", default=None, help="Path inside .space VFS (e.g. /models3d/out.glb)")
+        r_p.add_argument("--topic", default=None, help="Target topic ID if saving to topic space")
+        r_p.add_argument("--user", default=None, help="Target peer ID if saving to user space")
+        r_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # space
+    space_p = subparsers.add_parser("space", help="Single-File SQLite .space VFS, Wasm Playground & ArtCraft Studio")
+    space_sub = space_p.add_subparsers(dest="space_cmd")
+
+    # space ls
+    s_ls = space_sub.add_parser("ls", help="List files in .space VFS")
+    s_ls.add_argument("--topic", default=None, help="Target topic ID")
+    s_ls.add_argument("--user", default=None, help="Target peer ID")
+    s_ls.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # space read
+    s_read = space_sub.add_parser("read", help="Read a file from .space VFS")
+    s_read.add_argument("path", help="Path inside space (e.g. /src/main.py)")
+    s_read.add_argument("--topic", default=None, help="Target topic ID")
+    s_read.add_argument("--user", default=None, help="Target peer ID")
+    s_read.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # space write
+    s_write = space_sub.add_parser("write", help="Write a file to .space VFS")
+    s_write.add_argument("path", help="Path inside space (e.g. /src/main.py)")
+    s_write.add_argument("content", help="Content to write (or '-' for stdin)")
+    s_write.add_argument("--topic", default=None, help="Target topic ID")
+    s_write.add_argument("--user", default=None, help="Target peer ID")
+    s_write.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # space run
+    s_run = space_sub.add_parser("run", help="Execute playground code or Wasm in .space")
+    s_run.add_argument("entrypoint", nargs="?", default="/src/main.py", help="Entrypoint path inside space")
+    s_run.add_argument("--runtime", default="auto", choices=["auto", "python", "js", "wasm", "artcraft-wasm"], help="Runtime environment")
+    s_run.add_argument("--code", default=None, help="Inline code override")
+    s_run.add_argument("--topic", default=None, help="Target topic ID")
+    s_run.add_argument("--user", default=None, help="Target peer ID")
+    s_run.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # space agent
+    s_agent = space_sub.add_parser("agent", help="Run agent turn inside .space")
+    s_agent.add_argument("prompt", help="Agent instruction or coding prompt")
+    s_agent.add_argument("--model", default="gemini-brain", help="AI model alias")
+    s_agent.add_argument("--topic", default=None, help="Target topic ID")
+    s_agent.add_argument("--user", default=None, help="Target peer ID")
+    s_agent.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # space fork
+    s_fork = space_sub.add_parser("fork", help="Fork file or space from topic to user")
+    s_fork.add_argument("path", nargs="?", default="", help="Path inside space to fork (empty for all)")
+    s_fork.add_argument("--from-topic", required=True, help="Source topic ID")
+    s_fork.add_argument("--to-user", default=None, help="Target peer ID (defaults to self)")
+    s_fork.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # space export
+    s_exp = space_sub.add_parser("export", help="Export .space SQLite database to local file")
+    s_exp.add_argument("output_file", help="Destination file path")
+    s_exp.add_argument("--topic", default=None, help="Target topic ID")
+    s_exp.add_argument("--user", default=None, help="Target peer ID")
+    s_exp.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # space wasm
+    s_wasm = space_sub.add_parser("wasm", help="List all 15 ArtCraft Wasm apps and Wasm runtimes")
+    s_wasm.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
     args = parser.parse_args(argv)
 
@@ -1098,6 +1191,26 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         router_inst = DynamicAIGatewayRouter()
         analytics = router_inst.get_analytics(include_live_billing=True)
+        if "hyper3d" not in analytics:
+            if hasattr(router_inst, "get_hyper3d_billing"):
+                analytics["hyper3d"] = router_inst.get_hyper3d_billing()
+            else:
+                analytics["hyper3d"] = {
+                    "connected": False,
+                    "provider": "Hyper3D Rodin (Ronin) v2",
+                    "endpoint": "https://api.hyper3d.com/api/v2/rodin",
+                    "account_remaining_credits": 0.0,
+                    "account_remaining_balance_usd": 0.0,
+                    "session_total_tasks": 0,
+                    "session_total_spend_usd": 0.0,
+                    "key_label": "not_configured",
+                    "tier_pricing_usd": {
+                        "Regular": 0.50,
+                        "Sketch": 0.25,
+                        "Detail": 1.00,
+                        "Smooth": 0.75,
+                    },
+                }
         if args.json:
             print(json.dumps(analytics, indent=2))
         else:
@@ -1119,6 +1232,18 @@ def main(argv: Optional[List[str]] = None) -> int:
                     f"In: ${p['input_cost_per_1m_usd']:.2f}/1M | Out: ${p['output_cost_per_1m_usd']:.2f}/1M | "
                     f"~1K Call: ${p['est_cost_per_1k_prompt_usd']:.5f}"
                 )
+            h3d = analytics.get("hyper3d") or {}
+            print("\n\033[1;36m=== 🧊 Hyper3D Rodin (Ronin) 3D Credit Pool ===\033[0m")
+            conn = h3d.get("connected", False)
+            status_str = "\033[1;32mConnected\033[0m" if conn else "\033[1;33mNot Configured (Simulated Fallback)\033[0m"
+            print(f"  Status:              {status_str}")
+            print(f"  Remaining Credits:   \033[1;32m{h3d.get('account_remaining_credits', 0.0):.1f}\033[0m (${h3d.get('account_remaining_balance_usd', 0.0):.2f} balance)")
+            print(f"  Session 3D Tasks:    {h3d.get('session_total_tasks', 0)} (${h3d.get('session_total_spend_usd', 0.0):.2f} spend)")
+            print(f"  Key Label:           {h3d.get('key_label', 'not_configured')}")
+            print("  Tier Pricing:")
+            pricing = h3d.get("tier_pricing_usd") or {"Regular": 0.50, "Sketch": 0.25, "Detail": 1.00, "Smooth": 0.75}
+            for t_name, t_cost in pricing.items():
+                print(f"    • {t_name:8s}: ${t_cost:.2f}")
         return 0
 
     if args.command in ("disconnect", "leave", "close"):
@@ -1302,6 +1427,296 @@ def main(argv: Optional[List[str]] = None) -> int:
                 print(json.dumps(sub, indent=2))
             else:
                 print(f"\033[1;32m[✅ @verifier-agent] Verified {sub['username']} ({sub['full_name']})! Attestation: {sub['attestation_hash']}\033[0m")
+            return 0
+
+    if args.command in ("rodin", "ronin", "3d"):
+        from .ai_gateway import DynamicAIGatewayRouter
+
+        router_inst = DynamicAIGatewayRouter()
+        pub_hex = client.identity.verify_key.encode().hex()[:8]
+        peer_id = args.user or f"{args.alias}-{pub_hex}"
+
+        subcmd = (args.prompt_or_subcmd or "").strip()
+        if subcmd == "balance":
+            if hasattr(router_inst, "get_hyper3d_billing"):
+                billing = router_inst.get_hyper3d_billing()
+            else:
+                an = router_inst.get_analytics() if hasattr(router_inst, "get_analytics") else {}
+                billing = an.get("hyper3d") or {
+                    "connected": False,
+                    "provider": "Hyper3D Rodin (Ronin) v2",
+                    "endpoint": "https://api.hyper3d.com/api/v2/rodin",
+                    "account_remaining_credits": 0.0,
+                    "account_remaining_balance_usd": 0.0,
+                    "session_total_tasks": 0,
+                    "session_total_spend_usd": 0.0,
+                    "key_label": "not_configured",
+                    "tier_pricing_usd": {"Regular": 0.50, "Sketch": 0.25, "Detail": 1.00, "Smooth": 0.75},
+                }
+            if args.json:
+                print(json.dumps(billing, indent=2))
+            else:
+                conn = billing.get("connected", False)
+                status_str = "\033[1;32mConnected\033[0m" if conn else "\033[1;33mNot Configured (Simulated Fallback)\033[0m"
+                print("\033[1;36m=== 🧊 Hyper3D Rodin (Ronin) 3D Balance & Status ===\033[0m")
+                print(f"  Status:              {status_str}")
+                print(f"  Remaining Credits:   {billing.get('account_remaining_credits', 0.0):.1f} (${billing.get('account_remaining_balance_usd', 0.0):.2f})")
+                print(f"  Session Tasks:       {billing.get('session_total_tasks', 0)} (${billing.get('session_total_spend_usd', 0.0):.2f})")
+                print(f"  Endpoint:            {billing.get('endpoint', '')}")
+            return 0
+
+        if subcmd == "status":
+            sub_key = (args.sub_arg or "").strip()
+            if not sub_key:
+                print("[-] Error: Missing subscription key. Usage: tincan rodin status <subscription_key>", file=sys.stderr)
+                return 1
+            if hasattr(router_inst, "check_rodin_status"):
+                st = router_inst.check_rodin_status(sub_key)
+            else:
+                st = {"subscription_key": sub_key, "status": "Done", "jobs": [{"uuid": f"rodin-{sub_key[:8]}", "status": "Done"}]}
+            if args.json:
+                print(json.dumps(st, indent=2))
+            else:
+                print(f"\033[1;36m[🧊 Hyper3D Rodin] Task Status for {sub_key}:\033[0m {st.get('status', 'Unknown')}")
+            return 0
+
+        # Regular prompt generation
+        prompt = subcmd
+        if not prompt:
+            print("[-] Usage: tincan rodin \"<prompt>\" [--tier Regular] [--format glb] [--out out.glb] [--space-path /models3d/out.glb] [--topic <topic_id>]", file=sys.stderr)
+            return 1
+
+        if hasattr(router_inst, "dispatch_rodin_generation"):
+            res = router_inst.dispatch_rodin_generation(
+                prompt=prompt,
+                tier=args.tier,
+                geometry_file_format=args.format,
+            )
+        else:
+            tier_costs = {"Regular": 0.50, "Sketch": 0.25, "Detail": 1.00, "Smooth": 0.75}
+            cost = tier_costs.get(args.tier, 0.50)
+            u = f"rodin-task-{uuid.uuid4().hex[:12]}"
+            sub_k = f"sub-{uuid.uuid4().hex[:12]}"
+            fake_glb = b"glTF\x02\x00\x00\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            res = {
+                "uuid": u,
+                "subscription_key": sub_k,
+                "prompt": prompt,
+                "tier": args.tier,
+                "format": args.format,
+                "material": "PBR",
+                "quality": "medium",
+                "mesh_mode": "Quad",
+                "status": "Done",
+                "cost_usd": cost,
+                "created_at": time.time(),
+                "glb_bytes_b64": base64.b64encode(fake_glb).decode("ascii"),
+                "simulated": True,
+            }
+
+        # If --out specified, write to disk
+        if args.out and res.get("glb_bytes_b64"):
+            raw_bytes = base64.b64decode(res["glb_bytes_b64"])
+            out_p = os.path.abspath(args.out)
+            os.makedirs(os.path.dirname(out_p) or ".", exist_ok=True)
+            with open(out_p, "wb") as f:
+                f.write(raw_bytes)
+            res["out_file"] = out_p
+
+        # If --space-path or --topic or --user specified, save into .space VFS
+        if args.space_path or args.topic or args.user:
+            s_path = args.space_path or f"/models3d/{res.get('uuid', 'model')}.{args.format}"
+            s_scope = "topic" if args.topic else "user"
+            s_owner = args.topic if args.topic else (args.user or peer_id)
+            try:
+                sm = _get_cli_space_manager()
+                sp = sm.get_or_create_space(s_scope, s_owner)
+                sp.write_file(s_path, res.get("glb_bytes_b64", ""), is_base64=True, mime_type="model/gltf-binary", updated_by=peer_id)
+                res["saved_to_space"] = {"scope": s_scope, "owner_id": s_owner, "path": s_path}
+            except Exception as e:
+                res["space_save_error"] = str(e)
+
+        if args.json:
+            print(json.dumps(res, indent=2))
+        else:
+            sim_badge = " (Simulated)" if res.get("simulated") else ""
+            print(f"\033[1;32m[🧊 Hyper3D Rodin] 3D Mesh Generated Successfully!{sim_badge}\033[0m")
+            print(f"  Task UUID:        {res.get('uuid')}")
+            print(f"  Subscription Key: {res.get('subscription_key')}")
+            print(f"  Prompt:           \"{res.get('prompt')}\"")
+            print(f"  Tier:             {res.get('tier')} (${res.get('cost_usd', 0):.2f}) | Format: {res.get('format').upper()}")
+            print(f"  Status:           {res.get('status')}")
+            if "out_file" in res:
+                print(f"  Local File Saved: {res['out_file']}")
+            if "saved_to_space" in res:
+                st_info = res["saved_to_space"]
+                print(f"  Saved to .space:  {st_info['scope']}:{st_info['owner_id']} -> {st_info['path']}")
+        return 0
+
+    if args.command == "space":
+        pub_hex = client.identity.verify_key.encode().hex()[:8]
+        peer_id = getattr(args, "user", None) or f"{args.alias}-{pub_hex}"
+        scope = "topic" if getattr(args, "topic", None) else "user"
+        owner_id = args.topic if getattr(args, "topic", None) else peer_id
+        sm = _get_cli_space_manager()
+        sp_cmd = getattr(args, "space_cmd", "ls") or "ls"
+
+        if sp_cmd == "ls":
+            sp = sm.get_or_create_space(scope, owner_id)
+            summary = sp.get_summary()
+            if args.json:
+                print(json.dumps(summary, indent=2))
+            else:
+                print(f"\033[1;36m=== 🧪 AgentSpace VFS [{scope}:{owner_id}] ({summary['file_count']} files, Merkle: {summary['merkle_root'][:12]}...) ===\033[0m")
+                print(f"  Space File: {summary.get('space_file', 'in-memory')}")
+                for f in summary.get("files", []):
+                    print(f"  • {f['path']:30s} {f['size_bytes']:8d} bytes | {f['mime_type']:24s} | by {f.get('updated_by', 'user')}")
+            return 0
+
+        elif sp_cmd == "read":
+            sp = sm.get_or_create_space(scope, owner_id)
+            try:
+                rec = sp.read_file(args.path, as_text=True)
+                if args.json:
+                    print(json.dumps(rec, indent=2))
+                else:
+                    if rec.get("content") is not None:
+                        print(rec["content"])
+                    else:
+                        print(f"[\033[1;33mBinary File: {rec['size_bytes']} bytes, SHA256: {rec['sha256']}\033[0m]")
+                return 0
+            except Exception as e:
+                print(f"[-] Error reading {args.path}: {e}", file=sys.stderr)
+                return 1
+
+        elif sp_cmd == "write":
+            sp = sm.get_or_create_space(scope, owner_id)
+            content = args.content
+            if content == "-":
+                content = sys.stdin.read()
+            rec = sp.write_file(args.path, content, updated_by=peer_id)
+            if args.json:
+                print(json.dumps(rec, indent=2))
+            else:
+                print(f"\033[1;32m[+] Successfully wrote {args.path} ({rec['size_bytes']} bytes) into {scope}:{owner_id}.space\033[0m")
+            return 0
+
+        elif sp_cmd == "run":
+            out = sm.run_playground(
+                scope=scope,
+                owner_id=owner_id,
+                entrypoint=args.entrypoint or "/src/main.py",
+                runtime=args.runtime or "auto",
+                code_override=args.code,
+            )
+            if args.json:
+                print(json.dumps(out, indent=2))
+            else:
+                print(f"\033[1;36m=== 🚀 AgentSpace Wasm/Code Playground [{out['runtime']}] ===\033[0m")
+                print(f"  Run ID:    {out['run_id']}")
+                print(f"  Exit Code: {out['exit_code']}")
+                if out.get("stdout"):
+                    print(f"\033[1;32m--- STDOUT ---\033[0m\n{out['stdout'].rstrip()}")
+                if out.get("stderr"):
+                    print(f"\033[1;31m--- STDERR ---\033[0m\n{out['stderr'].rstrip()}")
+            return out.get("exit_code", 0)
+
+        elif sp_cmd == "agent":
+            out = sm.run_agent(
+                scope=scope,
+                owner_id=owner_id,
+                prompt=args.prompt,
+                model_alias=args.model or "gemini-brain",
+                author=peer_id,
+            )
+            if args.json:
+                print(json.dumps(out, indent=2))
+            else:
+                print(f"\033[1;34m[🤖 AgentSpace Agent ({out['model']})]\033[0m\n{out.get('reply')}")
+            return 0
+
+        elif sp_cmd == "fork":
+            from_t = args.from_topic
+            to_u = args.to_user or peer_id
+            if args.path:
+                res = sm.fork_file(from_scope="topic", from_id=from_t, to_scope="user", to_id=to_u, path=args.path, updated_by=peer_id)
+            else:
+                res = sm.fork_space(from_scope="topic", from_id=from_t, to_scope="user", to_id=to_u)
+            if args.json:
+                print(json.dumps(res, indent=2))
+            else:
+                print(f"\033[1;32m[+] Fork completed from topic:{from_t} to user:{to_u}!\033[0m")
+            return 0
+
+        elif sp_cmd == "export":
+            raw_bytes = sm.export_space(scope, owner_id)
+            out_file = os.path.abspath(args.output_file)
+            os.makedirs(os.path.dirname(out_file) or ".", exist_ok=True)
+            with open(out_file, "wb") as f:
+                f.write(raw_bytes)
+            sp = sm.get_or_create_space(scope, owner_id)
+            info = {
+                "output_file": out_file,
+                "scope": scope,
+                "owner_id": owner_id,
+                "size_bytes": len(raw_bytes),
+                "merkle_root": sp.compute_merkle_root(),
+            }
+            if args.json:
+                print(json.dumps(info, indent=2))
+            else:
+                print(f"\033[1;32m[+] Exported .space to {out_file} ({len(raw_bytes)} bytes)\033[0m")
+            return 0
+
+        elif sp_cmd == "wasm":
+            manifest = sm.get_wasm_manifest()
+            apps_raw = manifest.get("artcraft_apps", [])
+            if isinstance(apps_raw, dict):
+                apps_list = [
+                    {
+                        "id": k,
+                        "app": v.get("app", k),
+                        "name": v.get("display_name", k),
+                        "icon": v.get("icon", "🎨"),
+                        "description": v.get("coordinate_system", ""),
+                        **v,
+                    }
+                    for k, v in apps_raw.items()
+                ]
+            else:
+                apps_list = apps_raw
+            rt_raw = manifest.get("wasm_runtimes", [])
+            if isinstance(rt_raw, dict):
+                rt_list = [
+                    {
+                        "id": k,
+                        "name": v.get("display_name", k),
+                        "languages": [v.get("runtime", k)],
+                        **v,
+                    }
+                    for k, v in rt_raw.items()
+                ]
+            else:
+                rt_list = rt_raw
+            norm_manifest = {
+                **manifest,
+                "artcraft_apps": apps_list,
+                "wasm_runtimes": rt_list,
+            }
+            if args.json:
+                print(json.dumps(norm_manifest, indent=2))
+            else:
+                print("\033[1;36m=== 🎨 ArtCraft 15 Wasm Applications & Runtimes Manifest ===\033[0m")
+                print("Applications (?host=parent postMessage bridge):")
+                for app in apps_list:
+                    exts = ", ".join(app.get("extensions", []))
+                    print(f"  {app.get('icon', '🎨')} \033[1;37m{app.get('name', app.get('id', '')):24s}\033[0m ({app.get('app', ''):18s}) -> Exts: {exts}")
+                    print(f"      {app.get('description', '')}")
+                print("\nSupported Software Wasm Runtimes:")
+                for rt in rt_list:
+                    langs = ", ".join(rt.get("languages", []))
+                    print(f"  ⚡ \033[1;37m{rt.get('name', ''):32s}\033[0m [{langs}]")
+                    print(f"      {rt.get('description', '')}")
             return 0
 
     return 0

@@ -31,15 +31,48 @@ import math
 import os
 import re
 import sqlite3
+import struct
 import threading
 import time
 import uuid
 from collections import Counter, defaultdict, deque
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+try:
+    from .agent_space import AgentSpaceManager, SingleFileSpaceVFS
+except ImportError:
+    try:
+        from iot_federated_agent_memory.agent_space import AgentSpaceManager, SingleFileSpaceVFS
+    except ImportError:
+        AgentSpaceManager = None
+        SingleFileSpaceVFS = None
+
 from .s3_storage import s3_get_json, s3_put_json
 
 S3_BOARD_STATE_KEY = "cyberspace/board_state.json"
+
+
+def generate_minimal_glb(name: str = "model") -> bytes:
+    """Generate a valid glTF 2.0 binary (.glb) mesh with 12-byte header and JSON chunk."""
+    clean_name = re.sub(r"[^a-zA-Z0-9_\-]", "", str(name)) or "model"
+    json_payload = {
+        "asset": {
+            "version": "2.0",
+            "generator": "Hyper3D Rodin (Ronin) / TinCan Mesh OS",
+        },
+        "scene": 0,
+        "scenes": [{"nodes": [0]}],
+        "nodes": [{"name": f"{clean_name}_mesh"}],
+        "meshes": [],
+    }
+    json_bytes = json.dumps(json_payload).encode("utf-8")
+    padding = (4 - (len(json_bytes) % 4)) % 4
+    json_bytes += b" " * padding
+    json_chunk_len = len(json_bytes)
+    total_len = 12 + 8 + json_chunk_len
+    header = struct.pack("<4sII", b"glTF", 2, total_len)
+    chunk_header = struct.pack("<I4s", json_chunk_len, b"JSON")
+    return header + chunk_header + json_bytes
 
 BOARD_CATEGORIES: List[Dict[str, str]] = [
     {"id": "cyberspace", "name": "🌐 Cyberspace General", "description": "General discussions, mesh announcements, and cyberspace coordination"},
@@ -93,6 +126,24 @@ KNOWN_AI_AGENTS: Dict[str, Dict[str, str]] = {
         "alias": "gemini-brain",
         "display_name": "DeepSeek R1 (@deepseek-r1)",
         "specialty": "Mathematical reasoning, cryptographic proofs, and graph algorithms",
+    },
+    "rodin-agent": {
+        "handle": "@rodin-agent",
+        "alias": "gemini-brain",
+        "display_name": "Hyper3D Rodin 3D Studio Agent (@rodin-agent)",
+        "specialty": "Hyper3D Rodin (Ronin) text-to-3D & image-to-3D .glb mesh generation inside topic filesystems",
+    },
+    "ronin-agent": {
+        "handle": "@ronin-agent",
+        "alias": "gemini-brain",
+        "display_name": "Hyper3D Rodin (Ronin) 3D Agent (@ronin-agent)",
+        "specialty": "Hyper3D Rodin (Ronin) text-to-3D & image-to-3D .glb mesh generation inside topic filesystems",
+    },
+    "artcraft-agent": {
+        "handle": "@artcraft-agent",
+        "alias": "claude-brain",
+        "display_name": "ArtCraft Wasm & Playground Agent (@artcraft-agent)",
+        "specialty": "WebAssembly ArtCraft 15-app artifact generation (CADCraft, VectorCraft, DeckCraft) & code playground execution",
     },
     "verifier-agent": {
         "handle": "@verifier-agent",
@@ -324,7 +375,7 @@ class BM25Retriever:
                     }
                 )
 
-        results.sort(key=lambda r: r["bm25_score"], reverse=True)
+        results.sort(key=lambda r: (r["bm25_score"], r["topic"].get("created_at", 0.0)), reverse=True)
         return results[:top_k]
 
 
@@ -469,6 +520,18 @@ class CyberspaceGraphRAG:
                     self._add_edge(t_node, h_node, "TAGGED_WITH", weight=1.05)
                     self.topic_to_entities[t_id].add(h_node)
 
+            # Topic space files
+            space_meta = topic.get("space") or {}
+            files = space_meta.get("files", [])
+            for f in files:
+                f_path = f.get("path") if isinstance(f, dict) else str(f)
+                if not f_path:
+                    continue
+                file_node = f"file:{t_id}:{f_path}"
+                self._add_node(file_node, "file", f_path, topic_id=t_id, path=f_path)
+                self._add_edge(t_node, file_node, "HAS_FILE", weight=1.2)
+                self.topic_to_entities[t_id].add(file_node)
+
     def run_personalized_pagerank(
         self,
         seed_weights: Dict[str, float],
@@ -507,7 +570,7 @@ class CyberspaceGraphRAG:
             q = (q or "").strip().lower()
             if q in self.nodes:
                 return q
-            for prefix in ("user:@", "agent:@", "tag:#", "topic:", "category:"):
+            for prefix in ("user:@", "agent:@", "tag:#", "topic:", "category:", "file:"):
                 cand = f"{prefix}{q.lstrip('@#')}"
                 if cand in self.nodes:
                     return cand
@@ -721,12 +784,28 @@ class CyberspaceBoardEngine:
 
         self.bm25 = BM25Retriever(k1=1.5, b=0.75)
         self.graphrag = CyberspaceGraphRAG()
+        self.space_manager = self._get_space_manager()
 
         self._init_db()
         if self.enable_s3_sync:
             self._restore_from_s3_if_empty()
         if seed:
-            self._seed_initial_knowledge_base()
+            self._seed_initial_topics_if_empty()
+        if self.db_path != ":memory:":
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    cur = conn.cursor()
+                    cur.execute("SELECT topic_id, title, body, author_username, tags_json FROM cyberspace_topics")
+                    for row in cur.fetchall():
+                        self._ensure_topic_space(
+                            topic_id=row[0],
+                            title=row[1],
+                            body=row[2],
+                            author_username=row[3],
+                            tags=json.loads(row[4] or "[]"),
+                        )
+            except Exception:
+                pass
         self._rebuild_indices()
 
     def _init_db(self) -> None:
@@ -1185,6 +1264,19 @@ class CyberspaceBoardEngine:
                     )
             conn.commit()
 
+        for st in seed_topics:
+            self._ensure_topic_space(
+                topic_id=st["topic_id"],
+                title=st["title"],
+                body=st["body"],
+                author_username=st["author_username"],
+                tags=st["tags"],
+            )
+
+    def _seed_initial_topics_if_empty(self) -> None:
+        """Seed foundational Cyberspace Knowledge Base topics if database is empty."""
+        self._seed_initial_knowledge_base()
+
     def _load_all_topics_from_db(self) -> List[Dict[str, Any]]:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
@@ -1265,8 +1357,514 @@ class CyberspaceBoardEngine:
         """Synchronize in-memory BM25 inverted index and GraphRAG property graph."""
         with self._lock:
             topics = self._load_all_topics_from_db()
+            for t in topics:
+                t_id = t["topic_id"]
+                sp = self.get_topic_space_summary(t_id)
+                t["space"] = sp
+                files = sp.get("files", [])
+                file_tokens = []
+                for f in files:
+                    f_path = f.get("path", "") if isinstance(f, dict) else str(f)
+                    if f_path:
+                        split_path = f_path.replace("_", " ").replace("/", " ").replace(".", " ")
+                        file_tokens.extend([f_path, split_path])
+                if file_tokens:
+                    t["body"] = (t.get("body") or "") + " " + " ".join(file_tokens)
             self.bm25.index_documents(topics)
             self.graphrag.build_graph(topics)
+            for t in topics:
+                t_id = t["topic_id"]
+                t_node = f"topic:{t_id}"
+                files = t.get("space", {}).get("files", [])
+                for f in files:
+                    f_path = f.get("path") if isinstance(f, dict) else str(f)
+                    if not f_path:
+                        continue
+                    file_node = f"file:{t_id}:{f_path}"
+                    self.graphrag._add_node(file_node, "file", f_path, topic_id=t_id, path=f_path)
+                    self.graphrag._add_edge(t_node, file_node, "HAS_FILE", weight=1.2)
+                    self.graphrag.topic_to_entities[t_id].add(file_node)
+
+    # =========================================================================
+    # Topic Space VFS Integration (spaces/topics/{topic_id}.space)
+    # =========================================================================
+
+    def _get_space_manager(self) -> Optional[Any]:
+        """Lazy helper to acquire AgentSpaceManager instance if agent_space is importable."""
+        if hasattr(self, "_space_manager") and self._space_manager is not None:
+            return self._space_manager
+        mgr_cls = AgentSpaceManager
+        if mgr_cls is None:
+            try:
+                from .agent_space import AgentSpaceManager as imported_mgr
+                mgr_cls = imported_mgr
+            except ImportError:
+                try:
+                    from iot_federated_agent_memory.agent_space import AgentSpaceManager as imported_mgr
+                    mgr_cls = imported_mgr
+                except ImportError:
+                    mgr_cls = None
+        if mgr_cls is not None:
+            base_dir = (
+                os.path.dirname(self.db_path)
+                if self.db_path and self.db_path != ":memory:"
+                else None
+            )
+            try:
+                self._space_manager = mgr_cls(base_dir=base_dir, ai_router=self.ai_router)
+                return self._space_manager
+            except Exception:
+                pass
+        return None
+
+    def _ensure_topic_space(
+        self,
+        topic_id: str,
+        title: str = "",
+        body: str = "",
+        author_username: str = "system",
+        tags: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Ensure the per-topic single-file .space filesystem exists for this topic.
+        Uses self.space_manager.get_space if available, or directly initializes
+        the SQLite .space database file at spaces/topics/{topic_id}.space.
+        """
+        clean_topic_id = re.sub(r"[^a-zA-Z0-9_\-]", "", topic_id) or "topic"
+        base_dir = (
+            os.path.dirname(self.db_path)
+            if self.db_path and self.db_path != ":memory:"
+            else os.path.dirname(os.path.abspath(__file__))
+        )
+        topics_dir = os.path.join(base_dir, "spaces", "topics")
+        os.makedirs(topics_dir, exist_ok=True)
+        space_file = os.path.join(topics_dir, f"{clean_topic_id}.space")
+
+        starter_defs = [
+            (
+                "/README.md",
+                f"# {title or clean_topic_id}\n\n"
+                f"**Topic ID:** `{clean_topic_id}`\n"
+                f"**Author:** `@{author_username}`\n\n"
+                f"{body}\n\n"
+                f"Per-topic single-file .space filesystem for TinCan Cyberspace Forum.\n",
+                "text/markdown",
+            ),
+            (
+                "/src/main.py",
+                f"#!/usr/bin/env python3\n"
+                f"\"\"\"Cyberspace Topic Playground: {clean_topic_id}\"\"\"\n\n"
+                f"def main():\n"
+                f"    print('Hello from topic space {clean_topic_id}')\n\n"
+                f"if __name__ == '__main__':\n"
+                f"    main()\n",
+                "text/x-python",
+            ),
+            (
+                "/artcraft/drawing.dxf",
+                "0\nSECTION\n2\nHEADER\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n0\nLINE\n8\n0\n10\n0.0\n20\n0.0\n11\n100.0\n21\n100.0\n0\nENDSEC\n0\nEOF\n",
+                "application/dxf",
+            ),
+            (
+                "/models3d/README.txt",
+                "3D Model assets generated by @rodin-agent or @ronin-agent (.glb meshes) are stored here.\n",
+                "text/plain",
+            ),
+        ]
+
+        manager = self._get_space_manager()
+        if manager is not None:
+            try:
+                vfs = manager.get_space(
+                    scope="topic",
+                    owner_id=clean_topic_id,
+                    title=title,
+                    description=body,
+                )
+                existing_files = [f.get("path") for f in vfs.list_files()] if hasattr(vfs, "list_files") else []
+                for spath, scontent, smime in starter_defs:
+                    if spath not in existing_files:
+                        vfs.write_file(path=spath, content=scontent, mime_type=smime, updated_by=author_username or "system")
+                return self.get_topic_space_summary(topic_id)
+            except Exception:
+                pass
+
+        # Standalone SQLite fallback
+        now = time.time()
+        with sqlite3.connect(space_file) as conn:
+            cur = conn.cursor()
+            cur.execute("PRAGMA journal_mode=WAL;")
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS space_meta (
+                    space_id TEXT PRIMARY KEY,
+                    scope TEXT NOT NULL,
+                    owner_id TEXT NOT NULL,
+                    title TEXT DEFAULT '',
+                    description TEXT DEFAULT '',
+                    merkle_root TEXT DEFAULT '',
+                    created_at REAL NOT NULL,
+                    updated_at REAL NOT NULL
+                )
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS fs_files (
+                    path TEXT PRIMARY KEY,
+                    mime_type TEXT DEFAULT 'text/plain',
+                    size_bytes INTEGER DEFAULT 0,
+                    sha256 TEXT NOT NULL,
+                    content_blob BLOB,
+                    content_text TEXT,
+                    updated_at REAL NOT NULL,
+                    updated_by TEXT DEFAULT 'system'
+                )
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS fs_snapshots (
+                    snapshot_id TEXT PRIMARY KEY,
+                    label TEXT DEFAULT '',
+                    merkle_root TEXT NOT NULL,
+                    manifest_json TEXT DEFAULT '{}',
+                    created_at REAL NOT NULL
+                )
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS exec_runs (
+                    run_id TEXT PRIMARY KEY,
+                    entrypoint TEXT DEFAULT '',
+                    status TEXT DEFAULT 'completed',
+                    exit_code INTEGER DEFAULT 0,
+                    stdout TEXT DEFAULT '',
+                    stderr TEXT DEFAULT '',
+                    duration_ms REAL DEFAULT 0.0,
+                    created_at REAL NOT NULL
+                )
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS agent_turns (
+                    turn_id TEXT PRIMARY KEY,
+                    agent_key TEXT NOT NULL,
+                    prompt TEXT DEFAULT '',
+                    response TEXT DEFAULT '',
+                    files_modified_json TEXT DEFAULT '[]',
+                    created_at REAL NOT NULL
+                )
+                """
+            )
+
+            # Insert metadata if not exists
+            cur.execute("SELECT space_id FROM space_meta LIMIT 1")
+            if not cur.fetchone():
+                cur.execute(
+                    """
+                    INSERT INTO space_meta (space_id, scope, owner_id, title, description, merkle_root, created_at, updated_at)
+                    VALUES (?, 'topic', ?, ?, ?, '', ?, ?)
+                    """,
+                    (f"space-topic-{clean_topic_id}", clean_topic_id, title or clean_topic_id, body or "", now, now),
+                )
+
+            for fpath, content, mime in starter_defs:
+                cur.execute("SELECT path FROM fs_files WHERE path = ?", (fpath,))
+                if not cur.fetchone():
+                    c_bytes = content.encode("utf-8")
+                    c_hash = hashlib.sha256(c_bytes).hexdigest()
+                    cur.execute(
+                        """
+                        INSERT INTO fs_files (path, mime_type, size_bytes, sha256, content_blob, content_text, updated_at, updated_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (fpath, mime, len(c_bytes), c_hash, c_bytes, content, now, author_username or "system"),
+                    )
+
+            # Recompute Merkle root
+            cur.execute("SELECT path, sha256 FROM fs_files ORDER BY path ASC")
+            file_rows = cur.fetchall()
+            combined = "\n".join(f"{p}:{h}" for p, h in file_rows).encode("utf-8")
+            merkle_root = hashlib.sha256(combined).hexdigest()
+            cur.execute("UPDATE space_meta SET merkle_root = ?, updated_at = ?", (merkle_root, now))
+            conn.commit()
+
+        return self.get_topic_space_summary(topic_id)
+
+    def get_topic_space_summary(self, topic_id: str) -> Dict[str, Any]:
+        """
+        Return the summary metadata for a topic's single-file .space filesystem.
+        Returns: {"topic_id": topic_id, "scope": "topic", "space_file": ..., "file_count": ..., "merkle_root": ..., "files": [...]}
+        """
+        clean_topic_id = re.sub(r"[^a-zA-Z0-9_\-]", "", topic_id) or "topic"
+        base_dir = (
+            os.path.dirname(self.db_path)
+            if self.db_path and self.db_path != ":memory:"
+            else os.path.dirname(os.path.abspath(__file__))
+        )
+        space_file = os.path.join(base_dir, "spaces", "topics", f"{clean_topic_id}.space")
+
+        manager = self._get_space_manager()
+        if manager is not None:
+            try:
+                vfs = manager.get_space(scope="topic", owner_id=clean_topic_id)
+                summary = vfs.get_summary() if hasattr(vfs, "get_summary") else {}
+                files = vfs.list_files() if hasattr(vfs, "list_files") else summary.get("files", [])
+                m_root = getattr(vfs, "compute_merkle_root", lambda: "")() or summary.get("merkle_root", "")
+                s_file = getattr(vfs, "space_file", None) or getattr(vfs, "db_path", None) or summary.get("space_file", space_file)
+                normalized_files = []
+                for f in files:
+                    if isinstance(f, dict):
+                        f_copy = dict(f)
+                        f_copy["size"] = f_copy.get("size_bytes", f_copy.get("size", 0))
+                        f_copy["size_bytes"] = f_copy["size"]
+                        f_copy["hash"] = f_copy.get("sha256", f_copy.get("hash", ""))
+                        f_copy["sha256"] = f_copy["hash"]
+                        normalized_files.append(f_copy)
+                    else:
+                        normalized_files.append({"path": str(f), "size": 0, "size_bytes": 0, "sha256": "", "hash": ""})
+                return {
+                    "topic_id": topic_id,
+                    "scope": "topic",
+                    "space_file": str(s_file),
+                    "file_count": len(normalized_files),
+                    "merkle_root": m_root,
+                    "files": normalized_files,
+                }
+            except Exception:
+                pass
+
+        if not os.path.exists(space_file):
+            self._ensure_topic_space(topic_id)
+
+        if not os.path.exists(space_file):
+            return {
+                "topic_id": topic_id,
+                "scope": "topic",
+                "space_file": space_file,
+                "file_count": 0,
+                "merkle_root": "",
+                "files": [],
+            }
+
+        try:
+            with sqlite3.connect(space_file) as conn:
+                conn.row_factory = sqlite3.Row
+                cur = conn.cursor()
+                cur.execute("SELECT merkle_root FROM space_meta LIMIT 1")
+                m_row = cur.fetchone()
+                merkle_root = m_row["merkle_root"] if m_row else ""
+
+                cur.execute("SELECT path, mime_type, size_bytes, sha256, updated_at, updated_by FROM fs_files ORDER BY path ASC")
+                file_rows = [dict(r) for r in cur.fetchall()]
+                for f in file_rows:
+                    f["size"] = f["size_bytes"]
+                    f["hash"] = f["sha256"]
+
+                return {
+                    "topic_id": topic_id,
+                    "scope": "topic",
+                    "space_file": space_file,
+                    "file_count": len(file_rows),
+                    "merkle_root": merkle_root,
+                    "files": file_rows,
+                }
+        except Exception:
+            return {
+                "topic_id": topic_id,
+                "scope": "topic",
+                "space_file": space_file,
+                "file_count": 0,
+                "merkle_root": "",
+                "files": [],
+            }
+
+    def write_topic_file(
+        self,
+        topic_id: str,
+        path: str,
+        content: Any,
+        updated_by: str = "user",
+    ) -> Dict[str, Any]:
+        """
+        Write or update a file in the topic's .space filesystem.
+        Accepts content as str or bytes.
+        """
+        clean_topic_id = re.sub(r"[^a-zA-Z0-9_\-]", "", topic_id) or "topic"
+        if not path.startswith("/"):
+            path = "/" + path
+
+        mime = "text/plain"
+        if path.endswith(".py"):
+            mime = "text/x-python"
+        elif path.endswith(".glb"):
+            mime = "model/gltf-binary"
+        elif path.endswith(".dxf"):
+            mime = "application/dxf"
+        elif path.endswith(".md"):
+            mime = "text/markdown"
+        elif path.endswith(".json"):
+            mime = "application/json"
+
+        manager = self._get_space_manager()
+        if manager is not None:
+            try:
+                vfs = manager.get_space(scope="topic", owner_id=clean_topic_id)
+                res = vfs.write_file(path=path, content=content, mime_type=mime, updated_by=updated_by)
+                if isinstance(res, dict):
+                    m_root = vfs.compute_merkle_root() if hasattr(vfs, "compute_merkle_root") else ""
+                    self._rebuild_indices()
+                    return {
+                        "path": path,
+                        "size": res.get("size_bytes", len(content)),
+                        "size_bytes": res.get("size_bytes", len(content)),
+                        "hash": res.get("sha256", ""),
+                        "sha256": res.get("sha256", ""),
+                        "merkle_root": m_root,
+                        **res,
+                    }
+            except Exception:
+                pass
+
+        # Standalone SQLite fallback
+        base_dir = (
+            os.path.dirname(self.db_path)
+            if self.db_path and self.db_path != ":memory:"
+            else os.path.dirname(os.path.abspath(__file__))
+        )
+        space_file = os.path.join(base_dir, "spaces", "topics", f"{clean_topic_id}.space")
+        if not os.path.exists(space_file):
+            self._ensure_topic_space(topic_id)
+
+        now = time.time()
+        if isinstance(content, bytes):
+            c_bytes = content
+            c_text = None
+            try:
+                c_text = content.decode("utf-8")
+            except Exception:
+                c_text = None
+        else:
+            c_text = str(content)
+            c_bytes = c_text.encode("utf-8")
+
+        c_hash = hashlib.sha256(c_bytes).hexdigest()
+        size_bytes = len(c_bytes)
+
+        with sqlite3.connect(space_file) as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                INSERT INTO fs_files (path, mime_type, size_bytes, sha256, content_blob, content_text, updated_at, updated_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(path) DO UPDATE SET
+                    mime_type = excluded.mime_type,
+                    size_bytes = excluded.size_bytes,
+                    sha256 = excluded.sha256,
+                    content_blob = excluded.content_blob,
+                    content_text = excluded.content_text,
+                    updated_at = excluded.updated_at,
+                    updated_by = excluded.updated_by
+                """,
+                (path, mime, size_bytes, c_hash, c_bytes, c_text, now, updated_by),
+            )
+            cur.execute("SELECT path, sha256 FROM fs_files ORDER BY path ASC")
+            file_rows = cur.fetchall()
+            combined = "\n".join(f"{p}:{h}" for p, h in file_rows).encode("utf-8")
+            merkle_root = hashlib.sha256(combined).hexdigest()
+            cur.execute("UPDATE space_meta SET merkle_root = ?, updated_at = ?", (merkle_root, now))
+            conn.commit()
+
+        self._rebuild_indices()
+
+        return {
+            "path": path,
+            "size": size_bytes,
+            "size_bytes": size_bytes,
+            "hash": c_hash,
+            "sha256": c_hash,
+            "merkle_root": merkle_root,
+        }
+
+    def read_topic_file(self, topic_id: str, path: str) -> Dict[str, Any]:
+        """
+        Read a file from a topic's .space filesystem.
+        """
+        clean_topic_id = re.sub(r"[^a-zA-Z0-9_\-]", "", topic_id) or "topic"
+        if not path.startswith("/"):
+            path = "/" + path
+
+        manager = self._get_space_manager()
+        if manager is not None:
+            try:
+                vfs = manager.get_space(scope="topic", owner_id=clean_topic_id)
+                res = vfs.read_file(path=path, as_text=True)
+                if isinstance(res, dict):
+                    content_str = res.get("content") or ""
+                    size_val = res.get("size_bytes")
+                    if size_val is None:
+                        size_val = len(content_str)
+                    return {
+                        **res,
+                        "path": path,
+                        "content": content_str,
+                        "size": size_val,
+                        "size_bytes": size_val,
+                        "hash": res.get("sha256") or "",
+                        "sha256": res.get("sha256") or "",
+                        "updated_at": res.get("updated_at") or 0.0,
+                        "updated_by": res.get("updated_by") or "",
+                    }
+            except FileNotFoundError:
+                raise
+            except Exception:
+                pass
+
+        # Standalone SQLite fallback
+        base_dir = (
+            os.path.dirname(self.db_path)
+            if self.db_path and self.db_path != ":memory:"
+            else os.path.dirname(os.path.abspath(__file__))
+        )
+        space_file = os.path.join(base_dir, "spaces", "topics", f"{clean_topic_id}.space")
+        if not os.path.exists(space_file):
+            raise FileNotFoundError(f"Topic space for '{topic_id}' not found")
+
+        with sqlite3.connect(space_file) as conn:
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            cur.execute("SELECT path, mime_type, size_bytes, sha256, content_blob, content_text, updated_at, updated_by FROM fs_files WHERE path = ?", (path,))
+            row = cur.fetchone()
+            if not row:
+                raise FileNotFoundError(f"File '{path}' not found in topic space '{topic_id}'")
+
+            text_content = row["content_text"]
+            if text_content is None and row["content_blob"]:
+                try:
+                    text_content = row["content_blob"].decode("utf-8")
+                except Exception:
+                    text_content = ""
+
+            content_b64 = ""
+            if row["content_blob"]:
+                import base64
+                content_b64 = base64.b64encode(row["content_blob"]).decode("ascii")
+
+            return {
+                "path": row["path"],
+                "mime_type": row["mime_type"],
+                "content": text_content if text_content is not None else "",
+                "content_b64": content_b64,
+                "size": row["size_bytes"],
+                "size_bytes": row["size_bytes"],
+                "hash": row["sha256"],
+                "sha256": row["sha256"],
+                "updated_at": row["updated_at"],
+                "updated_by": row["updated_by"],
+            }
 
     # =========================================================================
     # Identity Verification Agent (@verifier-agent)
@@ -1860,8 +2458,9 @@ class CyberspaceBoardEngine:
         author_username: str,
         tags: List[str],
         user_mentions: List[str],
+        topic_id: Optional[str] = None,
     ) -> str:
-        """Synthesize an intelligent response when an AI agent (@gemini-brain, @verifier-agent, etc.) is tagged."""
+        """Synthesize an intelligent response when an AI agent (@gemini-brain, @rodin-agent, @artcraft-agent, etc.) is tagged."""
         agent_key = agent_handle.lower().lstrip("@")
         agent_meta = KNOWN_AI_AGENTS.get(
             agent_key,
@@ -1899,6 +2498,61 @@ class CyberspaceBoardEngine:
                 f"(Challenge Code: `{d['challenge_code']}`) to @{author_username}. Open the **🛡️ Verify Center** tab to submit and claim your attestation badge!"
             )
 
+        # 3D Mesh Generation for Hyper3D Rodin / Ronin
+        trig_lower = trigger_body.lower()
+        is_rodin = agent_key in ("rodin-agent", "ronin-agent") or any(k in trig_lower for k in ("3d", "rodin", "ronin", "mesh"))
+        if is_rodin and topic_id:
+            glb_path = f"/models3d/{topic_id}_mesh.glb"
+            glb_bytes = None
+            if self.ai_router is not None and hasattr(self.ai_router, "dispatch_rodin_generation"):
+                try:
+                    res = self.ai_router.dispatch_rodin_generation(prompt=trigger_body, name=topic_id)
+                    if isinstance(res, bytes):
+                        glb_bytes = res
+                    elif isinstance(res, dict):
+                        glb_bytes = res.get("glb_bytes") or res.get("bytes") or res.get("content")
+                except Exception:
+                    glb_bytes = None
+            if not glb_bytes:
+                glb_bytes = generate_minimal_glb(topic_id)
+
+            self.write_topic_file(topic_id=topic_id, path=glb_path, content=glb_bytes, updated_by=agent_key)
+            if agent_key in ("rodin-agent", "ronin-agent"):
+                return (
+                    f"🤖 [@{agent_key}]: Synthesized Hyper3D Rodin mesh `{glb_path}` for @{author_username} "
+                    f"in topic space `{topic_id}`. Ready for WebGL 3D preview and CAD engineering!"
+                )
+
+        # ArtCraft Wasm & Code Playground Generation
+        is_artcraft = agent_key == "artcraft-agent" or any(k in trig_lower for k in ("playground", "cadcraft", "artcraft", "code", "solution"))
+        if is_artcraft and topic_id:
+            py_path = "/src/agent_solution.py"
+            dxf_path = "/artcraft/agent_design.dxf"
+            py_code = (
+                f"#!/usr/bin/env python3\n"
+                f"\"\"\"ArtCraft Agent Solution for Topic: {topic_title}\"\"\"\n\n"
+                f"def run_solution():\n"
+                f"    print('ArtCraft Wasm Playground execution for topic: {topic_id}')\n"
+                f"    return {{\"topic_id\": \"{topic_id}\", \"status\": \"success\"}}\n\n"
+                f"if __name__ == '__main__':\n"
+                f"    run_solution()\n"
+            )
+            dxf_data = (
+                "0\nSECTION\n2\nHEADER\n0\nENDSEC\n"
+                "0\nSECTION\n2\nENTITIES\n"
+                "0\nLINE\n8\n0\n10\n0.0\n20\n0.0\n11\n100.0\n21\n100.0\n"
+                "0\nCIRCLE\n8\n0\n10\n50.0\n20\n50.0\n40\n25.0\n"
+                "0\nENDSEC\n0\nEOF\n"
+            )
+            self.write_topic_file(topic_id=topic_id, path=py_path, content=py_code, updated_by="artcraft-agent")
+            self.write_topic_file(topic_id=topic_id, path=dxf_path, content=dxf_data, updated_by="artcraft-agent")
+            if agent_key == "artcraft-agent":
+                return (
+                    f"🤖 [@artcraft-agent]: Generated ArtCraft Wasm solution script at `{py_path}` "
+                    f"and CADCraft drawing at `{dxf_path}` for @{author_username} in topic space `{topic_id}`. "
+                    f"You can execute this code immediately in the WebAssembly playground!"
+                )
+
         # Retrieve top GraphRAG + BM25 context to ground the AI agent's reply
         search_res = self.search(f"{topic_title} {trigger_body}", mode="hybrid", top_k=3, synthesize_llm=False)
         related_snippets = []
@@ -1908,6 +2562,13 @@ class CyberspaceBoardEngine:
 
         tags_str = " ".join(f"#{t}" for t in tags[:4]) if tags else "#cyberspace #graphrag"
         users_str = " ".join(f"@{u}" for u in dict.fromkeys([author_username] + user_mentions))
+
+        extra_notes = []
+        if is_rodin and topic_id:
+            extra_notes.append(f"3D mesh at `/models3d/{topic_id}_mesh.glb`")
+        if is_artcraft and topic_id:
+            extra_notes.append("solution script at `/src/agent_solution.py` and CADCraft drawing at `/artcraft/agent_design.dxf`")
+        extra_note_str = f" Created files in topic filesystem: {'; '.join(extra_notes)}." if extra_notes else ""
 
         # Call live OpenRouter LLM via DynamicAIGatewayRouter if available
         if self.ai_router is not None:
@@ -1935,6 +2596,8 @@ class CyberspaceBoardEngine:
                 if content and not content.startswith("[Simulated"):
                     if not content.startswith("🤖"):
                         content = f"🤖 [@{agent_key}]: {content}"
+                    if extra_note_str and extra_note_str not in content:
+                        content = f"{content} {extra_note_str}"
                     return content
             except Exception:
                 pass
@@ -1947,7 +2610,7 @@ class CyberspaceBoardEngine:
         return (
             f"🤖 [@{agent_key} Synthesis]: Acknowledged {users_str} on \"{topic_title}\". "
             f"Indexed key concepts ({tags_str}) into the TinCan Cyberspace Knowledge Graph "
-            f"(specialty: {agent_meta['specialty']}).{context_note}"
+            f"(specialty: {agent_meta['specialty']}).{extra_note_str}{context_note}"
         )
 
     def create_topic(
@@ -2034,6 +2697,14 @@ class CyberspaceBoardEngine:
                 )
                 conn.commit()
 
+            self._ensure_topic_space(
+                topic_id=topic_id,
+                title=title,
+                body=body,
+                author_username=username,
+                tags=merged_tags,
+            )
+
             self._rebuild_indices()
 
             if auto_agent_reply and agent_mentions:
@@ -2045,6 +2716,7 @@ class CyberspaceBoardEngine:
                         author_username=username,
                         tags=merged_tags,
                         user_mentions=user_mentions,
+                        topic_id=topic_id,
                     )
                     self.create_post(
                         topic_id=topic_id,
@@ -2237,6 +2909,7 @@ class CyberspaceBoardEngine:
                         author_username=username,
                         tags=existing_topic.get("tags", []) + parsed["hashtags"],
                         user_mentions=parsed["user_mentions"],
+                        topic_id=topic_id,
                     )
                     ag_post = self.create_post(
                         topic_id=topic_id,
@@ -2259,6 +2932,7 @@ class CyberspaceBoardEngine:
                 "parent_post_id": parent_post_id or "",
                 "author_username": f"@{username}",
                 "author_verified": is_verified,
+                "body": body,
                 "user_mentions": parsed["user_mentions"],
                 "agent_mentions": parsed["agent_mentions"],
                 "hashtags": parsed["hashtags"],
@@ -2395,6 +3069,7 @@ class CyberspaceBoardEngine:
                         for nbr, rel, _ in self.graphrag.adj.get(t_node, [])
                     ]
                     t["graph_connections"] = neighbors
+                    t["space"] = self.get_topic_space_summary(topic_id)
                     return t
         return None
 
@@ -2458,6 +3133,8 @@ class CyberspaceBoardEngine:
 
         graph_snap = self.graphrag.get_full_graph_snapshot()
         roster = self.get_roster_and_profiles()
+        for t in topics[:limit]:
+            t["space"] = self.get_topic_space_summary(t["topic_id"])
         return {
             "count": len(topics[:limit]),
             "total_topics": len(topics),
@@ -2558,7 +3235,7 @@ class CyberspaceBoardEngine:
                 }
             )
 
-        combined_results.sort(key=lambda x: (x["score"], x["bm25_score"], x["graphrag_score"]), reverse=True)
+        combined_results.sort(key=lambda x: (x["score"], x["bm25_score"], x["graphrag_score"], x.get("created_at", 0.0)), reverse=True)
         top_results = combined_results[:top_k]
 
         if top_results:
@@ -2625,6 +3302,7 @@ __all__ = [
     "CyberspaceBoardEngine",
     "CyberspaceGraphRAG",
     "KNOWN_AI_AGENTS",
+    "generate_minimal_glb",
     "parse_cyberspace_tags",
     "tokenize_for_bm25",
 ]

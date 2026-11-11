@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import urllib.parse
 import urllib.request
 from typing import Dict, List, Optional
 
@@ -81,6 +82,100 @@ class TinCanAgentChat:
                     else:
                         print(f"Current model: {self.model_alias}")
                     continue
+                elif cmd in ("/rodin", "/ronin"):
+                    if not arg:
+                        print("[-] Usage: /rodin <prompt to generate 3d mesh>")
+                        continue
+                    print(f"\033[1;36m[🧊 Hyper3D Rodin] Generating 3D mesh for: \"{arg}\"...\033[0m")
+                    try:
+                        req_data = json.dumps({"prompt": arg, "tier": "Regular", "format": "glb"}).encode("utf-8")
+                        req = urllib.request.Request(
+                            f"{self.relay_url}/api/3d/generate",
+                            data=req_data,
+                            headers={"Content-Type": "application/json", "User-Agent": "TinCanAgent/1.0"},
+                            method="POST",
+                        )
+                        with urllib.request.urlopen(req, timeout=30) as resp:
+                            res = json.loads(resp.read().decode("utf-8"))
+                        print(f"\033[1;32m[+] 3D Mesh Task: {res.get('uuid')} | Status: {res.get('status')} | Format: {res.get('format', 'glb').upper()}\033[0m")
+                        if "saved_to_space" in res:
+                            print(f"    Saved into VFS: {res['saved_to_space']['path']}")
+                    except Exception as err:
+                        print(f"[-] Rodin 3D Error: {err}")
+                    continue
+                elif cmd == "/space":
+                    sp_args = arg.split(maxsplit=2)
+                    sub = sp_args[0].lower() if sp_args else "ls"
+                    if sub == "ls":
+                        try:
+                            with urllib.request.urlopen(f"{self.relay_url}/api/space/ls", timeout=10) as resp:
+                                summary = json.loads(resp.read().decode("utf-8"))
+                            print(f"\033[1;36m[🧪 AgentSpace] {summary.get('file_count', 0)} files in {summary.get('scope', 'user')}:{summary.get('owner_id', 'default')} (Merkle: {summary.get('merkle_root', '')[:12]}...)\033[0m")
+                            for f in summary.get("files", []):
+                                print(f"  • {f['path']} ({f['size_bytes']} bytes)")
+                        except Exception as err:
+                            print(f"[-] Space LS Error: {err}")
+                    elif sub == "read" and len(sp_args) > 1:
+                        target_p = sp_args[1]
+                        try:
+                            with urllib.request.urlopen(f"{self.relay_url}/api/space/file?path={urllib.parse.quote(target_p)}", timeout=10) as resp:
+                                rec = json.loads(resp.read().decode("utf-8"))
+                            print(f"\033[1;36m[📄 {target_p}]\033[0m\n{rec.get('content') or '[Binary Content]'}")
+                        except Exception as err:
+                            print(f"[-] Space Read Error: {err}")
+                    elif sub == "write" and len(sp_args) > 2:
+                        target_p = sp_args[1]
+                        target_c = sp_args[2]
+                        try:
+                            req_data = json.dumps({"path": target_p, "content": target_c, "action": "write"}).encode("utf-8")
+                            req = urllib.request.Request(
+                                f"{self.relay_url}/api/space/file",
+                                data=req_data,
+                                headers={"Content-Type": "application/json"},
+                                method="POST",
+                            )
+                            with urllib.request.urlopen(req, timeout=10) as resp:
+                                res = json.loads(resp.read().decode("utf-8"))
+                            print(f"\033[1;32m[+] Written {res.get('path')} ({res.get('size_bytes')} bytes)\033[0m")
+                        except Exception as err:
+                            print(f"[-] Space Write Error: {err}")
+                    elif sub == "run":
+                        entry = sp_args[1] if len(sp_args) > 1 else "/src/main.py"
+                        try:
+                            req_data = json.dumps({"entrypoint": entry, "runtime": "auto"}).encode("utf-8")
+                            req = urllib.request.Request(
+                                f"{self.relay_url}/api/space/exec",
+                                data=req_data,
+                                headers={"Content-Type": "application/json"},
+                                method="POST",
+                            )
+                            with urllib.request.urlopen(req, timeout=15) as resp:
+                                res = json.loads(resp.read().decode("utf-8"))
+                            print(f"\033[1;36m[🚀 Run {entry}] Exit: {res.get('exit_code')}\033[0m")
+                            if res.get("stdout"):
+                                print(res["stdout"].rstrip())
+                            if res.get("stderr"):
+                                print(f"\033[1;31m{res['stderr'].rstrip()}\033[0m")
+                        except Exception as err:
+                            print(f"[-] Space Exec Error: {err}")
+                    elif sub == "agent" and len(sp_args) > 1:
+                        sp_prompt = arg[len("agent"):].strip()
+                        try:
+                            req_data = json.dumps({"prompt": sp_prompt, "model_alias": self.model_alias}).encode("utf-8")
+                            req = urllib.request.Request(
+                                f"{self.relay_url}/api/space/agent",
+                                data=req_data,
+                                headers={"Content-Type": "application/json"},
+                                method="POST",
+                            )
+                            with urllib.request.urlopen(req, timeout=30) as resp:
+                                res = json.loads(resp.read().decode("utf-8"))
+                            print(f"\033[1;34m[🤖 Space Agent]\033[0m {res.get('reply')}")
+                        except Exception as err:
+                            print(f"[-] Space Agent Error: {err}")
+                    else:
+                        print("[-] Space commands: /space ls, /space read <path>, /space write <path> <content>, /space run [path], /space agent <prompt>")
+                    continue
                 elif cmd == "/clear":
                     self.history = [{"role": "system", "content": SYSTEM_PROMPT}]
                     print("[+] Conversation memory cleared.")
@@ -88,6 +183,8 @@ class TinCanAgentChat:
                 elif cmd == "/help":
                     print("Commands:")
                     print("  /model <alias>   Switch active model (e.g. claude-brain, grok-brain, gemini-brain, openai-brain)")
+                    print("  /rodin <prompt>  Generate 3D mesh via Hyper3D Rodin and save to space (alias /ronin)")
+                    print("  /space <cmd>     Manage .space VFS (ls, read, write, run, agent)")
                     print("  /clear           Reset conversation memory")
                     print("  /help            Show this help text")
                     print("  exit / quit      Exit the agent REPL")

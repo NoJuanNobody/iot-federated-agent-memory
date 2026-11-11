@@ -7,6 +7,12 @@ import os
 import subprocess
 import tarfile
 import threading
+import base64
+import uuid
+import time
+import sqlite3
+import sys
+from typing import Any, Dict, List, Optional
 from http.server import ThreadingHTTPServer as HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from iot_federated_agent_memory.scale import IoTFederatedMemoryScale
@@ -19,6 +25,13 @@ from iot_federated_agent_memory.mesh_os_ui import MESH_OS_HTML_UI
 from iot_federated_agent_memory.account_registry import PeerAccountRegistry
 from iot_federated_agent_memory.sponsor_ads import SponsorAdManager
 from iot_federated_agent_memory.cyberspace_board import CyberspaceBoardEngine
+from iot_federated_agent_memory.crdt_mesh import CRDTMeshGossipSync, CRDTDeltaMessage
+from iot_federated_agent_memory.edge_telemetry import (
+    EdgeTelemetryIngestor,
+    HMACVendingMachine,
+    MQTTTelemetryClientAdapter,
+    CreditExhaustionError,
+)
 from dataclasses import asdict
 
 PORT = int(os.environ.get("PORT", 8080))
@@ -71,6 +84,593 @@ cyberspace_board = CyberspaceBoardEngine(
     webrtc_relay=relay,
     seed=True,
 )
+crdt_node = CRDTMeshGossipSync(local_node_id="relay-primary")
+vending_machine = HMACVendingMachine()
+vending_machine.mint_credits("mesh-default", 50.0)
+mqtt_adapter = MQTTTelemetryClientAdapter(
+    vending_machine=vending_machine,
+    wallet_id="mesh-default",
+    batch_size=5,
+)
+mqtt_adapter.subscribe("devices/#")
+mqtt_adapter.subscribe("matter/#")
+mqtt_adapter.subscribe("coap/#")
+
+ARTCRAFT_WASM_APPS = [
+    {
+        "id": "cadcraft",
+        "name": "CadCraft Web",
+        "app": "cadcraft-web",
+        "description": "3D CAD modeling, STEP/STL geometry, parametric sketches",
+        "extensions": [".cad", ".step", ".stl", ".dxf"],
+        "icon": "📐",
+    },
+    {
+        "id": "vectorcraft",
+        "name": "VectorCraft Web",
+        "app": "vectorcraft-web",
+        "description": "Vector graphics, SVG illustration & path typography",
+        "extensions": [".svg", ".vec"],
+        "icon": "✒️",
+    },
+    {
+        "id": "deckcraft",
+        "name": "DeckCraft Web",
+        "app": "deckcraft-web",
+        "description": "Pitch decks, slide presentations & interactive reports",
+        "extensions": [".deck", ".slide", ".pptx"],
+        "icon": "📊",
+    },
+    {
+        "id": "designcraft",
+        "name": "DesignCraft Web",
+        "app": "designcraft-web",
+        "description": "Page layout, typography & publication design",
+        "extensions": [".indd", ".layout"],
+        "icon": "📰",
+    },
+    {
+        "id": "effectcraft",
+        "name": "EffectCraft Web",
+        "app": "effectcraft-web",
+        "description": "Visual effects, motion graphics & particle rendering",
+        "extensions": [".fx", ".comp"],
+        "icon": "✨",
+    },
+    {
+        "id": "figcraft",
+        "name": "FigCraft Web",
+        "app": "figcraft-web",
+        "description": "UI/UX component systems, wireframing & mockups",
+        "extensions": [".fig", ".ui"],
+        "icon": "🎨",
+    },
+    {
+        "id": "filmcraft",
+        "name": "FilmCraft Web",
+        "app": "filmcraft-web",
+        "description": "Multi-track video editing, timeline & sequence clips",
+        "extensions": [".film", ".timeline"],
+        "icon": "🎬",
+    },
+    {
+        "id": "gridcraft",
+        "name": "GridCraft Web",
+        "app": "gridcraft-web",
+        "description": "Grid computation, spreadsheet analysis & tabular data",
+        "extensions": [".grid", ".csv", ".xlsx"],
+        "icon": "📈",
+    },
+    {
+        "id": "lightcraft",
+        "name": "LightCraft Web",
+        "app": "lightcraft-web",
+        "description": "Color grading, RAW image develop & LUT tone mapping",
+        "extensions": [".raw", ".cube", ".grade"],
+        "icon": "💡",
+    },
+    {
+        "id": "pdfcraft",
+        "name": "PdfCraft Web",
+        "app": "pdfcraft-web",
+        "description": "PDF document compilation, form filling & digital signing",
+        "extensions": [".pdf"],
+        "icon": "📄",
+    },
+    {
+        "id": "photocraft",
+        "name": "PhotoCraft Web",
+        "app": "photocraft-web",
+        "description": "Raster image manipulation, layering & retouching",
+        "extensions": [".photo", ".psd", ".png", ".jpg"],
+        "icon": "🖼️",
+    },
+    {
+        "id": "scriptcraft",
+        "name": "ScriptCraft Web",
+        "app": "scriptcraft-web",
+        "description": "Screenplay writing, fountain syntax & script beats",
+        "extensions": [".fountain", ".script"],
+        "icon": "📜",
+    },
+    {
+        "id": "soundcraft",
+        "name": "SoundCraft Web",
+        "app": "soundcraft-web",
+        "description": "Digital audio workstation, stem mixing & synthesizer",
+        "extensions": [".sound", ".wav", ".mp3", ".ogg"],
+        "icon": "🎵",
+    },
+    {
+        "id": "wordcraft",
+        "name": "WordCraft Web",
+        "app": "wordcraft-web",
+        "description": "Prose editor, distraction-free markdown & publication",
+        "extensions": [".word", ".md", ".txt"],
+        "icon": "📝",
+    },
+    {
+        "id": "artcraft",
+        "name": "ArtCraft Meta-Studio Web",
+        "app": "artcraft-web",
+        "description": "Omni-creative project launcher & pipeline graph loop",
+        "extensions": [".craft", ".loop", ".json"],
+        "icon": "🛸",
+    },
+]
+
+WASM_RUNTIMES = [
+    {
+        "id": "pyodide-wasm",
+        "name": "Pyodide Python 3.12 Wasm",
+        "languages": ["python", "py"],
+        "description": "In-browser CPython runtime with NumPy, Matplotlib & micropip",
+    },
+    {
+        "id": "quickjs-wasm",
+        "name": "QuickJS JavaScript Wasm",
+        "languages": ["javascript", "js"],
+        "description": "Embedded lightweight ES2020 JavaScript engine in WebAssembly",
+    },
+    {
+        "id": "wasi-wasm",
+        "name": "WASI Universal Bytecode",
+        "languages": ["wasm", "wat", "c", "rust"],
+        "description": "Sandboxed WebAssembly System Interface runtime container",
+    },
+    {
+        "id": "three-glb-viewer",
+        "name": "Three.js 3D glTF / GLB Spatial Viewer",
+        "languages": ["glb", "gltf", "3d"],
+        "description": "Interactive WebGL 3D viewer for Hyper3D Rodin & CadCraft meshes",
+    },
+]
+
+WASM_POSTMESSAGE_CONTRACT = {
+    "protocol": "artcraft-wasm-bridge-v1",
+    "host_query": "?host=parent",
+    "parent_events": {
+        "<app>:ready": "Sent by child iframe when Wasm app is loaded and ready for state",
+        "<app>:open": "Sent by parent to child: { name: str, bytes: str(b64) or content: str, path: str, format: str }",
+        "<app>:save": "Sent by child to parent: { name: str, bytes: str(b64) or content: str, path: str, dirty: false }",
+        "<app>:dirty": "Sent by child to parent when user modifies unsaved state: { dirty: bool }",
+    },
+}
+
+
+def _dispatch_rodin(ai_router, prompt, images=None, tier="Regular", geometry_file_format="glb", material="PBR", quality="medium", mesh_mode="Quad"):
+    if hasattr(ai_router, "dispatch_rodin_generation"):
+        return ai_router.dispatch_rodin_generation(
+            prompt=prompt,
+            images=images,
+            tier=tier,
+            geometry_file_format=geometry_file_format,
+            material=material,
+            quality=quality,
+            mesh_mode=mesh_mode,
+        )
+    tier_costs = {"Regular": 0.50, "Sketch": 0.25, "Detail": 1.00, "Smooth": 0.75}
+    cost = tier_costs.get(tier, 0.50)
+    task_id = f"rodin-task-{uuid.uuid4().hex[:12]}"
+    sub_key = f"sub-{uuid.uuid4().hex[:12]}"
+    glb_raw = b"glTF\x02\x00\x00\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    glb_b64 = base64.b64encode(glb_raw).decode("ascii")
+    return {
+        "uuid": task_id,
+        "subscription_key": sub_key,
+        "prompt": prompt,
+        "tier": tier,
+        "format": geometry_file_format,
+        "material": material,
+        "quality": quality,
+        "mesh_mode": mesh_mode,
+        "status": "Done",
+        "cost_usd": cost,
+        "created_at": time.time(),
+        "glb_bytes_b64": glb_b64,
+        "simulated": True,
+    }
+
+
+def _check_rodin_status(ai_router, subscription_key):
+    if hasattr(ai_router, "check_rodin_status"):
+        return ai_router.check_rodin_status(subscription_key)
+    return {
+        "subscription_key": subscription_key,
+        "status": "Done",
+        "jobs": [{"uuid": f"rodin-{subscription_key[:8]}", "status": "Done"}],
+    }
+
+
+def _download_rodin_assets(ai_router, task_uuid):
+    if hasattr(ai_router, "download_rodin_assets"):
+        return ai_router.download_rodin_assets(task_uuid)
+    glb_raw = b"glTF\x02\x00\x00\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    glb_b64 = base64.b64encode(glb_raw).decode("ascii")
+    return {
+        "task_uuid": task_uuid,
+        "format": "glb",
+        "files": [{"name": f"{task_uuid}.glb", "format": "glb", "bytes_b64": glb_b64}],
+        "glb_bytes_b64": glb_b64,
+    }
+
+
+def _get_hyper3d_billing(ai_router):
+    if hasattr(ai_router, "get_hyper3d_billing"):
+        return ai_router.get_hyper3d_billing()
+    analytics = ai_router.get_analytics() if hasattr(ai_router, "get_analytics") else {}
+    if "hyper3d" in analytics:
+        return analytics["hyper3d"]
+    return {
+        "connected": False,
+        "provider": "Hyper3D Rodin (Ronin) v2",
+        "endpoint": "https://api.hyper3d.com/api/v2/rodin",
+        "account_remaining_credits": 0.0,
+        "account_remaining_balance_usd": 0.0,
+        "session_total_tasks": 0,
+        "session_total_spend_usd": 0.0,
+        "key_label": "not_configured",
+        "tier_pricing_usd": {
+            "Regular": 0.50,
+            "Sketch": 0.25,
+            "Detail": 1.00,
+            "Smooth": 0.75,
+        },
+    }
+
+
+class FallbackSingleFileSpaceVFS:
+    def __init__(self, db_path: str, scope: str = "user", owner_id: str = "default_user"):
+        self.db_path = db_path
+        self.scope = scope
+        self.owner_id = owner_id
+        os.makedirs(os.path.dirname(os.path.abspath(db_path)) or ".", exist_ok=True)
+        self._init_db()
+
+    def _get_conn(self):
+        return sqlite3.connect(self.db_path, check_same_thread=False)
+
+    def _init_db(self):
+        with self._get_conn() as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS files (
+                    path TEXT PRIMARY KEY,
+                    content BLOB,
+                    mime_type TEXT,
+                    size_bytes INTEGER,
+                    sha256 TEXT,
+                    updated_at REAL,
+                    updated_by TEXT,
+                    is_base64 INTEGER DEFAULT 0
+                )
+                """
+            )
+
+    def _normalize_path(self, path: str) -> str:
+        p = path.strip()
+        if not p.startswith("/"):
+            p = "/" + p
+        return p
+
+    def write_file(self, path: str, content: Any, mime_type: Optional[str] = None, updated_by: str = "user", is_base64: bool = False) -> Dict[str, Any]:
+        p = self._normalize_path(path)
+        if isinstance(content, bytes):
+            raw = content
+            is_b64 = 0
+        elif is_base64:
+            raw = base64.b64decode(content) if isinstance(content, str) else bytes(content)
+            is_b64 = 1
+        elif isinstance(content, str):
+            raw = content.encode("utf-8")
+            is_b64 = 0
+        else:
+            raw = str(content).encode("utf-8")
+            is_b64 = 0
+
+        size = len(raw)
+        sha = hashlib.sha256(raw).hexdigest()
+        now = time.time()
+        m_type = mime_type or ("model/gltf-binary" if p.endswith(".glb") else ("application/json" if p.endswith(".json") else "text/plain"))
+
+        with self._get_conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO files (path, content, mime_type, size_bytes, sha256, updated_at, updated_by, is_base64)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(path) DO UPDATE SET
+                    content=excluded.content,
+                    mime_type=excluded.mime_type,
+                    size_bytes=excluded.size_bytes,
+                    sha256=excluded.sha256,
+                    updated_at=excluded.updated_at,
+                    updated_by=excluded.updated_by,
+                    is_base64=excluded.is_base64
+                """,
+                (p, raw, m_type, size, sha, now, updated_by, is_b64),
+            )
+        return {
+            "path": p,
+            "size_bytes": size,
+            "sha256": sha,
+            "mime_type": m_type,
+            "updated_at": now,
+            "updated_by": updated_by,
+        }
+
+    def read_file(self, path: str, as_text: bool = True) -> Dict[str, Any]:
+        p = self._normalize_path(path)
+        with self._get_conn() as conn:
+            cur = conn.execute("SELECT path, content, mime_type, size_bytes, sha256, updated_at, updated_by, is_base64 FROM files WHERE path=?", (p,))
+            row = cur.fetchone()
+        if not row:
+            raise FileNotFoundError(f"File not found in space: {p}")
+        p_val, blob, m_type, size, sha, updated_at, updated_by, is_b64 = row
+        text_content = None
+        if as_text and blob is not None:
+            try:
+                text_content = blob.decode("utf-8")
+            except Exception:
+                text_content = None
+        b64_content = base64.b64encode(blob).decode("ascii") if blob else ""
+        return {
+            "path": p_val,
+            "mime_type": m_type,
+            "size_bytes": size,
+            "sha256": sha,
+            "updated_at": updated_at,
+            "updated_by": updated_by,
+            "content": text_content,
+            "content_b64": b64_content,
+        }
+
+    def patch_file(self, path: str, target: str, replacement: str, updated_by: str = "agent") -> Dict[str, Any]:
+        rec = self.read_file(path, as_text=True)
+        txt = rec.get("content")
+        if txt is None:
+            raise ValueError(f"Cannot patch binary file: {path}")
+        if target not in txt:
+            raise ValueError(f"Target string not found in {path}")
+        patched = txt.replace(target, replacement)
+        return self.write_file(path, patched, mime_type=rec.get("mime_type"), updated_by=updated_by)
+
+    def delete_file(self, path: str) -> Dict[str, Any]:
+        p = self._normalize_path(path)
+        with self._get_conn() as conn:
+            conn.execute("DELETE FROM files WHERE path=?", (p,))
+        return {"deleted": True, "path": p}
+
+    def list_files(self, prefix: str = "") -> List[Dict[str, Any]]:
+        with self._get_conn() as conn:
+            cur = conn.execute("SELECT path, mime_type, size_bytes, sha256, updated_at, updated_by FROM files ORDER BY path ASC")
+            rows = cur.fetchall()
+        files = []
+        for r in rows:
+            if not prefix or r[0].startswith(prefix):
+                files.append({
+                    "path": r[0],
+                    "mime_type": r[1],
+                    "size_bytes": r[2],
+                    "sha256": r[3],
+                    "updated_at": r[4],
+                    "updated_by": r[5],
+                })
+        return files
+
+    def compute_merkle_root(self) -> str:
+        files = self.list_files()
+        if not files:
+            return hashlib.sha256(b"empty").hexdigest()
+        concatenated = "".join(f["path"] + ":" + f["sha256"] for f in sorted(files, key=lambda x: x["path"]))
+        return hashlib.sha256(concatenated.encode("utf-8")).hexdigest()
+
+    def get_summary(self) -> Dict[str, Any]:
+        files = self.list_files()
+        sz = os.path.getsize(self.db_path) if os.path.exists(self.db_path) else 0
+        return {
+            "scope": self.scope,
+            "owner_id": self.owner_id,
+            "space_file": self.db_path,
+            "space_size_bytes": sz,
+            "file_count": len(files),
+            "merkle_root": self.compute_merkle_root(),
+            "files": files,
+            "recent_runs": [],
+            "recent_turns": [],
+        }
+
+    def export_space_bytes(self) -> bytes:
+        if os.path.exists(self.db_path):
+            with open(self.db_path, "rb") as f:
+                return f.read()
+        return b""
+
+    def import_space_bytes(self, raw_bytes: bytes) -> Dict[str, Any]:
+        with open(self.db_path, "wb") as f:
+            f.write(raw_bytes)
+        return self.get_summary()
+
+
+class FallbackAgentSpaceManager:
+    def __init__(self, base_dir: Optional[str] = None, ai_router: Optional[Any] = None):
+        self.base_dir = base_dir or os.path.join(os.path.dirname(os.path.abspath(__file__)), "spaces")
+        self.ai_router = ai_router
+        self._spaces: Dict[str, FallbackSingleFileSpaceVFS] = {}
+        os.makedirs(self.base_dir, exist_ok=True)
+
+    def _space_key(self, scope: str, owner_id: str) -> str:
+        return f"{scope}:{owner_id}"
+
+    def get_space(self, scope: str = "user", owner_id: str = "default_user", **kwargs) -> FallbackSingleFileSpaceVFS:
+        key = self._space_key(scope, owner_id)
+        if key not in self._spaces:
+            folder = os.path.join(self.base_dir, f"{scope}s")
+            os.makedirs(folder, exist_ok=True)
+            db_path = os.path.join(folder, f"{owner_id}.space")
+            self._spaces[key] = FallbackSingleFileSpaceVFS(db_path, scope=scope, owner_id=owner_id)
+        return self._spaces[key]
+
+    def get_or_create_space(self, scope: str = "user", owner_id: str = "default_user", **kwargs) -> FallbackSingleFileSpaceVFS:
+        return self.get_space(scope, owner_id, **kwargs)
+
+    def list_spaces(self, scope: Optional[str] = None) -> List[Dict[str, Any]]:
+        res = []
+        for key, sp in self._spaces.items():
+            if scope is None or sp.scope == scope:
+                res.append(sp.get_summary())
+        return res
+
+    def run_playground(self, scope: str, owner_id: str, entrypoint: str = "/src/main.py", runtime: str = "auto", code_override: Optional[str] = None, args: Optional[List[str]] = None) -> Dict[str, Any]:
+        sp = self.get_space(scope, owner_id)
+        run_id = f"run-{uuid.uuid4().hex[:8]}"
+        code = code_override
+        if not code:
+            try:
+                file_rec = sp.read_file(entrypoint, as_text=True)
+                code = file_rec.get("content") or ""
+            except Exception:
+                code = "print('Hello from AgentSpace Wasm Playground!')"
+
+        stdout = ""
+        stderr = ""
+        exit_code = 0
+        try:
+            res = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=10.0)
+            stdout = res.stdout
+            stderr = res.stderr
+            exit_code = res.returncode
+        except Exception as exc:
+            stderr = str(exc)
+            exit_code = 1
+
+        return {
+            "run_id": run_id,
+            "scope": scope,
+            "owner_id": owner_id,
+            "entrypoint": entrypoint,
+            "runtime": runtime,
+            "stdout": stdout,
+            "stderr": stderr,
+            "exit_code": exit_code,
+            "synced_files": [f["path"] for f in sp.list_files()],
+            "wasm_bridge": True,
+        }
+
+    def run_agent(self, scope: str, owner_id: str, prompt: str, model_alias: str = "gemini-brain", author: str = "agent") -> Dict[str, Any]:
+        sp = self.get_space(scope, owner_id)
+        turn_id = f"turn-{uuid.uuid4().hex[:8]}"
+        reply = ""
+        if self.ai_router and hasattr(self.ai_router, "dispatch_completion"):
+            try:
+                comp = self.ai_router.dispatch_completion(
+                    alias=model_alias,
+                    messages=[
+                        {"role": "system", "content": f"You are an AI engineer working inside the .space VFS ({scope}:{owner_id})."},
+                        {"role": "user", "content": prompt},
+                    ],
+                )
+                reply = comp.get("choices", [{}])[0].get("message", {}).get("content", "")
+            except Exception as e:
+                reply = f"[Agent dispatch simulated fallback: {e}]"
+        if not reply:
+            reply = f"Simulated Agent Turn for prompt: '{prompt}'. Space currently has {len(sp.list_files())} files."
+
+        return {
+            "turn_id": turn_id,
+            "scope": scope,
+            "owner_id": owner_id,
+            "prompt": prompt,
+            "model_alias": model_alias,
+            "model": model_alias,
+            "reply": reply,
+            "author": author,
+            "created_at": time.time(),
+        }
+
+    def fork_file(self, from_scope: str, from_id: str, to_scope: str, to_id: str, path: str, dest_path: Optional[str] = None, updated_by: str = "fork") -> Dict[str, Any]:
+        src = self.get_space(from_scope, from_id)
+        dst = self.get_space(to_scope, to_id)
+        rec = src.read_file(path, as_text=False)
+        d_path = dest_path or path
+        return dst.write_file(d_path, base64.b64decode(rec["content_b64"]), mime_type=rec.get("mime_type"), updated_by=updated_by)
+
+    def fork_space(self, from_scope: str, from_id: str, to_scope: str, to_id: str) -> Dict[str, Any]:
+        src = self.get_space(from_scope, from_id)
+        dst = self.get_space(to_scope, to_id)
+        forked = []
+        for f in src.list_files():
+            rec = src.read_file(f["path"], as_text=False)
+            dst.write_file(f["path"], base64.b64decode(rec["content_b64"]), mime_type=rec.get("mime_type"), updated_by="fork")
+            forked.append(f["path"])
+        return {
+            "from_scope": from_scope,
+            "from_id": from_id,
+            "to_scope": to_scope,
+            "to_id": to_id,
+            "files_forked": forked,
+            "count": len(forked),
+        }
+
+    def export_space(self, scope: str, owner_id: str) -> bytes:
+        sp = self.get_space(scope, owner_id)
+        return sp.export_space_bytes()
+
+    def export_space_b64(self, scope: str, owner_id: str) -> str:
+        b = self.export_space(scope, owner_id)
+        return base64.b64encode(b).decode("ascii")
+
+    def import_space(self, scope: str, owner_id: str, space_bytes_or_b64: Any) -> Dict[str, Any]:
+        if isinstance(space_bytes_or_b64, str):
+            raw = base64.b64decode(space_bytes_or_b64)
+        else:
+            raw = bytes(space_bytes_or_b64)
+        sp = self.get_space(scope, owner_id)
+        return sp.import_space_bytes(raw)
+
+    def get_wasm_manifest(self) -> Dict[str, Any]:
+        return {
+            "artcraft_apps": ARTCRAFT_WASM_APPS,
+            "wasm_runtimes": WASM_RUNTIMES,
+            "contract": WASM_POSTMESSAGE_CONTRACT,
+        }
+
+
+_space_manager = None
+
+
+def _get_space_manager():
+    global _space_manager
+    if _space_manager is not None:
+        return _space_manager
+    try:
+        from iot_federated_agent_memory.agent_space import AgentSpaceManager
+        _space_manager = AgentSpaceManager(ai_router=router)
+    except Exception:
+        _space_manager = FallbackAgentSpaceManager(ai_router=router)
+    return _space_manager
+
+
+space_manager = _get_space_manager()
 
 # Register seed peers for live dashboard (IP addresses redacted, peripherals OFF by default)
 relay.register_peer("peer-primary-mac", "Mac Studio (M1 Chip)", "redacted", 50004, has_video=False, has_audio=False, has_screen=False)
@@ -830,6 +1430,241 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": str(ve)}, 400)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path in ("/api/3d/generate", "/api/rodin/generate"):
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                prompt = data.get("prompt") or "futuristic generative 3d mesh"
+                images = data.get("images")
+                tier = data.get("tier", "Regular")
+                fmt = data.get("format", "glb")
+                mesh_mode = data.get("mesh_mode", "Quad")
+                peer_id = data.get("peer_id") or "peer"
+                scope = data.get("scope") or ("topic" if "topic" in data or "topic_id" in data else "user")
+                owner_id = data.get("owner_id") or data.get("topic_id") or data.get("peer_id") or peer_id
+                save_path = data.get("save_path")
+
+                res = _dispatch_rodin(
+                    router,
+                    prompt=prompt,
+                    images=images,
+                    tier=tier,
+                    geometry_file_format=fmt,
+                    mesh_mode=mesh_mode,
+                )
+
+                # If save_path or owner_id passed, write into .space VFS
+                sm = _get_space_manager()
+                if sm and (save_path or owner_id):
+                    try:
+                        sp_path = save_path or f"/models3d/{res.get('uuid', 'model')}.{fmt}"
+                        sp = sm.get_or_create_space(scope, owner_id)
+                        glb_b64 = res.get("glb_bytes_b64", "")
+                        sp.write_file(sp_path, glb_b64, is_base64=True, mime_type="model/gltf-binary", updated_by=peer_id)
+                        res["saved_to_space"] = {"scope": scope, "owner_id": owner_id, "path": sp_path}
+                    except Exception as err:
+                        res["space_save_error"] = str(err)
+
+                mesh_os.record_flight(peer_id, "rodin-3d", kind="3d_gen", label="Hyper3D Rodin")
+                try:
+                    mesh_os.award_xp(peer_id, "rodin_3d_generation")
+                except Exception:
+                    pass
+                self._send_json(res, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/3d/status":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                sub_key = data.get("subscription_key") or data.get("key") or ""
+                res = _check_rodin_status(router, sub_key)
+                self._send_json(res, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/3d/download":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                task_uuid = data.get("task_uuid") or data.get("uuid") or ""
+                res = _download_rodin_assets(router, task_uuid)
+                self._send_json(res, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/space/file":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                scope = data.get("scope", "user")
+                owner_id = data.get("owner_id") or data.get("peer_id") or data.get("topic_id") or "default_user"
+                path = data.get("path")
+                if not path:
+                    self._send_json({"error": "Missing 'path'"}, 400)
+                    return
+                action = data.get("action", "write")
+                updated_by = data.get("updated_by", "user")
+                content = data.get("content", "")
+                target = data.get("target")
+                replacement = data.get("replacement")
+                is_b64 = bool(data.get("is_base64", False))
+
+                sm = _get_space_manager()
+                sp = sm.get_or_create_space(scope, owner_id)
+                if action == "delete":
+                    out = sp.delete_file(path)
+                elif action == "patch":
+                    out = sp.patch_file(path, target or "", replacement or "", updated_by=updated_by)
+                else:
+                    out = sp.write_file(path, content, updated_by=updated_by, is_base64=is_b64)
+                self._send_json(out, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/space/exec":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                scope = data.get("scope", "user")
+                owner_id = data.get("owner_id") or data.get("peer_id") or data.get("topic_id") or "default_user"
+                entrypoint = data.get("entrypoint", "/src/main.py")
+                runtime = data.get("runtime", "auto")
+                code_override = data.get("code_override") or data.get("code")
+                args = data.get("args") or []
+
+                sm = _get_space_manager()
+                out = sm.run_playground(
+                    scope=scope,
+                    owner_id=owner_id,
+                    entrypoint=entrypoint,
+                    runtime=runtime,
+                    code_override=code_override,
+                    args=args,
+                )
+                self._send_json(out, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/space/agent":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                scope = data.get("scope", "user")
+                owner_id = data.get("owner_id") or data.get("peer_id") or data.get("topic_id") or "default_user"
+                prompt = data.get("prompt")
+                if not prompt:
+                    self._send_json({"error": "Missing 'prompt'"}, 400)
+                    return
+                model_alias = data.get("model_alias") or data.get("model", "gemini-brain")
+                author = data.get("author", "agent")
+
+                sm = _get_space_manager()
+                out = sm.run_agent(
+                    scope=scope,
+                    owner_id=owner_id,
+                    prompt=prompt,
+                    model_alias=model_alias,
+                    author=author,
+                )
+                self._send_json(out, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/space/fork":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                from_scope = data.get("from_scope", "topic")
+                from_id = data.get("from_id") or data.get("from_owner") or data.get("from_topic", "")
+                to_scope = data.get("to_scope", "user")
+                to_id = data.get("to_id") or data.get("to_owner") or data.get("to_user", "")
+                path = data.get("path")
+                dest_path = data.get("dest_path")
+                updated_by = data.get("updated_by", "fork")
+
+                sm = _get_space_manager()
+                if path:
+                    out = sm.fork_file(from_scope, from_id, to_scope, to_id, path, dest_path=dest_path, updated_by=updated_by)
+                else:
+                    out = sm.fork_space(from_scope, from_id, to_scope, to_id)
+                self._send_json(out, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/space/import":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                scope = data.get("scope", "user")
+                owner_id = data.get("owner_id") or data.get("peer_id") or "default_user"
+                space_b64 = data.get("data") or data.get("space_b64") or ""
+
+                sm = _get_space_manager()
+                out = sm.import_space(scope, owner_id, space_b64)
+                self._send_json(out, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/crdt/gossip":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                if "delta" in data and isinstance(data["delta"], dict):
+                    delta = CRDTDeltaMessage.from_dict(data["delta"])
+                    applied = crdt_node.merge_remote_delta(delta)
+                else:
+                    key = data.get("key")
+                    if not key:
+                        self._send_json({"error": "Missing 'key' or 'delta'"}, 400)
+                        return
+                    value = data.get("value") if isinstance(data.get("value"), dict) else {"value": data.get("value")}
+                    operation = data.get("operation", "upsert")
+                    delta = crdt_node.apply_local_update(key=str(key), value=value, operation=str(operation))
+                    applied = True
+                self._send_json({
+                    "status": "ok",
+                    "applied": applied,
+                    "delta": delta.to_dict(),
+                    "merkle_root": crdt_node.compute_merkle_root(),
+                    "vector_clock": crdt_node.vector_clock,
+                    "state_count": len(crdt_node.state_store),
+                }, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/telemetry/ingest":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                topic = data.get("topic") or f"devices/{data.get('device_id', 'sensor-01')}/telemetry"
+                flush_now = bool(data.get("flush", False))
+                wallet_id = data.get("wallet_id")
+                if wallet_id and vending_machine.get_balance(wallet_id) <= 0.0 and data.get("mint_usd"):
+                    vending_machine.mint_credits(wallet_id, float(data["mint_usd"]))
+                if wallet_id:
+                    mqtt_adapter.wallet_id = wallet_id
+                pkt = mqtt_adapter.receive_message(topic, data)
+                flushed_nodes = mqtt_adapter.flush_batch() if flush_now else []
+                latest_receipt = mqtt_adapter.receipts[-1].to_dict() if mqtt_adapter.receipts else None
+                self._send_json({
+                    "status": "ingested",
+                    "topic": topic,
+                    "packet": pkt.to_dict() if pkt else None,
+                    "vault_node": pkt.to_vault_node() if pkt else None,
+                    "flushed_count": len(flushed_nodes),
+                    "pending_batch_size": len(mqtt_adapter.pending_batch),
+                    "wallet_balance_usd": vending_machine.get_balance(mqtt_adapter.wallet_id or "mesh-default"),
+                    "latest_receipt": latest_receipt,
+                }, 200)
+            except CreditExhaustionError as ce:
+                self._send_json({"error": str(ce), "code": "CREDIT_EXHAUSTED"}, 402)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
         else:
             self._send_empty(404)
 
@@ -1155,6 +1990,73 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 "version": "2.2.0",
                 "relay_url": "https://iot-federated-agent-memory-production.up.railway.app",
             })
+        elif parsed.path == "/api/3d/balance":
+            billing = _get_hyper3d_billing(router)
+            self._send_json(billing, 200)
+        elif parsed.path == "/api/space/ls":
+            query = parse_qs(parsed.query)
+            scope = query.get("scope", ["user"])[0]
+            owner_id = query.get("owner_id", query.get("peer_id", query.get("topic_id", ["default_user"])))[0]
+            sm = _get_space_manager()
+            sp = sm.get_or_create_space(scope, owner_id)
+            self._send_json(sp.get_summary(), 200)
+        elif parsed.path == "/api/space/file":
+            query = parse_qs(parsed.query)
+            scope = query.get("scope", ["user"])[0]
+            owner_id = query.get("owner_id", query.get("peer_id", query.get("topic_id", ["default_user"])))[0]
+            path = query.get("path", ["/src/main.py"])[0]
+            sm = _get_space_manager()
+            sp = sm.get_or_create_space(scope, owner_id)
+            try:
+                rec = sp.read_file(path)
+                self._send_json(rec, 200)
+            except FileNotFoundError as fe:
+                self._send_json({"error": str(fe)}, 404)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/space/export":
+            query = parse_qs(parsed.query)
+            scope = query.get("scope", ["user"])[0]
+            owner_id = query.get("owner_id", query.get("peer_id", query.get("topic_id", ["default_user"])))[0]
+            sm = _get_space_manager()
+            sp = sm.get_or_create_space(scope, owner_id)
+            summary = sp.get_summary()
+            b64_data = sm.export_space_b64(scope, owner_id) if hasattr(sm, "export_space_b64") else base64.b64encode(sp.export_space_bytes()).decode("ascii")
+            self._send_json({
+                "filename": f"{owner_id}.space",
+                "scope": scope,
+                "owner_id": owner_id,
+                "size_bytes": len(base64.b64decode(b64_data)),
+                "merkle_root": summary.get("merkle_root", ""),
+                "space_b64": b64_data,
+            }, 200)
+        elif parsed.path == "/api/wasm/manifest":
+            sm = _get_space_manager()
+            manifest = sm.get_wasm_manifest() if hasattr(sm, "get_wasm_manifest") else {
+                "artcraft_apps": ARTCRAFT_WASM_APPS,
+                "wasm_runtimes": WASM_RUNTIMES,
+                "contract": WASM_POSTMESSAGE_CONTRACT,
+            }
+            self._send_json(manifest, 200)
+        elif parsed.path == "/api/crdt/state":
+            self._send_json({
+                "node_id": crdt_node.local_node_id,
+                "vector_clock": crdt_node.vector_clock,
+                "merkle_root": crdt_node.compute_merkle_root(),
+                "state_store": crdt_node.state_store,
+                "delta_count": len(crdt_node.delta_log),
+            }, 200)
+        elif parsed.path == "/api/telemetry/state":
+            wallet_id = mqtt_adapter.wallet_id or "mesh-default"
+            self._send_json({
+                "wallet_id": wallet_id,
+                "wallet_balance_usd": vending_machine.get_balance(wallet_id),
+                "cost_per_batch_usd": vending_machine.cost_per_batch,
+                "pending_batch_count": len(mqtt_adapter.pending_batch),
+                "ingested_nodes_count": len(mqtt_adapter.ingestor.buffer),
+                "ingested_nodes": mqtt_adapter.ingestor.buffer[-25:],
+                "receipts": [r.to_dict() for r in mqtt_adapter.receipts[-10:]],
+            }, 200)
         elif parsed.path in ("/install.sh", "/install_peer.sh"):
             install_script_path = os.path.join(os.path.dirname(__file__), "install_peer.sh")
             if os.path.exists(install_script_path):

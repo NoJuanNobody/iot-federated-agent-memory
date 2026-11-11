@@ -20,3 +20,7 @@ include = ["iot_federated_agent_memory*"]
 
 [tool.setuptools.package-data]
 iot_federated_agent_memory = ["assets/*.hex", "assets/*.png"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
