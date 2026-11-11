@@ -375,7 +375,7 @@ class BM25Retriever:
                     }
                 )
 
-        results.sort(key=lambda r: r["bm25_score"], reverse=True)
+        results.sort(key=lambda r: (r["bm25_score"], r["topic"].get("created_at", 0.0)), reverse=True)
         return results[:top_k]
 
 
@@ -3235,7 +3235,7 @@ class CyberspaceBoardEngine:
                 }
             )
 
-        combined_results.sort(key=lambda x: (x["score"], x["bm25_score"], x["graphrag_score"]), reverse=True)
+        combined_results.sort(key=lambda x: (x["score"], x["bm25_score"], x["graphrag_score"], x.get("created_at", 0.0)), reverse=True)
         top_results = combined_results[:top_k]
 
         if top_results:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import json
 import mimetypes
@@ -446,15 +447,23 @@ class SingleFileSpaceVFS:
 
         os.makedirs(os.path.dirname(self.space_path), exist_ok=True)
         self._lock = threading.RLock()
-        self._conn = sqlite3.connect(self.space_path, check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
 
         self._init_db(title=title, description=description)
 
+    @contextlib.contextmanager
+    def _connect(self):
+        conn = sqlite3.connect(self.space_path, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        try:
+            yield conn
+            conn.commit()
+        finally:
+            conn.close()
+
     def _init_db(self, title: Optional[str] = None, description: Optional[str] = None) -> None:
         """Create tables and seed initial defaults if empty."""
-        with self._lock:
-            cur = self._conn.cursor()
+        with self._lock, self._connect() as conn:
+            cur = conn.cursor()
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS space_meta (
@@ -535,7 +544,6 @@ class SingleFileSpaceVFS:
             # Auto-seed starter files if fs_files is empty
             cur.execute("SELECT COUNT(*) AS cnt FROM fs_files")
             file_count = cur.fetchone()["cnt"]
-            self._conn.commit()
 
         if file_count == 0:
             self._seed_default_files(title=title, description=description)
@@ -601,8 +609,8 @@ class SingleFileSpaceVFS:
 
     def list_files(self, prefix: str = "") -> List[Dict[str, Any]]:
         """List all files in the space, optionally filtered by path prefix."""
-        with self._lock:
-            cur = self._conn.cursor()
+        with self._lock, self._connect() as conn:
+            cur = conn.cursor()
             if prefix:
                 norm_prefix = self.normalize_path(prefix)
                 cur.execute(
@@ -629,8 +637,8 @@ class SingleFileSpaceVFS:
     def read_file(self, path: str, as_text: bool = True) -> Dict[str, Any]:
         """Read a file record by normalized path."""
         norm_path = self.normalize_path(path)
-        with self._lock:
-            cur = self._conn.cursor()
+        with self._lock, self._connect() as conn:
+            cur = conn.cursor()
             cur.execute(
                 "SELECT path, content, mime_type, size_bytes, sha256, updated_at, updated_by FROM fs_files WHERE path = ?",
                 (norm_path,),
@@ -685,8 +693,8 @@ class SingleFileSpaceVFS:
         sha256 = hashlib.sha256(raw_bytes).hexdigest()
         updated_at = time.time()
 
-        with self._lock:
-            cur = self._conn.cursor()
+        with self._lock, self._connect() as conn:
+            cur = conn.cursor()
             cur.execute(
                 """
                 INSERT INTO fs_files (path, content, mime_type, size_bytes, sha256, updated_at, updated_by)
@@ -701,7 +709,6 @@ class SingleFileSpaceVFS:
                 """,
                 (norm_path, raw_bytes, mime_type, size_bytes, sha256, updated_at, updated_by),
             )
-            self._conn.commit()
 
         return {
             "path": norm_path,
@@ -731,19 +738,18 @@ class SingleFileSpaceVFS:
     def delete_file(self, path: str) -> Dict[str, Any]:
         """Delete a file from the space container."""
         norm_path = self.normalize_path(path)
-        with self._lock:
-            cur = self._conn.cursor()
+        with self._lock, self._connect() as conn:
+            cur = conn.cursor()
             cur.execute("SELECT path FROM fs_files WHERE path = ?", (norm_path,))
             if not cur.fetchone():
                 raise FileNotFoundError(f"File not found in space: {norm_path}")
             cur.execute("DELETE FROM fs_files WHERE path = ?", (norm_path,))
-            self._conn.commit()
         return {"deleted": True, "path": norm_path}
 
     def compute_merkle_root(self) -> str:
         """Compute deterministic SHA-256 Merkle root over sorted path:sha256 pairs."""
-        with self._lock:
-            cur = self._conn.cursor()
+        with self._lock, self._connect() as conn:
+            cur = conn.cursor()
             cur.execute("SELECT path, sha256 FROM fs_files ORDER BY path ASC")
             rows = cur.fetchall()
             hasher = hashlib.sha256()
@@ -759,8 +765,8 @@ class SingleFileSpaceVFS:
         manifest = self.list_files()
         manifest_json = json.dumps(manifest)
         created_at = time.time()
-        with self._lock:
-            cur = self._conn.cursor()
+        with self._lock, self._connect() as conn:
+            cur = conn.cursor()
             cur.execute(
                 """
                 INSERT INTO fs_snapshots (snapshot_id, label, merkle_root, manifest_json, created_at)
@@ -768,7 +774,6 @@ class SingleFileSpaceVFS:
                 """,
                 (snapshot_id, label, merkle_root, manifest_json, created_at),
             )
-            self._conn.commit()
         return {
             "snapshot_id": snapshot_id,
             "label": label,
@@ -779,8 +784,8 @@ class SingleFileSpaceVFS:
 
     def list_snapshots(self) -> List[Dict[str, Any]]:
         """List all snapshots sorted chronologically."""
-        with self._lock:
-            cur = self._conn.cursor()
+        with self._lock, self._connect() as conn:
+            cur = conn.cursor()
             cur.execute(
                 "SELECT snapshot_id, label, merkle_root, manifest_json, created_at FROM fs_snapshots ORDER BY created_at DESC"
             )
@@ -798,8 +803,8 @@ class SingleFileSpaceVFS:
 
     def list_exec_runs(self, limit: int = 20) -> List[Dict[str, Any]]:
         """List recent playground execution runs."""
-        with self._lock:
-            cur = self._conn.cursor()
+        with self._lock, self._connect() as conn:
+            cur = conn.cursor()
             cur.execute(
                 "SELECT run_id, runtime, entrypoint, stdout, stderr, exit_code, duration_ms, artifacts_json, created_at FROM exec_runs ORDER BY created_at DESC LIMIT ?",
                 (limit,),
@@ -822,8 +827,8 @@ class SingleFileSpaceVFS:
 
     def list_agent_turns(self, limit: int = 20) -> List[Dict[str, Any]]:
         """List recent agent prompt/action turns."""
-        with self._lock:
-            cur = self._conn.cursor()
+        with self._lock, self._connect() as conn:
+            cur = conn.cursor()
             cur.execute(
                 "SELECT turn_id, prompt, reply, tool_calls_json, files_mutated_json, created_at FROM agent_turns ORDER BY created_at DESC LIMIT ?",
                 (limit,),
@@ -860,20 +865,16 @@ class SingleFileSpaceVFS:
     def export_space_bytes(self) -> bytes:
         """Export the raw .space SQLite file bytes."""
         with self._lock:
-            self._conn.commit()
-        with open(self.space_path, "rb") as f:
-            return f.read()
+            with open(self.space_path, "rb") as f:
+                return f.read()
 
     def import_space_bytes(self, raw_bytes: bytes) -> Dict[str, Any]:
         """Validate SQLite header and replace the .space container file."""
         if len(raw_bytes) < 16 or not raw_bytes.startswith(b"SQLite format 3\x00"):
             raise ValueError("Invalid SQLite space file header")
         with self._lock:
-            self._conn.close()
             with open(self.space_path, "wb") as f:
                 f.write(raw_bytes)
-            self._conn = sqlite3.connect(self.space_path, check_same_thread=False)
-            self._conn.row_factory = sqlite3.Row
             self._init_db()
         return {
             "imported": True,
@@ -882,12 +883,8 @@ class SingleFileSpaceVFS:
         }
 
     def close(self) -> None:
-        """Close connection to SQLite container."""
-        with self._lock:
-            try:
-                self._conn.close()
-            except Exception:
-                pass
+        """Close connection to SQLite container (no-op with context-managed connections)."""
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -1105,6 +1102,7 @@ class WasmAndCodePlaygroundRunner:
             "duration_ms": duration_ms,
             "synced_files": synced_files,
             "wasm_host_bridge": None,
+            "wasm_bridge": True,
         }
 
     def _record_run(
@@ -1120,8 +1118,8 @@ class WasmAndCodePlaygroundRunner:
         artifacts: Dict[str, Any],
     ) -> None:
         """Insert execution run into the exec_runs SQLite table."""
-        with vfs._lock:
-            cur = vfs._conn.cursor()
+        with vfs._lock, vfs._connect() as conn:
+            cur = conn.cursor()
             cur.execute(
                 """
                 INSERT INTO exec_runs (run_id, runtime, entrypoint, stdout, stderr, exit_code, duration_ms, artifacts_json, created_at)
@@ -1139,7 +1137,6 @@ class WasmAndCodePlaygroundRunner:
                     time.time(),
                 ),
             )
-            vfs._conn.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -1348,8 +1345,8 @@ class AgentSpaceHarness:
             reply = "\n".join(reply_lines)
 
         # 5. Log turn to SQLite agent_turns
-        with self.vfs._lock:
-            cur = self.vfs._conn.cursor()
+        with self.vfs._lock, self.vfs._connect() as conn:
+            cur = conn.cursor()
             cur.execute(
                 """
                 INSERT INTO agent_turns (turn_id, prompt, reply, tool_calls_json, files_mutated_json, created_at)
@@ -1364,7 +1361,6 @@ class AgentSpaceHarness:
                     time.time(),
                 ),
             )
-            self.vfs._conn.commit()
 
         return {
             "turn_id": turn_id,
@@ -1540,11 +1536,10 @@ class AgentSpaceManager:
         dst_space.import_space_bytes(raw_bytes)
 
         # Update metadata in destination
-        with dst_space._lock:
-            cur = dst_space._conn.cursor()
+        with dst_space._lock, dst_space._connect() as conn:
+            cur = conn.cursor()
             cur.execute("UPDATE space_meta SET value = ? WHERE key = 'scope'", (to_scope,))
             cur.execute("UPDATE space_meta SET value = ? WHERE key = 'owner_id'", (to_id,))
-            dst_space._conn.commit()
 
         return dst_space.get_summary()
 
@@ -1597,5 +1592,10 @@ class AgentSpaceManager:
                     "bundle_url": "/wasm/viewers/three-gltf-viewer.html",
                     "description": "Hardware-accelerated WebGL / WebGPU 3D viewport for .glb models",
                 },
+            },
+            "contract": {
+                "protocol": "artcraft-wasm-bridge-v1",
+                "query_param": "host=parent",
+                "events": ["<app>:ready", "<app>:open", "<app>:save", "<app>:dirty"],
             },
         }

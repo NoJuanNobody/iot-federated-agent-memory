@@ -1670,20 +1670,53 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         elif sp_cmd == "wasm":
             manifest = sm.get_wasm_manifest()
+            apps_raw = manifest.get("artcraft_apps", [])
+            if isinstance(apps_raw, dict):
+                apps_list = [
+                    {
+                        "id": k,
+                        "app": v.get("app", k),
+                        "name": v.get("display_name", k),
+                        "icon": v.get("icon", "🎨"),
+                        "description": v.get("coordinate_system", ""),
+                        **v,
+                    }
+                    for k, v in apps_raw.items()
+                ]
+            else:
+                apps_list = apps_raw
+            rt_raw = manifest.get("wasm_runtimes", [])
+            if isinstance(rt_raw, dict):
+                rt_list = [
+                    {
+                        "id": k,
+                        "name": v.get("display_name", k),
+                        "languages": [v.get("runtime", k)],
+                        **v,
+                    }
+                    for k, v in rt_raw.items()
+                ]
+            else:
+                rt_list = rt_raw
+            norm_manifest = {
+                **manifest,
+                "artcraft_apps": apps_list,
+                "wasm_runtimes": rt_list,
+            }
             if args.json:
-                print(json.dumps(manifest, indent=2))
+                print(json.dumps(norm_manifest, indent=2))
             else:
                 print("\033[1;36m=== 🎨 ArtCraft 15 Wasm Applications & Runtimes Manifest ===\033[0m")
                 print("Applications (?host=parent postMessage bridge):")
-                for app in manifest.get("artcraft_apps", []):
+                for app in apps_list:
                     exts = ", ".join(app.get("extensions", []))
-                    print(f"  {app['icon']} \033[1;37m{app['name']:24s}\033[0m ({app['app']:18s}) -> Exts: {exts}")
-                    print(f"      {app['description']}")
+                    print(f"  {app.get('icon', '🎨')} \033[1;37m{app.get('name', app.get('id', '')):24s}\033[0m ({app.get('app', ''):18s}) -> Exts: {exts}")
+                    print(f"      {app.get('description', '')}")
                 print("\nSupported Software Wasm Runtimes:")
-                for rt in manifest.get("wasm_runtimes", []):
+                for rt in rt_list:
                     langs = ", ".join(rt.get("languages", []))
-                    print(f"  ⚡ \033[1;37m{rt['name']:32s}\033[0m [{langs}]")
-                    print(f"      {rt['description']}")
+                    print(f"  ⚡ \033[1;37m{rt.get('name', ''):32s}\033[0m [{langs}]")
+                    print(f"      {rt.get('description', '')}")
             return 0
 
     return 0

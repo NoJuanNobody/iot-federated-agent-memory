@@ -25,6 +25,13 @@ from iot_federated_agent_memory.mesh_os_ui import MESH_OS_HTML_UI
 from iot_federated_agent_memory.account_registry import PeerAccountRegistry
 from iot_federated_agent_memory.sponsor_ads import SponsorAdManager
 from iot_federated_agent_memory.cyberspace_board import CyberspaceBoardEngine
+from iot_federated_agent_memory.crdt_mesh import CRDTMeshGossipSync, CRDTDeltaMessage
+from iot_federated_agent_memory.edge_telemetry import (
+    EdgeTelemetryIngestor,
+    HMACVendingMachine,
+    MQTTTelemetryClientAdapter,
+    CreditExhaustionError,
+)
 from dataclasses import asdict
 
 PORT = int(os.environ.get("PORT", 8080))
@@ -77,6 +84,17 @@ cyberspace_board = CyberspaceBoardEngine(
     webrtc_relay=relay,
     seed=True,
 )
+crdt_node = CRDTMeshGossipSync(local_node_id="relay-primary")
+vending_machine = HMACVendingMachine()
+vending_machine.mint_credits("mesh-default", 50.0)
+mqtt_adapter = MQTTTelemetryClientAdapter(
+    vending_machine=vending_machine,
+    wallet_id="mesh-default",
+    batch_size=5,
+)
+mqtt_adapter.subscribe("devices/#")
+mqtt_adapter.subscribe("matter/#")
+mqtt_adapter.subscribe("coap/#")
 
 ARTCRAFT_WASM_APPS = [
     {
@@ -1589,6 +1607,64 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json(out, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/crdt/gossip":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                if "delta" in data and isinstance(data["delta"], dict):
+                    delta = CRDTDeltaMessage.from_dict(data["delta"])
+                    applied = crdt_node.merge_remote_delta(delta)
+                else:
+                    key = data.get("key")
+                    if not key:
+                        self._send_json({"error": "Missing 'key' or 'delta'"}, 400)
+                        return
+                    value = data.get("value") if isinstance(data.get("value"), dict) else {"value": data.get("value")}
+                    operation = data.get("operation", "upsert")
+                    delta = crdt_node.apply_local_update(key=str(key), value=value, operation=str(operation))
+                    applied = True
+                self._send_json({
+                    "status": "ok",
+                    "applied": applied,
+                    "delta": delta.to_dict(),
+                    "merkle_root": crdt_node.compute_merkle_root(),
+                    "vector_clock": crdt_node.vector_clock,
+                    "state_count": len(crdt_node.state_store),
+                }, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/telemetry/ingest":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                topic = data.get("topic") or f"devices/{data.get('device_id', 'sensor-01')}/telemetry"
+                flush_now = bool(data.get("flush", False))
+                wallet_id = data.get("wallet_id")
+                if wallet_id and vending_machine.get_balance(wallet_id) <= 0.0 and data.get("mint_usd"):
+                    vending_machine.mint_credits(wallet_id, float(data["mint_usd"]))
+                if wallet_id:
+                    mqtt_adapter.wallet_id = wallet_id
+                pkt = mqtt_adapter.receive_message(topic, data)
+                flushed_nodes = mqtt_adapter.flush_batch() if flush_now else []
+                latest_receipt = mqtt_adapter.receipts[-1].to_dict() if mqtt_adapter.receipts else None
+                self._send_json({
+                    "status": "ingested",
+                    "topic": topic,
+                    "packet": pkt.to_dict() if pkt else None,
+                    "vault_node": pkt.to_vault_node() if pkt else None,
+                    "flushed_count": len(flushed_nodes),
+                    "pending_batch_size": len(mqtt_adapter.pending_batch),
+                    "wallet_balance_usd": vending_machine.get_balance(mqtt_adapter.wallet_id or "mesh-default"),
+                    "latest_receipt": latest_receipt,
+                }, 200)
+            except CreditExhaustionError as ce:
+                self._send_json({"error": str(ce), "code": "CREDIT_EXHAUSTED"}, 402)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
         else:
             self._send_empty(404)
 
@@ -1962,6 +2038,25 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 "contract": WASM_POSTMESSAGE_CONTRACT,
             }
             self._send_json(manifest, 200)
+        elif parsed.path == "/api/crdt/state":
+            self._send_json({
+                "node_id": crdt_node.local_node_id,
+                "vector_clock": crdt_node.vector_clock,
+                "merkle_root": crdt_node.compute_merkle_root(),
+                "state_store": crdt_node.state_store,
+                "delta_count": len(crdt_node.delta_log),
+            }, 200)
+        elif parsed.path == "/api/telemetry/state":
+            wallet_id = mqtt_adapter.wallet_id or "mesh-default"
+            self._send_json({
+                "wallet_id": wallet_id,
+                "wallet_balance_usd": vending_machine.get_balance(wallet_id),
+                "cost_per_batch_usd": vending_machine.cost_per_batch,
+                "pending_batch_count": len(mqtt_adapter.pending_batch),
+                "ingested_nodes_count": len(mqtt_adapter.ingestor.buffer),
+                "ingested_nodes": mqtt_adapter.ingestor.buffer[-25:],
+                "receipts": [r.to_dict() for r in mqtt_adapter.receipts[-10:]],
+            }, 200)
         elif parsed.path in ("/install.sh", "/install_peer.sh"):
             install_script_path = os.path.join(os.path.dirname(__file__), "install_peer.sh")
             if os.path.exists(install_script_path):

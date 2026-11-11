@@ -378,3 +378,40 @@ def test_http_space_routes(live_server):
     assert "space_b64" in exp
     raw_space = base64.b64decode(exp["space_b64"])
     assert len(raw_space) > 0
+
+
+def test_http_crdt_and_telemetry_routes(live_server):
+    # POST /api/crdt/gossip
+    gossip = http_post(f"{live_server}/api/crdt/gossip", {
+        "key": "sensor:temp:room-1",
+        "value": {"celsius": 22.8, "unit": "C"},
+        "operation": "upsert",
+    })
+    assert gossip["status"] == "ok"
+    assert gossip["applied"] is True
+    assert "merkle_root" in gossip
+
+    # GET /api/crdt/state
+    crdt_state = http_get(f"{live_server}/api/crdt/state")
+    assert crdt_state["merkle_root"] == gossip["merkle_root"]
+    assert "sensor:temp:room-1" in crdt_state["state_store"]
+
+    # POST /api/telemetry/ingest
+    ing = http_post(f"{live_server}/api/telemetry/ingest", {
+        "topic": "devices/esp32-lab-01/telemetry",
+        "device_id": "esp32-lab-01",
+        "protocol": "mqtt",
+        "metric_name": "temperature",
+        "value": 24.5,
+        "unit": "C",
+        "flush": True,
+    })
+    assert ing["status"] == "ingested"
+    assert ing["flushed_count"] >= 1
+    assert ing["latest_receipt"] is not None
+
+    # GET /api/telemetry/state
+    tel_state = http_get(f"{live_server}/api/telemetry/state")
+    assert tel_state["ingested_nodes_count"] >= 1
+    assert len(tel_state["receipts"]) >= 1
+
