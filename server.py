@@ -586,7 +586,7 @@ class FallbackSingleFileSpaceVFS:
 
 class FallbackAgentSpaceManager:
     def __init__(self, base_dir: Optional[str] = None, ai_router: Optional[Any] = None):
-        self.base_dir = base_dir or os.path.join(os.path.dirname(os.path.abspath(__file__)), "spaces")
+        self.base_dir = base_dir or os.path.join(os.environ.get("AGENT_SPACES_DIR") or os.environ.get("TINCAN_DATA_DIR") or os.environ.get("RAILWAY_VOLUME_MOUNT_PATH") or os.path.dirname(os.path.abspath(__file__)), "spaces")
         self.ai_router = ai_router
         self._spaces: Dict[str, FallbackSingleFileSpaceVFS] = {}
         os.makedirs(self.base_dir, exist_ok=True)
