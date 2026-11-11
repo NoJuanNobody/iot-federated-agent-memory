@@ -136,6 +136,7 @@ class SponsorAdManager:
         self.impressions: Dict[str, int] = {}
         self.clicks: Dict[str, int] = {}
         self.completions: Dict[str, int] = {}
+        self.admin_intel_logs: List[Dict[str, Any]] = []
         self._rotation_idx: int = 0
         self.sponsors: List[SponsorCreative] = []
 
@@ -325,6 +326,37 @@ class SponsorAdManager:
                 "reward_usd": 0.05,
             }
 
+    def record_admin_intel(
+        self,
+        peer_id: str,
+        video_id: str,
+        title: Optional[str] = None,
+        category: str = "ad",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Record an admin intelligence gathering ad watch event."""
+        with self._lock:
+            record = {
+                "id": f"intel-{int(time.time() * 1000)}",
+                "peer_id": peer_id or "admin",
+                "video_id": video_id or "ad",
+                "title": title or video_id or "Sponsored Ad",
+                "category": category,
+                "timestamp": time.time(),
+                "status": "verified_watch",
+                "purpose": "intelligence_gathering",
+                "metadata": metadata or {},
+            }
+            self.admin_intel_logs.append(record)
+            if len(self.admin_intel_logs) > 500:
+                self.admin_intel_logs = self.admin_intel_logs[-500:]
+            return record
+
+    def get_admin_intel_logs(self) -> List[Dict[str, Any]]:
+        """Return all recorded admin intelligence gathering ad events."""
+        with self._lock:
+            return list(self.admin_intel_logs)
+
     def sync_from_playlist(self, playlist_items: List[Dict[str, Any]]) -> int:
         """Inject any category='ad' items from the video playlist as active video sponsors."""
         added = 0
@@ -365,6 +397,8 @@ class SponsorAdManager:
                     "impressions": dict(self.impressions),
                     "clicks": dict(self.clicks),
                     "completions": dict(self.completions),
+                    "admin_intel_count": len(self.admin_intel_logs),
+                    "latest_admin_intel": list(self.admin_intel_logs[-10:]) if self.admin_intel_logs else [],
                 },
                 "networks": {
                     "ethical_ads": {

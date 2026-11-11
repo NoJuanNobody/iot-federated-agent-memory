@@ -224,3 +224,58 @@ def test_admin_video_and_sponsor_crud_endpoints(live_server):
         s_ids_after = [s["id"] for s in data["state"]["all_sponsors"]]
         assert "anthropic-claude" not in s_ids_after
 
+
+def test_admin_ad_intelligence_gathering_telemetry(live_server):
+    # Test SponsorAdManager admin intel logging directly
+    mgr = SponsorAdManager()
+    rec = mgr.record_admin_intel(
+        peer_id="admin-operator",
+        video_id="competitor-ad-484",
+        title="Competitor LLM Ad",
+        category="ad",
+        metadata={"source": "watch_party_tv", "watched_duration": 35.0},
+    )
+    assert rec["status"] == "verified_watch"
+    assert rec["purpose"] == "intelligence_gathering"
+    assert rec["video_id"] == "competitor-ad-484"
+    logs = mgr.get_admin_intel_logs()
+    assert len(logs) >= 1
+    assert any(l["video_id"] == "competitor-ad-484" for l in logs)
+
+    # Test HTTP POST /api/ads/intel
+    req_post_intel = urllib.request.Request(
+        f"{live_server}/api/ads/intel",
+        data=json.dumps({
+            "peer_id": "admin-z23961745",
+            "video_id": "sponsor-railway-intel",
+            "title": "Railway Ad Intel Analysis",
+            "category": "ad",
+            "metadata": {"source": "zen_feed", "watched_duration": 42.0},
+        }).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req_post_intel) as resp:
+        assert resp.status == 200
+        data = json.loads(resp.read().decode("utf-8"))
+        assert data["status"] == "recorded"
+        assert data["intel"]["peer_id"] == "admin-z23961745"
+        assert data["intel"]["purpose"] == "intelligence_gathering"
+
+    # Test HTTP GET /api/ads/intel
+    with urllib.request.urlopen(f"{live_server}/api/ads/intel") as resp:
+        assert resp.status == 200
+        data = json.loads(resp.read().decode("utf-8"))
+        assert data["status"] == "ok"
+        assert data["total"] >= 1
+        assert any(r["peer_id"] == "admin-z23961745" for r in data["intel_records"])
+
+    # Test GET /api/ads/state includes telemetry for admin intel
+    with urllib.request.urlopen(f"{live_server}/api/ads/state") as resp:
+        assert resp.status == 200
+        data = json.loads(resp.read().decode("utf-8"))
+        assert "telemetry" in data
+        assert "admin_intel_count" in data["telemetry"]
+        assert data["telemetry"]["admin_intel_count"] >= 1
+
+

@@ -450,6 +450,8 @@ ZEN_BODY = r"""
       let index = 0;
       let soundOn = false;
       let switching = false;
+      let zenAdWatchCompleted = false;
+      let zenAdMaxWatched = 0;
 
       const FALLBACK = [{ embed_url: '/videos/7705677376465767711.mp4', title: 'TinCan Mesh Walkthrough', creator: '@nojuannobody' }];
 
@@ -477,17 +479,56 @@ ZEN_BODY = r"""
 
       function show(i) {
         const c = clips[i];
+        const isAd = c && (c.category === 'ad' || c.category === 'community_video');
+        zenAdWatchCompleted = !isAd;
+        zenAdMaxWatched = 0;
         video.src = c.embed_url || c.cite_url;
         video.muted = !soundOn;
         $('zenTitle').textContent = c.title || '';
-        const meta = [c.creator, c.category === 'ad' ? 'Sponsored' : ''].filter(Boolean).join(' · ');
+        const meta = [
+          c.creator,
+          isAd ? (isAdmin() ? '🛡️ Intelligence Gathering · Ad View Required' : 'Sponsored') : ''
+        ].filter(Boolean).join(' · ');
         $('zenMeta').textContent = meta;
-        document.querySelectorAll('#zenTicks button').forEach((b, j) => b.setAttribute('aria-current', j === i ? 'true' : 'false'));
+        document.querySelectorAll('#zenTicks button').forEach((b, j) => {
+          b.setAttribute('aria-current', j === i ? 'true' : 'false');
+          if (isAdmin() && isAd && !zenAdWatchCompleted && j !== i) {
+            b.style.opacity = '0.3';
+            b.style.pointerEvents = 'none';
+          } else {
+            b.style.opacity = '';
+            b.style.pointerEvents = '';
+          }
+        });
         playQuietly();
+      }
+
+      function canSkipZenClip() {
+        const c = clips[index];
+        const isAd = c && (c.category === 'ad' || c.category === 'community_video');
+        if (isAdmin() && isAd && !zenAdWatchCompleted) {
+          flashZenIntelNotice();
+          return false;
+        }
+        return true;
+      }
+
+      function flashZenIntelNotice() {
+        const meta = $('zenMeta');
+        if (meta) {
+          const orig = meta.textContent;
+          meta.textContent = '🔒 Intelligence Gathering Active · Admins must watch ads in full!';
+          meta.style.color = '#fbbf24';
+          setTimeout(() => {
+            meta.textContent = orig;
+            meta.style.color = '';
+          }, 1800);
+        }
       }
 
       function go(target) {
         if (switching || !clips.length) return;
+        if (!canSkipZenClip()) return;
         const next = (target + clips.length) % clips.length;
         if (next === index && video.src) return;
         const down = target > index || (index === clips.length - 1 && next === 0);
@@ -509,7 +550,45 @@ ZEN_BODY = r"""
       video.addEventListener('loadedmetadata', () => {
         if (video.videoWidth && video.videoHeight) frame.style.setProperty('--zen-ar', (video.videoWidth / video.videoHeight).toFixed(4));
       });
-      video.addEventListener('ended', nextClip);
+      video.addEventListener('timeupdate', () => {
+        const c = clips[index];
+        const isAd = c && (c.category === 'ad' || c.category === 'community_video');
+        if (isAdmin() && isAd) {
+          zenAdMaxWatched = Math.max(zenAdMaxWatched, video.currentTime);
+        }
+      });
+      video.addEventListener('seeking', () => {
+        const c = clips[index];
+        const isAd = c && (c.category === 'ad' || c.category === 'community_video');
+        if (isAdmin() && isAd && !zenAdWatchCompleted) {
+          if (video.currentTime > zenAdMaxWatched + 1.0) {
+            video.currentTime = zenAdMaxWatched;
+          }
+        }
+      });
+      video.addEventListener('ended', () => {
+        const c = clips[index];
+        const isAd = c && (c.category === 'ad' || c.category === 'community_video');
+        if (isAdmin() && isAd) {
+          zenAdWatchCompleted = true;
+          document.querySelectorAll('#zenTicks button').forEach((b) => {
+            b.style.opacity = '';
+            b.style.pointerEvents = '';
+          });
+          fetch('/api/ads/intel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              peer_id: localStorage.getItem('tincan_peer_id') || 'admin-zen',
+              video_id: c.video_id || c.id || 'zen-ad',
+              title: c.title || 'Sponsored Ad',
+              category: 'ad',
+              metadata: { source: 'zen_feed', watched_duration: zenAdMaxWatched }
+            })
+          }).catch(() => {});
+        }
+        nextClip();
+      });
       video.addEventListener('error', () => { if (clips.length > 1) setTimeout(nextClip, 600); });
 
       function setSound(on) {

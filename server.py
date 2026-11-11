@@ -1443,6 +1443,26 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"status": "ok", "recorded": success, "sponsor_id": sponsor_id}, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/ads/intel":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                peer_id = (data.get("peer_id") or "admin-peer").strip()
+                video_id = (data.get("video_id") or "ad").strip()
+                title = (data.get("title") or "").strip()
+                category = (data.get("category") or "ad").strip()
+                metadata = data.get("metadata") or {}
+                record = sponsor_manager.record_admin_intel(
+                    peer_id=peer_id,
+                    video_id=video_id,
+                    title=title,
+                    category=category,
+                    metadata=metadata,
+                )
+                self._send_json({"status": "recorded", "intel": record}, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
         elif parsed.path == "/api/account/billing/topup":
             # Operator-only manual grant. Clients can no longer credit themselves here.
             content_length = int(self.headers.get("Content-Length", 0))
@@ -2230,6 +2250,12 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             }, 200)
         elif parsed.path in ("/api/ads/state", "/api/sponsors", "/api/sponsor/list"):
             self._send_json(sponsor_manager.get_state(), 200)
+        elif parsed.path == "/api/ads/intel":
+            self._send_json({
+                "status": "ok",
+                "intel_records": sponsor_manager.get_admin_intel_logs(),
+                "total": len(sponsor_manager.admin_intel_logs),
+            }, 200)
         elif parsed.path.startswith("/videos/") and parsed.path.endswith(".mp4"):
             from iot_federated_agent_memory.video_playlist import VIDEOS_DIR, download_tiktok_mp4
             from iot_federated_agent_memory.s3_storage import s3_get_object

@@ -650,6 +650,21 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           <div id="reactionOverlay" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
         </div>
 
+        <!-- Admin Intelligence Gathering Banner (Mandatory Ad View) -->
+        <div id="adminAdIntelNotice" class="hidden p-2.5 bg-gradient-to-r from-amber-950/90 via-slate-950 to-amber-950/90 border border-amber-500/70 rounded-lg text-xs font-mono flex items-center justify-between shadow-lg">
+          <div class="flex items-center gap-2">
+            <span class="text-base animate-pulse">📡</span>
+            <div>
+              <div class="font-bold text-amber-300 flex items-center gap-1.5">
+                <span>Admin Intelligence Gathering Active</span>
+                <span class="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] uppercase font-bold">Required</span>
+              </div>
+              <div class="text-[10px] text-amber-200/80">Admins must watch sponsored ads to completion for market intelligence. Skipping locked.</div>
+            </div>
+          </div>
+          <span id="adminAdIntelTimer" class="px-2 py-0.5 rounded bg-amber-950 border border-amber-700 text-amber-300 font-mono text-[10px] font-bold shrink-0 animate-pulse">🔒 Ad View Required</span>
+        </div>
+
         <!-- Watch Party Reactions Bar & Room Sync -->
         <div class="p-2.5 bg-slate-950/80 border border-pink-900/50 rounded-lg flex items-center justify-between gap-2">
           <div class="flex items-center gap-1.5 text-sm">
@@ -668,8 +683,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         <!-- Playlist Controls -->
         <div class="flex items-center justify-between gap-2 text-xs font-mono">
           <div class="flex items-center gap-1.5">
-            <button onclick="prevPlaylistVideo()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 transition">⏮ Prev</button>
-            <button onclick="nextPlaylistVideo()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 transition">Next ⏭</button>
+            <button id="playlistPrevBtn" onclick="prevPlaylistVideo()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 transition">⏮ Prev</button>
+            <button id="playlistNextBtn" onclick="nextPlaylistVideo()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 transition">Next ⏭</button>
             <button id="autoRotateBtn" onclick="toggleAutoRotate()" class="px-2.5 py-1 bg-emerald-950 text-emerald-300 rounded border border-emerald-800 transition">🔁 Auto-Loop: ON</button>
           </div>
           <button id="soundToggleBtn" onclick="toggleVideoSound()" class="px-2.5 py-1 bg-pink-950 hover:bg-pink-900 text-pink-300 rounded border border-pink-800 transition">
@@ -5209,6 +5224,79 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       } catch (e) {}
     }
 
+    let adminAdWatchCompleted = false;
+    let currentAdMaxWatchedTime = 0;
+
+    function isCurrentVideoAd() {
+      if (!playlistVideos.length || currentVideoIdx < 0 || currentVideoIdx >= playlistVideos.length) return false;
+      const v = playlistVideos[currentVideoIdx];
+      return !!v && (v.category === 'ad' || v.category === 'community_video');
+    }
+
+    function checkAdminMustWatchAd() {
+      return isAdmin && isCurrentVideoAd() && !adminAdWatchCompleted;
+    }
+
+    function showAdminAdLockToast() {
+      const banner = document.getElementById('adminAdIntelNotice');
+      if (banner) {
+        banner.classList.remove('hidden');
+        banner.classList.add('ring-2', 'ring-amber-400');
+        setTimeout(() => banner.classList.remove('ring-2', 'ring-amber-400'), 1500);
+      }
+      alert('🔒 Intelligence Gathering Active: Admins are required to watch sponsored ads in full before skipping.');
+    }
+
+    function canSkipVideo() {
+      if (checkAdminMustWatchAd()) {
+        showAdminAdLockToast();
+        return false;
+      }
+      return true;
+    }
+
+    function updateAdminAdIntelUI(isAd, item) {
+      const notice = document.getElementById('adminAdIntelNotice');
+      const prevBtn = document.getElementById('playlistPrevBtn');
+      const nextBtn = document.getElementById('playlistNextBtn');
+
+      const mustWatch = isAdmin && isAd && !adminAdWatchCompleted;
+      if (notice) {
+        if (isAdmin && isAd) {
+          notice.classList.remove('hidden');
+          const timerEl = document.getElementById('adminAdIntelTimer');
+          if (timerEl) {
+            timerEl.innerText = adminAdWatchCompleted ? '✅ Intel Gathered' : '🔒 Ad View Required';
+            timerEl.className = adminAdWatchCompleted
+              ? 'px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700 text-emerald-300 font-mono text-[10px] font-bold shrink-0'
+              : 'px-2 py-0.5 rounded bg-amber-950 border border-amber-700 text-amber-300 font-mono text-[10px] font-bold shrink-0 animate-pulse';
+          }
+        } else {
+          notice.classList.add('hidden');
+        }
+      }
+
+      if (prevBtn) {
+        if (mustWatch) {
+          prevBtn.classList.add('opacity-40', 'cursor-not-allowed');
+          prevBtn.title = 'Locked: Admins must watch ads for intelligence gathering';
+        } else {
+          prevBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+          prevBtn.title = '';
+        }
+      }
+
+      if (nextBtn) {
+        if (mustWatch) {
+          nextBtn.classList.add('opacity-40', 'cursor-not-allowed');
+          nextBtn.title = 'Locked: Admins must watch ads for intelligence gathering';
+        } else {
+          nextBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+          nextBtn.title = '';
+        }
+      }
+    }
+
     function renderPlaylistUI() {
       const total = playlistVideos.length;
       const badge = document.getElementById('playlistCounterBadge');
@@ -5220,20 +5308,30 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       }
 
       const item = playlistVideos[currentVideoIdx];
-      badge.innerText = `${currentVideoIdx + 1} / ${total} · ${autoRotateEnabled ? 'Loop' : 'Paused'}`;
-      document.getElementById('nowPlayingTitle').innerHTML =
-        `${item.title} · <span class="text-pink-400 font-mono">${item.creator}</span>`;
+      const isAd = item && (item.category === 'ad' || item.category === 'community_video');
 
       const vidEl = document.getElementById('relayNativeVideo');
       const targetSrc = item.embed_url || `/videos/${item.video_id}.mp4`;
+      const isNewVideo = vidEl && vidEl.getAttribute('data-vid') !== item.id;
+      if (isNewVideo) {
+        adminAdWatchCompleted = !isAd;
+        currentAdMaxWatchedTime = 0;
+      }
+
+      badge.innerText = `${currentVideoIdx + 1} / ${total} · ${autoRotateEnabled ? 'Loop' : 'Paused'}`;
+      document.getElementById('nowPlayingTitle').innerHTML =
+        `${item.title} · <span class="text-pink-400 font-mono">${item.creator}</span>${isAd ? ' <span class="text-amber-400 font-mono text-[10px] uppercase font-bold">[SPONSORED AD]</span>' : ''}`;
+
       if (vidEl) {
-        vidEl.loop = (total === 1 && autoRotateEnabled);
-        if (vidEl.getAttribute('data-vid') !== item.id) {
+        vidEl.loop = (total === 1 && autoRotateEnabled && !isAd);
+        if (isNewVideo) {
           vidEl.setAttribute('data-vid', item.id);
           vidEl.src = targetSrc;
           vidEl.play().catch(() => {});
         }
       }
+
+      updateAdminAdIntelUI(isAd, item);
 
       queue.innerHTML = playlistVideos.map((v, idx) => `
         <div onclick="selectPlaylistVideo(${idx})" class="cursor-pointer px-2.5 py-1 rounded border flex justify-between items-center transition ${idx === currentVideoIdx ? 'bg-pink-950/60 border-pink-700 text-white' : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'}">
@@ -5251,18 +5349,22 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     function selectPlaylistVideo(idx) {
       if (idx < 0 || idx >= playlistVideos.length) return;
+      if (idx === currentVideoIdx) return;
+      if (!canSkipVideo()) return;
       currentVideoIdx = idx;
       renderPlaylistUI();
     }
 
     function nextPlaylistVideo() {
       if (!playlistVideos.length) return;
+      if (!canSkipVideo()) return;
       currentVideoIdx = (currentVideoIdx + 1) % playlistVideos.length;
       renderPlaylistUI();
     }
 
     function prevPlaylistVideo() {
       if (!playlistVideos.length) return;
+      if (!canSkipVideo()) return;
       currentVideoIdx = (currentVideoIdx - 1 + playlistVideos.length) % playlistVideos.length;
       renderPlaylistUI();
     }
@@ -5286,15 +5388,50 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       vidEl.play().catch(() => {});
     }
 
-    document.getElementById('relayNativeVideo').addEventListener('ended', () => {
-      if (autoRotateEnabled && playlistVideos.length > 1) {
-        nextPlaylistVideo();
-      } else if (autoRotateEnabled && playlistVideos.length === 1) {
-        const vidEl = document.getElementById('relayNativeVideo');
-        vidEl.currentTime = 0;
-        vidEl.play().catch(() => {});
-      }
-    });
+    const relayVid = document.getElementById('relayNativeVideo');
+    if (relayVid) {
+      relayVid.addEventListener('timeupdate', () => {
+        if (isCurrentVideoAd() && isAdmin) {
+          currentAdMaxWatchedTime = Math.max(currentAdMaxWatchedTime, relayVid.currentTime);
+          const timerEl = document.getElementById('adminAdIntelTimer');
+          if (timerEl && !adminAdWatchCompleted && relayVid.duration) {
+            const rem = Math.max(0, Math.ceil(relayVid.duration - relayVid.currentTime));
+            timerEl.innerText = `🔒 Intel Gather: ${rem}s left`;
+          }
+        }
+      });
+      relayVid.addEventListener('seeking', () => {
+        if (checkAdminMustWatchAd()) {
+          if (relayVid.currentTime > currentAdMaxWatchedTime + 1.0) {
+            relayVid.currentTime = currentAdMaxWatchedTime;
+          }
+        }
+      });
+      relayVid.addEventListener('ended', () => {
+        if (isCurrentVideoAd() && isAdmin) {
+          adminAdWatchCompleted = true;
+          const currentItem = playlistVideos[currentVideoIdx];
+          updateAdminAdIntelUI(true, currentItem);
+          fetch('/api/ads/intel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              peer_id: myPeerId,
+              video_id: currentItem ? (currentItem.video_id || currentItem.id) : 'ad',
+              title: currentItem ? currentItem.title : 'Sponsored Ad',
+              category: 'ad',
+              metadata: { source: 'watch_party_tv', watched_duration: currentAdMaxWatchedTime }
+            })
+          }).catch(() => {});
+        }
+        if (autoRotateEnabled && playlistVideos.length > 1) {
+          nextPlaylistVideo();
+        } else if (autoRotateEnabled && playlistVideos.length === 1) {
+          relayVid.currentTime = 0;
+          relayVid.play().catch(() => {});
+        }
+      });
+    }
 
     async function addVideoToPlaylist() {
       const inp = document.getElementById('newVideoInput');
