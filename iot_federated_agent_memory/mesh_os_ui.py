@@ -1632,32 +1632,32 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800 hover:border-emerald-500/60 transition flex flex-col justify-between">
               <div>
                 <div class="text-xs font-bold text-white">Starter Pack</div>
-                <div class="text-lg font-bold font-mono text-emerald-400 mt-1">$0.10</div>
-                <div class="text-[11px] text-slate-400 mt-0.5">10 Credits</div>
+                <div class="text-lg font-bold font-mono text-emerald-400 mt-1">$1.00</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">120 Credits</div>
               </div>
-              <button onclick="buyTokens(0.10, 10)" class="mt-3 w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95">
-                Pay $0.10
+              <button onclick="buyTokens(1.00, 120)" class="mt-3 w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95">
+                Pay $1.00
               </button>
             </div>
             <div class="p-3 bg-slate-900/90 rounded-xl border border-emerald-500/80 shadow-md hover:border-emerald-400 transition flex flex-col justify-between relative overflow-hidden">
               <div class="absolute top-0 right-0 bg-emerald-500 text-slate-950 font-bold text-[9px] px-1.5 py-0.2 rounded-bl uppercase">Popular</div>
               <div>
                 <div class="text-xs font-bold text-white">Developer Pack</div>
-                <div class="text-lg font-bold font-mono text-emerald-400 mt-1">$0.50</div>
-                <div class="text-[11px] text-slate-400 mt-0.5">55 Credits <span class="text-emerald-400 font-semibold">(+10%)</span></div>
+                <div class="text-lg font-bold font-mono text-emerald-400 mt-1">$5.00</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">650 Credits <span class="text-emerald-400 font-semibold">(+8%)</span></div>
               </div>
-              <button onclick="buyTokens(0.50, 55)" class="mt-3 w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95">
-                Pay $0.50
+              <button onclick="buyTokens(5.00, 650)" class="mt-3 w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95">
+                Pay $5.00
               </button>
             </div>
             <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800 hover:border-cyan-500/60 transition flex flex-col justify-between">
               <div>
                 <div class="text-xs font-bold text-white">Fleet Pro Pack</div>
-                <div class="text-lg font-bold font-mono text-cyan-400 mt-1">$1.00</div>
-                <div class="text-[11px] text-slate-400 mt-0.5">120 Credits <span class="text-cyan-400 font-semibold">(+20%)</span></div>
+                <div class="text-lg font-bold font-mono text-cyan-400 mt-1">$20.00</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">2,800 Credits <span class="text-cyan-400 font-semibold">(+17%)</span></div>
               </div>
-              <button onclick="buyTokens(1.00, 120)" class="mt-3 w-full py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95">
-                Pay $1.00
+              <button onclick="buyTokens(20.00, 2800)" class="mt-3 w-full py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95">
+                Pay $20.00
               </button>
             </div>
           </div>
@@ -3825,7 +3825,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     async function buyTokens(amountUsd, tokens) {
       // Server prices the pack and returns a Stripe-hosted checkout; tokens are credited
       // only when Stripe's signed webhook confirms payment.
-      const pack = `pack_${Math.round(amountUsd * 100)}`;  // price in cents, e.g. pack_50
+      const pack = `pack_${Math.round(amountUsd * 100)}`;  // price in cents: pack_100, pack_500, pack_2000
       try {
         const resp = await fetch('/api/billing/checkout', {
           method: 'POST',
