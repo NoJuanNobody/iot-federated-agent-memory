@@ -1,0 +1,471 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-11T05:23:36Z",
+  "title": "Design System: TinCan Mesh OS (startup shell)",
+  "extensions": {
+    "colorMeta": {
+      "sumi": {
+        "role": "neutral",
+        "displayName": "Sumi Ink",
+        "canonical": "oklch(16% 0.004 85)",
+        "tonalRamp": [
+          "#0c0b09",
+          "#23211f",
+          "#3c3a38",
+          "#565552",
+          "#7b7a77",
+          "#a6a4a1",
+          "#cccac7",
+          "#f0eeeb"
+        ]
+      },
+      "sumi-soft": {
+        "role": "neutral",
+        "displayName": "Sumi Soft",
+        "canonical": "oklch(20% 0.012 92)",
+        "tonalRamp": [
+          "#0d0b06",
+          "#24221b",
+          "#3d3a34",
+          "#58554e",
+          "#7d7a72",
+          "#a7a49c",
+          "#cdcac2",
+          "#f1eee6"
+        ]
+      },
+      "washi": {
+        "role": "neutral",
+        "displayName": "Washi",
+        "canonical": "oklch(93% 0.017 85)",
+        "tonalRamp": [
+          "#0f0b04",
+          "#252118",
+          "#3f3a30",
+          "#5a554b",
+          "#7f7a6f",
+          "#aaa499",
+          "#d0cabe",
+          "#f4eee2"
+        ]
+      },
+      "persimmon": {
+        "role": "primary",
+        "displayName": "Persimmon",
+        "canonical": "oklch(65% 0.137 46)",
+        "tonalRamp": [
+          "#300000",
+          "#4f0000",
+          "#6f1400",
+          "#8f3500",
+          "#ba5c2a",
+          "#e98756",
+          "#ffad7c",
+          "#ffd19f"
+        ]
+      },
+      "wash-rust": {
+        "role": "wash",
+        "displayName": "Rust Wash",
+        "canonical": "oklch(49% 0.118 43)",
+        "tonalRamp": [
+          "#2c0000",
+          "#4a0000",
+          "#691d00",
+          "#893a14",
+          "#b3603d",
+          "#e28b67",
+          "#ffb18b",
+          "#ffd5ae"
+        ]
+      },
+      "wash-moss": {
+        "role": "wash",
+        "displayName": "Moss Wash",
+        "canonical": "oklch(41% 0.060 128)",
+        "tonalRamp": [
+          "#040f00",
+          "#192704",
+          "#31401d",
+          "#4b5c37",
+          "#70815b",
+          "#9aac84",
+          "#bfd3a9",
+          "#e3f7cc"
+        ]
+      },
+      "wash-indigo": {
+        "role": "wash",
+        "displayName": "Indigo Wash",
+        "canonical": "oklch(34% 0.067 273)",
+        "tonalRamp": [
+          "#050627",
+          "#181e41",
+          "#2f375d",
+          "#49527b",
+          "#6d78a3",
+          "#97a2d0",
+          "#bcc8f7",
+          "#dfecff"
+        ]
+      },
+      "wash-umber": {
+        "role": "wash",
+        "displayName": "Umber Wash",
+        "canonical": "oklch(47% 0.058 68)",
+        "tonalRamp": [
+          "#1a0500",
+          "#331b00",
+          "#4e3416",
+          "#6b4f31",
+          "#927455",
+          "#bd9e7e",
+          "#e5c4a3",
+          "#ffe8c6"
+        ]
+      },
+      "washi-quiet": {
+        "role": "neutral",
+        "displayName": "Washi Quiet",
+        "canonical": "rgba(236, 230, 218, 0.66)",
+        "tonalRamp": [
+          "#0f0b04",
+          "#252118",
+          "#3f3a30",
+          "#5a554b",
+          "#7f7a6f",
+          "#aaa499",
+          "#d0cabe",
+          "#f4eee2"
+        ]
+      },
+      "washi-dim": {
+        "role": "neutral",
+        "displayName": "Washi Dim",
+        "canonical": "rgba(236, 230, 218, 0.6)",
+        "tonalRamp": [
+          "#0f0b04",
+          "#252118",
+          "#3f3a30",
+          "#5a554b",
+          "#7f7a6f",
+          "#aaa499",
+          "#d0cabe",
+          "#f4eee2"
+        ]
+      },
+      "washi-tick": {
+        "role": "neutral",
+        "displayName": "Washi Tick",
+        "canonical": "rgba(236, 230, 218, 0.38)",
+        "tonalRamp": [
+          "#0f0b04",
+          "#252118",
+          "#3f3a30",
+          "#5a554b",
+          "#7f7a6f",
+          "#aaa499",
+          "#d0cabe",
+          "#f4eee2"
+        ]
+      },
+      "washi-hairline": {
+        "role": "neutral",
+        "displayName": "Washi Hairline",
+        "canonical": "rgba(236, 230, 218, 0.14)",
+        "tonalRamp": [
+          "#0f0b04",
+          "#252118",
+          "#3f3a30",
+          "#5a554b",
+          "#7f7a6f",
+          "#aaa499",
+          "#d0cabe",
+          "#f4eee2"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "mark": {
+        "displayName": "Mark",
+        "purpose": "The TinCan wordmark beside the ring mark."
+      },
+      "caption-title": {
+        "displayName": "Clip title",
+        "purpose": "Bottom-left caption for the playing clip."
+      },
+      "launcher-name": {
+        "displayName": "Launcher name",
+        "purpose": "The tool list; the only large type in the shell."
+      },
+      "caption-meta": {
+        "displayName": "Clip meta",
+        "purpose": "Creator handle under the clip title."
+      },
+      "control": {
+        "displayName": "Control",
+        "purpose": "Sound toggle and Join labels."
+      },
+      "field": {
+        "displayName": "Field",
+        "purpose": "Launcher search input."
+      },
+      "launcher-desc": {
+        "displayName": "Launcher description",
+        "purpose": "One line beside each tool name."
+      },
+      "fine": {
+        "displayName": "Fine",
+        "purpose": "Hints, key caps, launcher footer. The size floor."
+      }
+    },
+    "shadows": [
+      {
+        "name": "clip-frame",
+        "value": "0 40px 90px -30px rgba(0,0,0,0.85), 0 0 0 1px rgba(236,230,218,0.14)",
+        "purpose": "The one object resting on the room."
+      },
+      {
+        "name": "window",
+        "value": "0 30px 80px -24px rgba(0,0,0,0.8)",
+        "purpose": "Smoked window pane over the dimmed feed."
+      },
+      {
+        "name": "gate-card",
+        "value": "0 40px 100px -30px rgba(0,0,0,0.85)",
+        "purpose": "Identity gate card."
+      },
+      {
+        "name": "caption-legibility",
+        "value": "0 1px 12px rgba(0,0,0,0.6)",
+        "purpose": "Text shadow on floating chrome over the clip (0.7 alpha at 14px on the caption)."
+      },
+      {
+        "name": "backdrop-blur",
+        "value": "blur(34px) saturate(0.75) brightness(0.62)",
+        "purpose": "Filter on the blurred copy of the clip behind the frame."
+      },
+      {
+        "name": "window-blur",
+        "value": "blur(22px) saturate(0.85)",
+        "purpose": "backdrop-filter on windows."
+      },
+      {
+        "name": "launcher-clip-state",
+        "value": "blur(10px) brightness(0.72) + scale(0.97)",
+        "purpose": "Clip frame while the launcher is open."
+      },
+      {
+        "name": "working-clip-state",
+        "value": "opacity 0.32 + blur(6px) saturate(0.6)",
+        "purpose": "Clip frame while a window is open (backdrop to 0.55 opacity)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "zen-ease",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "The single easing curve for every transition."
+      },
+      {
+        "name": "state-fast",
+        "value": "260ms",
+        "purpose": "Row color and selection dot."
+      },
+      {
+        "name": "state-medium",
+        "value": "300-420ms",
+        "purpose": "Join hover (300), ticks and hint (400), clip fade (420)."
+      },
+      {
+        "name": "launcher",
+        "value": "520ms",
+        "purpose": "Launcher fade in and out (visibility delayed on close)."
+      },
+      {
+        "name": "chrome",
+        "value": "600ms",
+        "purpose": "Feed chrome fade and 6px drop when a window or launcher is open; clip drift transform is 620ms."
+      },
+      {
+        "name": "atmosphere",
+        "value": "900ms",
+        "purpose": "Backdrop and clip filter changes, mark ring rotation (-24deg on hover)."
+      },
+      {
+        "name": "wash-drift",
+        "value": "70s ease-in-out infinite alternate",
+        "purpose": "Slow translate and +/-4deg rotate of the wash."
+      },
+      {
+        "name": "grain",
+        "value": "0.9s steps(6) infinite",
+        "purpose": "Jittering noise tile at 16% overlay."
+      },
+      {
+        "name": "clip-change",
+        "value": "vertical drift of +/-4% with opacity fade; 380ms lock between changes",
+        "purpose": "Next or previous clip; backdrop crossfades."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "wash and grain animation none; transitions 1ms",
+        "purpose": "prefers-reduced-motion: reduce."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "(max-aspect-ratio: 11/16), (max-width: 560px)"
+      },
+      {
+        "name": "fine-pointer",
+        "value": "(hover: hover) and (pointer: fine)"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Mark",
+      "kind": "nav",
+      "refersTo": "mark",
+      "description": "The one permanent control: open ring, persimmon dot, serif wordmark. Opens the launcher.",
+      "html": "<button class=\"ds-mark\" type=\"button\"><svg viewBox=\"0 0 32 32\" width=\"30\" height=\"30\" fill=\"none\" aria-hidden=\"true\"><path d=\"M26.6 10.4A12 12 0 1 0 27.7 19\" stroke=\"#ece6da\" stroke-width=\"2.4\" stroke-linecap=\"round\"/><circle cx=\"27.6\" cy=\"14.6\" r=\"1.6\" fill=\"#d0703f\"/></svg><span>TinCan</span></button>",
+      "css": ".ds-mark{appearance:none;background:none;border:0;cursor:pointer;padding:0;display:flex;align-items:center;gap:0.7rem;color:#ece6da;font-family:var(--zen-mincho, 'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', serif);font-weight:600;font-size:1.05rem;letter-spacing:0.02em;text-shadow:0 1px 12px rgba(0,0,0,0.6)}.ds-mark svg{transition:transform 900ms cubic-bezier(0.16,1,0.3,1)}.ds-mark:hover svg{transform:rotate(-24deg)}.ds-mark:focus-visible{outline:1px solid #ece6da;outline-offset:4px;border-radius:6px}"
+    },
+    {
+      "name": "Clip caption",
+      "kind": "custom",
+      "refersTo": "caption-title",
+      "description": "Serif title over gothic creator handle, bottom-left of the feed.",
+      "html": "<div class=\"ds-caption\"><p class=\"ds-caption-title\">TinCan Mesh Walkthrough</p><p class=\"ds-caption-meta\">@nojuannobody</p></div>",
+      "css": ".ds-caption{max-width:30ch;text-shadow:0 1px 14px rgba(0,0,0,0.7);color:#ece6da}.ds-caption-title{margin:0;font-family:var(--zen-mincho, 'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', serif);font-weight:500;font-size:1.12rem;line-height:1.35;text-wrap:balance}.ds-caption-meta{margin:0.4rem 0 0;font-family:var(--zen-gothic, 'Zen Kaku Gothic New', 'Hiragino Sans', 'Yu Gothic', system-ui, sans-serif);font-size:0.78rem;letter-spacing:0.03em;color:rgba(236,230,218,0.66)}"
+    },
+    {
+      "name": "Sound toggle",
+      "kind": "button",
+      "refersTo": "sound-toggle",
+      "description": "Text-and-icon toggle with no container; quiet at rest, full washi on hover.",
+      "html": "<button class=\"ds-sound\" type=\"button\"><svg viewBox=\"0 0 20 20\" width=\"18\" height=\"18\" fill=\"none\" aria-hidden=\"true\"><path d=\"M3.5 7.5h2.8L10.5 4v12l-4.2-3.5H3.5z\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linejoin=\"round\"/><path d=\"M13.2 8l4 4M17.2 8l-4 4\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\"/></svg><span>Sound off</span></button>",
+      "css": ".ds-sound{appearance:none;background:none;border:0;cursor:pointer;padding:0;display:flex;align-items:center;gap:0.5rem;color:rgba(236,230,218,0.66);font-family:var(--zen-gothic, 'Zen Kaku Gothic New', 'Hiragino Sans', 'Yu Gothic', system-ui, sans-serif);font-size:0.86rem}.ds-sound:hover{color:#ece6da}.ds-sound:focus-visible{outline:1px solid #ece6da;outline-offset:4px;border-radius:6px}"
+    },
+    {
+      "name": "Join button",
+      "kind": "button",
+      "refersTo": "join-button",
+      "description": "The one container in the feed chrome: hairline capsule over a translucent ink fill.",
+      "html": "<button class=\"ds-join\" type=\"button\">Join the mesh</button>",
+      "css": ".ds-join{appearance:none;cursor:pointer;color:#ece6da;font-family:var(--zen-gothic, 'Zen Kaku Gothic New', 'Hiragino Sans', 'Yu Gothic', system-ui, sans-serif);font-size:0.86rem;padding:0.55rem 1.05rem;border:1px solid rgba(236,230,218,0.32);border-radius:999px;background:rgba(14,13,11,0.32);backdrop-filter:blur(10px);transition:background 300ms cubic-bezier(0.16,1,0.3,1),border-color 300ms cubic-bezier(0.16,1,0.3,1)}.ds-join:hover{background:rgba(236,230,218,0.12);border-color:rgba(236,230,218,0.55)}.ds-join:focus-visible{outline:1px solid #ece6da;outline-offset:4px;border-radius:6px}"
+    },
+    {
+      "name": "Position ticks",
+      "kind": "nav",
+      "refersTo": "tick",
+      "description": "Hairline bars on the right edge; the current clip grows and turns persimmon.",
+      "html": "<ol class=\"ds-ticks\"><li><button class=\"ds-tick\" aria-label=\"Clip 1\" aria-current=\"true\"></button></li><li><button class=\"ds-tick\" aria-label=\"Clip 2\"></button></li><li><button class=\"ds-tick\" aria-label=\"Clip 3\"></button></li></ol>",
+      "css": ".ds-ticks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0.55rem;align-items:center}.ds-tick{display:block;appearance:none;border:0;padding:0;cursor:pointer;width:2px;height:18px;background:rgba(236,230,218,0.38);border-radius:1px;transition:background 400ms,height 400ms cubic-bezier(0.16,1,0.3,1)}.ds-tick[aria-current='true']{background:#d0703f;height:30px}.ds-tick:hover{background:rgba(236,230,218,0.7)}.ds-tick[aria-current='true']:hover{background:#d0703f}.ds-tick:focus-visible{outline:1px solid #ece6da;outline-offset:4px;border-radius:6px}"
+    },
+    {
+      "name": "Launcher search",
+      "kind": "input",
+      "refersTo": "launcher-search",
+      "description": "Underline-only field with a persimmon caret and an esc key cap.",
+      "html": "<label class=\"ds-search\"><input class=\"ds-search-input\" type=\"text\" placeholder=\"Find a tool\" autocomplete=\"off\"><kbd class=\"ds-key\">esc</kbd></label>",
+      "css": ".ds-search{display:flex;align-items:center;gap:0.75rem;border-bottom:1px solid rgba(236,230,218,0.14);padding-bottom:0.8rem;transition:border-color 300ms}.ds-search:focus-within{border-bottom-color:rgba(236,230,218,0.42)}.ds-search-input{flex:1;background:transparent;border:0;color:#ece6da;caret-color:#d0703f;font-family:var(--zen-gothic, 'Zen Kaku Gothic New', 'Hiragino Sans', 'Yu Gothic', system-ui, sans-serif);font-size:0.95rem;letter-spacing:0.02em}.ds-search-input::placeholder{color:rgba(236,230,218,0.6)}.ds-search-input:focus{outline:none}.ds-key{font-family:var(--zen-gothic, 'Zen Kaku Gothic New', 'Hiragino Sans', 'Yu Gothic', system-ui, sans-serif);font-size:0.72rem;color:rgba(236,230,218,0.6);border:1px solid rgba(236,230,218,0.14);border-radius:5px;padding:0.1rem 0.4rem}"
+    },
+    {
+      "name": "Launcher rows",
+      "kind": "nav",
+      "refersTo": "launcher-row",
+      "description": "Serif tool names beside gothic descriptions; the selected row brightens and gains a persimmon dot.",
+      "html": "<ul class=\"ds-tools\"><li><button class=\"ds-row\" aria-selected=\"false\"><span class=\"ds-row-name\">Watch party</span><span class=\"ds-row-desc\">The collection together, with reactions</span></button></li><li><button class=\"ds-row\" aria-selected=\"true\"><span class=\"ds-row-name\">Talk</span><span class=\"ds-row-desc\">Room chat, voice and video calls</span></button></li><li><button class=\"ds-row\" aria-selected=\"false\"><span class=\"ds-row-name\">Board</span><span class=\"ds-row-desc\">Topics, threads and the knowledge graph</span></button></li></ul>",
+      "css": ".ds-tools{list-style:none;margin:0;padding:0;background:#0e0d0b}.ds-row{appearance:none;background:none;border:0;cursor:pointer;position:relative;width:100%;text-align:left;display:grid;grid-template-columns:15rem 1fr;align-items:baseline;gap:1.25rem;padding:0.5rem 0 0.5rem 1.5rem;color:rgba(236,230,218,0.66);transition:color 260ms cubic-bezier(0.16,1,0.3,1)}.ds-row::before{content:'';position:absolute;left:0.2rem;top:50%;width:7px;height:7px;margin-top:-3px;border-radius:50%;background:#d0703f;opacity:0;transform:scale(0.4);transition:opacity 260ms cubic-bezier(0.16,1,0.3,1),transform 420ms cubic-bezier(0.16,1,0.3,1)}.ds-row[aria-selected='true']::before{opacity:1;transform:none}.ds-row-name{font-family:var(--zen-mincho, 'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', serif);font-weight:500;font-size:clamp(1.6rem,3.1vw,2.3rem);line-height:1.15;letter-spacing:-0.01em;white-space:nowrap}.ds-row-desc{font-family:var(--zen-gothic, 'Zen Kaku Gothic New', 'Hiragino Sans', 'Yu Gothic', system-ui, sans-serif);font-size:0.82rem;color:rgba(236,230,218,0.6);transition:color 260ms}.ds-row:hover,.ds-row[aria-selected='true']{color:#ece6da}.ds-row:hover .ds-row-desc,.ds-row[aria-selected='true'] .ds-row-desc{color:rgba(236,230,218,0.66)}.ds-row:focus-visible{outline:1px solid #ece6da;outline-offset:4px;border-radius:6px}"
+    },
+    {
+      "name": "Clip frame",
+      "kind": "card",
+      "refersTo": "clip-frame",
+      "description": "The 9:16 clip container: 14px radius, hairline ring, one soft ambient shadow. Full-bleed and unrounded on phones.",
+      "html": "<div class=\"ds-frame\"><div class=\"ds-frame-fill\"></div></div>",
+      "css": ".ds-frame{width:180px;aspect-ratio:9/16;border-radius:14px;overflow:hidden;background:#000;box-shadow:0 40px 90px -30px rgba(0,0,0,0.85),0 0 0 1px rgba(236,230,218,0.14)}.ds-frame-fill{width:100%;height:100%;background:radial-gradient(60% 40% at 30% 25%,#964622,transparent 70%),radial-gradient(50% 40% at 70% 80%,#42522e,transparent 70%),#17150f}"
+    },
+    {
+      "name": "Window container",
+      "kind": "card",
+      "refersTo": "window",
+      "description": "Smoked pane for a re-dressed classic window. Container only; interiors are known drift.",
+      "html": "<div class=\"ds-window\"><div class=\"ds-window-head\">Board</div><div class=\"ds-window-body\">Classic interior renders here.</div></div>",
+      "css": ".ds-window{width:260px;background:rgba(23,21,15,0.9);border:1px solid rgba(236,230,218,0.14);border-radius:14px;box-shadow:0 30px 80px -24px rgba(0,0,0,0.8);backdrop-filter:blur(22px) saturate(0.85);color:#ece6da;font-family:var(--zen-gothic, 'Zen Kaku Gothic New', 'Hiragino Sans', 'Yu Gothic', system-ui, sans-serif)}.ds-window-head{padding:0.7rem 1rem;border-bottom:1px solid rgba(236,230,218,0.08);font-size:0.86rem}.ds-window-body{padding:1rem;font-size:0.78rem;color:rgba(236,230,218,0.66)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Ink Room",
+    "overview": "The shell is a dark room with one thing playing in it. A vertical clip sits in the middle, its own blurred image spreads behind it as a backdrop, and a slow, muddy wash of rust, moss, indigo and umber drifts over that backdrop under fine moving grain. Everything the interface adds is paper-white (washi) on ink (sumi): thin hairlines, small type, and a single persimmon accent. The interface is meant to be forgotten until the viewer reaches for it, and the clip is the thing the visitor came for.\n\nTwo voices carry the type. A soft Japanese-style serif (Shippori Mincho) names things: the mark, the clip title, the tools. A quiet humanist gothic (Zen Kaku Gothic New) does the small work: metadata, controls, hints, fields. Scale is used sparingly. The only large type in the whole shell is the tool list in the launcher, where a returning peer reads names the way a menu is read.\n\nDepth comes from blur and darkness, not from raised objects. When a tool is called, the launcher deepens the wash and blurs the clip that is still playing behind it. When a window opens, the clip dims and softens and the window floats over it as a smoked, blurred pane with a hairline edge. The shell never fills the screen with chrome; when it has nothing to say, the chrome is invisible.",
+    "keyCharacteristics": [
+      "Ink ground, paper type, one persimmon accent; no second accent.",
+      "Muddy, desaturated washes with film grain over a blurred copy of the playing clip.",
+      "1px washi hairlines as the only separator and border.",
+      "Two typefaces with strict roles: serif names, gothic utilities.",
+      "Chrome fades out when a window or the launcher is up, and returns when the feed returns.",
+      "Motion is one long ease-out curve, vertical, and slow; reduced-motion stills the wash and grain and shortens every transition to 1ms."
+    ],
+    "rules": [
+      {
+        "name": "The One Ember Rule",
+        "body": "Persimmon marks position and selection and nothing else: where you are in the feed, which tool is selected, where the caret is. It never fills a button, a surface or a heading.",
+        "section": "colors"
+      },
+      {
+        "name": "The Three Paper Levels Rule",
+        "body": "Text is washi, washi-quiet or washi-dim. A new surface picks one of the three; it does not invent a fourth transparency or introduce a new hue for text.",
+        "section": "colors"
+      },
+      {
+        "name": "The Dirty Wash Rule",
+        "body": "Washes stay muddy and low in saturation, sit behind the clip, and are always closed by a vignette. A clean or saturated gradient is a different world.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Voices Rule",
+        "body": "The serif names things (brand, clip, tool); the gothic does everything else. Do not set a control, field or paragraph in the serif, and do not set a name in the gothic.",
+        "section": "typography"
+      },
+      {
+        "name": "The Quiet Case Rule",
+        "body": "No uppercase, no wide tracking on labels. Hierarchy comes from face, size and the three paper levels.",
+        "section": "typography"
+      },
+      {
+        "name": "The Recede Rule",
+        "body": "Feed chrome (caption, sound, Join, ticks) fades to zero and drops 6px while a window or the launcher is open. The mark never fades; it is the way back.",
+        "section": "elevation"
+      },
+      {
+        "name": "The No Raised Surface Rule",
+        "body": "Nothing in the shell is lifted by an offset shadow. A new element earns separation with a hairline, a blur or a darker ground.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** let the clip be the brightest, most saturated thing on screen; the interface stays in ink and washi.",
+      "**Do** use persimmon (#d0703f) only for position, selection and the caret.",
+      "**Do** pick text color from washi (#ece6da), washi-quiet (66%) or washi-dim (60%).",
+      "**Do** separate with a 1px washi-hairline (14%) or with blur and darkness.",
+      "**Do** name things in Shippori Mincho and set utility text in Zen Kaku Gothic New.",
+      "**Do** fade feed chrome out when anything modal is open, and return it when the feed returns.",
+      "**Do** use the single easing curve `cubic-bezier(0.16, 1, 0.3, 1)`; durations of 260-620ms for state, 900ms for atmosphere, and 70s for the wash drift.",
+      "**Do** honor reduced motion by stilling the wash and grain and cutting transitions to 1ms.",
+      "**Do** keep every tool one gesture away: the mark or Cmd/Ctrl+K, with full keyboard operation."
+    ],
+    "donts": [
+      "**Don't** add a second accent color or fill any surface with persimmon.",
+      "**Don't** let the washes become clean, bright or saturated, or sit in front of the clip.",
+      "**Don't** use a glow, a colored shadow or a hard offset shadow.",
+      "**Don't** add a filled or colored pill, a button bar or a dock; the one capsule is the hairline Join.",
+      "**Don't** open any window or form over the first clip; nothing opens until asked for.",
+      "**Don't** set text below washi-dim or below 0.72rem.",
+      "**Don't** use uppercase labels, wide tracking, or emoji in new shell UI.",
+      "**Don't** copy the classic interior look (neon cyan, emerald and indigo fills, monospace, gradient call-to-action buttons) into new shell work."
+    ]
+  }
+}
