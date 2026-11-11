@@ -270,6 +270,29 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         </div>
       </div>
 
+      <!-- Passwordless sign-in: passkey (Face ID / fingerprint) or one-time email code -->
+      <div id="passkeySignInPanel" class="p-3 bg-slate-950 rounded-xl border border-cyan-500/40 space-y-2 font-mono text-[11px]">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-slate-300">Already have an account?</span>
+          <button type="button" id="passkeySignInBtn" onclick="signInWithPasskey()" class="px-3 py-1.5 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-white font-bold transition active:scale-95 flex items-center gap-1.5">
+            <span>🔑</span> <span>Sign in with passkey</span>
+          </button>
+        </div>
+        <button type="button" onclick="toggleRecoveryPanel(true)" class="text-cyan-300 hover:text-cyan-200 underline">No passkey yet? Get a one-time email code</button>
+        <div id="passkeyRecoveryPanel" class="hidden space-y-2 pt-2 border-t border-slate-800">
+          <p class="text-slate-400">We'll email a 6-digit code to the address on your account. It works once, for 10 minutes, and lets this device set up a passkey.</p>
+          <div class="flex gap-2">
+            <input id="recoveryEmailInput" type="email" autocomplete="email" placeholder="you@example.com" class="flex-1 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white placeholder-slate-600 focus:border-cyan-500 focus:outline-none" />
+            <button type="button" id="recoverySendBtn" onclick="requestRecoveryCode()" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold">Email code</button>
+          </div>
+          <div class="flex gap-2">
+            <input id="recoveryCodeInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" class="flex-1 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white placeholder-slate-600 tracking-widest focus:border-cyan-500 focus:outline-none" />
+            <button type="button" id="recoveryVerifyBtn" onclick="verifyRecoveryCode()" class="px-3 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold">Verify &amp; add passkey</button>
+          </div>
+        </div>
+        <div id="passkeyStatus" class="hidden p-2 rounded border"></div>
+      </div>
+
       <!-- Registration Form -->
       <form id="accountSetupForm" onsubmit="handleAccountFormSubmit(event)" class="space-y-3 font-mono text-xs">
         <div>
@@ -3432,6 +3455,207 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       }
     }
 
+    // =========================================================================
+    // Passwordless passkey (WebAuthn) sign-in + one-time email code recovery
+    // =========================================================================
+    const EMAIL_EXISTS_TEXT = 'You already have an account \u2014 sign in with your passkey.';
+
+    function b64urlToBuf(value) {
+      const pad = '='.repeat((4 - (value.length % 4)) % 4);
+      const b64 = (value + pad).replace(/-/g, '+').replace(/_/g, '/');
+      const bin = atob(b64);
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out.buffer;
+    }
+
+    function bufToB64url(buf) {
+      const bytes = new Uint8Array(buf);
+      let bin = '';
+      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    function passkeysSupported() {
+      return Boolean(window.PublicKeyCredential && navigator.credentials && window.isSecureContext);
+    }
+
+    function showPasskeyStatus(text, kind = 'info') {
+      const el = document.getElementById('passkeyStatus');
+      if (!el) return;
+      const styles = {
+        info: 'text-cyan-200 bg-cyan-950/40 border-cyan-800',
+        ok: 'text-emerald-200 bg-emerald-950/40 border-emerald-800',
+        error: 'text-red-300 bg-red-950/40 border-red-800'
+      };
+      el.className = 'p-2 rounded border ' + (styles[kind] || styles.info);
+      el.innerText = text;
+      el.classList.remove('hidden');
+    }
+
+    function toggleRecoveryPanel(show) {
+      const panel = document.getElementById('passkeyRecoveryPanel');
+      if (!panel) return;
+      panel.classList.toggle('hidden', !show);
+      const emailInp = document.getElementById('recoveryEmailInput');
+      const formEmail = document.getElementById('accInputEmail');
+      if (show && emailInp && !emailInp.value && formEmail && formEmail.value) emailInp.value = formEmail.value.trim();
+    }
+
+    async function postJson(url, payload) {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      let data = {};
+      try { data = await resp.json(); } catch (e) { data = {}; }
+      return { ok: resp.ok, status: resp.status, data };
+    }
+
+    function serializeCredential(cred) {
+      if (cred && typeof cred.toJSON === 'function') {
+        try { return cred.toJSON(); } catch (e) { /* fall through to manual encoding */ }
+      }
+      const r = cred.response;
+      const response = { clientDataJSON: bufToB64url(r.clientDataJSON) };
+      if (r.attestationObject) {
+        response.attestationObject = bufToB64url(r.attestationObject);
+        if (typeof r.getTransports === 'function') response.transports = r.getTransports();
+      }
+      if (r.authenticatorData) response.authenticatorData = bufToB64url(r.authenticatorData);
+      if (r.signature) response.signature = bufToB64url(r.signature);
+      if (r.userHandle) response.userHandle = bufToB64url(r.userHandle);
+      return {
+        id: cred.id,
+        rawId: bufToB64url(cred.rawId),
+        type: cred.type,
+        response,
+        authenticatorAttachment: cred.authenticatorAttachment || undefined,
+        clientExtensionResults: typeof cred.getClientExtensionResults === 'function' ? cred.getClientExtensionResults() : {}
+      };
+    }
+
+    function applySignedInAccount(account) {
+      if (!account) return;
+      const username = (account.username || (account.full_name || '').split(' ')[0] || '').trim();
+      localStorage.setItem('tincan_registration_epoch', REGISTRATION_EPOCH);
+      localStorage.setItem('tincan_fullname', account.full_name || username);
+      localStorage.setItem('tincan_username', username);
+      localStorage.setItem('tincan_email', account.email || '');
+      localStorage.setItem('tincan_phone', account.phone_number || '');
+      localStorage.setItem('tincan_role', account.role || 'Mesh Operator');
+      localStorage.setItem('tincan_consent_pii', 'true');
+      const hudName = document.getElementById('hudAccountName');
+      if (hudName && username) hudName.innerText = '@' + username;
+      const localLbl = document.getElementById('localPeerLabel');
+      if (localLbl) localLbl.innerText = getVerifiedDisplayName();
+      const modal = document.getElementById('accountSetupModal');
+      if (modal) modal.classList.add('hidden');
+      try { refreshBillingWindow(); } catch (e) {}
+    }
+
+    async function createPasskeyWithToken(enrollToken) {
+      if (!passkeysSupported()) throw new Error('This browser does not support passkeys.');
+      const opts = await postJson('/api/passkey/register/options', { peer_id: myPeerId, enroll_token: enrollToken });
+      if (!opts.ok) throw new Error(opts.data.error || 'Could not start passkey setup.');
+      const pk = opts.data.publicKey;
+      pk.challenge = b64urlToBuf(pk.challenge);
+      pk.user.id = b64urlToBuf(pk.user.id);
+      (pk.excludeCredentials || []).forEach((c) => { c.id = b64urlToBuf(c.id); });
+      const cred = await navigator.credentials.create({ publicKey: pk });
+      if (!cred) throw new Error('Passkey setup was cancelled.');
+      const done = await postJson('/api/passkey/register/verify', {
+        peer_id: myPeerId,
+        challenge_id: opts.data.challenge_id,
+        credential: serializeCredential(cred)
+      });
+      if (!done.ok) throw new Error(done.data.error || 'Could not save the passkey.');
+      return done.data.account;
+    }
+
+    async function signInWithPasskey() {
+      if (!passkeysSupported()) {
+        showPasskeyStatus('This browser does not support passkeys. Open TinCan in Safari or Chrome over https.', 'error');
+        return;
+      }
+      const btn = document.getElementById('passkeySignInBtn');
+      if (btn) btn.disabled = true;
+      try {
+        const emailHint = ((document.getElementById('accInputEmail') || {}).value || '').trim();
+        const opts = await postJson('/api/passkey/login/options', { peer_id: myPeerId, email: emailHint });
+        if (!opts.ok) throw new Error(opts.data.error || 'Could not start passkey sign-in.');
+        const pk = opts.data.publicKey;
+        pk.challenge = b64urlToBuf(pk.challenge);
+        (pk.allowCredentials || []).forEach((c) => { c.id = b64urlToBuf(c.id); });
+        const cred = await navigator.credentials.get({ publicKey: pk });
+        if (!cred) throw new Error('Passkey sign-in was cancelled.');
+        const done = await postJson('/api/passkey/login/verify', {
+          peer_id: myPeerId,
+          challenge_id: opts.data.challenge_id,
+          credential: serializeCredential(cred)
+        });
+        if (!done.ok) throw new Error(done.data.error || 'Passkey sign-in failed.');
+        showPasskeyStatus('Signed in. Welcome back!', 'ok');
+        applySignedInAccount(done.data.account);
+        if (typeof sfxEnabled !== 'undefined' && sfxEnabled && typeof playXpChime === 'function') playXpChime();
+      } catch (err) {
+        const msg = err && err.name === 'NotAllowedError' ? 'Passkey sign-in was cancelled or timed out.' : (err.message || String(err));
+        showPasskeyStatus(msg, 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function requestRecoveryCode() {
+      const email = ((document.getElementById('recoveryEmailInput') || {}).value || '').trim();
+      if (!email || !email.includes('@')) {
+        showPasskeyStatus('Enter the email on your account.', 'error');
+        return;
+      }
+      const btn = document.getElementById('recoverySendBtn');
+      if (btn) btn.disabled = true;
+      try {
+        const res = await postJson('/api/account/recovery/request', { email, peer_id: myPeerId });
+        if (!res.ok) throw new Error(res.data.error || 'Could not send a code.');
+        if (res.data.delivery_configured === false) {
+          showPasskeyStatus('Email delivery is not set up on this server yet, so no code can be sent. Ask the TinCan operator to enable it.', 'error');
+        } else {
+          showPasskeyStatus(res.data.message || 'Check your email for a 6-digit code.', 'info');
+          const codeInp = document.getElementById('recoveryCodeInput');
+          if (codeInp) codeInp.focus();
+        }
+      } catch (err) {
+        showPasskeyStatus(err.message || String(err), 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function verifyRecoveryCode() {
+      const email = ((document.getElementById('recoveryEmailInput') || {}).value || '').trim();
+      const code = ((document.getElementById('recoveryCodeInput') || {}).value || '').replace(/\D/g, '');
+      if (code.length !== 6) {
+        showPasskeyStatus('Enter the 6-digit code from your email.', 'error');
+        return;
+      }
+      const btn = document.getElementById('recoveryVerifyBtn');
+      if (btn) btn.disabled = true;
+      try {
+        const res = await postJson('/api/account/recovery/verify', { email, code, peer_id: myPeerId });
+        if (!res.ok) throw new Error(res.data.error || 'That code did not work.');
+        showPasskeyStatus('Code accepted. Confirm with Face ID or your fingerprint to create your passkey.', 'info');
+        const account = await createPasskeyWithToken(res.data.enroll_token);
+        showPasskeyStatus('Passkey created. You are signed in on this device.', 'ok');
+        applySignedInAccount(account);
+      } catch (err) {
+        const msg = err && err.name === 'NotAllowedError' ? 'Passkey setup was cancelled or timed out.' : (err.message || String(err));
+        showPasskeyStatus(msg, 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
     async function handleAccountFormSubmit(e) {
       e.preventDefault();
       const fullName = (document.getElementById('accInputFullName') ? document.getElementById('accInputFullName').value : '').trim();
@@ -3508,6 +3732,14 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
         const data = await resp.json();
         if (resp.ok && data.status === 'success') {
+          if (data.enroll_token && passkeysSupported()) {
+            // Tie a passkey (Face ID / fingerprint) to the new account so other devices can sign in.
+            try {
+              await createPasskeyWithToken(data.enroll_token);
+            } catch (pkErr) {
+              console.warn('Passkey setup skipped:', pkErr && pkErr.message);
+            }
+          }
           localStorage.setItem('tincan_registration_epoch', REGISTRATION_EPOCH);
           localStorage.setItem('tincan_fullname', fullName);
           localStorage.setItem('tincan_username', username);
@@ -3537,6 +3769,16 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             })
           }).catch(() => {});
           alert(`🎉 Identity Verified! Welcome Operator @${username}. 50,000 tokens have been credited to your account.`);
+        } else if (data.code === 'email_exists') {
+          if (errEl) {
+            errEl.innerText = EMAIL_EXISTS_TEXT;
+            errEl.classList.remove('hidden');
+          }
+          showPasskeyStatus(EMAIL_EXISTS_TEXT + ' No passkey yet? Use the email code option above.', 'info');
+          const recEmail = document.getElementById('recoveryEmailInput');
+          if (recEmail) recEmail.value = email;
+          const signInPanel = document.getElementById('passkeySignInPanel');
+          if (signInPanel && signInPanel.scrollIntoView) signInPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } else {
           if (errEl) {
             errEl.innerText = data.error || 'Failed to verify account. Please check your contact information.';
