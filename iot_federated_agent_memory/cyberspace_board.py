@@ -1803,17 +1803,23 @@ class CyberspaceBoardEngine:
                 vfs = manager.get_space(scope="topic", owner_id=clean_topic_id)
                 res = vfs.read_file(path=path, as_text=True)
                 if isinstance(res, dict):
+                    content_str = res.get("content") or ""
+                    size_val = res.get("size_bytes")
+                    if size_val is None:
+                        size_val = len(content_str)
                     return {
-                        "path": path,
-                        "content": res.get("content", ""),
-                        "size": res.get("size_bytes", len(res.get("content", ""))),
-                        "size_bytes": res.get("size_bytes", len(res.get("content", ""))),
-                        "hash": res.get("sha256", ""),
-                        "sha256": res.get("sha256", ""),
-                        "updated_at": res.get("updated_at", 0.0),
-                        "updated_by": res.get("updated_by", ""),
                         **res,
+                        "path": path,
+                        "content": content_str,
+                        "size": size_val,
+                        "size_bytes": size_val,
+                        "hash": res.get("sha256") or "",
+                        "sha256": res.get("sha256") or "",
+                        "updated_at": res.get("updated_at") or 0.0,
+                        "updated_by": res.get("updated_by") or "",
                     }
+            except FileNotFoundError:
+                raise
             except Exception:
                 pass
 
