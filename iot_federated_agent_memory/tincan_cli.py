@@ -341,6 +341,56 @@ def main(argv: Optional[List[str]] = None) -> int:
     s_launcher.add_argument("--open", action="store_true", help="Launch ArtCraft Launcher on this PC")
     s_launcher.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
+    # Notes -> Apply AI editor
+    def _space_target_args(p):
+        p.add_argument("--topic", default=None, help="Target topic ID")
+        p.add_argument("--user", default=None, help="Target peer ID")
+        p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    s_note = space_sub.add_parser("note", help="Add a note for the next Apply (observation, code, edit idea...)")
+    s_note.add_argument("body", help="Note text (or '-' for stdin)")
+    s_note.add_argument("--kind", default="observation", choices=["observation", "question", "code", "result", "edit"], help="Note kind")
+    s_note.add_argument("--path", default=None, help="File the note is about")
+    _space_target_args(s_note)
+
+    s_notes = space_sub.add_parser("notes", help="List notes (pending by default)")
+    s_notes.add_argument("--all", action="store_true", help="Include applied and dropped notes")
+    _space_target_args(s_notes)
+
+    s_drop = space_sub.add_parser("drop", help="Drop a pending note")
+    s_drop.add_argument("note_id", help="Note ID")
+    _space_target_args(s_drop)
+
+    s_ask = space_sub.add_parser("ask", help="Ask a side question; the answer is saved as a note (no files change)")
+    s_ask.add_argument("question", help="Question about the space")
+    s_ask.add_argument("--path", default=None, help="File to focus on")
+    s_ask.add_argument("--model", default="gemini-brain", help="AI model alias")
+    _space_target_args(s_ask)
+
+    s_try = space_sub.add_parser("try", help="Side run in a throwaway copy of the space; output is saved as a note")
+    s_try.add_argument("entrypoint", nargs="?", default=None, help="Entrypoint path inside space (default /src/main.py, or a scratch file with --code)")
+    s_try.add_argument("--code", default=None, help="Inline code to run instead of the file (or '-' for stdin)")
+    s_try.add_argument("--runtime", default="auto", choices=["auto", "python", "node", "sh", "wasm"], help="Runtime environment")
+    _space_target_args(s_try)
+
+    s_apply = space_sub.add_parser("apply", help="Compile pending notes into a new version (preview first with --dry-run)")
+    s_apply.add_argument("--model", default="gemini-brain", help="AI model alias")
+    s_apply.add_argument("--dry-run", action="store_true", help="Only propose the plan; commit later with 'space commit PLAN_ID'")
+    s_apply.add_argument("--note", action="append", default=None, dest="note_ids", help="Only apply these note IDs (repeatable)")
+    s_apply.add_argument("--instruction", default="", help="Extra instruction for the Apply step")
+    _space_target_args(s_apply)
+
+    s_commit = space_sub.add_parser("commit", help="Commit a plan proposed by 'space apply --dry-run'")
+    s_commit.add_argument("plan_id", help="Plan ID")
+    _space_target_args(s_commit)
+
+    s_versions = space_sub.add_parser("versions", help="List versions produced by Apply")
+    _space_target_args(s_versions)
+
+    s_revert = space_sub.add_parser("revert", help="Revert the current Apply version; its notes return to pending")
+    s_revert.add_argument("version_id", help="Version ID")
+    _space_target_args(s_revert)
+
     args = parser.parse_args(argv)
 
     # Privacy & Consent Guard: Automatic background `curl | bash` upgrades are disabled.
@@ -1808,6 +1858,101 @@ def main(argv: Optional[List[str]] = None) -> int:
                     print(f"  Install on PC:   {res['getartcraft_url']} (or https://github.com/storytold/craft-launcher/releases/latest)")
             return 0
 
+
+        elif sp_cmd in ("note", "notes", "drop", "ask", "try", "apply", "commit", "versions", "revert"):
+            return _run_space_notes_command(args, sp_cmd, sm, scope, owner_id, peer_id)
+
+    return 0
+
+
+def _print_plan(plan: dict) -> None:
+    print(f"\033[1;36m=== ✍️  Apply plan {plan['plan_id']} ({len(plan['edits'])} edits from {len(plan['note_ids'])} notes) ===\033[0m")
+    if plan.get("summary"):
+        print(f"  {plan['summary']}")
+    for e in plan["edits"]:
+        print(f"  • {e['op']:6s} {e['path']}")
+    for c in plan.get("conflicts", []):
+        print(f"  \033[1;33m⚠ conflict:\033[0m {c}")
+    for s in plan.get("skipped", []):
+        if isinstance(s, dict):
+            print(f"  \033[2m↷ skipped {s.get('note_id')}: {s.get('reason', '')}\033[0m")
+
+
+def _run_space_notes_command(args, sp_cmd: str, sm, scope: str, owner_id: str, peer_id: str) -> int:
+    from .space_notes import EditPlanError, SpaceNotesEditor, pick_router
+
+    router = pick_router(getattr(sm, "ai_router", None), getattr(args, "relay", None), peer_id)
+    editor = SpaceNotesEditor(sm.get_or_create_space(scope, owner_id), ai_router=router)
+    try:
+        if sp_cmd == "note":
+            body = sys.stdin.read() if args.body == "-" else args.body
+            out = editor.add_note(body, kind=args.kind, path=args.path, author=peer_id)
+            if not args.json:
+                print(f"\033[1;32m[+] Noted {out['note_id']} ({out['kind']}{', ' + out['path'] if out['path'] else ''})\033[0m")
+        elif sp_cmd == "notes":
+            out = editor.list_notes(status=None if args.all else "pending")
+            if not args.json:
+                print(f"\033[1;36m=== 🗒️  Notes [{scope}:{owner_id}] ({len(out)}) ===\033[0m")
+                for n in out:
+                    flag = " \033[1;33mSTALE\033[0m" if n["stale"] else ""
+                    where = f" {n['path']}" if n["path"] else ""
+                    first = n["body"].splitlines()[0][:90] if n["body"] else ""
+                    print(f"  {n['note_id']} [{n['status']}/{n['kind']}]{where}{flag}\n      {first}")
+        elif sp_cmd == "drop":
+            out = editor.drop_note(args.note_id)
+            if not args.json:
+                print(f"\033[1;32m[+] Dropped {args.note_id}\033[0m")
+        elif sp_cmd == "ask":
+            out = editor.ask(args.question, path=args.path, model_alias=args.model, author=peer_id)
+            if not args.json:
+                print(f"{out['answer']}\n\033[2m(saved as {out['note']['note_id']})\033[0m")
+        elif sp_cmd == "try":
+            code = sys.stdin.read() if args.code == "-" else args.code
+            out = editor.side_run(entrypoint=args.entrypoint, code=code, runtime=args.runtime, author=peer_id)
+            if not args.json:
+                run = out["run"]
+                print(f"\033[1;36m=== 🧪 Side run (exit {run['exit_code']}, files untouched) ===\033[0m")
+                if run.get("stdout"):
+                    print(run["stdout"].rstrip())
+                if run.get("stderr"):
+                    print(f"\033[1;31m{run['stderr'].rstrip()}\033[0m")
+                print(f"\033[2m(saved as {out['note']['note_id']})\033[0m")
+        elif sp_cmd == "apply":
+            if args.dry_run:
+                out = editor.propose(model_alias=args.model, note_ids=args.note_ids, instruction=args.instruction)
+                if not args.json:
+                    _print_plan(out)
+                    print(f"\n  Commit with: tincan space commit {out['plan_id']}")
+            else:
+                out = editor.apply(model_alias=args.model, note_ids=args.note_ids, instruction=args.instruction)
+                if not args.json:
+                    _print_plan(out["plan"])
+                    print(f"\n\033[1;32m[+] New version {out['version_id']} ({len(out['files_changed'])} files changed, Merkle {out['merkle_root'][:12]}...)\033[0m")
+        elif sp_cmd == "commit":
+            out = editor.commit(args.plan_id, author=peer_id)
+            if not args.json:
+                print(f"\033[1;32m[+] New version {out['version_id']} ({len(out['files_changed'])} files changed, Merkle {out['merkle_root'][:12]}...)\033[0m")
+        elif sp_cmd == "versions":
+            out = editor.list_versions()
+            if not args.json:
+                print(f"\033[1;36m=== 🕰️  Versions [{scope}:{owner_id}] ({len(out)}) ===\033[0m")
+                for v in out:
+                    tag = " \033[2m(reverted)\033[0m" if v["reverted"] else ""
+                    print(f"  {v['version_id']}{tag} {time.strftime('%Y-%m-%d %H:%M', time.localtime(v['created_at']))} "
+                          f"{len(v['files_changed'])} files, {len(v['note_ids'])} notes\n      {v['summary'][:100]}")
+        else:  # revert
+            out = editor.revert(args.version_id, author=peer_id)
+            if not args.json:
+                print(f"\033[1;32m[+] Reverted {args.version_id}; its notes are pending again\033[0m")
+    except (EditPlanError, KeyError, ValueError, FileNotFoundError) as e:
+        msg = e.args[0] if isinstance(e, KeyError) and e.args else str(e)
+        if args.json:
+            print(json.dumps({"error": msg}, indent=2))
+        else:
+            print(f"[-] {msg}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(out, indent=2))
     return 0
 
 

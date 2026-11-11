@@ -295,6 +295,54 @@ MCP_TOOLS_DEFINITIONS = [
             "required": ["prompt"],
         },
     },
+    {
+        "name": "tincan_space_note",
+        "description": "Adds a note to a .space for the next Apply: an observation, code snippet, side-run result, or proposed edit. Notes change no files; tincan_space_apply compiles them into a new version.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "body": {"type": "string", "description": "Note text. Code and multi-line content are fine."},
+                "kind": {
+                    "type": "string",
+                    "enum": ["observation", "question", "code", "result", "edit"],
+                    "default": "observation",
+                },
+                "path": {"type": "string", "description": "File inside the space the note is about (optional)."},
+                "scope": {"type": "string", "description": "Target space scope ('user' or 'topic').", "default": "user"},
+                "owner_id": {"type": "string", "description": "Owner peer ID or Forum Topic ID."},
+            },
+            "required": ["body"],
+        },
+    },
+    {
+        "name": "tincan_space_notes",
+        "description": "Lists notes in a .space (pending by default), each flagged `stale` if its file changed since it was written.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "status": {"type": "string", "enum": ["pending", "applied", "dropped", "all"], "default": "pending"},
+                "scope": {"type": "string", "description": "Target space scope ('user' or 'topic').", "default": "user"},
+                "owner_id": {"type": "string", "description": "Owner peer ID or Forum Topic ID."},
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "tincan_space_apply",
+        "description": "Compiles pending notes into a new version of the .space files. Without plan_id it only PROPOSES a plan (no files change) and returns its plan_id; call again with that plan_id to commit it as a new version.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "plan_id": {"type": "string", "description": "Commit this previously proposed plan."},
+                "model": {"type": "string", "description": "AI model alias for proposing.", "default": "gemini-brain"},
+                "note_ids": {"type": "array", "items": {"type": "string"}, "description": "Only apply these notes."},
+                "instruction": {"type": "string", "description": "Extra instruction for the Apply step."},
+                "scope": {"type": "string", "description": "Target space scope ('user' or 'topic').", "default": "user"},
+                "owner_id": {"type": "string", "description": "Owner peer ID or Forum Topic ID."},
+            },
+            "required": [],
+        },
+    },
 ]
 
 
@@ -874,6 +922,53 @@ class TinCanMCPClient:
                 author=self.address,
             )
 
+    def _space_notes_editor(self, scope: str, owner_id: Optional[str]):
+        from .space_notes import SpaceNotesEditor, pick_router
+        from .tincan_cli import _get_cli_space_manager
+        sm = _get_cli_space_manager()
+        vfs = sm.get_or_create_space(scope, owner_id or self.address)
+        router = pick_router(getattr(sm, "ai_router", None), self.relay_url, self.address)
+        return SpaceNotesEditor(vfs, ai_router=router)
+
+    def tincan_space_note(
+        self,
+        body: str,
+        kind: str = "observation",
+        path: Optional[str] = None,
+        scope: str = "user",
+        owner_id: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Add a note for the next Apply."""
+        return self._space_notes_editor(scope, owner_id).add_note(body, kind=kind, path=path, author=self.address)
+
+    def tincan_space_notes(
+        self,
+        status: str = "pending",
+        scope: str = "user",
+        owner_id: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """List notes in a .space."""
+        notes = self._space_notes_editor(scope, owner_id).list_notes(status=None if status == "all" else status)
+        return {"notes": notes, "count": len(notes)}
+
+    def tincan_space_apply(
+        self,
+        plan_id: Optional[str] = None,
+        model: str = "gemini-brain",
+        note_ids: Optional[List[str]] = None,
+        instruction: str = "",
+        scope: str = "user",
+        owner_id: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Propose an Apply plan, or commit one when plan_id is given."""
+        editor = self._space_notes_editor(scope, owner_id)
+        if plan_id:
+            return editor.commit(plan_id, author=self.address)
+        return editor.propose(model_alias=model, note_ids=note_ids, instruction=instruction)
+
 
 # -----------------------------------------------------------------------------
 # Module-level tool exports & Singleton Management
@@ -1024,6 +1119,12 @@ def handle_mcp_request(
                 result = cl.tincan_space_exec(**arguments)
             elif tool_name == "tincan_space_agent":
                 result = cl.tincan_space_agent(**arguments)
+            elif tool_name == "tincan_space_note":
+                result = cl.tincan_space_note(**arguments)
+            elif tool_name == "tincan_space_notes":
+                result = cl.tincan_space_notes(**arguments)
+            elif tool_name == "tincan_space_apply":
+                result = cl.tincan_space_apply(**arguments)
             else:
                 return {
                     "jsonrpc": "2.0",
