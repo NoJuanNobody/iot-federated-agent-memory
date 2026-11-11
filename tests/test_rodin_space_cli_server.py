@@ -415,3 +415,45 @@ def test_http_crdt_and_telemetry_routes(live_server):
     assert tel_state["ingested_nodes_count"] >= 1
     assert len(tel_state["receipts"]) >= 1
 
+
+def test_artcraft_launcher_pc_detection_and_workspace_sync(live_server):
+    # CLI: tincan space launcher --json
+    code, out = run_cli_capture(["space", "launcher", "--json"])
+    assert code == 0
+    launcher_data = json.loads(out)
+    assert "launcher" in launcher_data
+    assert launcher_data["total_apps"] == 15
+    assert launcher_data["getartcraft_url"] == "https://getartcraft.com"
+
+    # CLI: tincan space open /artcraft/drawing.dxf --no-launch --json
+    code, out = run_cli_capture(["space", "open", "/artcraft/drawing.dxf", "--user", "pc-user", "--no-launch", "--json"])
+    assert code == 0
+    open_data = json.loads(out)
+    assert open_data["app_id"] == "cadcraft"
+    assert open_data["local_workspace_file"] is not None
+    assert os.path.isfile(open_data["local_workspace_file"])
+
+    # Modify the materialized PC file and sync back into .space VFS
+    with open(open_data["local_workspace_file"], "w", encoding="utf-8") as f:
+        f.write("0\nSECTION\n2\nENTITIES\n0\nCIRCLE\n8\n0\n10\n25.0\n20\n25.0\n40\n12.5\n0\nENDSEC\n0\nEOF\n")
+
+    code, out = run_cli_capture(["space", "open", "/artcraft/drawing.dxf", "--user", "pc-user", "--sync", "--json"])
+    assert code == 0
+    sync_data = json.loads(out)
+    assert sync_data["synced"] is True
+    assert "merkle_root" in sync_data
+
+    # HTTP: GET /api/artcraft/launcher & POST /api/artcraft/open
+    http_launcher = http_get(f"{live_server}/api/artcraft/launcher")
+    assert http_launcher["getartcraft_url"] == "https://getartcraft.com"
+
+    http_open = http_post(f"{live_server}/api/artcraft/open", {
+        "app_id": "cadcraft",
+        "scope": "user",
+        "owner_id": "pc-user",
+        "path": "/artcraft/drawing.dxf",
+        "launch_process": False,
+    })
+    assert http_open["app_id"] == "cadcraft"
+
+

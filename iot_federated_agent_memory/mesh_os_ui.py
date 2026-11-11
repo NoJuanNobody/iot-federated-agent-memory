@@ -2150,6 +2150,12 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
               <button onclick="launchArtCraftWasmApp()" class="px-3 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:brightness-110 text-white font-mono text-xs font-bold rounded-lg transition active:scale-95 shadow-md">
                 🎨 Launch in Wasm
               </button>
+              <button onclick="openArtCraftOnPC()" class="px-3 py-1 bg-emerald-700 hover:bg-emerald-600 text-white font-mono text-xs font-bold rounded-lg transition active:scale-95 shadow-md" title="Open file in native PC Craft app via ArtCraft Launcher (getartcraft.com)">
+                🖥️ Open on PC
+              </button>
+              <a href="https://getartcraft.com" target="_blank" rel="noopener" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-700/60 font-mono text-[11px] rounded-lg transition" title="Download ArtCraft Launcher for macOS, Windows, Linux &amp; FreeBSD">
+                📦 getartcraft.com ↗
+              </a>
             </div>
           </div>
           <!-- ArtCraft Iframe Container -->
@@ -6342,8 +6348,38 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         statusPill.className = 'px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-mono border border-purple-500/40 font-semibold';
       }
 
-      const appUrl = `https://${appId}.getartcraft.com/?host=parent`;
+      const appUrl = `https://getartcraft.com/apps/${appId}?host=parent`;
       frame.src = appUrl;
+    }
+
+    async function openArtCraftOnPC() {
+      const appSelect = document.getElementById('artcraftAppSelect');
+      const statusPill = document.getElementById('artcraftStatusPill');
+      const appId = (appSelect && appSelect.value) || 'cadcraft';
+      try {
+        const resp = await fetch('/api/artcraft/open', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            app_id: appId,
+            scope: currentSpaceScope,
+            owner_id: currentSpaceOwner || (myPeerId || 'default'),
+            path: currentSpaceFile,
+            launch_process: true
+          })
+        });
+        const data = await resp.json();
+        if (data.mode === 'native-pc-app' || data.mode === 'artcraft-launcher-pc') {
+          if (statusPill) {
+            statusPill.textContent = `OPENED ON PC (${data.app.pc_version || 'NATIVE'})`;
+            statusPill.className = 'px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono border border-emerald-500/40 font-semibold';
+          }
+        } else {
+          window.open(data.getartcraft_url || 'https://getartcraft.com', '_blank', 'noopener');
+        }
+      } catch (err) {
+        window.open('https://getartcraft.com', '_blank', 'noopener');
+      }
     }
 
     async function exportAgentSpace() {

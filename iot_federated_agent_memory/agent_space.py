@@ -8,6 +8,8 @@ import hashlib
 import json
 import mimetypes
 import os
+import platform as py_platform
+import plistlib
 import posixpath
 import re
 import shutil
@@ -310,6 +312,424 @@ for app_id, meta in ARTCRAFT_WASM_APPS.items():
     for ext in meta["extensions"]:
         EXTENSION_TO_ARTCRAFT_APP[ext.lower()] = app_id
 
+# Canonical Craft App Suite desktop bundle names & metadata from storytold/craft-launcher (getartcraft.com)
+CRAFT_LAUNCHER_DESKTOP_CATALOG: Dict[str, Dict[str, Any]] = {
+    "artcraft-launcher": {
+        "id": "artcraft-launcher",
+        "name": "ArtCraft Launcher",
+        "bundle_id": "ai.storyteller.artcraft-launcher",
+        "repo": "storytold/craft-launcher",
+        "website": "https://getartcraft.com",
+        "releases_url": "https://github.com/storytold/craft-launcher/releases/latest",
+    },
+    "artcraft": {
+        "id": "artcraft",
+        "name": "ArtCraft",
+        "bundle_id": "ai.artcraft.app",
+        "repo": "storytold/artcraft",
+        "website": "https://getartcraft.com",
+        "releases_url": "https://github.com/storytold/artcraft/releases/latest",
+    },
+    "photocraft": {
+        "id": "photocraft",
+        "name": "PhotoCraft",
+        "bundle_id": "ai.storyteller.photocraft",
+        "repo": "storytold/photocraft",
+        "website": "https://getartcraft.com/apps/photocraft",
+        "releases_url": "https://github.com/storytold/photocraft/releases/latest",
+    },
+    "vectorcraft": {
+        "id": "vectorcraft",
+        "name": "VectorCraft",
+        "bundle_id": "ai.storyteller.vectorcraft",
+        "repo": "storytold/vectorcraft",
+        "website": "https://getartcraft.com/apps/vectorcraft",
+        "releases_url": "https://github.com/storytold/vectorcraft/releases/latest",
+    },
+    "filmcraft": {
+        "id": "filmcraft",
+        "name": "FilmCraft",
+        "bundle_id": "ai.storyteller.filmcraft",
+        "repo": "storytold/filmcraft",
+        "website": "https://getartcraft.com/apps/filmcraft",
+        "releases_url": "https://github.com/storytold/filmcraft/releases/latest",
+    },
+    "lightcraft": {
+        "id": "lightcraft",
+        "name": "LightCraft",
+        "bundle_id": "ai.storyteller.lightcraft",
+        "repo": "storytold/lightcraft",
+        "website": "https://getartcraft.com/apps/lightcraft",
+        "releases_url": "https://github.com/storytold/lightcraft/releases/latest",
+    },
+    "pdfcraft": {
+        "id": "pdfcraft",
+        "name": "PdfCraft",
+        "bundle_id": "ai.storyteller.pdfcraft",
+        "repo": "storytold/pdfcraft",
+        "website": "https://getartcraft.com/apps/pdfcraft",
+        "releases_url": "https://github.com/storytold/pdfcraft/releases/latest",
+    },
+    "effectcraft": {
+        "id": "effectcraft",
+        "name": "EffectCraft",
+        "bundle_id": "ai.storyteller.effectcraft",
+        "repo": "storytold/effectcraft",
+        "website": "https://getartcraft.com/apps/effectcraft",
+        "releases_url": "https://github.com/storytold/effectcraft/releases/latest",
+    },
+    "designcraft": {
+        "id": "designcraft",
+        "name": "DesignCraft",
+        "bundle_id": "ai.storyteller.designcraft",
+        "repo": "storytold/designcraft",
+        "website": "https://getartcraft.com/apps/designcraft",
+        "releases_url": "https://github.com/storytold/designcraft/releases/latest",
+    },
+    "wordcraft": {
+        "id": "wordcraft",
+        "name": "WordCraft",
+        "bundle_id": "ai.storyteller.wordcraft",
+        "repo": "storytold/wordcraft",
+        "website": "https://getartcraft.com/apps/wordcraft",
+        "releases_url": "https://github.com/storytold/wordcraft/releases/latest",
+    },
+    "deckcraft": {
+        "id": "deckcraft",
+        "name": "DeckCraft",
+        "bundle_id": "ai.storyteller.deckcraft",
+        "repo": "storytold/deckcraft",
+        "website": "https://getartcraft.com/apps/deckcraft",
+        "releases_url": "https://github.com/storytold/deckcraft/releases/latest",
+    },
+    "gridcraft": {
+        "id": "gridcraft",
+        "name": "GridCraft",
+        "bundle_id": "ai.storyteller.gridcraft",
+        "repo": "storytold/gridcraft",
+        "website": "https://getartcraft.com/apps/gridcraft",
+        "releases_url": "https://github.com/storytold/gridcraft/releases/latest",
+    },
+    "cadcraft": {
+        "id": "cadcraft",
+        "name": "CADCraft",
+        "bundle_id": "ai.storyteller.cadcraft",
+        "repo": "storytold/cadcraft",
+        "website": "https://getartcraft.com/apps/cadcraft",
+        "releases_url": "https://github.com/storytold/cadcraft/releases/latest",
+    },
+    "soundcraft": {
+        "id": "soundcraft",
+        "name": "SoundCraft",
+        "bundle_id": "ai.storyteller.soundcraft",
+        "repo": "storytold/soundcraft",
+        "website": "https://getartcraft.com/apps/soundcraft",
+        "releases_url": "https://github.com/storytold/soundcraft/releases/latest",
+    },
+    "figcraft": {
+        "id": "figcraft",
+        "name": "FigCraft",
+        "bundle_id": "ai.storyteller.figcraft",
+        "repo": "storytold/figcraft",
+        "website": "https://getartcraft.com/apps/figcraft",
+        "releases_url": "https://github.com/storytold/figcraft/releases/latest",
+    },
+    "scriptcraft": {
+        "id": "scriptcraft",
+        "name": "ScriptCraft",
+        "bundle_id": "ai.storyteller.scriptcraft",
+        "repo": "storytold/scriptcraft",
+        "website": "https://getartcraft.com/apps/scriptcraft",
+        "releases_url": "https://github.com/storytold/scriptcraft/releases/latest",
+    },
+}
+
+
+class ArtCraftLauncherBridge:
+    """
+    Detects, launches, and syncs native desktop Craft apps and ArtCraft Launcher (getartcraft.com)
+    on the user's PC (macOS /Applications, Windows Program Files, Linux AppImage/.deb/.rpm),
+    with automatic fallback to WebAssembly (?host=parent) when a native binary is unavailable.
+    """
+
+    @staticmethod
+    def get_platform_installer_info(app_id: str = "artcraft-launcher") -> Dict[str, str]:
+        meta = CRAFT_LAUNCHER_DESKTOP_CATALOG.get(app_id, CRAFT_LAUNCHER_DESKTOP_CATALOG["artcraft-launcher"])
+        stem = meta["id"]
+        sys_name = sys.platform.lower()
+        machine = py_platform.machine().lower()
+        if sys_name == "darwin":
+            pkg = f"{stem}-macos-universal.dmg"
+            install_hint = "Download the signed universal DMG from getartcraft.com and drag to /Applications."
+        elif sys_name.startswith("win"):
+            arch = "arm64" if "arm" in machine or "aarch64" in machine else "x64"
+            pkg = f"{stem}-windows-{arch}.msi"
+            install_hint = "Run the Windows Installer (.msi) or unzip the portable release."
+        else:
+            arch = "aarch64" if "arm" in machine or "aarch64" in machine else "x86_64"
+            pkg = f"{stem}-linux-{arch}.AppImage"
+            install_hint = "Download the AppImage into ~/Applications, chmod +x, or install the .deb/.rpm."
+        return {
+            "app_id": stem,
+            "package_pattern": pkg,
+            "releases_url": meta["releases_url"],
+            "website": meta["website"],
+            "launcher_releases_url": "https://github.com/storytold/craft-launcher/releases/latest",
+            "install_hint": install_hint,
+        }
+
+    @classmethod
+    def detect_app_on_pc(cls, app_id: str) -> Dict[str, Any]:
+        """Detect whether a Craft app (or ArtCraft Launcher itself) is installed locally on this PC."""
+        clean_id = app_id.lower().strip()
+        meta = CRAFT_LAUNCHER_DESKTOP_CATALOG.get(clean_id, {
+            "id": clean_id,
+            "name": clean_id.capitalize(),
+            "bundle_id": f"ai.storyteller.{clean_id}",
+            "repo": f"storytold/{clean_id}",
+            "website": f"https://getartcraft.com/apps/{clean_id}",
+            "releases_url": f"https://github.com/storytold/{clean_id}/releases/latest",
+        })
+        app_name = meta["name"]
+        bundle_id = meta["bundle_id"]
+
+        installed_path: Optional[str] = None
+        version_str: Optional[str] = None
+        commit_str: Optional[str] = None
+        source_kind: Optional[str] = None
+
+        # 1. macOS: check /Applications/<Name>.app and ~/Applications/<Name>.app (mirrors craft-launcher detect.rs)
+        mac_candidates = [
+            os.path.join("/Applications", f"{app_name}.app"),
+            os.path.expanduser(os.path.join("~/Applications", f"{app_name}.app")),
+        ]
+        for cand in mac_candidates:
+            plist_path = os.path.join(cand, "Contents", "Info.plist")
+            if os.path.isfile(plist_path):
+                try:
+                    with open(plist_path, "rb") as pf:
+                        plist_data = plistlib.load(pf)
+                    installed_path = cand
+                    source_kind = "macos_app"
+                    full_key = f"{app_name.replace(' ', '')}Version"
+                    version_str = (
+                        plist_data.get(full_key)
+                        or plist_data.get("CFBundleShortVersionString")
+                        or plist_data.get("CFBundleVersion")
+                    )
+                    commit_key = f"{app_name.replace(' ', '')}BuildCommit"
+                    commit_str = plist_data.get(commit_key)
+                    break
+                except Exception:
+                    installed_path = cand
+                    source_kind = "macos_app"
+                    break
+
+        # 2. Windows: check Program Files and LocalAppData
+        if not installed_path and sys.platform.startswith("win"):
+            win_roots = [
+                os.environ.get("ProgramW6432", ""),
+                os.environ.get("ProgramFiles", ""),
+                os.environ.get("ProgramFiles(x86)", ""),
+                os.environ.get("LOCALAPPDATA", ""),
+            ]
+            for root in win_roots:
+                if not root:
+                    continue
+                exe_cand = os.path.join(root, app_name, f"{clean_id}.exe")
+                if os.path.isfile(exe_cand):
+                    installed_path = exe_cand
+                    source_kind = "windows_msi"
+                    break
+
+        # 3. Linux / FreeBSD / PATH binaries & AppImages
+        if not installed_path:
+            which_bin = shutil.which(clean_id)
+            if which_bin:
+                installed_path = which_bin
+                source_kind = "system_bin"
+            else:
+                app_dirs = [
+                    os.path.expanduser("~/Applications"),
+                    os.path.expanduser("~/AppImages"),
+                    os.path.expanduser("~/.local/bin"),
+                ]
+                for adir in app_dirs:
+                    if not os.path.isdir(adir):
+                        continue
+                    for fname in os.listdir(adir):
+                        low = fname.lower()
+                        if low.startswith(clean_id) and (low.endswith(".appimage") or low == clean_id):
+                            installed_path = os.path.join(adir, fname)
+                            source_kind = "linux_appimage"
+                            break
+                    if installed_path:
+                        break
+
+        wasm_meta = ARTCRAFT_WASM_APPS.get(clean_id, {})
+        return {
+            "id": clean_id,
+            "name": app_name,
+            "bundle_id": bundle_id,
+            "installed_on_pc": bool(installed_path),
+            "pc_path": installed_path,
+            "pc_version": version_str,
+            "pc_commit": commit_str,
+            "pc_source": source_kind,
+            "preferred_mode": "native-pc" if installed_path else "wasm-web",
+            "website": meta["website"],
+            "releases_url": meta["releases_url"],
+            "wasm_bundle_url": wasm_meta.get("bundle_url", f"/wasm/{clean_id}/index.html?host=parent"),
+            "installer": cls.get_platform_installer_info(clean_id),
+        }
+
+    @classmethod
+    def detect_all_on_pc(cls) -> Dict[str, Any]:
+        """Scan this PC for ArtCraft Launcher and all 15 Craft App Suite applications."""
+        launcher_info = cls.detect_app_on_pc("artcraft-launcher")
+        apps_list: List[Dict[str, Any]] = []
+        installed_count = 0
+        for app_id in ARTCRAFT_WASM_APPS:
+            info = cls.detect_app_on_pc(app_id)
+            if info["installed_on_pc"]:
+                installed_count += 1
+            apps_list.append(info)
+
+        return {
+            "launcher": launcher_info,
+            "apps": apps_list,
+            "installed_count": installed_count,
+            "total_apps": len(apps_list),
+            "getartcraft_url": "https://getartcraft.com",
+            "craft_launcher_releases_url": "https://github.com/storytold/craft-launcher/releases/latest",
+        }
+
+    @classmethod
+    def materialize_space_file_to_pc(
+        cls,
+        vfs: "SingleFileSpaceVFS",
+        vfs_path: str,
+        workspace_root: Optional[str] = None,
+    ) -> str:
+        """Export a file from a .space SQLite VFS to a local PC workspace directory for native desktop editing."""
+        if workspace_root is None:
+            workspace_root = os.path.expanduser("~/.tincan/workspace")
+        norm_path = vfs.normalize_path(vfs_path)
+        rel_path = norm_path.lstrip("/")
+        local_dir = os.path.join(workspace_root, vfs.scope, vfs.owner_id, os.path.dirname(rel_path))
+        os.makedirs(local_dir, exist_ok=True)
+        local_file = os.path.join(workspace_root, vfs.scope, vfs.owner_id, rel_path)
+
+        try:
+            rec = vfs.read_file(norm_path, as_text=False)
+            raw_bytes = base64.b64decode(rec["content_b64"]) if rec.get("content_b64") else b""
+        except FileNotFoundError:
+            raw_bytes = b""
+            vfs.write_file(norm_path, raw_bytes, updated_by="pc-workspace")
+
+        with open(local_file, "wb") as f:
+            f.write(raw_bytes)
+        return local_file
+
+    @classmethod
+    def sync_pc_file_to_space(
+        cls,
+        vfs: "SingleFileSpaceVFS",
+        vfs_path: str,
+        local_file: Optional[str] = None,
+        workspace_root: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Sync edits made by a native PC Craft app back into the user/topic .space SQLite VFS."""
+        norm_path = vfs.normalize_path(vfs_path)
+        if local_file is None:
+            if workspace_root is None:
+                workspace_root = os.path.expanduser("~/.tincan/workspace")
+            local_file = os.path.join(workspace_root, vfs.scope, vfs.owner_id, norm_path.lstrip("/"))
+        if not os.path.isfile(local_file):
+            raise FileNotFoundError(f"Local workspace file not found on PC: {local_file}")
+        with open(local_file, "rb") as f:
+            raw_bytes = f.read()
+        res = vfs.write_file(norm_path, raw_bytes, updated_by="artcraft-pc")
+        return {
+            "synced": True,
+            "local_file": local_file,
+            "space_file": res,
+            "merkle_root": vfs.compute_merkle_root(),
+        }
+
+    @classmethod
+    def open_on_pc(
+        cls,
+        app_id: Optional[str] = None,
+        vfs: Optional["SingleFileSpaceVFS"] = None,
+        vfs_path: Optional[str] = None,
+        launch_process: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Open a Craft app (or file from a .space VFS) natively on the user's PC when installed,
+        or launch ArtCraft Launcher (getartcraft.com) to install it, with WebAssembly fallback.
+        """
+        if not app_id and vfs_path:
+            app_id = resolve_artcraft_app(vfs_path) or "artcraft-launcher"
+        clean_id = (app_id or "artcraft-launcher").lower().strip()
+
+        local_file: Optional[str] = None
+        if vfs is not None and vfs_path:
+            local_file = cls.materialize_space_file_to_pc(vfs, vfs_path)
+
+        app_info = cls.detect_app_on_pc(clean_id)
+        launcher_info = cls.detect_app_on_pc("artcraft-launcher")
+
+        launched = False
+        launch_target = None
+        mode = "wasm-fallback"
+
+        if app_info["installed_on_pc"] and app_info["pc_path"]:
+            mode = "native-pc-app"
+            launch_target = app_info["pc_path"]
+            if launch_process:
+                try:
+                    if sys.platform == "darwin":
+                        cmd = ["open", "-a", launch_target]
+                        if local_file:
+                            cmd.append(local_file)
+                        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    elif sys.platform.startswith("win"):
+                        cmd = [launch_target] + ([local_file] if local_file else [])
+                        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    else:
+                        cmd = [launch_target] + ([local_file] if local_file else [])
+                        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    launched = True
+                except Exception:
+                    launched = False
+        elif launcher_info["installed_on_pc"] and launcher_info["pc_path"]:
+            mode = "artcraft-launcher-pc"
+            launch_target = launcher_info["pc_path"]
+            if launch_process:
+                try:
+                    if sys.platform == "darwin":
+                        subprocess.Popen(["open", "-a", launch_target], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    else:
+                        subprocess.Popen([launch_target], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    launched = True
+                except Exception:
+                    launched = False
+
+        return {
+            "status": "ok",
+            "app_id": clean_id,
+            "mode": mode,
+            "launched_process": launched,
+            "launch_target": launch_target,
+            "local_workspace_file": local_file,
+            "vfs_path": vfs_path,
+            "app": app_info,
+            "launcher": launcher_info,
+            "wasm_fallback_url": app_info["wasm_bundle_url"],
+            "getartcraft_url": app_info["website"],
+        }
+
 
 def resolve_artcraft_app(path: str) -> Optional[str]:
     """Resolve an ArtCraft application identifier from a file path extension."""
@@ -413,8 +833,18 @@ def generate_minimal_glb_bytes(name: str = "rodin_mesh") -> bytes:
 
 
 # ---------------------------------------------------------------------------
-# 3. Single-File Space VFS (Single SQLite Container on Disk)
+# 3. Single-File Space VFS (Single SQLite Container on Disk + S3 Replication)
 # ---------------------------------------------------------------------------
+
+def _resolve_default_spaces_base_dir() -> str:
+    """Resolve persistent storage root: AGENT_SPACES_DIR -> TINCAN_DATA_DIR -> RAILWAY_VOLUME_MOUNT_PATH -> ./agent_spaces."""
+    return (
+        os.environ.get("AGENT_SPACES_DIR")
+        or os.environ.get("TINCAN_DATA_DIR")
+        or os.environ.get("RAILWAY_VOLUME_MOUNT_PATH")
+        or "./agent_spaces"
+    )
+
 
 class SingleFileSpaceVFS:
     """Represents a single SQLite container file on disk (*.space) that is an isolated filesystem."""
@@ -427,16 +857,18 @@ class SingleFileSpaceVFS:
         space_path: Optional[str] = None,
         title: Optional[str] = None,
         description: Optional[str] = None,
+        enable_s3_sync: bool = True,
     ):
         self.scope = scope.lower().strip() or "user"
         self.owner_id = str(owner_id).strip() or "default"
         clean_id = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", self.owner_id)
+        self.clean_id = clean_id
 
         if space_path is not None:
             self.space_path = os.path.abspath(space_path)
         else:
             if base_dir is None:
-                base_dir = os.environ.get("AGENT_SPACES_DIR", "./agent_spaces")
+                base_dir = _resolve_default_spaces_base_dir()
             base_dir = os.path.abspath(base_dir)
             if self.scope == "user":
                 self.space_path = os.path.join(base_dir, "spaces", "users", f"{clean_id}.space")
@@ -447,8 +879,49 @@ class SingleFileSpaceVFS:
 
         os.makedirs(os.path.dirname(self.space_path), exist_ok=True)
         self._lock = threading.RLock()
+        scope_plural = "users" if self.scope == "user" else ("topics" if self.scope == "topic" else self.scope)
+        self.s3_object_key = f"spaces/{scope_plural}/{clean_id}.space"
+        is_temp_test = (
+            "/tmp" in self.space_path
+            or "/var/folders" in self.space_path
+            or "PYTEST_CURRENT_TEST" in os.environ
+        )
+        self.enable_s3_sync = bool(enable_s3_sync and not is_temp_test)
+
+        if self.enable_s3_sync and not os.path.isfile(self.space_path):
+            self._restore_from_s3_if_missing()
 
         self._init_db(title=title, description=description)
+
+    def _restore_from_s3_if_missing(self) -> bool:
+        """Attempt to restore this .space SQLite container from the Railway S3 bucket if missing locally."""
+        try:
+            from iot_federated_agent_memory.s3_storage import s3_get_object
+            if s3_get_object(self.s3_object_key, self.space_path):
+                return True
+        except Exception:
+            pass
+        return False
+
+    def sync_to_s3(self) -> Optional[Dict[str, Any]]:
+        """Synchronously upload this .space SQLite file to the Railway S3 bucket."""
+        try:
+            from iot_federated_agent_memory.s3_storage import s3_put_object
+            if os.path.isfile(self.space_path):
+                return s3_put_object(
+                    local_path=self.space_path,
+                    object_key=self.s3_object_key,
+                    content_type="application/x-sqlite3",
+                )
+        except Exception:
+            pass
+        return None
+
+    def _sync_to_s3_async(self) -> None:
+        """Asynchronously replicate this .space SQLite file to the Railway S3 bucket."""
+        if not self.enable_s3_sync:
+            return
+        threading.Thread(target=self.sync_to_s3, daemon=True).start()
 
     @contextlib.contextmanager
     def _connect(self):
@@ -710,6 +1183,7 @@ class SingleFileSpaceVFS:
                 (norm_path, raw_bytes, mime_type, size_bytes, sha256, updated_at, updated_by),
             )
 
+        self._sync_to_s3_async()
         return {
             "path": norm_path,
             "mime_type": mime_type,
@@ -744,6 +1218,7 @@ class SingleFileSpaceVFS:
             if not cur.fetchone():
                 raise FileNotFoundError(f"File not found in space: {norm_path}")
             cur.execute("DELETE FROM fs_files WHERE path = ?", (norm_path,))
+        self._sync_to_s3_async()
         return {"deleted": True, "path": norm_path}
 
     def compute_merkle_root(self) -> str:
@@ -1386,10 +1861,11 @@ class AgentSpaceManager:
 
     def __init__(self, base_dir: Optional[str] = None, ai_router: Optional[Any] = None):
         if base_dir is None:
-            base_dir = os.environ.get("AGENT_SPACES_DIR", "./agent_spaces")
+            base_dir = _resolve_default_spaces_base_dir()
         self.base_dir = os.path.abspath(base_dir)
         self.ai_router = ai_router
         self.runner = WasmAndCodePlaygroundRunner()
+        self.launcher_bridge = ArtCraftLauncherBridge()
         self._spaces: Dict[str, SingleFileSpaceVFS] = {}
         self._lock = threading.RLock()
 
@@ -1561,12 +2037,61 @@ class AgentSpaceManager:
         space = self.get_space(scope=scope, owner_id=owner_id)
         return space.import_space_bytes(raw)
 
+    def get_artcraft_launcher_status(self) -> Dict[str, Any]:
+        """Inspect native PC ArtCraft Launcher & Craft App Suite installations alongside Wasm runtimes."""
+        return ArtCraftLauncherBridge.detect_all_on_pc()
+
+    def open_in_artcraft_pc(
+        self,
+        app_id: Optional[str] = None,
+        scope: str = "user",
+        owner_id: str = "default",
+        path: Optional[str] = None,
+        launch_process: bool = True,
+    ) -> Dict[str, Any]:
+        """Open a file from a user/topic .space VFS directly in the native PC Craft app or ArtCraft Launcher."""
+        vfs = self.get_space(scope=scope, owner_id=owner_id) if path else None
+        return ArtCraftLauncherBridge.open_on_pc(
+            app_id=app_id,
+            vfs=vfs,
+            vfs_path=path,
+            launch_process=launch_process,
+        )
+
+    def sync_from_artcraft_pc(
+        self,
+        scope: str,
+        owner_id: str,
+        path: str,
+        local_file: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Sync edits saved by a native PC Craft app back into the user/topic .space SQLite VFS."""
+        vfs = self.get_space(scope=scope, owner_id=owner_id)
+        return ArtCraftLauncherBridge.sync_pc_file_to_space(vfs=vfs, vfs_path=path, local_file=local_file)
+
     def get_wasm_manifest(self) -> Dict[str, Any]:
-        """Get the complete manifest of ArtCraft and general Wasm runtimes."""
+        """Get the complete manifest of ArtCraft (PC + WebAssembly) and general Wasm runtimes."""
+        pc_status = ArtCraftLauncherBridge.detect_all_on_pc()
+        pc_by_id = {a["id"]: a for a in pc_status["apps"]}
+        enriched_apps: Dict[str, Dict[str, Any]] = {}
+        for app_id, meta in ARTCRAFT_WASM_APPS.items():
+            pc_info = pc_by_id.get(app_id, {})
+            enriched_apps[app_id] = {
+                **meta,
+                "installed_on_pc": pc_info.get("installed_on_pc", False),
+                "pc_path": pc_info.get("pc_path"),
+                "pc_version": pc_info.get("pc_version"),
+                "preferred_mode": pc_info.get("preferred_mode", "wasm-web"),
+                "website": pc_info.get("website", f"https://getartcraft.com/apps/{app_id}"),
+                "releases_url": pc_info.get("releases_url", f"https://github.com/storytold/{app_id}/releases/latest"),
+            }
         return {
-            "version": "2.0.0",
-            "total_artcraft_apps": len(ARTCRAFT_WASM_APPS),
-            "artcraft_apps": ARTCRAFT_WASM_APPS,
+            "version": "2.1.0",
+            "total_artcraft_apps": len(enriched_apps),
+            "artcraft_launcher": pc_status["launcher"],
+            "installed_pc_apps_count": pc_status["installed_count"],
+            "getartcraft_url": "https://getartcraft.com",
+            "artcraft_apps": enriched_apps,
             "wasm_runtimes": {
                 "pyodide-wasm": {
                     "runtime": "pyodide-wasm",

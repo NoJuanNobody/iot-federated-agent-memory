@@ -323,8 +323,23 @@ def main(argv: Optional[List[str]] = None) -> int:
     s_exp.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
     # space wasm
-    s_wasm = space_sub.add_parser("wasm", help="List all 15 ArtCraft Wasm apps and Wasm runtimes")
+    s_wasm = space_sub.add_parser("wasm", help="List all 15 ArtCraft Wasm apps, PC Launcher status, and Wasm runtimes")
     s_wasm.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # space open (open file or app in native PC ArtCraft app / ArtCraft Launcher when available)
+    s_open = space_sub.add_parser("open", help="Open a .space file or Craft app natively on your PC via ArtCraft Launcher (or Wasm fallback)")
+    s_open.add_argument("target", nargs="?", default="/artcraft/drawing.dxf", help="VFS path (e.g. /artcraft/drawing.dxf) or Craft app ID (e.g. cadcraft)")
+    s_open.add_argument("--app", default=None, help="Explicit Craft app ID (e.g. cadcraft, photocraft, vectorcraft)")
+    s_open.add_argument("--topic", default=None, help="Target topic ID")
+    s_open.add_argument("--user", default=None, help="Target peer ID")
+    s_open.add_argument("--sync", action="store_true", help="Sync edits made by the native PC app back into .space VFS")
+    s_open.add_argument("--no-launch", action="store_true", help="Materialize file and detect app without spawning GUI process")
+    s_open.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # space launcher (inspect or launch ArtCraft Launcher getartcraft.com on PC)
+    s_launcher = space_sub.add_parser("launcher", help="Inspect or launch ArtCraft Launcher (getartcraft.com) and installed PC Craft apps")
+    s_launcher.add_argument("--open", action="store_true", help="Launch ArtCraft Launcher on this PC")
+    s_launcher.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
     args = parser.parse_args(argv)
 
@@ -1706,17 +1721,91 @@ def main(argv: Optional[List[str]] = None) -> int:
             if args.json:
                 print(json.dumps(norm_manifest, indent=2))
             else:
-                print("\033[1;36m=== 🎨 ArtCraft 15 Wasm Applications & Runtimes Manifest ===\033[0m")
-                print("Applications (?host=parent postMessage bridge):")
+                launcher = manifest.get("artcraft_launcher") or {}
+                l_badge = (
+                    f"\033[1;32m✅ Installed on PC (v{launcher.get('pc_version') or 'latest'} at {launcher.get('pc_path')})\033[0m"
+                    if launcher.get("installed_on_pc")
+                    else "\033[1;33m🌐 WebAssembly Mode (Install PC Launcher at https://getartcraft.com)\033[0m"
+                )
+                print("\033[1;36m=== 🎨 ArtCraft 15 Applications (Native PC Launcher + WebAssembly) ===\033[0m")
+                print(f"ArtCraft Launcher (getartcraft.com): {l_badge}")
+                print("Applications (Native PC when available + ?host=parent Wasm bridge):")
                 for app in apps_list:
                     exts = ", ".join(app.get("extensions", []))
-                    print(f"  {app.get('icon', '🎨')} \033[1;37m{app.get('name', app.get('id', '')):24s}\033[0m ({app.get('app', ''):18s}) -> Exts: {exts}")
-                    print(f"      {app.get('description', '')}")
+                    pc_tag = (
+                        f"\033[1;32m[🖥️ PC v{app.get('pc_version') or 'installed'}]\033[0m"
+                        if app.get("installed_on_pc")
+                        else "\033[1;36m[🌐 Wasm]\033[0m"
+                    )
+                    print(f"  {app.get('icon', '🎨')} \033[1;37m{app.get('name', app.get('id', '')):36s}\033[0m {pc_tag} -> Exts: {exts}")
                 print("\nSupported Software Wasm Runtimes:")
                 for rt in rt_list:
                     langs = ", ".join(rt.get("languages", []))
                     print(f"  ⚡ \033[1;37m{rt.get('name', ''):32s}\033[0m [{langs}]")
                     print(f"      {rt.get('description', '')}")
+            return 0
+
+        elif sp_cmd == "launcher":
+            from .agent_space import ArtCraftLauncherBridge
+            status = ArtCraftLauncherBridge.detect_all_on_pc()
+            if getattr(args, "open", False):
+                open_res = ArtCraftLauncherBridge.open_on_pc(app_id="artcraft-launcher", launch_process=True)
+                status["launched"] = open_res
+            if args.json:
+                print(json.dumps(status, indent=2))
+            else:
+                l_info = status["launcher"]
+                print("\033[1;36m=== 🚀 ArtCraft Launcher & Native PC Suite (https://getartcraft.com) ===\033[0m")
+                if l_info["installed_on_pc"]:
+                    print(f"  Launcher:  \033[1;32m✅ Installed (v{l_info.get('pc_version') or 'latest'})\033[0m -> {l_info['pc_path']}")
+                else:
+                    print(f"  Launcher:  \033[1;33m⚠️ Not installed on PC\033[0m -> Download: {l_info['releases_url']}")
+                print(f"  PC Apps:   {status['installed_count']}/{status['total_apps']} installed locally")
+                for a in status["apps"]:
+                    st_str = (
+                        f"\033[1;32m✅ PC v{a.get('pc_version') or 'installed':8s}\033[0m ({a.get('pc_path')})"
+                        if a["installed_on_pc"]
+                        else f"\033[1;33m🌐 Wasm Fallback\033[0m ({a['website']})"
+                    )
+                    print(f"  • {a['name']:16s} : {st_str}")
+            return 0
+
+        elif sp_cmd == "open":
+            target = (getattr(args, "target", None) or "/artcraft/drawing.dxf").strip()
+            app_id = getattr(args, "app", None)
+            if not target.startswith("/") and "." not in target and not app_id:
+                app_id = target
+                vfs_path = None
+            else:
+                vfs_path = target if target.startswith("/") else f"/{target}"
+
+            if getattr(args, "sync", False) and vfs_path:
+                res = sm.sync_from_artcraft_pc(scope=scope, owner_id=owner_id, path=vfs_path)
+                if args.json:
+                    print(json.dumps(res, indent=2))
+                else:
+                    print(f"\033[1;32m[✓] Synced PC edits from {res['local_file']} back into {scope}:{owner_id}.space ({res['space_file']['size_bytes']} bytes, Merkle: {res['merkle_root'][:12]}...)\033[0m")
+                return 0
+
+            res = sm.open_in_artcraft_pc(
+                app_id=app_id,
+                scope=scope,
+                owner_id=owner_id,
+                path=vfs_path,
+                launch_process=not getattr(args, "no_launch", False),
+            )
+            if args.json:
+                print(json.dumps(res, indent=2))
+            else:
+                print(f"\033[1;36m=== 🖥️ ArtCraft PC / Wasm Opener [{res['app_id']}] ===\033[0m")
+                print(f"  Mode:            {res['mode']}")
+                if res.get("launch_target"):
+                    print(f"  Native App Path: {res['launch_target']}")
+                if res.get("local_workspace_file"):
+                    print(f"  Workspace File:  {res['local_workspace_file']}")
+                    print(f"  Sync Back Cmd:   \033[1;32mtincan space open {vfs_path} --sync\033[0m")
+                if res["mode"] == "wasm-fallback":
+                    print(f"  Install on PC:   {res['getartcraft_url']} (or https://github.com/storytold/craft-launcher/releases/latest)")
             return 0
 
     return 0

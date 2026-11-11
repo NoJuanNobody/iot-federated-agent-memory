@@ -1607,6 +1607,33 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json(out, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/artcraft/open":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                app_id = data.get("app_id") or data.get("app")
+                scope = data.get("scope", "user")
+                owner_id = data.get("owner_id") or data.get("peer_id") or "default_user"
+                path = data.get("path")
+                sync_back = bool(data.get("sync", False))
+                launch_proc = bool(data.get("launch_process", True))
+                sm = _get_space_manager()
+                if sync_back and path and hasattr(sm, "sync_from_artcraft_pc"):
+                    out = sm.sync_from_artcraft_pc(scope=scope, owner_id=owner_id, path=path)
+                elif hasattr(sm, "open_in_artcraft_pc"):
+                    out = sm.open_in_artcraft_pc(
+                        app_id=app_id,
+                        scope=scope,
+                        owner_id=owner_id,
+                        path=path,
+                        launch_process=launch_proc,
+                    )
+                else:
+                    out = {"status": "wasm-fallback", "app_id": app_id, "getartcraft_url": "https://getartcraft.com"}
+                self._send_json(out, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
         elif parsed.path == "/api/crdt/gossip":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
@@ -2038,6 +2065,13 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 "contract": WASM_POSTMESSAGE_CONTRACT,
             }
             self._send_json(manifest, 200)
+        elif parsed.path == "/api/artcraft/launcher":
+            sm = _get_space_manager()
+            status = sm.get_artcraft_launcher_status() if hasattr(sm, "get_artcraft_launcher_status") else {
+                "getartcraft_url": "https://getartcraft.com",
+                "craft_launcher_releases_url": "https://github.com/storytold/craft-launcher/releases/latest",
+            }
+            self._send_json(status, 200)
         elif parsed.path == "/api/crdt/state":
             self._send_json({
                 "node_id": crdt_node.local_node_id,
