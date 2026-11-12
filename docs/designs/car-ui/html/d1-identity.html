@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TinCan OS · identity</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="stage">
+
+<div class="dirt" aria-hidden="true">
+  <div class="dirt-washes "></div>
+  <svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+    <filter id="grainidentity" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.72" numOctaves="4" seed="21" stitchTiles="stitch" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.92  0 0 0 0 0.88  0 0 0 0 0.78  0 0 0 0.55 0"/>
+    </filter>
+    <rect width="100%" height="100%" filter="url(#grainidentity)"/>
+  </svg>
+</div>
+<div class="vignette" aria-hidden="true"></div>
+
+<div class="ui">
+
+    <aside class="dock">
+      <svg class="mark" viewBox="0 0 44 44" fill="none" aria-hidden="true">
+  <path d="M29.2 11.2A13.2 13.2 0 1 0 30.4 20.8" stroke="#ece6da" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="30.3" cy="15.8" r="2" fill="#d0703f"/>
+</svg>
+      <div class="dock-list">
+        <div class="dock-btn" aria-label="Launcher"><svg viewBox="0 0 34 34" fill="none"><rect x="5" y="5" width="10.5" height="10.5" rx="3" stroke="currentColor" stroke-width="2"/><rect x="18.5" y="5" width="10.5" height="10.5" rx="3" stroke="currentColor" stroke-width="2"/><rect x="5" y="18.5" width="10.5" height="10.5" rx="3" stroke="currentColor" stroke-width="2"/><rect x="18.5" y="18.5" width="10.5" height="10.5" rx="3" stroke="currentColor" stroke-width="2"/></svg></div><div class="dock-btn" aria-label="Navigate"><svg viewBox="0 0 34 34" fill="none"><path d="M8 26V15a7 7 0 0 1 7-7h4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M16 5l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="dock-btn" aria-label="Listen"><svg viewBox="0 0 34 34" fill="none"><path d="M8 22V12h4l8-5v20l-8-5H8z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M23 13.5a6 6 0 0 1 0 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div><div class="dock-btn" aria-label="Dashcam"><svg viewBox="0 0 34 34" fill="none"><rect x="4" y="9" width="20" height="16" rx="4" stroke="currentColor" stroke-width="2"/><circle cx="14" cy="17" r="4" stroke="currentColor" stroke-width="2"/><path d="M24 14l6-3v12l-6-3v-6z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></div><div class="dock-btn" aria-label="Spaces"><svg viewBox="0 0 34 34" fill="none"><circle cx="9" cy="17" r="4.2" stroke="currentColor" stroke-width="2"/><circle cx="25" cy="17" r="4.2" stroke="currentColor" stroke-width="2"/><path d="M13.4 17h7.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="17" cy="17" r="1.6" fill="currentColor"/></svg></div><div class="dock-btn active" aria-label="Drivers"><svg viewBox="0 0 34 34" fill="none"><circle cx="17" cy="12" r="5" stroke="currentColor" stroke-width="2"/><path d="M6.5 27c1.6-5 5.2-7.5 10.5-7.5S25.9 22 27.5 27" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+      </div>
+    </aside>
+<section class="main">
+  <header class="status">
+      <div class="time">9:40 PM</div>
+      <div class="dot"></div>
+      <div>Parked · waiting on a passkey</div>
+      <div class="grow"></div>
+      <div class="pill">Mesh · this car is unpaired</div>
+    </header>
+  <div class="content">
+    
+    <div class="gate-wrap">
+      <article class="gate">
+        <p class="kicker">TinCan identity</p>
+        <h1>Unlock this car</h1>
+        <p class="lead">Unlock with Face ID or fingerprint on your phone.</p>
+        <p class="sub">A passkey prompt is open on Tony's phone. Nothing in the car can move, record to a space, or switch drivers until it succeeds.</p>
+        <div class="phone-row">
+          <div class="phone"><svg viewBox="0 0 44 44" fill="none"><rect x="13" y="6" width="18" height="32" rx="5" stroke="currentColor" stroke-width="2.2"/><circle cx="22" cy="32.5" r="1.6" fill="currentColor"/><path d="M18 16c1.2-1.8 6.8-1.8 8 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="22" cy="20.5" r="2.2" stroke="currentColor" stroke-width="2"/></svg></div>
+          <div class="wait">Waiting on your phone<span>Usually takes a second · you can cancel from the phone</span></div>
+        </div>
+        <p class="pair">After unlock, this display <strong>pairs to Tony's TinCan account</strong> and keeps a sealed driver key on the head unit. Guests can be added later from the switcher.</p>
+      </article>
+      <aside class="card drivers">
+        <h2>Drivers</h2>
+        <div class="driver on">
+          <div class="avatar">T</div>
+          <div><h3>Tony</h3><p>Owner · passkey ready</p></div>
+        </div>
+        <div class="driver">
+          <div class="avatar">G</div>
+          <div><h3>Guest</h3><p>Unlock first to switch</p></div>
+        </div>
+        <div class="driver" style="opacity:.55">
+          <div class="avatar">+</div>
+          <div><h3>Add a driver</h3><p>Parked only</p></div>
+        </div>
+      </aside>
+    </div>
+    
+  </div>
+</section>
+</div>
+</div>
+</body>
+</html>

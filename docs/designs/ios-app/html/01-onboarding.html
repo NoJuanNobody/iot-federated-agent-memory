@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TinCan · onboarding</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="phone">
+
+<div class="dirt" aria-hidden="true">
+  <div class="dirt-washes "></div>
+  <svg class="fine" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+    <filter id="fineonboarding" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.95" numOctaves="4" seed="3" stitchTiles="stitch" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.92  0 0 0 0 0.88  0 0 0 0 0.76  0 0 0 0.7 0"/>
+    </filter>
+    <rect width="100%" height="100%" filter="url(#fineonboarding)"/>
+  </svg>
+  <svg class="coarse" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+    <filter id="coarseonboarding" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.18" numOctaves="2" seed="20" stitchTiles="stitch" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.85  0 0 0 0 0.78  0 0 0 0 0.62  0 0 0 0.55 0"/>
+    </filter>
+    <rect width="100%" height="100%" filter="url(#coarseonboarding)"/>
+  </svg>
+</div>
+<div class="vignette" aria-hidden="true"></div>
+
+<div class="ui">
+
+<div class="status">
+  <div class="time">9:41</div>
+  <div class="sys">
+    <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor" aria-hidden="true">
+      <rect x="0" y="8" width="3" height="4" rx="0.6"/>
+      <rect x="4.5" y="5.5" width="3" height="6.5" rx="0.6"/>
+      <rect x="9" y="3" width="3" height="9" rx="0.6"/>
+      <rect x="13.5" y="0" width="3" height="12" rx="0.6" opacity="0.35"/>
+    </svg>
+    <svg width="25" height="12" viewBox="0 0 25 12" fill="none" aria-hidden="true">
+      <rect x="0.6" y="1.2" width="20" height="9.6" rx="2.2" stroke="currentColor" stroke-width="1.2"/>
+      <rect x="2.2" y="2.8" width="14.2" height="6.4" rx="1" fill="currentColor"/>
+      <path d="M22.2 4.2v3.6c1.1-.6 1.1-3 0-3.6z" fill="currentColor"/>
+    </svg>
+  </div>
+</div>
+
+<div class="body">
+  <div class="onboard">
+    <div class="mark-wrap"><svg width="56" height="56" viewBox="0 0 44 44" fill="none" aria-hidden="true">
+  <path d="M29.2 11.2A13.2 13.2 0 1 0 30.4 20.8" stroke="#ece6da" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="30.3" cy="15.8" r="2" fill="#d0703f"/>
+</svg></div>
+    <p class="kicker">TinCan 2.2</p>
+    <h2 class="page">Your key is on this phone</h2>
+    <p class="lead">No account, no email. This Ed25519 key is your identity. The relay will only ever see ciphertext.</p>
+    <div class="card addr-card">
+      <p class="kicker">Your address</p>
+      <p class="addr">tc:n7q2k4wypm5xj8c3r6t9vbehfudsg2a4k7m9n3p5q8rst2v4w6x8</p>
+    </div>
+    <p class="note">The private seed is wrapped with the Secure Enclave on this iPhone. Face ID unlocks it. The Enclave does not speak Ed25519, so it holds a wrapping key, not the TinCan key itself.</p>
+    <div class="actions">
+      <div class="btn">Lock with Face ID</div>
+      <div class="btn ghost">Back up recovery phrase</div>
+    </div>
+  </div>
+</div>
+
+</div>
+<div class="homebar"></div>
+</div>
+</body>
+</html>
