@@ -59,6 +59,18 @@ from iot_federated_agent_memory.edge_telemetry import (
 )
 from dataclasses import asdict
 
+# Car Head Unit UI & iOS Preview Integration
+try:
+    from iot_federated_agent_memory.car_ui import render_car_headunit_html, CAR_MODES
+except Exception:
+    render_car_headunit_html = None
+    CAR_MODES = ()
+
+try:
+    from iot_federated_agent_memory import ios_preview
+except Exception:
+    ios_preview = None
+
 PORT = int(os.environ.get("PORT", 8080))
 
 
@@ -788,6 +800,28 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
     def _write_body(self, payload: bytes) -> None:
         if getattr(self, "command", "GET") != "HEAD" and payload:
             self.wfile.write(payload)
+
+    def _send_html(self, html_str: str, code: int = 200) -> None:
+        raw, gz, etag = _get_html_Entry(html_str)
+        if self.headers.get("If-None-Match") == etag:
+            self.send_response(304)
+            self.send_header("ETag", etag)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        use_gzip = self._accepts_gzip()
+        body = gz if use_gzip else raw
+        self.send_response(code)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("ETag", etag)
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Vary", "Accept-Encoding")
+        if use_gzip:
+            self.send_header("Content-Encoding", "gzip")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self._write_body(body)
 
     def _send_empty(self, code: int = 204) -> None:
         self.send_response(code)
@@ -2181,7 +2215,30 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urlparse(self.path)
-        if parsed.path in ("/", "/health", "/call", "/tv", "/os", "/mesh", "/board", "/cyberspace"):
+        clean_path = parsed.path.rstrip("/") if parsed.path != "/" else "/"
+        if clean_path in ("/car",) or clean_path.startswith("/car/"):
+            parts = [p for p in clean_path.split("/") if p]
+            mode = parts[1] if len(parts) > 1 else "driving"
+            if render_car_headunit_html is not None:
+                self._send_html(render_car_headunit_html(mode), 200)
+            else:
+                self._send_empty(404)
+            return
+        elif clean_path in ("/ios",) or clean_path.startswith("/ios/"):
+            parts = [p for p in clean_path.split("/") if p]
+            screen = parts[1] if len(parts) > 1 else "01-onboarding"
+            if ios_preview is not None and hasattr(ios_preview, "render_ios_simulator_html"):
+                self._send_html(ios_preview.render_ios_simulator_html(screen), 200)
+            else:
+                # Standalone fallback: render from docs/designs/ios-app/html if present
+                ios_doc_path = os.path.join(os.path.dirname(__file__), "docs", "designs", "ios-app", "html", f"{screen}.html" if not screen.endswith(".html") else screen)
+                if os.path.isfile(ios_doc_path):
+                    with open(ios_doc_path, "r", encoding="utf-8") as f:
+                        self._send_html(f.read(), 200)
+                else:
+                    self._send_html(f"<!DOCTYPE html><html><body><h1>TinCan iOS Simulator</h1><p>Screen: {screen}</p></body></html>", 200)
+            return
+        elif parsed.path in ("/", "/health", "/call", "/tv", "/os", "/mesh", "/board", "/cyberspace"):
             raw, gz, etag = _get_html_Entry(HTML_UI)
             if self.headers.get("If-None-Match") == etag:
                 self.send_response(304)
@@ -2636,3 +2693,73 @@ if __name__ == "__main__":
     server = HTTPServer(("0.0.0.0", PORT), MeshGatewayHandler)
     print(f"[*] IoT Federated Agent Mesh listening on port {PORT}")
     server.serve_forever()
+
+
+# ---------------------------------------------------------------------------
+# FastAPI & TestClient Compatibility Layer
+# ---------------------------------------------------------------------------
+try:
+    from fastapi import FastAPI
+    from fastapi.responses import HTMLResponse
+    _HAS_FASTAPI = True
+except ImportError:
+    _HAS_FASTAPI = False
+    class HTMLResponse:
+        def __init__(self, content: str = "", status_code: int = 200, media_type: str = "text/html; charset=utf-8"):
+            self.content = content
+            self.text = content if isinstance(content, str) else content.decode("utf-8") if isinstance(content, bytes) else str(content)
+            self.status_code = status_code
+            self.media_type = media_type
+
+class _FastAPIRouteHandler:
+    def __init__(self):
+        self.routes = {}
+
+    def get(self, path: str):
+        def decorator(fn):
+            self.routes[path] = fn
+            return fn
+        return decorator
+
+    def handle(self, method: str, path: str):
+        clean_path = path.split("?")[0].rstrip("/") if path.split("?")[0] != "/" else "/"
+        if clean_path in self.routes:
+            res = self.routes[clean_path]()
+            return res if hasattr(res, "status_code") else HTMLResponse(str(res), 200)
+        if clean_path.startswith("/car/"):
+            mode = clean_path[len("/car/"):]
+            if "/car/{mode}" in self.routes:
+                res = self.routes["/car/{mode}"](mode)
+                return res if hasattr(res, "status_code") else HTMLResponse(str(res), 200)
+        if clean_path.startswith("/ios/"):
+            screen = clean_path[len("/ios/"):]
+            if "/ios/{screen}" in self.routes:
+                res = self.routes["/ios/{screen}"](screen)
+                return res if hasattr(res, "status_code") else HTMLResponse(str(res), 200)
+        return HTMLResponse("Not Found", 404)
+
+if _HAS_FASTAPI:
+    app = FastAPI(title="TinCan Car & Mesh OS")
+else:
+    app = _FastAPIRouteHandler()
+
+@app.get("/car")
+def _car_root():
+    mode = "driving"
+    return HTMLResponse(render_car_headunit_html(mode) if render_car_headunit_html else "<h1>Car Head Unit</h1>")
+
+@app.get("/car/{mode}")
+def _car_mode(mode: str):
+    return HTMLResponse(render_car_headunit_html(mode) if render_car_headunit_html else f"<h1>Car Head Unit: {mode}</h1>")
+
+@app.get("/ios")
+def _ios_root():
+    if ios_preview is not None and hasattr(ios_preview, "render_ios_simulator_html"):
+        return HTMLResponse(ios_preview.render_ios_simulator_html("01-onboarding"))
+    return HTMLResponse("<!DOCTYPE html><html><body><h1>TinCan iOS Simulator</h1></body></html>")
+
+@app.get("/ios/{screen}")
+def _ios_screen(screen: str):
+    if ios_preview is not None and hasattr(ios_preview, "render_ios_simulator_html"):
+        return HTMLResponse(ios_preview.render_ios_simulator_html(screen))
+    return HTMLResponse(f"<!DOCTYPE html><html><body><h1>TinCan iOS Simulator: {screen}</h1></body></html>")
