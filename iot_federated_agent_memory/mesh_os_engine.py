@@ -86,7 +86,7 @@ QUEST_CATALOG: Dict[str, Dict[str, Any]] = {
 class TinCanMeshOSEngine:
     """Thread-safe gamification, telemetry, and live sync engine for TinCan MeshOS."""
 
-    def __init__(self, seed: bool = True) -> None:
+    def __init__(self, seed: bool = False) -> None:
         self._lock = threading.RLock()
         self.total_xp: int = 0
         self.peers: Dict[str, Dict[str, Any]] = {}
