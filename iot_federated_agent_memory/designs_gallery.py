@@ -299,6 +299,42 @@ main.container {{
 /* Tab sections */
 .tab-section {{ display: none; }}
 .tab-section.active {{ display: block; }}
+
+/* One-Click Terminal Installer Banner */
+.install-banner {{
+  background: #ffffff;
+  border: 1px solid var(--aeonik-line);
+  border-radius: 20px;
+  padding: 18px 24px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}}
+.install-cmd-box {{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--aeonik-bg);
+  border: 1px solid var(--aeonik-line);
+  border-radius: 999px;
+  padding: 6px 8px 6px 16px;
+  flex: 1;
+  min-width: 280px;
+  max-width: 720px;
+  justify-content: space-between;
+}}
+.install-cmd-box code {{
+  font-family: var(--aeonik-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--aeonik-fg);
+  overflow-x: auto;
+  white-space: nowrap;
+  user-select: all;
+}}
 </style>
 </head>
 <body>
@@ -327,18 +363,53 @@ main.container {{
 </div>
 
 <main class="container">
+  <!-- ONE-CLICK TERMINAL INSTALLER BANNER -->
+  <div class="install-banner">
+    <div>
+      <div style="font-family: var(--aeonik-mono); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">⚡ One-Click Terminal Installer</div>
+      <div style="font-size: 0.86rem; color: var(--aeonik-dim);">Install TinCan 2.2 CLI, Ed25519 identity &amp; 6 agent skills in 10 seconds</div>
+    </div>
+    <div class="install-cmd-box">
+      <code id="galleryInstallCmd">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code>
+      <button class="btn-cta" style="padding: 6px 14px; font-size: 0.75rem;" onclick="copyGalleryInstall(this)">📋 Copy Command</button>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <a href="/install.command" download="Install-TinCan.command" class="btn-cta outline" style="font-size: 0.78rem;">⬇ macOS .command</a>
+      <a href="/mesh" class="btn-cta" style="font-size: 0.78rem;">▶ Open Terminal</a>
+    </div>
+  </div>
+
   <!-- TAB 0: AEONIK RESKIN -->
   <div id="tab-aeonik" class="tab-section active">
     <div class="intro-panel">
       <div class="intro-text">
-        <h2>Aeonik Celadon &amp; Ink Design System</h2>
-        <p>Industrial minimalist aesthetic (#ecf1e6 Celadon canvas + 1px #111111 hairline borders). Features the 4-quadrant desktop Terminal (SHELL git status, SYSTEM metrics &amp; sparklines, TREE filesystem, RECENT build logs) and Aeonik Fono mobile interface with circular gauge rings and schedule pill toggles.</p>
+        <h2>Aeonik Celadon &amp; Ink Design System (Live Interactive + Reference)</h2>
+        <p>Industrial minimalist aesthetic (#ecf1e6 Celadon canvas + 1px #111111 hairline borders). Interact directly with the live 4-quadrant Terminal (SHELL command execution, SYSTEM telemetry, clickable TREE file inspector, RECENT build runner) and live Aeonik Fono mobile controller below.</p>
       </div>
       <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <a href="/mesh" class="btn-cta">⚡ Launch Desktop Terminal</a>
+        <a href="/terminal" class="btn-cta">⚡ Launch Fullscreen Terminal</a>
         <a href="/fono" class="btn-cta outline">📱 Launch Aeonik Fono</a>
       </div>
     </div>
+
+    <!-- LIVE INTERACTIVE EMBEDDED WORKSPACE -->
+    <div style="display: grid; grid-template-columns: 1.55fr 1fr; gap: 24px; margin-bottom: 28px; align-items: start;">
+      <div class="mockup-card">
+        <div style="padding: 12px 18px; border-bottom: 1px solid var(--aeonik-line); display: flex; justify-content: space-between; align-items: center; font-family: var(--aeonik-mono); font-size: 0.76rem; font-weight: 600;">
+          <span>● LIVE INTERACTIVE · AEONIK 4-QUADRANT TERMINAL (/terminal)</span>
+          <a href="/terminal" target="_blank" style="color: var(--aeonik-fg);">Open Fullscreen ↗</a>
+        </div>
+        <iframe src="/terminal" title="Live Aeonik Terminal" style="width: 100%; height: 820px; border: none; background: #ecf1e6;"></iframe>
+      </div>
+      <div class="mockup-card">
+        <div style="padding: 12px 18px; border-bottom: 1px solid var(--aeonik-line); display: flex; justify-content: space-between; align-items: center; font-family: var(--aeonik-mono); font-size: 0.76rem; font-weight: 600;">
+          <span>● LIVE INTERACTIVE · AEONIK FONO CONTROLLER (/fono)</span>
+          <a href="/fono" target="_blank" style="color: var(--aeonik-fg);">Open Fullscreen ↗</a>
+        </div>
+        <iframe src="/fono" title="Live Aeonik Fono" style="width: 100%; height: 820px; border: none; background: #ecf1e6;"></iframe>
+      </div>
+    </div>
+
     <div class="grid-gallery">
       {aeonik_cards}
     </div>
@@ -430,6 +501,19 @@ function closeLightbox() {{
 document.addEventListener('keydown', (e) => {{
   if (e.key === 'Escape') closeLightbox();
 }});
+
+function copyGalleryInstall(btn) {{
+  const el = document.getElementById('galleryInstallCmd');
+  if (!el) return;
+  const text = el.innerText;
+  if (navigator.clipboard) {{
+    navigator.clipboard.writeText(text).then(() => {{
+      const orig = btn.innerText;
+      btn.innerText = '✓ Copied!';
+      setTimeout(() => {{ btn.innerText = orig; }}, 1600);
+    }});
+  }}
+}}
 </script>
 </body>
 </html>

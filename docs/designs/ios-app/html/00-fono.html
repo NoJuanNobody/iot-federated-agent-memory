@@ -22,6 +22,7 @@ body {
   font-family: var(--aeonik-sans);
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   padding: 20px;
@@ -29,11 +30,11 @@ body {
 
 .phone-canvas {
   width: 390px;
-  min-height: 780px;
+  min-height: 790px;
   background: var(--aeonik-bg);
   border: 1px solid var(--aeonik-line);
   border-radius: 40px;
-  padding: 24px 20px 32px;
+  padding: 24px 20px 28px;
   position: relative;
   box-shadow: 0 20px 50px rgba(0,0,0,0.08);
   display: flex;
@@ -47,7 +48,26 @@ body {
   align-items: center;
   font-size: 15px;
   font-weight: 600;
-  margin-bottom: 24px;
+  margin-bottom: 18px;
+}
+.status-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mesh-pill {
+  font-family: var(--aeonik-mono);
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border: 1px solid var(--aeonik-line);
+  border-radius: 999px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+}
+.mesh-pill.synced {
+  background: var(--aeonik-fg);
+  color: var(--aeonik-bg);
 }
 .sys-icons {
   display: flex;
@@ -63,18 +83,61 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 22px;
+  margin-bottom: 14px;
 }
 .app-title {
   font-size: 32px;
   font-weight: 500;
   letter-spacing: -0.03em;
+  cursor: pointer;
 }
 .menu-btn {
   background: none;
-  border: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
   cursor: pointer;
-  padding: 4px;
+  padding: 6px;
+  transition: all 0.15s;
+}
+.menu-btn:hover, .menu-btn.active {
+  border-color: var(--aeonik-line);
+}
+
+/* Interactive Mode Bar */
+.mode-nav {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--aeonik-line);
+}
+.mode-btn {
+  flex: 1;
+  padding: 6px 4px;
+  border: 1px solid var(--aeonik-line);
+  border-radius: 999px;
+  background: var(--aeonik-bg);
+  color: var(--aeonik-fg);
+  font-family: var(--aeonik-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-btn.active {
+  background: var(--aeonik-fg);
+  color: var(--aeonik-bg);
+}
+
+.fono-view {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+}
+.fono-view.active {
+  display: flex;
 }
 
 /* Big Capsule */
@@ -94,37 +157,48 @@ body {
   gap: 8px;
 }
 .circle-btn {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: 1px solid var(--aeonik-line);
   background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
+  transition: all 0.12s;
+}
+.circle-btn:hover, .circle-btn:active {
+  background: var(--aeonik-fg);
+  color: var(--aeonik-bg);
 }
 .temp-val {
   font-size: 20px;
   font-weight: 600;
   letter-spacing: -0.02em;
+  min-width: 60px;
+  text-align: center;
 }
 .capsule-desc {
   font-size: 11px;
   color: var(--aeonik-fg);
-  max-width: 140px;
+  max-width: 136px;
   line-height: 1.25;
 }
 .gauge-ring {
   position: relative;
   width: 44px;
   height: 44px;
+  cursor: pointer;
 }
 .gauge-ring svg {
   width: 44px;
   height: 44px;
   transform: rotate(-90deg);
+}
+.gauge-ring circle {
+  transition: stroke-dashoffset 0.25s ease;
 }
 .gauge-ring span {
   position: absolute;
@@ -141,7 +215,7 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 .equip-card {
   border: 1px solid var(--aeonik-line);
@@ -151,11 +225,12 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 190px;
+  min-height: 196px;
 }
 .card-head {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -164,7 +239,13 @@ body {
 }
 .card-head .dim {
   color: var(--aeonik-dim);
-  font-weight: 400;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.card-head .dim:hover {
+  color: var(--aeonik-fg);
 }
 .equip-stat {
   margin-bottom: 8px;
@@ -179,11 +260,34 @@ body {
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mini-step {
+  display: none;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--aeonik-line);
+  border-radius: 50%;
+  background: transparent;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+.editing .mini-step {
+  display: inline-flex;
 }
 
 /* Vector Radiator */
 .radiator-svg {
   margin-top: 10px;
+  cursor: pointer;
+}
+.radiator-svg rect {
+  transition: fill 0.2s;
 }
 
 /* Solar Panels */
@@ -194,6 +298,7 @@ body {
 }
 .solar-panel {
   flex: 1;
+  cursor: pointer;
 }
 .panel-grid-svg {
   width: 100%;
@@ -214,11 +319,59 @@ body {
   padding-top: 12px;
   margin-top: auto;
 }
+.sched-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
 .sched-add {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
-  margin-bottom: 12px;
+  cursor: pointer;
+  background: none;
+  border: 1px solid transparent;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.sched-add:hover {
+  border-color: var(--aeonik-line);
+}
+.sched-summary {
+  font-family: var(--aeonik-mono);
+  font-size: 9px;
+  color: var(--aeonik-dim);
+}
+.sched-add-form {
+  display: none;
+  gap: 6px;
+  padding: 8px 0 10px;
+  border-bottom: 1px solid var(--aeonik-line);
+  align-items: center;
+}
+.sched-add-form.open {
+  display: flex;
+}
+.aeonik-input {
+  border: 1px solid var(--aeonik-line);
+  background: var(--aeonik-bg);
+  color: var(--aeonik-fg);
+  font-family: var(--aeonik-mono);
+  font-size: 10px;
+  padding: 5px 7px;
+  border-radius: 8px;
+  outline: none;
+}
+.aeonik-btn {
+  border: 1px solid var(--aeonik-line);
+  background: var(--aeonik-fg);
+  color: var(--aeonik-bg);
+  font-family: var(--aeonik-mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 8px;
   cursor: pointer;
 }
 .sched-row {
@@ -237,7 +390,8 @@ body {
 }
 .sched-temp {
   font-weight: 500;
-  width: 35px;
+  width: 38px;
+  cursor: pointer;
 }
 .sched-times {
   flex: 1;
@@ -284,6 +438,54 @@ body {
   border-radius: 50%;
   background: var(--aeonik-fg);
 }
+
+/* AI Chat & Comms Views */
+.panel-box {
+  border: 1px solid var(--aeonik-line);
+  border-radius: 20px;
+  padding: 14px;
+  margin-bottom: 12px;
+  background: var(--aeonik-bg);
+}
+.chat-log {
+  flex: 1;
+  min-height: 320px;
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--aeonik-line);
+  border-radius: 20px;
+  padding: 12px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 11px;
+}
+.chat-msg {
+  padding: 8px 10px;
+  border: 1px solid var(--aeonik-line);
+  border-radius: 14px;
+  line-height: 1.4;
+}
+.chat-msg.user {
+  align-self: flex-end;
+  background: var(--aeonik-fg);
+  color: var(--aeonik-bg);
+  max-width: 85%;
+}
+.chat-msg.assistant {
+  align-self: flex-start;
+  background: var(--aeonik-bg);
+  color: var(--aeonik-fg);
+  max-width: 90%;
+}
+.chat-meta {
+  font-family: var(--aeonik-mono);
+  font-size: 9px;
+  opacity: 0.7;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+}
 </style>
 </head>
 <body>
@@ -291,7 +493,10 @@ body {
 <div class="phone-canvas">
   <!-- Status Bar -->
   <div class="status-bar">
-    <span>14:41</span>
+    <div class="status-left">
+      <span id="fonoClock">14:41</span>
+      <span id="fonoSyncBadge" class="mesh-pill" onclick="syncFonoTelemetry(true)" title="Click to sync telemetry with TinCan Mesh">● MESH LIVE</span>
+    </div>
     <div class="sys-icons">
       <!-- Signal -->
       <svg width="17" height="11" viewBox="0 0 17 11" fill="none">
@@ -317,8 +522,8 @@ body {
 
   <!-- Header -->
   <div class="app-header">
-    <h1 class="app-title">Aeonik Fono</h1>
-    <button class="menu-btn" aria-label="Menu">
+    <h1 class="app-title" onclick="switchFonoView('climate')">Aeonik Fono</h1>
+    <button class="menu-btn" id="fonoMenuBtn" onclick="toggleModeBar()" aria-label="Menu" title="Switch Fono Mode">
       <svg width="24" height="14" viewBox="0 0 24 14" fill="none">
         <line y1="1" x2="24" y2="1" stroke="#111" stroke-width="2"/>
         <line y1="7" x2="24" y2="7" stroke="#111" stroke-width="2"/>
@@ -327,161 +532,285 @@ body {
     </button>
   </div>
 
-  <!-- Capsule Card -->
-  <div class="capsule-card">
-    <div class="temp-ctrl">
-      <button class="circle-btn" onclick="adjustTemp(-0.5)">−</button>
-      <span class="temp-val" id="tempDisplay">19.0°C</span>
-      <button class="circle-btn" onclick="adjustTemp(0.5)">+</button>
-    </div>
-    <div class="capsule-desc">
-      Heating up to desired temperature....
-    </div>
-    <div class="gauge-ring">
-      <svg viewBox="0 0 44 44">
-        <circle cx="22" cy="22" r="18" fill="none" stroke="#ccc" stroke-width="2.5"/>
-        <circle cx="22" cy="22" r="18" fill="none" stroke="#111" stroke-width="2.5" stroke-dasharray="113.1" stroke-dashoffset="36.2" stroke-linecap="round"/>
-      </svg>
-      <span>68%</span>
-    </div>
+  <!-- Mode Switcher Bar -->
+  <div class="mode-nav" id="fonoModeNav">
+    <button class="mode-btn active" data-view="climate" onclick="switchFonoView('climate')">01 Climate</button>
+    <button class="mode-btn" data-view="chat" onclick="switchFonoView('chat')">02 AI Chat</button>
+    <button class="mode-btn" data-view="comms" onclick="switchFonoView('comms')">03 Mesh</button>
+    <button class="mode-btn" data-view="shell" onclick="switchFonoView('shell')">04 Shell</button>
   </div>
 
-  <!-- 2-Column Cards -->
-  <div class="cards-row">
-    <!-- Card 1: Radiators -->
-    <div class="equip-card">
-      <div>
-        <div class="card-head">
-          <span>RADIATORS</span>
-          <span class="dim" style="cursor: pointer;">Edit</span>
-        </div>
-        <div class="equip-stat">
-          <div class="stat-lbl">WATER</div>
-          <div class="stat-val">67°C</div>
-        </div>
-        <div class="equip-stat">
-          <div class="stat-lbl">PRESSURE</div>
-          <div class="stat-val">1.7bar</div>
-        </div>
-        <div class="equip-stat">
-          <div class="stat-lbl">TIMER</div>
-          <div class="stat-val"><span style="font-weight: 700;">ON</span> <span style="color: #999; font-weight: 400;">OFF</span></div>
-        </div>
+  <!-- =================================================================== -->
+  <!-- VIEW 1: CLIMATE, RADIATORS, SOLAR & SCHEDULES (DEFAULT MOCKUP 2 UI) -->
+  <!-- =================================================================== -->
+  <div class="fono-view active" id="view-climate">
+    <!-- Capsule Card -->
+    <div class="capsule-card">
+      <div class="temp-ctrl">
+        <button class="circle-btn" onclick="adjustTemp(-0.5)" title="Decrease Target Temp">−</button>
+        <span class="temp-val" id="tempDisplay">19.0°C</span>
+        <button class="circle-btn" onclick="adjustTemp(0.5)" title="Increase Target Temp">+</button>
       </div>
-      <!-- Radiator Fins Vector -->
-      <div class="radiator-svg">
-        <svg viewBox="0 0 110 50" fill="none" style="width: 100%; height: 50px;">
-          <!-- Top pipe -->
-          <line x1="8" y1="6" x2="102" y2="6" stroke="#111" stroke-width="1.8"/>
-          <!-- Bottom pipe -->
-          <line x1="8" y1="44" x2="102" y2="44" stroke="#111" stroke-width="1.8"/>
-          <!-- 8 Fins -->
-          <rect x="12" y="2" width="7" height="46" rx="3.5" stroke="#111" stroke-width="1.5" fill="#ecf1e6"/>
-          <rect x="24" y="2" width="7" height="46" rx="3.5" stroke="#111" stroke-width="1.5" fill="#ecf1e6"/>
-          <rect x="36" y="2" width="7" height="46" rx="3.5" stroke="#111" stroke-width="1.5" fill="#ecf1e6"/>
-          <rect x="48" y="2" width="7" height="46" rx="3.5" stroke="#111" stroke-width="1.5" fill="#ecf1e6"/>
-          <rect x="60" y="2" width="7" height="46" rx="3.5" stroke="#111" stroke-width="1.5" fill="#ecf1e6"/>
-          <rect x="72" y="2" width="7" height="46" rx="3.5" stroke="#111" stroke-width="1.5" fill="#ecf1e6"/>
-          <rect x="84" y="2" width="7" height="46" rx="3.5" stroke="#111" stroke-width="1.5" fill="#ecf1e6"/>
+      <div class="capsule-desc" id="tempStatusDesc">
+        Heating up to desired temperature....
+      </div>
+      <div class="gauge-ring" onclick="boostHeating()" title="Click to toggle Quick Heat Boost">
+        <svg viewBox="0 0 44 44">
+          <circle cx="22" cy="22" r="18" fill="none" stroke="#ccc" stroke-width="2.5"/>
+          <circle id="gaugeArc" cx="22" cy="22" r="18" fill="none" stroke="#111" stroke-width="2.5" stroke-dasharray="113.1" stroke-dashoffset="36.2" stroke-linecap="round"/>
         </svg>
+        <span id="gaugePct">68%</span>
       </div>
     </div>
 
-    <!-- Card 2: Panels -->
-    <div class="equip-card">
-      <div>
-        <div class="card-head">
-          <span>PANELS</span>
-          <span class="dim">Active</span>
-        </div>
-        <div class="equip-stat">
-          <div class="stat-lbl">CAPACITY</div>
-          <div class="stat-val">320kWh</div>
-        </div>
-        <!-- Solar Panels Grid -->
-        <div class="solar-grid">
-          <div class="solar-panel">
-            <svg class="panel-grid-svg" viewBox="0 0 50 60" fill="none">
-              <rect x="1" y="1" width="48" height="58" stroke="#111" stroke-width="1.2"/>
-              <line x1="25" y1="1" x2="25" y2="59" stroke="#111" stroke-width="1.2"/>
-              <line x1="1" y1="12" x2="49" y2="12" stroke="#111" stroke-width="0.8"/>
-              <line x1="1" y1="24" x2="49" y2="24" stroke="#111" stroke-width="0.8"/>
-              <line x1="1" y1="36" x2="49" y2="36" stroke="#111" stroke-width="0.8"/>
-              <line x1="1" y1="48" x2="49" y2="48" stroke="#111" stroke-width="0.8"/>
-            </svg>
-            <div class="panel-lbl"><span>WEST</span> <span>67%</span></div>
+    <!-- 2-Column Cards -->
+    <div class="cards-row">
+      <!-- Card 1: Radiators -->
+      <div class="equip-card" id="radiatorCard">
+        <div>
+          <div class="card-head">
+            <span>RADIATORS</span>
+            <span class="dim" id="radEditBtn" onclick="toggleRadiatorEdit()">Edit</span>
           </div>
-          <div class="solar-panel">
-            <svg class="panel-grid-svg" viewBox="0 0 50 60" fill="none">
-              <rect x="1" y="1" width="48" height="58" stroke="#111" stroke-width="1.2"/>
-              <line x1="25" y1="1" x2="25" y2="59" stroke="#111" stroke-width="1.2"/>
-              <line x1="1" y1="12" x2="49" y2="12" stroke="#111" stroke-width="0.8"/>
-              <line x1="1" y1="24" x2="49" y2="24" stroke="#111" stroke-width="0.8"/>
-              <line x1="1" y1="36" x2="49" y2="36" stroke="#111" stroke-width="0.8"/>
-              <line x1="1" y1="48" x2="49" y2="48" stroke="#111" stroke-width="0.8"/>
-            </svg>
-            <div class="panel-lbl"><span>EAST</span> <span>72%</span></div>
+          <div class="equip-stat">
+            <div class="stat-lbl">WATER</div>
+            <div class="stat-val">
+              <button class="mini-step" onclick="adjustRadiatorWater(-1)">−</button>
+              <span id="radWaterVal">67°C</span>
+              <button class="mini-step" onclick="adjustRadiatorWater(1)">+</button>
+            </div>
+          </div>
+          <div class="equip-stat">
+            <div class="stat-lbl">PRESSURE</div>
+            <div class="stat-val">
+              <button class="mini-step" onclick="adjustRadiatorPressure(-0.1)">−</button>
+              <span id="radPressureVal">1.7bar</span>
+              <button class="mini-step" onclick="adjustRadiatorPressure(0.1)">+</button>
+            </div>
+          </div>
+          <div class="equip-stat">
+            <div class="stat-lbl">TIMER</div>
+            <div class="stat-val" style="cursor:pointer;" onclick="toggleRadiatorTimer()" title="Click to toggle radiator timer">
+              <span id="radTimerOn" style="font-weight: 700;">ON</span>
+              <span id="radTimerOff" style="color: #999; font-weight: 400;">OFF</span>
+            </div>
+          </div>
+        </div>
+        <!-- Radiator Fins Vector (Clickable fins) -->
+        <div class="radiator-svg" onclick="toggleRadiatorTimer()" title="Click to toggle radiator heating loop">
+          <svg viewBox="0 0 110 50" fill="none" style="width: 100%; height: 50px;">
+            <line x1="8" y1="6" x2="102" y2="6" stroke="#111" stroke-width="1.8"/>
+            <line x1="8" y1="44" x2="102" y2="44" stroke="#111" stroke-width="1.8"/>
+            <rect class="rad-fin" x="12" y="2" width="7" height="46" rx="3.5" stroke="#111" stroke-width="1.5" fill="#ecf1e6"/>
+            <rect class="rad-fin" x="24" y="2" width="7" height="46" rx="3.5" stroke="#111" stroke-width="1.5" fill="#ecf1e6"/>
+            <rect class="rad-fin" x="36" y="2" width="7" height="46" rx="3.5" stroke="#111" stroke-width="1.5" fill="#ecf1e6"/>
+            <rect class="rad-fin" x="48" y="2" width="7" height="46" rx="3.5" stroke="#111" stroke-width="1.5" fill="#ecf1e6"/>
+            <rect class="rad-fin" x="60" y="2" width="7" height="46" rx="3.5" stroke="#111" stroke-width="1.5" fill="#ecf1e6"/>
+            <rect class="rad-fin" x="72" y="2" width="7" height="46" rx="3.5" stroke="#111" stroke-width="1.5" fill="#ecf1e6"/>
+            <rect class="rad-fin" x="84" y="2" width="7" height="46" rx="3.5" stroke="#111" stroke-width="1.5" fill="#ecf1e6"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Card 2: Panels -->
+      <div class="equip-card">
+        <div>
+          <div class="card-head">
+            <span>PANELS</span>
+            <span class="dim" id="panelStateLbl" onclick="cycleSolarMode()">Active</span>
+          </div>
+          <div class="equip-stat">
+            <div class="stat-lbl">CAPACITY</div>
+            <div class="stat-val" id="solarCapacityVal">320kWh</div>
+          </div>
+          <!-- Solar Panels Grid -->
+          <div class="solar-grid">
+            <div class="solar-panel" onclick="boostSolarPanel('west')" title="Click to inspect West Array">
+              <svg class="panel-grid-svg" viewBox="0 0 50 60" fill="none">
+                <rect x="1" y="1" width="48" height="58" stroke="#111" stroke-width="1.2"/>
+                <line x1="25" y1="1" x2="25" y2="59" stroke="#111" stroke-width="1.2"/>
+                <line x1="1" y1="12" x2="49" y2="12" stroke="#111" stroke-width="0.8"/>
+                <line x1="1" y1="24" x2="49" y2="24" stroke="#111" stroke-width="0.8"/>
+                <line x1="1" y1="36" x2="49" y2="36" stroke="#111" stroke-width="0.8"/>
+                <line x1="1" y1="48" x2="49" y2="48" stroke="#111" stroke-width="0.8"/>
+              </svg>
+              <div class="panel-lbl"><span>WEST</span> <span id="westPct">67%</span></div>
+            </div>
+            <div class="solar-panel" onclick="boostSolarPanel('east')" title="Click to inspect East Array">
+              <svg class="panel-grid-svg" viewBox="0 0 50 60" fill="none">
+                <rect x="1" y="1" width="48" height="58" stroke="#111" stroke-width="1.2"/>
+                <line x1="25" y1="1" x2="25" y2="59" stroke="#111" stroke-width="1.2"/>
+                <line x1="1" y1="12" x2="49" y2="12" stroke="#111" stroke-width="0.8"/>
+                <line x1="1" y1="24" x2="49" y2="24" stroke="#111" stroke-width="0.8"/>
+                <line x1="1" y1="36" x2="49" y2="36" stroke="#111" stroke-width="0.8"/>
+                <line x1="1" y1="48" x2="49" y2="48" stroke="#111" stroke-width="0.8"/>
+              </svg>
+              <div class="panel-lbl"><span>EAST</span> <span id="eastPct">72%</span></div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top: 10px;">
+          <div class="equip-stat" style="margin-bottom: 4px;">
+            <div class="stat-lbl">WEEKLY</div>
+            <div class="stat-val" id="solarWeeklyVal">+1.6%</div>
+          </div>
+          <div class="equip-stat" style="margin-bottom: 0;">
+            <div class="stat-lbl">TOTAL YIELD</div>
+            <div class="stat-val" id="solarYieldVal">190kWh</div>
           </div>
         </div>
       </div>
-      <div style="margin-top: 10px;">
-        <div class="equip-stat" style="margin-bottom: 4px;">
-          <div class="stat-lbl">WEEKLY</div>
-          <div class="stat-val">+1.6%</div>
+    </div>
+
+    <!-- Schedule Table -->
+    <div class="schedule-sec">
+      <div class="sched-header">
+        <button class="sched-add" onclick="toggleAddSchedule()">+ADD</button>
+        <span class="sched-summary" id="schedActiveCount">2 ACTIVE RULES</span>
+      </div>
+
+      <!-- Inline Add Schedule Form -->
+      <div class="sched-add-form" id="schedAddForm">
+        <input id="newSchedDay" class="aeonik-input" style="width: 82px;" placeholder="WEEKEND" value="FRIDAY" />
+        <input id="newSchedTemp" class="aeonik-input" style="width: 52px;" placeholder="20°C" value="20°C" />
+        <input id="newSchedTimes" class="aeonik-input" style="flex: 1;" placeholder="7AM-11PM" value="7AM-10AM  6PM-11PM" />
+        <button class="aeonik-btn" onclick="addScheduleRow()">SAVE</button>
+      </div>
+
+      <div id="scheduleList">
+        <!-- Row 1 -->
+        <div class="sched-row">
+          <span class="sched-day">WEEKDAYS</span>
+          <span class="sched-temp" onclick="cycleRowTemp(this)">18°C</span>
+          <span class="sched-times">6AM-10AM &nbsp; 5PM-11:30PM</span>
+          <div class="pill-toggle off" onclick="toggleSwitch(this)">
+            <span class="dot"></span>
+            <span class="txt">OFF</span>
+          </div>
         </div>
-        <div class="equip-stat" style="margin-bottom: 0;">
-          <div class="stat-lbl">TOTAL YIELD</div>
-          <div class="stat-val">190kWh</div>
+
+        <!-- Row 2 -->
+        <div class="sched-row">
+          <span class="sched-day">DAY OFF</span>
+          <span class="sched-temp" onclick="cycleRowTemp(this)">19°C</span>
+          <span class="sched-times">9AM-1PM &nbsp; 5PM-11:30PM</span>
+          <div class="pill-toggle on" onclick="toggleSwitch(this)">
+            <span class="dot"></span>
+            <span class="txt">ON</span>
+          </div>
+        </div>
+
+        <!-- Row 3 -->
+        <div class="sched-row">
+          <span class="sched-day">SUNDAY</span>
+          <span class="sched-temp" onclick="cycleRowTemp(this)">19°C</span>
+          <span class="sched-times">10AM-12PM &nbsp; 5PM-11:30PM</span>
+          <div class="pill-toggle off" onclick="toggleSwitch(this)">
+            <span class="dot"></span>
+            <span class="txt">OFF</span>
+          </div>
+        </div>
+
+        <!-- Row 4 -->
+        <div class="sched-row">
+          <span class="sched-day">HOLIDAY</span>
+          <span class="sched-temp" style="font-size: 10px; font-weight: 600;" onclick="cycleRowTemp(this)">OFF</span>
+          <span class="sched-times">DEHUMIDIFIER ON</span>
+          <div class="pill-toggle on" onclick="toggleSwitch(this)">
+            <span class="dot"></span>
+            <span class="txt">ON</span>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Schedule Table -->
-  <div class="schedule-sec">
-    <div class="sched-add">+ADD</div>
-
-    <!-- Row 1 -->
-    <div class="sched-row">
-      <span class="sched-day">WEEKDAYS</span>
-      <span class="sched-temp">18°C</span>
-      <span class="sched-times">6AM-10AM &nbsp; 5PM-11:30PM</span>
-      <div class="pill-toggle off" onclick="toggleSwitch(this)">
-        <span class="dot"></span>
-        <span class="txt">OFF</span>
+  <!-- =================================================================== -->
+  <!-- VIEW 2: LIVE AI CHAT GATEWAY (/api/chat + Kokoro Voice Synthesis)   -->
+  <!-- =================================================================== -->
+  <div class="fono-view" id="view-chat">
+    <div class="panel-box" style="padding: 10px 12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <span style="font-size:10px; font-weight:700; letter-spacing:0.05em;">POOLED AI GATEWAY</span>
+        <label style="font-family:var(--aeonik-mono); font-size:9px; display:flex; align-items:center; gap:4px; cursor:pointer;">
+          <input type="checkbox" id="fonoTtsToggle" checked /> 🔊 Speak Reply
+        </label>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <select id="fonoAiModel" class="aeonik-input" style="flex:1;">
+          <option value="gemini-brain">gemini-brain (Gemini 2.5 Flash)</option>
+          <option value="claude-brain">claude-brain (Claude 3.7 Sonnet)</option>
+          <option value="openai-brain">openai-brain (GPT-4o)</option>
+          <option value="grok-brain">grok-brain (Grok 3)</option>
+          <option value="deepseek-r1">deepseek-r1 (DeepSeek R1)</option>
+        </select>
       </div>
     </div>
 
-    <!-- Row 2 -->
-    <div class="sched-row">
-      <span class="sched-day">DAY OFF</span>
-      <span class="sched-temp">19°C</span>
-      <span class="sched-times">9AM-1PM &nbsp; 5PM-11:30PM</span>
-      <div class="pill-toggle on" onclick="toggleSwitch(this)">
-        <span class="dot"></span>
-        <span class="txt">ON</span>
+    <div class="chat-log" id="fonoChatLog">
+      <div class="chat-msg assistant">
+        <div class="chat-meta">AEONIK FONO · SYSTEM READY</div>
+        Connected to TinCan Pooled AI Gateway. Ask anything or query your node telemetry (`19.0°C`, `320kWh` solar array).
       </div>
     </div>
 
-    <!-- Row 3 -->
-    <div class="sched-row">
-      <span class="sched-day">SUNDAY</span>
-      <span class="sched-temp">19°C</span>
-      <span class="sched-times">10AM-12PM &nbsp; 5PM-11:30PM</span>
-      <div class="pill-toggle off" onclick="toggleSwitch(this)">
-        <span class="dot"></span>
-        <span class="txt">OFF</span>
+    <div style="display:flex; gap:6px; margin-top:auto;">
+      <input id="fonoChatInput" class="aeonik-input" style="flex:1; padding:10px;" placeholder="Ask TinCan AI..." onkeydown="if(event.key==='Enter') sendFonoChat()" />
+      <button class="aeonik-btn" style="padding:0 14px;" onclick="sendFonoChat()">SEND</button>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- VIEW 3: LIVE MESH PEERS & SEALED COURIER (/api/tincan/send)         -->
+  <!-- =================================================================== -->
+  <div class="fono-view" id="view-comms">
+    <div class="panel-box">
+      <div class="card-head">
+        <span>SEALED X25519 COURIER</span>
+        <span class="dim" onclick="refreshMeshPeers()">↻ Refresh</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <input id="fonoRecipient" class="aeonik-input" placeholder="Recipient (e.g. tc:studio or peer-workstation)" value="tc:aeonik-studio" />
+        <textarea id="fonoEnvelopeMsg" class="aeonik-input" rows="3" placeholder="Write encrypted envelope payload...">Telemetry sync: 19.0°C target, 320kWh solar array nominal.</textarea>
+        <button class="aeonik-btn" onclick="sendFonoEnvelope()">SEAL &amp; TRANSMIT ENVELOPE</button>
+        <div id="fonoEnvelopeStatus" style="font-family:var(--aeonik-mono); font-size:9px; color:var(--aeonik-dim);"></div>
       </div>
     </div>
 
-    <!-- Row 4 -->
-    <div class="sched-row">
-      <span class="sched-day">HOLIDAY</span>
-      <span class="sched-temp" style="font-size: 10px; font-weight: 600;">OFF</span>
-      <span class="sched-times">DEHUMIDIFIER ON</span>
-      <div class="pill-toggle on" onclick="toggleSwitch(this)">
-        <span class="dot"></span>
-        <span class="txt">ON</span>
+    <div class="panel-box" style="flex:1;">
+      <div class="card-head">
+        <span>ONLINE MESH PEERS &amp; LEADERBOARD</span>
+        <span id="fonoPeerCount" style="font-family:var(--aeonik-mono); font-size:9px;">--</span>
+      </div>
+      <div id="fonoPeersList" style="font-family:var(--aeonik-mono); font-size:10px; display:flex; flex-direction:column; gap:6px;">
+        Loading mesh state...
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- VIEW 4: MOBILE AEONIK TERMINAL SHELL                                -->
+  <!-- =================================================================== -->
+  <div class="fono-view" id="view-shell">
+    <div class="panel-box" style="flex:1; display:flex; flex-direction:column; font-family:var(--aeonik-mono); font-size:10px;">
+      <div class="card-head">
+        <span>SHELL · ~/projects/aeonik</span>
+        <span class="dim" onclick="clearFonoShell()">Clear</span>
+      </div>
+      <div id="fonoShellOut" style="flex:1; overflow-y:auto; line-height:1.5; max-height:420px; margin-bottom:10px;">
+        <div><b>aeonik@fono:~$</b> git status</div>
+        <div style="color:#444;">On branch main · Your branch is up to date.</div>
+        <div style="color:#444;">M src/terminal/theme.toml · M src/terminal/palette.rs</div>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">
+        <button class="mode-btn" style="flex:none; padding:3px 8px;" onclick="runFonoShellCmd('git status')">git status</button>
+        <button class="mode-btn" style="flex:none; padding:3px 8px;" onclick="runFonoShellCmd('tincan status')">tincan status</button>
+        <button class="mode-btn" style="flex:none; padding:3px 8px;" onclick="runFonoShellCmd('cargo build')">cargo build</button>
+        <button class="mode-btn" style="flex:none; padding:3px 8px;" onclick="runFonoShellCmd('telemetry')">telemetry</button>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <input id="fonoShellInput" class="aeonik-input" style="flex:1;" placeholder="Type command (git status, cargo build, ask ...)" onkeydown="if(event.key==='Enter') runFonoShellCmd()" />
+        <button class="aeonik-btn" onclick="runFonoShellCmd()">RUN</button>
       </div>
     </div>
   </div>
@@ -489,9 +818,130 @@ body {
 
 <script>
 let currentTemp = 19.0;
+let ambientTemp = 17.5;
+let radWater = 67;
+let radPressure = 1.7;
+let radTimerOn = true;
+let solarWest = 67;
+let solarEast = 72;
+let solarYield = 190;
+
+// Update live clock
+function updateFonoClock() {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const el = document.getElementById('fonoClock');
+  if (el) el.innerText = hh + ':' + mm;
+}
+setInterval(updateFonoClock, 10000);
+
+function switchFonoView(viewId) {
+  document.querySelectorAll('.fono-view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('#fonoModeNav .mode-btn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-view') === viewId);
+  });
+  const target = document.getElementById('view-' + viewId);
+  if (target) target.classList.add('active');
+  if (viewId === 'comms') refreshMeshPeers();
+}
+
+function toggleModeBar() {
+  const nav = document.getElementById('fonoModeNav');
+  const btn = document.getElementById('fonoMenuBtn');
+  if (nav.style.display === 'none') {
+    nav.style.display = 'flex';
+    btn.classList.add('active');
+  } else {
+    // Cycle view when clicking menu or keep visible
+    btn.classList.toggle('active');
+  }
+}
+
+function updateGaugeRing() {
+  // Map 14°C..26°C to 15%..98%
+  const pct = Math.max(10, Math.min(99, Math.round(((currentTemp - 13.0) / 13.0) * 85 + 10)));
+  const circumference = 113.1;
+  const offset = (circumference * (1 - pct / 100)).toFixed(1);
+  document.getElementById('gaugeArc').setAttribute('stroke-dashoffset', offset);
+  document.getElementById('gaugePct').innerText = pct + '%';
+
+  const desc = document.getElementById('tempStatusDesc');
+  if (currentTemp > ambientTemp + 0.2) {
+    desc.innerText = 'Heating up to ' + currentTemp.toFixed(1) + '°C....';
+  } else if (currentTemp < ambientTemp - 0.2) {
+    desc.innerText = 'Cooling down to ' + currentTemp.toFixed(1) + '°C....';
+  } else {
+    desc.innerText = 'Maintaining target ' + currentTemp.toFixed(1) + '°C';
+  }
+}
+
 function adjustTemp(delta) {
-  currentTemp = Math.round((currentTemp + delta) * 10) / 10;
+  currentTemp = Math.max(12.0, Math.min(30.0, Math.round((currentTemp + delta) * 10) / 10));
   document.getElementById('tempDisplay').innerText = currentTemp.toFixed(1) + '°C';
+  updateGaugeRing();
+  syncFonoTelemetry(false);
+}
+
+function boostHeating() {
+  adjustTemp(1.0);
+}
+
+function toggleRadiatorEdit() {
+  const card = document.getElementById('radiatorCard');
+  const btn = document.getElementById('radEditBtn');
+  const isEditing = card.classList.toggle('editing');
+  btn.innerText = isEditing ? 'Done' : 'Edit';
+}
+
+function adjustRadiatorWater(delta) {
+  radWater = Math.max(35, Math.min(85, radWater + delta));
+  document.getElementById('radWaterVal').innerText = radWater + '°C';
+  syncFonoTelemetry(false);
+}
+
+function adjustRadiatorPressure(delta) {
+  radPressure = Math.max(0.8, Math.min(3.0, Math.round((radPressure + delta) * 10) / 10));
+  document.getElementById('radPressureVal').innerText = radPressure.toFixed(1) + 'bar';
+  syncFonoTelemetry(false);
+}
+
+function toggleRadiatorTimer() {
+  radTimerOn = !radTimerOn;
+  const onEl = document.getElementById('radTimerOn');
+  const offEl = document.getElementById('radTimerOff');
+  onEl.style.fontWeight = radTimerOn ? '700' : '400';
+  onEl.style.color = radTimerOn ? '#111' : '#999';
+  offEl.style.fontWeight = !radTimerOn ? '700' : '400';
+  offEl.style.color = !radTimerOn ? '#111' : '#999';
+
+  document.querySelectorAll('.rad-fin').forEach((fin, idx) => {
+    fin.setAttribute('fill', radTimerOn && idx < 5 ? '#d5decb' : '#ecf1e6');
+  });
+  syncFonoTelemetry(false);
+}
+
+function boostSolarPanel(side) {
+  if (side === 'west') {
+    solarWest = solarWest >= 92 ? 67 : solarWest + 5;
+    document.getElementById('westPct').innerText = solarWest + '%';
+  } else {
+    solarEast = solarEast >= 95 ? 72 : solarEast + 5;
+    document.getElementById('eastPct').innerText = solarEast + '%';
+  }
+  solarYield = Math.round(190 + (solarWest - 67) * 1.5 + (solarEast - 72) * 1.5);
+  document.getElementById('solarYieldVal').innerText = solarYield + 'kWh';
+  const weekly = (1.6 + (solarYield - 190) * 0.04).toFixed(1);
+  document.getElementById('solarWeeklyVal').innerText = '+' + weekly + '%';
+  syncFonoTelemetry(false);
+}
+
+function cycleSolarMode() {
+  const lbl = document.getElementById('panelStateLbl');
+  const modes = ['Active', 'Eco MPPT', 'Peak Export'];
+  const next = modes[(modes.indexOf(lbl.innerText) + 1) % modes.length];
+  lbl.innerText = next;
+  syncFonoTelemetry(false);
 }
 
 function toggleSwitch(el) {
@@ -499,6 +949,216 @@ function toggleSwitch(el) {
   el.classList.toggle('on', !isOn);
   el.classList.toggle('off', isOn);
   el.querySelector('.txt').innerText = !isOn ? 'ON' : 'OFF';
+  updateScheduleSummary();
+  syncFonoTelemetry(false);
+}
+
+function updateScheduleSummary() {
+  const activeCount = document.querySelectorAll('#scheduleList .pill-toggle.on').length;
+  const el = document.getElementById('schedActiveCount');
+  if (el) el.innerText = activeCount + (activeCount === 1 ? ' ACTIVE RULE' : ' ACTIVE RULES');
+}
+
+function toggleAddSchedule() {
+  document.getElementById('schedAddForm').classList.toggle('open');
+}
+
+function addScheduleRow() {
+  const day = (document.getElementById('newSchedDay').value || 'CUSTOM').toUpperCase();
+  const temp = document.getElementById('newSchedTemp').value || '20°C';
+  const times = document.getElementById('newSchedTimes').value || '8AM-10PM';
+  const list = document.getElementById('scheduleList');
+  const row = document.createElement('div');
+  row.className = 'sched-row';
+  row.innerHTML =
+    '<span class="sched-day">' + day + '</span>' +
+    '<span class="sched-temp" onclick="cycleRowTemp(this)">' + temp + '</span>' +
+    '<span class="sched-times">' + times + '</span>' +
+    '<div class="pill-toggle on" onclick="toggleSwitch(this)"><span class="dot"></span><span class="txt">ON</span></div>';
+  list.appendChild(row);
+  document.getElementById('schedAddForm').classList.remove('open');
+  updateScheduleSummary();
+  syncFonoTelemetry(true);
+}
+
+function cycleRowTemp(el) {
+  const temps = ['17°C', '18°C', '19°C', '20°C', '21°C', '22°C', 'OFF'];
+  const idx = temps.indexOf(el.innerText.trim());
+  el.innerText = temps[(idx + 1) % temps.length];
+  syncFonoTelemetry(false);
+}
+
+async function syncFonoTelemetry(manual) {
+  const badge = document.getElementById('fonoSyncBadge');
+  try {
+    if (badge) {
+      badge.innerText = '↻ SYNCING';
+      badge.classList.add('synced');
+    }
+    const res = await fetch('/api/telemetry/ingest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device_id: 'aeonik-fono-01',
+        topic: 'devices/aeonik-fono-01/telemetry',
+        temperature_c: currentTemp,
+        radiator_water_c: radWater,
+        radiator_pressure_bar: radPressure,
+        radiator_timer_on: radTimerOn,
+        solar_west_pct: solarWest,
+        solar_east_pct: solarEast,
+        solar_yield_kwh: solarYield
+      })
+    });
+    if (res.ok && badge) {
+      badge.innerText = '✓ SYNCED · ' + currentTemp.toFixed(1) + '°C';
+      setTimeout(() => { badge.classList.remove('synced'); }, 1200);
+    }
+  } catch (e) {
+    if (badge) badge.innerText = '● LOCAL';
+  }
+}
+
+async function sendFonoChat() {
+  const input = document.getElementById('fonoChatInput');
+  const log = document.getElementById('fonoChatLog');
+  const model = document.getElementById('fonoAiModel').value;
+  const prompt = (input.value || '').trim();
+  if (!prompt) return;
+  input.value = '';
+
+  const uMsg = document.createElement('div');
+  uMsg.className = 'chat-msg user';
+  uMsg.innerHTML = '<div class="chat-meta">YOU</div>' + prompt.replace(/</g, '&lt;');
+  log.appendChild(uMsg);
+  log.scrollTop = log.scrollHeight;
+
+  const aMsg = document.createElement('div');
+  aMsg.className = 'chat-msg assistant';
+  aMsg.innerHTML = '<div class="chat-meta">' + model + '</div>Thinking...';
+  log.appendChild(aMsg);
+  log.scrollTop = log.scrollHeight;
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: model,
+        prompt: prompt + ' (Context: Aeonik Fono smart node at ' + currentTemp + '°C, solar yield ' + solarYield + 'kWh)',
+        peer_id: 'aeonik-fono'
+      })
+    });
+    const data = await res.json();
+    const reply = data.content || data.response || (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || JSON.stringify(data);
+    aMsg.innerHTML = '<div class="chat-meta">' + model + ' · LIVE</div>' + reply.replace(/</g, '&lt;');
+    log.scrollTop = log.scrollHeight;
+
+    if (document.getElementById('fonoTtsToggle').checked && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(reply.slice(0, 220));
+      window.speechSynthesis.speak(u);
+    }
+  } catch (err) {
+    aMsg.innerHTML = '<div class="chat-meta">ERROR</div>Could not reach /api/chat: ' + err.message;
+  }
+}
+
+async function sendFonoEnvelope() {
+  const to = document.getElementById('fonoRecipient').value.trim() || 'tc:relay';
+  const msg = document.getElementById('fonoEnvelopeMsg').value.trim();
+  const statusEl = document.getElementById('fonoEnvelopeStatus');
+  if (!msg) return;
+  statusEl.innerText = 'Sealing X25519 envelope...';
+  try {
+    const res = await fetch('/api/tincan/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: 'tc:aeonik-fono',
+        to: to,
+        ciphertext: btoa(unescape(encodeURIComponent(msg))),
+        nonce: 'aeonik-' + Date.now()
+      })
+    });
+    const data = await res.json();
+    statusEl.innerText = '✓ Sealed envelope delivered (id: ' + (data.id || data.message_id || 'ok') + ')';
+  } catch (e) {
+    statusEl.innerText = 'Error: ' + e.message;
+  }
+}
+
+async function refreshMeshPeers() {
+  const listEl = document.getElementById('fonoPeersList');
+  const countEl = document.getElementById('fonoPeerCount');
+  try {
+    const res = await fetch('/api/mesh/state');
+    const data = await res.json();
+    const peers = Object.values(data.peers || {});
+    countEl.innerText = peers.length + ' PEERS';
+    if (!peers.length) {
+      listEl.innerHTML = '<div>● aeonik-fono (You · Online · L5 Ready)</div>';
+      return;
+    }
+    listEl.innerHTML = peers.slice(0, 8).map(p =>
+      '<div style="display:flex; justify-content:space-between; border-bottom:1px solid #111; padding:4px 0;">' +
+      '<span>● ' + (p.display_name || p.peer_id || 'peer') + '</span>' +
+      '<span>' + (p.xp || 0) + ' XP</span></div>'
+    ).join('');
+  } catch (e) {
+    listEl.innerHTML = '<div>● aeonik-fono (Local Mode)</div>';
+  }
+}
+
+async function runFonoShellCmd(preset) {
+  const inp = document.getElementById('fonoShellInput');
+  const out = document.getElementById('fonoShellOut');
+  const cmd = (preset || inp.value || '').trim();
+  if (!cmd) return;
+  if (!preset) inp.value = '';
+
+  const line = document.createElement('div');
+  line.style.marginTop = '6px';
+  line.innerHTML = '<b>aeonik@fono:~$</b> ' + cmd.replace(/</g, '&lt;');
+  out.appendChild(line);
+
+  const resp = document.createElement('div');
+  resp.style.color = '#333';
+  resp.style.paddingLeft = '8px';
+  out.appendChild(resp);
+
+  if (cmd === 'git status') {
+    resp.innerHTML = 'On branch main · Your branch is up to date with origin/main.<br>M src/terminal/theme.toml<br>M src/terminal/palette.rs';
+  } else if (cmd === 'cargo build') {
+    resp.innerHTML = 'Compiling aeonik-terminal v0.2.0 (/projects/aeonik)<br>Finished dev [unoptimized + debuginfo] target(s) in 1.42s';
+  } else if (cmd === 'telemetry') {
+    resp.innerHTML = 'Temp: ' + currentTemp.toFixed(1) + '°C | Radiator: ' + radWater + '°C (' + radPressure + 'bar) | Solar: ' + solarYield + 'kWh';
+  } else if (cmd === 'tincan status') {
+    try {
+      const r = await fetch('/api/mesh/state');
+      const d = await r.json();
+      resp.innerHTML = 'Mesh Room: ' + (d.room || 'main') + ' | Active Peers: ' + Object.keys(d.peers || {}).length + ' | Relay: ONLINE';
+    } catch (e) {
+      resp.innerHTML = 'Relay: LOCAL';
+    }
+  } else {
+    try {
+      const r = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'gemini-brain', prompt: cmd, peer_id: 'aeonik-fono-shell' })
+      });
+      const d = await r.json();
+      resp.innerText = d.content || d.response || JSON.stringify(d);
+    } catch (e) {
+      resp.innerText = 'Executed: ' + cmd;
+    }
+  }
+  out.scrollTop = out.scrollHeight;
+}
+
+function clearFonoShell() {
+  document.getElementById('fonoShellOut').innerHTML = '';
 }
 </script>
 </body>

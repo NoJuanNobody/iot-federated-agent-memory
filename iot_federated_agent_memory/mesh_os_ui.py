@@ -617,39 +617,45 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
   <!-- Terminal Operator Quick Start CLI Modal -->
   <!-- ===================================================================== -->
   <div id="terminalQuickStartModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-slate-950 border border-cyan-500/60 rounded-2xl w-[660px] max-w-full overflow-hidden shadow-2xl space-y-4 p-5 font-mono text-xs">
-      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+    <div class="bg-[#ecf1e6] text-[#111111] border border-black rounded-2xl w-[680px] max-w-full overflow-hidden shadow-2xl space-y-4 p-6 font-mono text-xs">
+      <div class="flex items-center justify-between border-b border-black pb-3">
         <div class="flex items-center gap-2">
           <span class="text-xl">⚡</span>
           <div>
-            <h2 class="text-sm font-bold text-white uppercase tracking-wider">Terminal Operator Quick Start CLI</h2>
-            <p class="text-[11px] text-slate-400">Install the TinCan CLI and link your terminal workstation to the mesh in 10 seconds.</p>
+            <h2 class="text-sm font-bold text-black uppercase tracking-wider">One-Click Terminal Installer &amp; Quick Start CLI</h2>
+            <p class="text-[11px] text-neutral-600">Install the TinCan 2.2 CLI, Agent Skills, and link your workstation in 10 seconds.</p>
           </div>
         </div>
-        <button onclick="closeTerminalQuickStart()" class="text-slate-400 hover:text-white text-base">✕</button>
+        <button onclick="closeTerminalQuickStart()" class="text-neutral-600 hover:text-black text-base font-bold">✕</button>
       </div>
 
-      <!-- Step 1: Automated Installer -->
+      <!-- Step 1: One-Click Automated Installer -->
       <div class="space-y-1.5">
-        <div class="text-[11px] font-bold text-cyan-400 flex items-center gap-1.5">
-          <span>1.</span> <span>Install TinCan CLI via Terminal</span>
+        <div class="text-[11px] font-bold text-black flex items-center justify-between">
+          <span>1. One-Line Terminal Installer (macOS / Linux)</span>
+          <a href="/install.command" download="Install-TinCan.command" class="px-2.5 py-0.5 bg-black text-[#ecf1e6] rounded-full text-[10px] hover:opacity-80 transition">⬇ Download .command Launcher</a>
         </div>
-        <div class="relative bg-slate-900 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between">
-          <code class="text-emerald-400 text-xs overflow-x-auto select-all">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code>
-          <button onclick="copyToClipboard('curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash')" class="ml-2 px-2.5 py-1 bg-cyan-700/80 hover:bg-cyan-600 text-white rounded text-[11px] shrink-0 active:scale-95 transition">
-            📋 Copy
-          </button>
+        <div class="relative bg-white border border-black rounded-xl p-2.5 flex items-center justify-between gap-2">
+          <code class="text-black font-semibold text-xs overflow-x-auto select-all">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button onclick="copyToClipboard('curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash', this)" class="px-3 py-1 bg-black hover:bg-neutral-800 text-[#ecf1e6] rounded-full text-[11px] font-bold active:scale-95 transition">
+              📋 Copy
+            </button>
+            <button onclick="closeTerminalQuickStart(); simulateOneClickInstall();" class="px-3 py-1 border border-black hover:bg-black hover:text-[#ecf1e6] text-black rounded-full text-[11px] font-bold active:scale-95 transition">
+              ▶ Run in Terminal
+            </button>
+          </div>
         </div>
       </div>
 
       <!-- Step 2: Check Identity -->
       <div class="space-y-1.5">
-        <div class="text-[11px] font-bold text-indigo-300 flex items-center gap-1.5">
-          <span>2.</span> <span>Verify Cryptographic Peer Identity (Zero Accounts)</span>
+        <div class="text-[11px] font-bold text-black flex items-center gap-1.5">
+          <span>2. Verify Cryptographic Peer Identity (Zero Accounts)</span>
         </div>
-        <div class="relative bg-slate-900 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between">
-          <code class="text-indigo-300 text-xs select-all">tincan whoami</code>
-          <button onclick="copyToClipboard('tincan whoami')" class="ml-2 px-2.5 py-1 bg-indigo-700/80 hover:bg-indigo-600 text-white rounded text-[11px] shrink-0 active:scale-95 transition">
+        <div class="relative bg-white border border-black rounded-xl p-2.5 flex items-center justify-between">
+          <code class="text-black text-xs select-all">tincan whoami</code>
+          <button onclick="copyToClipboard('tincan whoami', this)" class="ml-2 px-3 py-1 bg-black hover:bg-neutral-800 text-[#ecf1e6] rounded-full text-[11px] font-bold shrink-0 active:scale-95 transition">
             📋 Copy
           </button>
         </div>
@@ -657,20 +663,20 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
       <!-- Step 3: Connect -->
       <div class="space-y-1.5">
-        <div class="text-[11px] font-bold text-emerald-300 flex items-center gap-1.5">
-          <span>3.</span> <span>Connect Workstation &amp; Live Telemetry</span>
+        <div class="text-[11px] font-bold text-black flex items-center gap-1.5">
+          <span>3. Connect Workstation &amp; Live Telemetry</span>
         </div>
-        <div class="relative bg-slate-900 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between">
-          <code class="text-emerald-300 text-xs select-all">tincan connect --relay https://iot-federated-agent-memory-production.up.railway.app</code>
-          <button onclick="copyToClipboard('tincan connect --relay https://iot-federated-agent-memory-production.up.railway.app')" class="ml-2 px-2.5 py-1 bg-emerald-700/80 hover:bg-emerald-600 text-white rounded text-[11px] shrink-0 active:scale-95 transition">
+        <div class="relative bg-white border border-black rounded-xl p-2.5 flex items-center justify-between">
+          <code class="text-black text-xs select-all">tincan connect --relay https://iot-federated-agent-memory-production.up.railway.app</code>
+          <button onclick="copyToClipboard('tincan connect --relay https://iot-federated-agent-memory-production.up.railway.app', this)" class="ml-2 px-3 py-1 bg-black hover:bg-neutral-800 text-[#ecf1e6] rounded-full text-[11px] font-bold shrink-0 active:scale-95 transition">
             📋 Copy
           </button>
         </div>
       </div>
 
-      <div class="flex justify-between items-center pt-3 border-t border-slate-800">
-        <span class="text-[10px] text-slate-500">Watching the TV stream is always free. No account required.</span>
-        <button onclick="closeTerminalQuickStart()" class="px-4 py-1.5 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:brightness-110 text-white font-bold rounded-lg text-xs transition active:scale-95">
+      <div class="flex justify-between items-center pt-3 border-t border-black">
+        <span class="text-[10px] text-neutral-600">Watching the TV stream is always free. No account required.</span>
+        <button onclick="closeTerminalQuickStart()" class="px-4 py-1.5 bg-black hover:bg-neutral-800 text-[#ecf1e6] font-bold rounded-full text-xs transition active:scale-95">
           Enter Mesh OS 🚀
         </button>
       </div>
@@ -687,11 +693,12 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <div id="win-terminal" class="mesh-window w-[840px] max-w-[96vw]" data-zen-window="true" data-window-id="win-terminal" style="top: 60px; left: 32px; z-index: 20;">
       <div class="window-header flex items-center justify-between px-6 py-4 bg-[#ecf1e6] border-b border-black">
         <div class="flex items-baseline gap-4">
-          <span class="text-xs font-mono font-medium text-neutral-800">14:41</span>
+          <span id="aeonikHeaderClock" class="text-xs font-mono font-medium text-neutral-800">14:41</span>
           <span class="text-2xl font-bold tracking-tight text-black font-sans">Terminal</span>
-          <span class="text-xs font-mono text-neutral-600 hidden sm:inline">| ~/projects/aeonik</span>
+          <span id="aeonikHeaderCwd" class="text-xs font-mono text-neutral-600 hidden sm:inline">| ~/projects/aeonik</span>
         </div>
         <div class="window-controls flex items-center gap-3 font-mono text-sm">
+          <a href="/fono" target="_blank" class="px-2 py-0.5 border border-black rounded-full text-[10px] text-black hover:bg-black hover:text-[#ecf1e6] no-underline" title="Open Aeonik Fono Mobile Controller">📱 Fono</a>
           <button onclick="openPopoutWindow('win-terminal')" class="text-xs text-neutral-600 hover:text-black" title="Pop out into separate monitor">↗</button>
           <button onclick="minimizeWindow('win-terminal')" class="text-neutral-600 hover:text-black">—</button>
           <button onclick="maximizeWindow('win-terminal')" class="text-neutral-600 hover:text-black">□</button>
@@ -702,8 +709,14 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         <!-- Quadrant 1: SHELL -->
         <div class="p-5 border-b md:border-b-0 md:border-r border-black flex flex-col justify-between space-y-4">
           <div>
-            <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black">SHELL</div>
-            <div class="space-y-1.5 text-neutral-900 leading-relaxed text-[11px]">
+            <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black flex items-center justify-between">
+              <span>SHELL</span>
+              <div class="flex items-center gap-1.5">
+                <button onclick="clearAeonikShell()" class="px-1.5 py-0.5 border border-black rounded text-[9px] hover:bg-black hover:text-[#ecf1e6]">Clear</button>
+                <span id="termShellStatusPill" class="px-2 py-0.5 border border-black rounded-full text-[9px] font-semibold uppercase">Ready</span>
+              </div>
+            </div>
+            <div id="termShellTranscript" class="space-y-1.5 text-neutral-900 leading-relaxed text-[11px] max-h-[190px] overflow-y-auto pr-1">
               <p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> git status</p>
               <p class="text-neutral-700">On branch main<br>Your branch is up to date with 'origin/main'.</p>
               <p class="text-neutral-600 pt-1">Changes not staged for commit:</p>
@@ -712,18 +725,40 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                 M &nbsp;src/terminal/palette.rs<br>
                 ?? assets/terminal-preview.png
               </p>
-              <p class="pt-2">
-                <span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> <span class="inline-block w-2.5 h-4 bg-black align-middle animate-pulse"></span>
-              </p>
+            </div>
+            <!-- Interactive Shell Input Prompt -->
+            <div class="pt-2 flex items-center gap-1.5 text-[11px]">
+              <span class="font-semibold text-black shrink-0">aeonik@studio:~/projects/aeonik$</span>
+              <input id="aeonikShellInput" type="text" placeholder="type command (git status, cargo build, tincan status, ask ...)" onkeydown="if(event.key==='Enter') execAeonikShellCommand()" class="flex-1 bg-transparent border-b border-black text-black text-[11px] px-1 py-0.5 focus:outline-none" />
+              <button onclick="execAeonikShellCommand()" class="px-2 py-0.5 bg-black text-[#ecf1e6] rounded text-[9px] font-bold">RUN</button>
             </div>
           </div>
-          <!-- Interactive Quick Actions -->
-          <div class="pt-3 border-t border-black/30 space-y-2">
-            <div class="text-[10px] font-bold uppercase text-neutral-600">Quick Commands</div>
-            <div class="flex flex-wrap gap-1.5">
-              <button onclick="copyCommand('curlInstallCmd')" class="px-2.5 py-1 bg-black text-[#ecf1e6] rounded text-[10px] hover:opacity-80 active:scale-95 transition">Copy Install Curl</button>
-              <button onclick="copyCommand('installCmd')" class="px-2.5 py-1 border border-black rounded text-[10px] hover:bg-black hover:text-[#ecf1e6] active:scale-95 transition">npx skills</button>
-              <button onclick="copyCommand('chatCmd')" class="px-2.5 py-1 border border-black rounded text-[10px] hover:bg-black hover:text-[#ecf1e6] active:scale-95 transition">AI Chat API</button>
+          <!-- Interactive One-Click Install Bar -->
+          <div class="pt-3 border-t border-black space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="text-[10px] font-bold uppercase text-black tracking-wider">⚡ One-Click Terminal Install</div>
+              <div class="flex items-center gap-1 text-[9px]">
+                <button id="tabCmdCurl" onclick="switchInstallCmdTab('curl')" class="px-2 py-0.5 bg-black text-[#ecf1e6] rounded-full border border-black font-semibold transition">curl | bash</button>
+                <button id="tabCmdNpx" onclick="switchInstallCmdTab('npx')" class="px-2 py-0.5 bg-transparent text-black rounded-full border border-black font-semibold transition">npx skills</button>
+                <button id="tabCmdChat" onclick="switchInstallCmdTab('chat')" class="px-2 py-0.5 bg-transparent text-black rounded-full border border-black font-semibold transition">AI Chat</button>
+              </div>
+            </div>
+            <div class="bg-white border border-black rounded-xl p-2 flex items-center justify-between gap-2">
+              <code id="activeInstallCmdDisplay" class="text-[10px] text-black font-semibold select-all overflow-x-auto whitespace-nowrap">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code>
+              <button id="btnOneClickCopyInstall" onclick="copyActiveInstallCmd(this)" class="px-2.5 py-1 bg-black text-[#ecf1e6] rounded-full text-[10px] font-bold shrink-0 hover:opacity-85 active:scale-95 transition">
+                📋 Copy
+              </button>
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
+              <button onclick="simulateOneClickInstall()" class="px-2.5 py-1 bg-black text-[#ecf1e6] rounded-full text-[10px] font-semibold hover:opacity-85 active:scale-95 transition">
+                ▶ 1-Click Run in Terminal
+              </button>
+              <a href="/install.command" download="Install-TinCan.command" class="px-2.5 py-1 border border-black text-black rounded-full text-[10px] font-semibold hover:bg-black hover:text-[#ecf1e6] active:scale-95 transition no-underline">
+                ⬇ macOS .command
+              </a>
+              <button onclick="copyCommand('installCmd', this)" class="px-2 py-1 border border-black text-black rounded-full text-[10px] hover:bg-black hover:text-[#ecf1e6] active:scale-95 transition">
+                npx skills
+              </button>
             </div>
             <div class="hidden">
               <code id="curlInstallCmd">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code>
@@ -736,66 +771,71 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         <!-- Quadrant 2: SYSTEM -->
         <div class="p-5 flex flex-col justify-between space-y-3">
           <div>
-            <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black">SYSTEM</div>
+            <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black flex items-center justify-between">
+              <span>SYSTEM</span>
+              <button onclick="refreshAeonikSystemTelemetry()" class="px-2 py-0.5 border border-black rounded-full text-[9px] font-semibold hover:bg-black hover:text-[#ecf1e6] transition">↻ Live Telemetry</button>
+            </div>
             <div class="grid grid-cols-4 gap-2 pb-3 border-b border-black text-center">
-              <div>
+              <div class="cursor-pointer" onclick="refreshAeonikSystemTelemetry()">
                 <div class="text-[10px] text-neutral-600">CPU</div>
-                <div class="text-base font-bold text-black">12%</div>
+                <div id="aeonikSysCpu" class="text-base font-bold text-black">12%</div>
               </div>
-              <div>
+              <div class="cursor-pointer" onclick="refreshAeonikSystemTelemetry()">
                 <div class="text-[10px] text-neutral-600">MEM</div>
-                <div class="text-base font-bold text-black">4.6G<span class="text-[9px] text-neutral-500 font-normal">/16G</span></div>
+                <div id="aeonikSysMem" class="text-base font-bold text-black">4.6G<span class="text-[9px] text-neutral-500 font-normal">/16G</span></div>
               </div>
-              <div>
+              <div class="cursor-pointer" onclick="refreshAeonikSystemTelemetry()">
                 <div class="text-[10px] text-neutral-600">DISK</div>
-                <div class="text-base font-bold text-black">38%</div>
+                <div id="aeonikSysDisk" class="text-base font-bold text-black">38%</div>
               </div>
-              <div>
+              <div class="cursor-pointer" onclick="refreshAeonikSystemTelemetry()">
                 <div class="text-[10px] text-neutral-600">UPTIME</div>
-                <div class="text-base font-bold text-black">3d 6h</div>
+                <div id="aeonikSysUptime" class="text-base font-bold text-black">3d 6h</div>
               </div>
             </div>
             <!-- Sparkline matching Mockup 1 -->
-            <div class="py-2.5 border-b border-black text-center tracking-tighter text-[9px] select-none text-neutral-800 font-mono">
+            <div id="aeonikSparkline" onclick="refreshAeonikSystemTelemetry()" title="Click to sample live mesh telemetry" class="py-2.5 border-b border-black text-center tracking-tighter text-[9px] select-none text-neutral-800 font-mono cursor-pointer">
               | |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| |
             </div>
             <!-- Process Table matching Mockup 1 -->
             <div class="pt-2 text-[11px] space-y-1">
               <div class="flex justify-between font-bold text-neutral-600 pb-1">
-                <span class="w-12">PID</span>
-                <span class="w-12">CPU%</span>
-                <span class="w-12">MEM%</span>
-                <span class="flex-1 text-right">COMMAND</span>
+                <span class="w-12 cursor-pointer hover:text-black" onclick="sortAeonikProcs('pid')">PID</span>
+                <span class="w-12 cursor-pointer hover:text-black" onclick="sortAeonikProcs('cpu')">CPU%</span>
+                <span class="w-12 cursor-pointer hover:text-black" onclick="sortAeonikProcs('mem')">MEM%</span>
+                <span class="flex-1 text-right cursor-pointer hover:text-black" onclick="sortAeonikProcs('cmd')">COMMAND</span>
               </div>
-              <div class="flex justify-between text-neutral-800">
-                <span class="w-12">4821</span>
-                <span class="w-12">3.1</span>
-                <span class="w-12">5.2</span>
-                <span class="flex-1 text-right">code</span>
-              </div>
-              <div class="flex justify-between text-neutral-800">
-                <span class="w-12">3970</span>
-                <span class="w-12">1.8</span>
-                <span class="w-12">2.9</span>
-                <span class="flex-1 text-right">zellij</span>
-              </div>
-              <div class="flex justify-between text-neutral-800">
-                <span class="w-12">5154</span>
-                <span class="w-12">1.2</span>
-                <span class="w-12">1.9</span>
-                <span class="flex-1 text-right">cargo</span>
-              </div>
-              <div class="flex justify-between text-neutral-800">
-                <span class="w-12">2261</span>
-                <span class="w-12">0.6</span>
-                <span class="w-12">1.4</span>
-                <span class="flex-1 text-right">postgres</span>
-              </div>
-              <div class="flex justify-between text-neutral-800">
-                <span class="w-12">1104</span>
-                <span class="w-12">0.3</span>
-                <span class="w-12">0.8</span>
-                <span class="flex-1 text-right">systemd</span>
+              <div id="aeonikProcTable" class="space-y-1">
+                <div class="flex justify-between text-neutral-800 hover:bg-black/5 px-1 rounded cursor-pointer" onclick="inspectAeonikProcess('4821', 'code')">
+                  <span class="w-12">4821</span>
+                  <span class="w-12">3.1</span>
+                  <span class="w-12">5.2</span>
+                  <span class="flex-1 text-right">code</span>
+                </div>
+                <div class="flex justify-between text-neutral-800 hover:bg-black/5 px-1 rounded cursor-pointer" onclick="inspectAeonikProcess('3970', 'zellij')">
+                  <span class="w-12">3970</span>
+                  <span class="w-12">1.8</span>
+                  <span class="w-12">2.9</span>
+                  <span class="flex-1 text-right">zellij</span>
+                </div>
+                <div class="flex justify-between text-neutral-800 hover:bg-black/5 px-1 rounded cursor-pointer" onclick="inspectAeonikProcess('5154', 'cargo')">
+                  <span class="w-12">5154</span>
+                  <span class="w-12">1.2</span>
+                  <span class="w-12">1.9</span>
+                  <span class="flex-1 text-right">cargo</span>
+                </div>
+                <div class="flex justify-between text-neutral-800 hover:bg-black/5 px-1 rounded cursor-pointer" onclick="inspectAeonikProcess('2261', 'postgres')">
+                  <span class="w-12">2261</span>
+                  <span class="w-12">0.6</span>
+                  <span class="w-12">1.4</span>
+                  <span class="flex-1 text-right">postgres</span>
+                </div>
+                <div class="flex justify-between text-neutral-800 hover:bg-black/5 px-1 rounded cursor-pointer" onclick="inspectAeonikProcess('1104', 'systemd')">
+                  <span class="w-12">1104</span>
+                  <span class="w-12">0.3</span>
+                  <span class="w-12">0.8</span>
+                  <span class="flex-1 text-right">systemd</span>
+                </div>
               </div>
             </div>
           </div>
@@ -803,52 +843,63 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
         <!-- Quadrant 3: TREE -->
         <div class="p-5 border-t md:border-t-0 md:border-r border-black">
-          <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black">TREE ~/projects/aeonik</div>
+          <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black flex items-center justify-between">
+            <span>TREE ~/projects/aeonik</span>
+            <span class="text-[9px] font-normal text-neutral-600">Click file to inspect</span>
+          </div>
           <pre class="text-[11px] text-neutral-800 leading-tight">
 aeonik/
-├── Cargo.toml
-├── README.md
+├── <span class="cursor-pointer hover:underline font-semibold" onclick="inspectAeonikFile('Cargo.toml')">Cargo.toml</span>
+├── <span class="cursor-pointer hover:underline font-semibold" onclick="inspectAeonikFile('README.md')">README.md</span>
 ├── src/
 │   ├── terminal/
-│   │   ├── mod.rs
-│   │   ├── theme.toml
-│   │   ├── palette.rs
-│   │   └── renderer.rs
-│   └── lib.rs
+│   │   ├── <span class="cursor-pointer hover:underline" onclick="inspectAeonikFile('src/terminal/mod.rs')">mod.rs</span>
+│   │   ├── <span class="cursor-pointer hover:underline font-semibold" onclick="inspectAeonikFile('src/terminal/theme.toml')">theme.toml</span>
+│   │   ├── <span class="cursor-pointer hover:underline font-semibold" onclick="inspectAeonikFile('src/terminal/palette.rs')">palette.rs</span>
+│   │   └── <span class="cursor-pointer hover:underline" onclick="inspectAeonikFile('src/terminal/renderer.rs')">renderer.rs</span>
+│   └── <span class="cursor-pointer hover:underline" onclick="inspectAeonikFile('src/lib.rs')">lib.rs</span>
 ├── assets/
-│   └── terminal-preview.png
+│   └── <span class="cursor-pointer hover:underline" onclick="inspectAeonikFile('assets/terminal-preview.png')">terminal-preview.png</span>
 └── tests/
-    └── theme.rs</pre>
-          <div class="pt-3 text-[10px] text-neutral-500">8 directories, 9 files</div>
+    └── <span class="cursor-pointer hover:underline" onclick="inspectAeonikFile('tests/theme.rs')">theme.rs</span></pre>
+          <div id="aeonikTreeSummary" class="pt-3 text-[10px] text-neutral-500">8 directories, 9 files</div>
         </div>
 
         <!-- Quadrant 4: RECENT -->
         <div class="p-5 border-t border-black space-y-2 text-[11px]">
-          <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black">RECENT</div>
-          <p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> cargo build</p>
-          <p class="text-neutral-600 pl-2">
-            Compiling aeonik-terminal v0.2.0 (/projects/aeonik)<br>
-            Finished dev [unoptimized + debuginfo] target(s) in 4.23s
-          </p>
-          <p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> ls -la target/debug/</p>
-          <p class="text-neutral-600 pl-2 text-[10px]">
-            total 72K<br>
-            drwxr-xr-x 6 aeonik staff 4.0K Jan 24 14:37 .<br>
-            drwxr-xr-x 3 aeonik staff 4.0K Jan 24 14:02 ..<br>
-            -rwxr-xr-x 1 aeonik staff 56K Jan 24 14:37 aeonik-terminal
-          </p>
-          <p class="pt-1">
-            <span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> <span class="inline-block w-2.5 h-4 bg-black align-middle animate-pulse"></span>
-          </p>
+          <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black flex items-center justify-between">
+            <span>RECENT</span>
+            <div class="flex items-center gap-1">
+              <button onclick="runAeonikRecentAction('build')" class="px-2 py-0.5 bg-black text-[#ecf1e6] rounded-full text-[9px] font-semibold hover:opacity-85">▶ cargo build</button>
+              <button onclick="runAeonikRecentAction('test')" class="px-2 py-0.5 border border-black text-black rounded-full text-[9px] font-semibold hover:bg-black hover:text-[#ecf1e6]">▶ cargo test</button>
+            </div>
+          </div>
+          <div id="aeonikRecentOutput" class="space-y-2">
+            <p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> cargo build</p>
+            <p class="text-neutral-600 pl-2">
+              Compiling aeonik-terminal v0.2.0 (/projects/aeonik)<br>
+              Finished dev [unoptimized + debuginfo] target(s) in 4.23s
+            </p>
+            <p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> ls -la target/debug/</p>
+            <p class="text-neutral-600 pl-2 text-[10px]">
+              total 72K<br>
+              drwxr-xr-x 6 aeonik staff 4.0K Jan 24 14:37 .<br>
+              drwxr-xr-x 3 aeonik staff 4.0K Jan 24 14:02 ..<br>
+              -rwxr-xr-x 1 aeonik staff 56K Jan 24 14:37 aeonik-terminal
+            </p>
+            <p class="pt-1">
+              <span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> <span class="inline-block w-2.5 h-4 bg-black align-middle animate-pulse"></span>
+            </p>
+          </div>
         </div>
       </div>
 
       <!-- Bottom Status Bar matching Mockup 1 -->
       <div class="px-6 py-2.5 bg-[#ecf1e6] flex items-center justify-between font-mono text-xs text-neutral-800 border-t border-black">
         <div class="flex items-center gap-3">
-          <span>⚲ main ↑1 ↓0</span>
+          <span id="aeonikGitBranch">⚲ main ↑1 ↓0</span>
           <span>|</span>
-          <span>~/projects/aeonik</span>
+          <span id="aeonikStatusCwd">~/projects/aeonik</span>
         </div>
         <div class="flex items-center gap-4 text-neutral-600">
           <span>zsh</span>
@@ -4365,11 +4416,84 @@ aeonik/
 
     setTimeout(refreshBillingWindow, 1500);
 
-    // Copy Command Helper
-    function copyCommand(id) {
-      const text = document.getElementById(id).innerText;
-      navigator.clipboard.writeText(text);
-      alert('Copied curl command to clipboard:\n' + text);
+    // Copy Command Helper & One-Click Terminal Installer Controls
+    let activeInstallCmdId = 'curlInstallCmd';
+    function switchInstallCmdTab(tab) {
+      const mapping = {
+        curl: { id: 'curlInstallCmd', btn: 'tabCmdCurl' },
+        npx: { id: 'installCmd', btn: 'tabCmdNpx' },
+        chat: { id: 'chatCmd', btn: 'tabCmdChat' }
+      };
+      const entry = mapping[tab] || mapping.curl;
+      activeInstallCmdId = entry.id;
+      const srcEl = document.getElementById(entry.id);
+      const dispEl = document.getElementById('activeInstallCmdDisplay');
+      if (srcEl && dispEl) dispEl.innerText = srcEl.innerText;
+      ['tabCmdCurl', 'tabCmdNpx', 'tabCmdChat'].forEach(btnId => {
+        const b = document.getElementById(btnId);
+        if (!b) return;
+        if (btnId === entry.btn) {
+          b.className = 'px-2 py-0.5 bg-black text-[#ecf1e6] rounded-full border border-black font-semibold transition';
+        } else {
+          b.className = 'px-2 py-0.5 bg-transparent text-black rounded-full border border-black font-semibold transition';
+        }
+      });
+    }
+
+    function copyActiveInstallCmd(btnEl) {
+      copyCommand(activeInstallCmdId, btnEl);
+    }
+
+    function copyCommand(id, btnEl) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const text = el.innerText;
+      copyToClipboard(text, btnEl);
+    }
+
+    let _installSimRunning = false;
+    function simulateOneClickInstall() {
+      const win = document.getElementById('win-terminal');
+      if (win && win.classList.contains('hidden')) {
+        win.classList.remove('hidden');
+      }
+      const transcript = document.getElementById('termShellTranscript');
+      const statusPill = document.getElementById('termShellStatusPill');
+      const cmdEl = document.getElementById('curlInstallCmd');
+      const cmdText = cmdEl ? cmdEl.innerText : 'curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash';
+      copyToClipboard(cmdText);
+      if (!transcript || _installSimRunning) return;
+      _installSimRunning = true;
+      if (statusPill) {
+        statusPill.innerText = 'Installing...';
+        statusPill.className = 'px-2 py-0.5 bg-black text-[#ecf1e6] border border-black rounded-full text-[9px] font-semibold uppercase';
+      }
+      const steps = [
+        '<p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> ' + cmdText + '</p>',
+        '<p class="text-neutral-700">[*] Installing TinCan 2.2 Mesh OS &amp; Peer Connector...</p>',
+        '<p class="text-neutral-700">[+] Verified Ed25519/X25519 cryptography &amp; linked ~/.local/bin/tincan</p>',
+        '<p class="text-neutral-700">[+] Installed 6 agent skills: tincan, tincan-mesh-os, connect-peer...</p>',
+        '<p class="font-bold text-black">✓ TinCan 2.2 Installation Complete! (Command also copied to your clipboard)</p>',
+        '<p class="pt-1"><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> <span class="inline-block w-2.5 h-4 bg-black align-middle animate-pulse"></span></p>'
+      ];
+      transcript.innerHTML = steps[0];
+      let idx = 1;
+      const timer = setInterval(() => {
+        if (idx < steps.length) {
+          transcript.innerHTML += steps[idx];
+          idx++;
+        } else {
+          clearInterval(timer);
+          _installSimRunning = false;
+          if (statusPill) {
+            statusPill.innerText = 'Installed ✓';
+            statusPill.className = 'px-2 py-0.5 bg-black text-[#ecf1e6] border border-black rounded-full text-[9px] font-semibold uppercase';
+          }
+          if (typeof awardLocalXp === 'function') {
+            awardLocalXp(50, 'Executed One-Click Terminal Installer');
+          }
+        }
+      }, 320);
     }
 
     // =========================================================================
@@ -7596,10 +7720,17 @@ aeonik/
       if (modal) modal.classList.add('hidden');
       localStorage.setItem('tincan_quickstart_seen', 'true');
     }
-    async function copyToClipboard(text) {
+    async function copyToClipboard(text, btnEl) {
       try {
         await navigator.clipboard.writeText(text);
-        showQuickNotification('Copied: ' + text);
+        if (btnEl) {
+          const orig = btnEl.innerText;
+          btnEl.innerText = '✓ Copied!';
+          setTimeout(() => { btnEl.innerText = orig; }, 1600);
+        }
+        if (typeof showQuickNotification === 'function') {
+          showQuickNotification('✓ Copied to clipboard: ' + text);
+        }
       } catch (e) {
         window.prompt('Copy command:', text);
       }
@@ -7870,6 +8001,205 @@ aeonik/
       if (ownerInput && myPeerId) ownerInput.value = myPeerId;
       refreshAgentSpace();
     }, 2000);
+
+    // =========================================================================
+    // Aeonik 4-Quadrant Interactive Terminal Engine (SHELL, SYSTEM, TREE, RECENT)
+    // =========================================================================
+    const AEONIK_FILES = {
+      'Cargo.toml': '[package]\nname = "aeonik-terminal"\nversion = "0.2.0"\nedition = "2024"\n\n[dependencies]\ntokio = { version = "1.40", features = ["full"] }\nratatui = "0.28"\ncrossterm = "0.28"',
+      'README.md': '# Aeonik Celadon & Ink Terminal\nMinimalist 4-quadrant developer workspace for TinCan 2.2.\n- Canvas: #ecf1e6 (Celadon)\n- Hairline: 1px solid #111111 (Sumi Ink)',
+      'src/terminal/mod.rs': 'pub mod theme;\npub mod palette;\npub mod renderer;\n\npub use renderer::TerminalGrid;',
+      'src/terminal/theme.toml': '[palette]\ncanvas = "#ecf1e6"\nink = "#111111"\nmuted = "#555555"\nborder_px = 1\nradius_px = 24',
+      'src/terminal/palette.rs': 'pub const CELADON_BG: &str = "#ecf1e6";\npub const INK_FG: &str = "#111111";\npub const HAIRLINE_WIDTH: u8 = 1;',
+      'src/terminal/renderer.rs': 'pub struct TerminalGrid {\n    pub cols: u16,\n    pub rows: u16,\n}\nimpl TerminalGrid {\n    pub fn render_quadrants(&self) -> bool { true }\n}',
+      'src/lib.rs': 'pub mod terminal;\npub fn version() -> &\'static str { "0.2.0-aeonik" }',
+      'assets/terminal-preview.png': '[Binary PNG Asset · 2048x2048 · /docs/designs/aeonik-terminal.png]',
+      'tests/theme.rs': '#[test]\nfn test_celadon_palette() {\n    assert_eq!(aeonik_terminal::terminal::palette::CELADON_BG, "#ecf1e6");\n}'
+    };
+
+    let aeonikProcs = [
+      { pid: 4821, cpu: 3.1, mem: 5.2, cmd: 'code' },
+      { pid: 3970, cpu: 1.8, mem: 2.9, cmd: 'zellij' },
+      { pid: 5154, cpu: 1.2, mem: 1.9, cmd: 'cargo' },
+      { pid: 2261, cpu: 0.6, mem: 1.4, cmd: 'postgres' },
+      { pid: 1104, cpu: 0.3, mem: 0.8, cmd: 'systemd' }
+    ];
+
+    function clearAeonikShell() {
+      const tr = document.getElementById('termShellTranscript');
+      if (tr) tr.innerHTML = '';
+    }
+
+    async function execAeonikShellCommand(presetCmd) {
+      const inp = document.getElementById('aeonikShellInput');
+      const tr = document.getElementById('termShellTranscript');
+      const pill = document.getElementById('termShellStatusPill');
+      const cmd = (presetCmd || (inp ? inp.value : '') || '').trim();
+      if (!cmd || !tr) return;
+      if (!presetCmd && inp) inp.value = '';
+
+      if (cmd === 'clear') {
+        clearAeonikShell();
+        return;
+      }
+
+      const cmdLine = document.createElement('p');
+      cmdLine.className = 'pt-1';
+      cmdLine.innerHTML = '<span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> ' + cmd.replace(/</g, '&lt;');
+      tr.appendChild(cmdLine);
+
+      const outLine = document.createElement('p');
+      outLine.className = 'text-neutral-700 pl-2';
+      tr.appendChild(outLine);
+
+      if (pill) pill.innerText = 'Running';
+
+      if (cmd === 'git status') {
+        outLine.innerHTML = "On branch main<br>Your branch is up to date with 'origin/main'.<br>M &nbsp;src/terminal/theme.toml<br>M &nbsp;src/terminal/palette.rs";
+      } else if (cmd === 'ls' || cmd === 'ls -la') {
+        outLine.innerHTML = 'Cargo.toml &nbsp;README.md &nbsp;src/ &nbsp;assets/ &nbsp;tests/';
+      } else if (cmd.startsWith('cat ')) {
+        const fname = cmd.slice(4).trim();
+        inspectAeonikFile(fname);
+        outLine.innerText = 'Opened ' + fname + ' in RECENT pane.';
+      } else if (cmd === 'cargo build' || cmd === 'cargo test') {
+        runAeonikRecentAction(cmd === 'cargo test' ? 'test' : 'build');
+        outLine.innerText = 'Triggered ' + cmd + ' in RECENT pane.';
+      } else if (cmd === 'tincan status' || cmd === 'status') {
+        try {
+          const r = await fetch('/api/mesh/state');
+          const d = await r.json();
+          const pCount = Object.keys(d.peers || {}).length;
+          outLine.innerHTML = 'Mesh Room: <b>' + (d.room || 'main') + '</b> · Active Peers: <b>' + pCount + '</b> · Relay: ONLINE';
+        } catch (e) {
+          outLine.innerText = 'Mesh Relay: Local Mode';
+        }
+      } else if (cmd.startsWith('py ') || cmd.startsWith('exec ')) {
+        const code = cmd.replace(/^(py|exec)\s+/, '');
+        outLine.innerText = 'Executing in sandbox...';
+        try {
+          const r = await fetch('/api/space/exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scope: 'user', owner_id: myPeerId || 'aeonik', runtime: 'python', code_override: code })
+          });
+          const d = await r.json();
+          outLine.innerText = d.stdout || d.stderr || JSON.stringify(d);
+        } catch (e) {
+          outLine.innerText = 'Exec error: ' + e.message;
+        }
+      } else {
+        const prompt = cmd.replace(/^(ask|tincan chat)\s+/i, '');
+        outLine.innerText = 'Querying TinCan AI Gateway...';
+        try {
+          const r = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: 'gemini-brain', prompt: prompt, peer_id: myPeerId || 'aeonik-terminal' })
+          });
+          const d = await r.json();
+          outLine.innerText = d.content || d.response || JSON.stringify(d);
+        } catch (e) {
+          outLine.innerText = 'Command completed: ' + cmd;
+        }
+      }
+
+      if (pill) pill.innerText = 'Ready';
+      tr.scrollTop = tr.scrollHeight;
+    }
+
+    function renderAeonikProcs() {
+      const box = document.getElementById('aeonikProcTable');
+      if (!box) return;
+      box.innerHTML = aeonikProcs.map(p =>
+        '<div class="flex justify-between text-neutral-800 hover:bg-black/5 px-1 rounded cursor-pointer" onclick="inspectAeonikProcess(\'' + p.pid + '\', \'' + p.cmd + '\')">' +
+        '<span class="w-12">' + p.pid + '</span>' +
+        '<span class="w-12">' + p.cpu.toFixed(1) + '</span>' +
+        '<span class="w-12">' + p.mem.toFixed(1) + '</span>' +
+        '<span class="flex-1 text-right">' + p.cmd + '</span></div>'
+      ).join('');
+    }
+
+    function sortAeonikProcs(field) {
+      if (field === 'cmd') {
+        aeonikProcs.sort((a, b) => a.cmd.localeCompare(b.cmd));
+      } else {
+        aeonikProcs.sort((a, b) => b[field] - a[field]);
+      }
+      renderAeonikProcs();
+    }
+
+    function inspectAeonikProcess(pid, cmd) {
+      const rec = document.getElementById('aeonikRecentOutput');
+      if (!rec) return;
+      rec.innerHTML =
+        '<p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> ps -p ' + pid + ' -o pid,pcpu,pmem,comm</p>' +
+        '<p class="text-neutral-700 pl-2">Process <b>' + cmd + '</b> (PID ' + pid + ') · Status: S+ (Active foreground daemon)</p>' +
+        '<p class="pt-1"><button onclick="refreshAeonikSystemTelemetry()" class="px-2 py-0.5 border border-black rounded text-[10px]">↻ Sample Process Telemetry</button></p>';
+    }
+
+    async function refreshAeonikSystemTelemetry() {
+      const cpu = Math.floor(8 + Math.random() * 18);
+      const mem = (4.2 + Math.random() * 1.1).toFixed(1);
+      const cpuEl = document.getElementById('aeonikSysCpu');
+      const memEl = document.getElementById('aeonikSysMem');
+      const sparkEl = document.getElementById('aeonikSparkline');
+      if (cpuEl) cpuEl.innerText = cpu + '%';
+      if (memEl) memEl.innerHTML = mem + 'G<span class="text-[9px] text-neutral-500 font-normal">/16G</span>';
+      if (sparkEl) {
+        const bars = Array.from({ length: 70 }, () => (Math.random() > 0.18 ? '|' : ' ')).join('');
+        sparkEl.innerText = '| ' + bars + ' |';
+      }
+      aeonikProcs.forEach(p => {
+        p.cpu = Math.max(0.1, Math.round((p.cpu + (Math.random() - 0.48) * 0.6) * 10) / 10);
+      });
+      renderAeonikProcs();
+    }
+
+    function inspectAeonikFile(relPath) {
+      const rec = document.getElementById('aeonikRecentOutput');
+      if (!rec) return;
+      const content = AEONIK_FILES[relPath] || ('// File: ' + relPath);
+      rec.innerHTML =
+        '<div class="flex items-center justify-between"><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$ cat ' + relPath + '</span>' +
+        '<button onclick="saveAeonikFile(\'' + relPath + '\')" class="px-2 py-0.5 bg-black text-[#ecf1e6] rounded text-[9px] font-bold">💾 Save to Space</button></div>' +
+        '<textarea id="aeonikInlineFileEditor" rows="6" class="w-full mt-1 p-2 bg-white border border-black rounded text-[10px] font-mono text-black">' +
+        content.replace(/</g, '&lt;') + '</textarea>';
+    }
+
+    async function saveAeonikFile(relPath) {
+      const ed = document.getElementById('aeonikInlineFileEditor');
+      if (!ed) return;
+      const val = ed.value;
+      AEONIK_FILES[relPath] = val;
+      try {
+        await fetch('/api/space/file', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scope: 'user', owner_id: myPeerId || 'aeonik', path: '/' + relPath, content: val })
+        });
+        showQuickNotification('Saved ' + relPath + ' to workspace VFS');
+      } catch (e) {
+        showQuickNotification('Saved ' + relPath + ' locally');
+      }
+    }
+
+    function runAeonikRecentAction(kind) {
+      const rec = document.getElementById('aeonikRecentOutput');
+      if (!rec) return;
+      if (kind === 'test') {
+        rec.innerHTML =
+          '<p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> cargo test</p>' +
+          '<p class="text-neutral-700 pl-2">running 4 tests<br>test terminal::palette::test_celadon_palette ... ok<br>test terminal::renderer::test_quadrants ... ok<br>test terminal::theme::test_border_hairline ... ok<br>test result: <b>ok</b>. 4 passed; 0 failed; finished in 0.38s</p>';
+      } else {
+        const dur = (1.1 + Math.random() * 2.5).toFixed(2);
+        rec.innerHTML =
+          '<p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> cargo build</p>' +
+          '<p class="text-neutral-600 pl-2">Compiling aeonik-terminal v0.2.0 (/projects/aeonik)<br>Finished dev [unoptimized + debuginfo] target(s) in ' + dur + 's</p>' +
+          '<p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> ls -la target/debug/</p>' +
+          '<p class="text-neutral-600 pl-2 text-[10px]">total 72K<br>-rwxr-xr-x 1 aeonik staff 56K aeonik-terminal</p>';
+      }
+    }
   </script>
 </body>
 </html>

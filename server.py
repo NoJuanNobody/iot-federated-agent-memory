@@ -2305,7 +2305,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 else:
                     self._send_html(f"<!DOCTYPE html><html><body><h1>TinCan iOS Simulator</h1><p>Screen: {screen}</p></body></html>", 200)
             return
-        elif parsed.path in ("/", "/health", "/call", "/tv", "/os", "/mesh", "/board", "/cyberspace"):
+        elif parsed.path in ("/", "/health", "/call", "/tv", "/os", "/mesh", "/board", "/cyberspace", "/terminal"):
             raw, gz, etag = _get_html_Entry(HTML_UI)
             if self.headers.get("If-None-Match") == etag:
                 self.send_response(304)
@@ -2736,13 +2736,21 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 "ingested_nodes": mqtt_adapter.ingestor.buffer[-25:],
                 "receipts": [r.to_dict() for r in mqtt_adapter.receipts[-10:]],
             }, 200)
-        elif parsed.path in ("/install.sh", "/install_peer.sh"):
+        elif parsed.path in ("/install.sh", "/install_peer.sh", "/install.command"):
             install_script_path = os.path.join(os.path.dirname(__file__), "install_peer.sh")
             if os.path.exists(install_script_path):
                 with open(install_script_path, "rb") as f:
                     content = f.read()
+                if parsed.path == "/install.command":
+                    # Add explicit interactive pause at end of macOS .command so Terminal stays open with status
+                    pause_suffix = b'\necho ""\nread -r -p "Press [Enter] to launch tincan or Ctrl+C to close..." _ || true\n"$HOME/.local/bin/tincan" --help || true\n'
+                    content = content + pause_suffix
                 self.send_response(200)
-                self.send_header("Content-Type", "text/x-shellscript; charset=utf-8")
+                if parsed.path == "/install.command":
+                    self.send_header("Content-Type", "application/octet-stream")
+                    self.send_header("Content-Disposition", 'attachment; filename="Install-TinCan.command"')
+                else:
+                    self.send_header("Content-Type", "text/x-shellscript; charset=utf-8")
                 self.send_header("Content-Length", str(len(content)))
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
