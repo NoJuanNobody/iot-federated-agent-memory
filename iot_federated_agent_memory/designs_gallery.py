@@ -1,6 +1,7 @@
-"""TinCan 2.2 · Zen Design Systems & Mockups Showcase Gallery.
+"""TinCan 2.2 · Aeonik Celadon & Ink + Zen Design Systems Showcase Gallery.
 
 Provides a unified, responsive showcase for all updated design mockups across:
+0. Aeonik Celadon & Ink Reskin (4-quadrant Industrial Terminal + Aeonik Fono Mobile UI)
 1. Native iOS App (9 screen mockups + composite sheets + live simulator)
 2. Car Head-Unit UI (1280x720 Sumi-Dock driving, parked, dashcam, identity mockups + live UI)
 3. Narrative Storyboard (3x2 master contact sheet + 6 scene panels + audio drama player)
@@ -9,12 +10,26 @@ Provides a unified, responsive showcase for all updated design mockups across:
 
 from typing import Dict, List, Any
 
-AEONIK_MOCKUPS = [
-    {"id": "aeonik-term", "title": "Aeonik Industrial Terminal", "desc": "4-quadrant desktop terminal: SHELL git status, SYSTEM metrics & sparklines, TREE filesystem, and RECENT build logs.", "img": "/docs/designs/aeonik-terminal.png", "link": "/mesh"},
-    {"id": "aeonik-fono", "title": "Aeonik Fono Mobile Interface", "desc": "Minimalist celadon mobile interface: circular gauge ring capsule, modular equipment cards, and schedule table with pill toggles.", "img": "/docs/designs/aeonik-fono.png", "link": "/fono"},
+AEONIK_MOCKUPS: List[Dict[str, str]] = [
+    {
+        "id": "aeonik-term",
+        "title": "Aeonik Industrial Terminal",
+        "desc": "4-quadrant desktop terminal: SHELL git status, SYSTEM metrics & sparklines, TREE filesystem, and RECENT build logs.",
+        "img": "/docs/designs/aeonik-terminal.png",
+        "link": "/mesh",
+        "link_label": "Open Terminal Window",
+    },
+    {
+        "id": "aeonik-fono",
+        "title": "Aeonik Fono Mobile Interface",
+        "desc": "Minimalist celadon mobile interface: circular gauge ring capsule, modular equipment cards, and schedule table with pill toggles.",
+        "img": "/docs/designs/aeonik-fono.png",
+        "link": "/fono",
+        "link_label": "Open Aeonik Fono",
+    },
 ]
 
-IOS_MOCKUPS = [
+IOS_MOCKUPS: List[Dict[str, str]] = [
     {"id": "01-onboarding", "title": "1. Onboarding & Key Wrap", "desc": "Ed25519 key generation, 24-word seed restore, Secure Enclave FaceID wrap.", "img": "/docs/designs/ios-app/01-onboarding.png"},
     {"id": "02-inbox", "title": "2. Sealed Inbox", "desc": "NaCl-sealed message inbox, TOFU trust badges, low-latency push alerts.", "img": "/docs/designs/ios-app/02-inbox.png"},
     {"id": "03-thread", "title": "3. Encrypted Thread", "desc": "End-to-end sealed chat bubbles, Kokoro voice message player, seal verification bar.", "img": "/docs/designs/ios-app/03-thread.png"},
@@ -28,7 +43,7 @@ IOS_MOCKUPS = [
     {"id": "sheet-mesh", "title": "Composite Sheet 2: Mesh & Arena", "desc": "Complete master overview sheet of arena, calls, keys, relay, and credits.", "img": "/docs/designs/ios-app/SHEET_2_mesh.png"},
 ]
 
-CAR_MOCKUPS = [
+CAR_MOCKUPS: List[Dict[str, str]] = [
     {"id": "car-driving", "title": "1. Driving Mode (Glanceable)", "desc": "Moving status, persistent Sumi dock, REC pill, high-contrast typography, locked precision gates.", "img": "/docs/designs/car-ui/sumi-dock-driving.png"},
     {"id": "car-parked", "title": "2. Parked Home (Unlocked)", "desc": "Parked state with video feed atmosphere, space access, driver switcher, full interactive controls.", "img": "/docs/designs/car-ui/sumi-dock-parked.png"},
     {"id": "car-dashcam", "title": "3. Triple Dashcam Monitor", "desc": "Front (1080p60), cabin (night-vision), and rear camera telemetry with clip bookmarks.", "img": "/docs/designs/car-ui/sumi-dock-dashcam.png"},
@@ -36,7 +51,7 @@ CAR_MOCKUPS = [
     {"id": "car-sheet", "title": "Car Composite Sheet", "desc": "Master 4-screen landscape overview of all aftermarket dashboard states.", "img": "/docs/designs/car-ui/EARLY_direction1_sheet.png"},
 ]
 
-STORYBOARD_MOCKUPS = [
+STORYBOARD_MOCKUPS: List[Dict[str, str]] = [
     {"id": "sb-contact", "title": "Zen Master Contact Sheet (3x2)", "desc": "Procedural high-res contact sheet spanning all 6 narrative audio drama scenes.", "img": "/docs/panels/zen_storyboard_contact_sheet.png"},
     {"id": "sb-01", "title": "Scene 1: Cyber Lab & Zen Sanctuary", "desc": "The transition from noisy CRT terminal to calm Japanese zen sanctuary.", "img": "/docs/panels/panel_01_zen_sanctuary.png"},
     {"id": "sb-02", "title": "Scene 2: Kokoro Neural Voice Alert", "desc": "Local 82M voice synthesis engine whispering urgent cryptographic dispatch.", "img": "/docs/panels/panel_02_kokoro_whisper.png"},
@@ -46,61 +61,101 @@ STORYBOARD_MOCKUPS = [
     {"id": "sb-06", "title": "Scene 6: L5 Mesh Sovereign", "desc": "Autonomous edge agent cluster achieving self-sovereign L5 coordination.", "img": "/docs/panels/panel_06_l5_mesh_sovereign.png"},
 ]
 
-DESKTOP_MOCKUPS = [
+DESKTOP_MOCKUPS: List[Dict[str, str]] = [
     {"id": "win-contact", "title": "Mesh OS Zen Windows Contact Sheet", "desc": "Master contact sheet uniting all 11 tool windows in the Zen design system.", "img": "/assets/designs/tincan_zen_windows_contact_sheet.png"},
     {"id": "win-tiled", "title": "Tiled Desktop Design", "desc": "Responsive 2x2 window tiling layout designed in FigCraft.", "img": "/assets/designs/tiled_desktop_design.png"},
     {"id": "win-peers", "title": "Peers & Leaderboard Pop-Out", "desc": "Dedicated pop-out window for active peers, XP ranking, and presence.", "img": "/assets/designs/peers_popout_design.png"},
 ]
 
 
-def render_designs_gallery_html(active_tab: str = "ios") -> str:
-    """Renders the comprehensive mockups gallery page."""
+def _build_card_html(m: Dict[str, str], action_href: str = "", action_label: str = "") -> str:
+    img = m["img"]
+    title = m["title"]
+    desc = m["desc"]
+    extra_btn = ""
+    if action_href and action_label:
+        extra_btn = f'<a href="{action_href}" class="btn-sm primary">{action_label}</a>'
+    return (
+        '<div class="mockup-card">\n'
+        '  <div class="card-preview">\n'
+        f'    <img src="{img}" alt="{title}" loading="lazy" onclick="openLightbox(\'{img}\')">\n'
+        '  </div>\n'
+        '  <div class="card-content">\n'
+        '    <div>\n'
+        f'      <div class="card-title">{title}</div>\n'
+        f'      <div class="card-desc">{desc}</div>\n'
+        '    </div>\n'
+        '    <div class="card-links">\n'
+        f'      <a href="{img}" target="_blank" class="btn-sm">View Full Res</a>\n'
+        f'      {extra_btn}\n'
+        '    </div>\n'
+        '  </div>\n'
+        '</div>'
+    )
+
+
+def render_designs_gallery_html(active_tab: str = "aeonik") -> str:
+    """Renders the comprehensive mockups gallery page in Aeonik Celadon & Ink style (Python 3.11+ safe)."""
+    aeonik_cards = "\n".join(
+        _build_card_html(m, m.get("link", "/mesh"), m.get("link_label", "Open Live View"))
+        for m in AEONIK_MOCKUPS
+    )
+    ios_cards = "\n".join(
+        _build_card_html(
+            m,
+            f"/ios/{m['id'] if not m['id'].startswith('sheet') else '02-inbox'}",
+            "Open in Simulator",
+        )
+        for m in IOS_MOCKUPS
+    )
+    car_cards = "\n".join(
+        _build_card_html(
+            m,
+            f"/car/{m['id'].replace('car-', '') if m['id'] != 'car-sheet' else 'driving'}",
+            "Open in Head-Unit",
+        )
+        for m in CAR_MOCKUPS
+    )
+    storyboard_cards = "\n".join(
+        _build_card_html(m, "/storyboard", "Open Player")
+        for m in STORYBOARD_MOCKUPS
+    )
+    desktop_cards = "\n".join(
+        _build_card_html(m, "/mesh", "Open Desktop")
+        for m in DESKTOP_MOCKUPS
+    )
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TinCan 2.2 · Updated Design Mockups Showcase</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<title>TinCan 2.2 · Design Systems & Mockups Showcase</title>
 <style>
 :root {{
-  --sumi: #0e0d0b;
-  --sumi-soft: #17150f;
-  --sumi-card: #201d16;
-  --washi: #ece6da;
-  --washi-dim: rgba(236, 230, 218, 0.72);
-  --washi-hairline: rgba(236, 230, 218, 0.14);
-  --kaki: #d0703f;
-  --rust: #964622;
-  --moss: #42522e;
-  --mincho: "Shippori Mincho", "Noto Serif", serif;
-  --gothic: "Zen Kaku Gothic New", -apple-system, sans-serif;
+  --aeonik-bg: #ecf1e6;
+  --aeonik-card: #f3f7ee;
+  --aeonik-fg: #111111;
+  --aeonik-dim: #555555;
+  --aeonik-line: #111111;
+  --aeonik-sans: -apple-system, BlinkMacSystemFont, "Aeonik", "Inter", "Helvetica Neue", sans-serif;
+  --aeonik-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
 }}
 
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
 body {{
-  background: var(--sumi);
-  color: var(--washi);
-  font-family: var(--gothic);
+  background: var(--aeonik-bg);
+  color: var(--aeonik-fg);
+  font-family: var(--aeonik-sans);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
   padding: 0 0 60px 0;
 }}
 
-/* Grain filter overlay */
-.grain-overlay {{
-  position: fixed; inset: 0; pointer-events: none; opacity: 0.18; z-index: 999;
-  background-image: radial-gradient(rgba(236, 230, 218, 0.15) 1px, transparent 0);
-  background-size: 4px 4px;
-}}
-
 header.topbar {{
-  background: rgba(14, 13, 11, 0.88);
-  backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--washi-hairline);
+  background: var(--aeonik-bg);
+  border-bottom: 1px solid var(--aeonik-line);
   padding: 18px 32px;
   position: sticky; top: 0; z-index: 100;
   display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
@@ -108,63 +163,71 @@ header.topbar {{
 .brand {{
   display: flex; align-items: center; gap: 12px;
 }}
-.brand svg {{
-  width: 32px; height: 32px;
-}}
 .brand h1 {{
-  font-family: var(--mincho); font-size: 1.35rem; font-weight: 600; letter-spacing: 0.02em;
+  font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em;
 }}
 .brand .pill {{
+  font-family: var(--aeonik-mono);
   font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
-  background: rgba(208, 112, 63, 0.16); color: var(--kaki);
-  border: 1px solid rgba(208, 112, 63, 0.35); padding: 2px 8px; border-radius: 999px;
+  background: var(--aeonik-fg); color: var(--aeonik-bg);
+  padding: 3px 10px; border-radius: 999px;
 }}
 
 .nav-actions {{
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }}
 .nav-link {{
-  color: var(--washi-dim); text-decoration: none; font-size: 0.85rem; padding: 6px 12px;
-  border-radius: 6px; border: 1px solid var(--washi-hairline); transition: all 0.2s;
+  color: var(--aeonik-fg); text-decoration: none; font-size: 0.82rem; font-weight: 500;
+  padding: 6px 14px; border-radius: 999px; border: 1px solid var(--aeonik-line);
+  transition: all 0.15s;
 }}
-.nav-link:hover, .nav-link.active {{
-  color: var(--washi); border-color: var(--kaki); background: rgba(208, 112, 63, 0.1);
+.nav-link:hover {{
+  background: var(--aeonik-fg); color: var(--aeonik-bg);
 }}
 .btn-cta {{
-  background: var(--kaki); color: #fff; font-weight: 500; font-size: 0.85rem;
-  padding: 7px 16px; border-radius: 6px; text-decoration: none; border: none; cursor: pointer;
-  transition: opacity 0.2s;
+  background: var(--aeonik-fg); color: var(--aeonik-bg); font-weight: 600; font-size: 0.85rem;
+  padding: 8px 18px; border-radius: 999px; text-decoration: none; border: 1px solid var(--aeonik-line);
+  cursor: pointer; transition: opacity 0.15s;
 }}
-.btn-cta:hover {{ opacity: 0.9; }}
+.btn-cta:hover {{ opacity: 0.85; }}
+.btn-cta.outline {{
+  background: transparent; color: var(--aeonik-fg);
+}}
+.btn-cta.outline:hover {{
+  background: var(--aeonik-fg); color: var(--aeonik-bg);
+}}
 
 .tabs-bar {{
-  max-width: 1400px; margin: 32px auto 0; padding: 0 32px;
-  display: flex; gap: 10px; border-bottom: 1px solid var(--washi-hairline);
+  max-width: 1400px; margin: 28px auto 0; padding: 0 32px;
+  display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--aeonik-line);
+  padding-bottom: 14px;
 }}
 .tab-btn {{
-  background: none; border: none; color: var(--washi-dim); font-family: var(--gothic);
-  font-size: 0.95rem; font-weight: 500; padding: 12px 18px; cursor: pointer;
-  border-bottom: 2px solid transparent; transition: all 0.2s;
+  background: transparent; border: 1px solid var(--aeonik-line); color: var(--aeonik-fg);
+  font-family: var(--aeonik-mono); font-size: 0.8rem; font-weight: 600;
+  padding: 8px 16px; border-radius: 999px; cursor: pointer; transition: all 0.15s;
 }}
-.tab-btn:hover {{ color: var(--washi); }}
+.tab-btn:hover {{
+  background: rgba(17, 17, 17, 0.08);
+}}
 .tab-btn.active {{
-  color: var(--kaki); border-bottom-color: var(--kaki); font-weight: 700;
+  background: var(--aeonik-fg); color: var(--aeonik-bg);
 }}
 
 main.container {{
-  max-width: 1400px; margin: 32px auto 0; padding: 0 32px;
+  max-width: 1400px; margin: 28px auto 0; padding: 0 32px;
 }}
 
 .intro-panel {{
-  background: var(--sumi-soft); border: 1px solid var(--washi-hairline);
-  border-radius: 12px; padding: 24px 28px; margin-bottom: 32px;
+  background: var(--aeonik-bg); border: 1px solid var(--aeonik-line);
+  border-radius: 20px; padding: 24px 28px; margin-bottom: 28px;
   display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;
 }}
 .intro-text h2 {{
-  font-family: var(--mincho); font-size: 1.5rem; margin-bottom: 6px; font-weight: 600;
+  font-size: 1.55rem; margin-bottom: 6px; font-weight: 600; letter-spacing: -0.02em;
 }}
 .intro-text p {{
-  color: var(--washi-dim); font-size: 0.95rem; max-width: 800px;
+  color: var(--aeonik-dim); font-size: 0.92rem; max-width: 780px;
 }}
 
 .grid-gallery {{
@@ -174,25 +237,25 @@ main.container {{
 }}
 
 .mockup-card {{
-  background: var(--sumi-soft);
-  border: 1px solid var(--washi-hairline);
-  border-radius: 12px;
+  background: var(--aeonik-bg);
+  border: 1px solid var(--aeonik-line);
+  border-radius: 20px;
   overflow: hidden;
   display: flex; flex-direction: column;
-  transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+  transition: transform 0.2s, box-shadow 0.2s;
 }}
 .mockup-card:hover {{
-  transform: translateY(-3px);
-  border-color: rgba(208, 112, 63, 0.4);
-  box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.6);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
 }}
 .card-preview {{
-  width: 100%; aspect-ratio: 16 / 10; overflow: hidden; background: #000; position: relative;
+  width: 100%; aspect-ratio: 16 / 10; overflow: hidden; background: #dfe5d8;
+  border-bottom: 1px solid var(--aeonik-line);
   display: flex; align-items: center; justify-content: center;
 }}
 .card-preview img {{
-  width: 100%; height: 100%; object-fit: contain; background: #000; cursor: pointer;
-  transition: transform 0.3s;
+  width: 100%; height: 100%; object-fit: contain; cursor: pointer;
+  transition: transform 0.25s;
 }}
 .card-preview img:hover {{
   transform: scale(1.02);
@@ -201,31 +264,32 @@ main.container {{
   padding: 16px 20px; flex: 1; display: flex; flex-direction: column; justify-content: space-between;
 }}
 .card-title {{
-  font-family: var(--mincho); font-size: 1.15rem; font-weight: 600; margin-bottom: 6px;
+  font-size: 1.1rem; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 6px;
 }}
 .card-desc {{
-  font-size: 0.85rem; color: var(--washi-dim); margin-bottom: 14px;
+  font-size: 0.84rem; color: var(--aeonik-dim); margin-bottom: 14px;
 }}
 .card-links {{
-  display: flex; gap: 8px;
+  display: flex; gap: 8px; flex-wrap: wrap;
 }}
 .btn-sm {{
-  font-size: 0.75rem; padding: 4px 10px; border-radius: 4px; text-decoration: none;
-  border: 1px solid var(--washi-hairline); color: var(--washi); transition: all 0.15s;
+  font-family: var(--aeonik-mono); font-size: 0.72rem; font-weight: 600;
+  padding: 5px 12px; border-radius: 999px; text-decoration: none;
+  border: 1px solid var(--aeonik-line); color: var(--aeonik-fg); transition: all 0.15s;
 }}
-.btn-sm:hover {{
-  border-color: var(--kaki); color: var(--kaki); background: rgba(208, 112, 63, 0.08);
+.btn-sm:hover, .btn-sm.primary {{
+  background: var(--aeonik-fg); color: var(--aeonik-bg);
 }}
 
 /* Lightbox Modal */
 #lightbox {{
-  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.92); z-index: 1000;
+  position: fixed; inset: 0; background: rgba(17, 17, 17, 0.92); z-index: 1000;
   display: none; align-items: center; justify-content: center; padding: 24px;
 }}
 #lightbox.active {{ display: flex; }}
 #lightbox img {{
-  max-width: 95vw; max-height: 92vh; object-fit: contain; border-radius: 8px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+  max-width: 95vw; max-height: 92vh; object-fit: contain; border-radius: 12px;
+  border: 1px solid #fff;
 }}
 #lightboxClose {{
   position: absolute; top: 24px; right: 32px; color: #fff; font-size: 32px;
@@ -238,19 +302,15 @@ main.container {{
 </style>
 </head>
 <body>
-<div class="grain-overlay" aria-hidden="true"></div>
 
 <header class="topbar">
   <div class="brand">
-    <svg viewBox="0 0 44 44" fill="none">
-      <path d="M29.2 11.2A13.2 13.2 0 1 0 30.4 20.8" stroke="#ece6da" stroke-width="2.4" stroke-linecap="round"/>
-      <circle cx="30.3" cy="15.8" r="2" fill="#d0703f"/>
-    </svg>
+    <span style="font-family: var(--aeonik-mono); font-size: 0.85rem;">14:41</span>
     <h1>TinCan 2.2 Design Systems</h1>
-    <span class="pill">Updated Mockups</span>
+    <span class="pill">Aeonik Celadon &amp; Ink</span>
   </div>
   <div class="nav-actions">
-    <a href="/mesh" class="nav-link">🖥️ Mesh OS Desktop</a>
+    <a href="/mesh" class="nav-link">⚡ Terminal &amp; Desktop</a>
     <a href="/fono" class="nav-link">📱 Aeonik Fono</a>
     <a href="/ios" class="nav-link">📱 iOS Simulator</a>
     <a href="/car" class="nav-link">🚗 Car Head-Unit</a>
@@ -259,11 +319,11 @@ main.container {{
 </header>
 
 <div class="tabs-bar">
-  <button class="tab-btn active" onclick="switchGalleryTab('aeonik')">🌿 Aeonik Celadon &amp; Ink (New Reskin)</button>
-  <button class="tab-btn" onclick="switchGalleryTab('ios')">📱 Native iOS App (11 Mockups)</button>
-  <button class="tab-btn" onclick="switchGalleryTab('car')">🚗 Car Head-Unit UI (5 Mockups)</button>
-  <button class="tab-btn" onclick="switchGalleryTab('storyboard')">🎬 Zen Storyboard (7 Panels)</button>
-  <button class="tab-btn" onclick="switchGalleryTab('desktop')">🖥️ Mesh OS Windows (3 Mockups)</button>
+  <button class="tab-btn active" onclick="switchGalleryTab('aeonik')">01 · Aeonik Celadon &amp; Ink (2)</button>
+  <button class="tab-btn" onclick="switchGalleryTab('ios')">02 · Native iOS App (11)</button>
+  <button class="tab-btn" onclick="switchGalleryTab('car')">03 · Car Head-Unit UI (5)</button>
+  <button class="tab-btn" onclick="switchGalleryTab('storyboard')">04 · Storyboard Panels (7)</button>
+  <button class="tab-btn" onclick="switchGalleryTab('desktop')">05 · Mesh OS Windows (3)</button>
 </div>
 
 <main class="container">
@@ -272,31 +332,15 @@ main.container {{
     <div class="intro-panel">
       <div class="intro-text">
         <h2>Aeonik Celadon &amp; Ink Design System</h2>
-        <p>Industrial minimalist design system (#ecf1e6 Celadon + 1px #111111 hairline borders). Features 4-quadrant desktop terminal (git status, system sparklines, filesystem tree) and Aeonik Fono mobile interface with circular gauge rings and schedule pill toggles.</p>
+        <p>Industrial minimalist aesthetic (#ecf1e6 Celadon canvas + 1px #111111 hairline borders). Features the 4-quadrant desktop Terminal (SHELL git status, SYSTEM metrics &amp; sparklines, TREE filesystem, RECENT build logs) and Aeonik Fono mobile interface with circular gauge rings and schedule pill toggles.</p>
       </div>
       <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <a href="/mesh" class="btn-cta">⚡ Open Reskinned Terminal</a>
-        <a href="/fono" class="btn-cta" style="background: #111;">📱 Open Aeonik Fono</a>
+        <a href="/mesh" class="btn-cta">⚡ Launch Desktop Terminal</a>
+        <a href="/fono" class="btn-cta outline">📱 Launch Aeonik Fono</a>
       </div>
     </div>
     <div class="grid-gallery">
-      {''.join(f"""
-      <div class="mockup-card">
-        <div class="card-preview">
-          <img src="{m['img']}" alt="{m['title']}" loading="lazy" onclick="openLightbox('{m['img']}')">
-        </div>
-        <div class="card-content">
-          <div>
-            <div class="card-title">{m['title']}</div>
-            <div class="card-desc">{m['desc']}</div>
-          </div>
-          <div class="card-links">
-            <a href="{m['img']}" target="_blank" class="btn-sm">View Full Res</a>
-            <a href="{m['link']}" class="btn-sm">Open Live View</a>
-          </div>
-        </div>
-      </div>
-      """ for m in AEONIK_MOCKUPS)}
+      {aeonik_cards}
     </div>
   </div>
 
@@ -310,23 +354,7 @@ main.container {{
       <a href="/ios" class="btn-cta">📱 Launch Live iOS Simulator</a>
     </div>
     <div class="grid-gallery">
-      {''.join(f"""
-      <div class="mockup-card">
-        <div class="card-preview">
-          <img src="{m['img']}" alt="{m['title']}" loading="lazy" onclick="openLightbox('{m['img']}')">
-        </div>
-        <div class="card-content">
-          <div>
-            <div class="card-title">{m['title']}</div>
-            <div class="card-desc">{m['desc']}</div>
-          </div>
-          <div class="card-links">
-            <a href="{m['img']}" target="_blank" class="btn-sm">View Full Res</a>
-            <a href="/ios/{m['id'] if not m['id'].startswith('sheet') else '02-inbox'}" class="btn-sm">Open in Simulator</a>
-          </div>
-        </div>
-      </div>
-      """ for m in IOS_MOCKUPS)}
+      {ios_cards}
     </div>
   </div>
 
@@ -340,23 +368,7 @@ main.container {{
       <a href="/car" class="btn-cta">🚗 Launch Live Car UI</a>
     </div>
     <div class="grid-gallery">
-      {''.join(f"""
-      <div class="mockup-card">
-        <div class="card-preview">
-          <img src="{m['img']}" alt="{m['title']}" loading="lazy" onclick="openLightbox('{m['img']}')">
-        </div>
-        <div class="card-content">
-          <div>
-            <div class="card-title">{m['title']}</div>
-            <div class="card-desc">{m['desc']}</div>
-          </div>
-          <div class="card-links">
-            <a href="{m['img']}" target="_blank" class="btn-sm">View Full Res</a>
-            <a href="/car/{m['id'].replace('car-', '')}" class="btn-sm">Open in Head-Unit</a>
-          </div>
-        </div>
-      </div>
-      """ for m in CAR_MOCKUPS)}
+      {car_cards}
     </div>
   </div>
 
@@ -365,27 +377,12 @@ main.container {{
     <div class="intro-panel">
       <div class="intro-text">
         <h2>TinCan 2.2 · Zen Narrative Storyboard</h2>
-        <p>Master 3×2 contact sheet and 6 narrative audio drama scenes rendered in the Japanese Zen aesthetic (Sumi ink, Washi paper, Shippori Mincho typography).</p>
+        <p>Master 3×2 contact sheet and 6 narrative audio drama scenes rendered with synchronized frame timings and voiceover playback.</p>
       </div>
       <a href="/storyboard" class="btn-cta">🎬 Launch Storyboard Player</a>
     </div>
     <div class="grid-gallery">
-      {''.join(f"""
-      <div class="mockup-card">
-        <div class="card-preview">
-          <img src="{m['img']}" alt="{m['title']}" loading="lazy" onclick="openLightbox('{m['img']}')">
-        </div>
-        <div class="card-content">
-          <div>
-            <div class="card-title">{m['title']}</div>
-            <div class="card-desc">{m['desc']}</div>
-          </div>
-          <div class="card-links">
-            <a href="{m['img']}" target="_blank" class="btn-sm">View Full Res</a>
-          </div>
-        </div>
-      </div>
-      """ for m in STORYBOARD_MOCKUPS)}
+      {storyboard_cards}
     </div>
   </div>
 
@@ -394,27 +391,12 @@ main.container {{
     <div class="intro-panel">
       <div class="intro-text">
         <h2>TinCan Mesh OS · Zen Desktop Windows</h2>
-        <p>All 11 tool windows refreshed into the Zen Interior Design System with responsive 2x2 grid window tiling and dedicated pop-out windows.</p>
+        <p>All 11 tool windows with responsive 2x2 grid window tiling and dedicated pop-out windows.</p>
       </div>
       <a href="/mesh" class="btn-cta">🖥️ Open Mesh OS Desktop</a>
     </div>
     <div class="grid-gallery">
-      {''.join(f"""
-      <div class="mockup-card">
-        <div class="card-preview">
-          <img src="{m['img']}" alt="{m['title']}" loading="lazy" onclick="openLightbox('{m['img']}')">
-        </div>
-        <div class="card-content">
-          <div>
-            <div class="card-title">{m['title']}</div>
-            <div class="card-desc">{m['desc']}</div>
-          </div>
-          <div class="card-links">
-            <a href="{m['img']}" target="_blank" class="btn-sm">View Full Res</a>
-          </div>
-        </div>
-      </div>
-      """ for m in DESKTOP_MOCKUPS)}
+      {desktop_cards}
     </div>
   </div>
 </main>
@@ -426,8 +408,8 @@ main.container {{
 
 <script>
 function switchGalleryTab(tabKey) {{
-  document.querySelectorAll('.tab-btn').forEach((btn, idx) => {{
-    btn.classList.toggle('active', btn.getAttribute('onclick').includes(tabKey));
+  document.querySelectorAll('.tab-btn').forEach((btn) => {{
+    btn.classList.toggle('active', btn.getAttribute('onclick').includes("'" + tabKey + "'"));
   }});
   document.querySelectorAll('.tab-section').forEach(sec => {{
     sec.classList.toggle('active', sec.id === 'tab-' + tabKey);

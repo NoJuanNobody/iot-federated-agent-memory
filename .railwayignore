@@ -1,6 +1,5 @@
 .git
 .github
-docs/
 .impeccable/
 .pytest_cache/
 __pycache__/
