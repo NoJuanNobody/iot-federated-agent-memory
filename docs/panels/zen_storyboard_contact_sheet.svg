@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="100%" height="100%">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600&amp;family=Zen+Kaku+Gothic+New:wght@400;500&amp;display=swap');
+      .title { font-family: 'Shippori Mincho', serif; font-size: 28px; font-weight: 600; fill: #ece6da; }
+      .sub { font-family: 'Zen Kaku Gothic New', monospace, sans-serif; font-size: 13px; fill: rgba(236, 230, 218, 0.7); }
+      .card-title { font-family: 'Shippori Mincho', serif; font-size: 16px; font-weight: 500; fill: #ece6da; }
+      .card-meta { font-family: 'Zen Kaku Gothic New', monospace, sans-serif; font-size: 11px; fill: #d0703f; }
+      .stamp-kanji { font-family: 'Shippori Mincho', serif; font-size: 22px; fill: #d0703f; font-weight: 600; }
+      .stamp-sub { font-family: 'Zen Kaku Gothic New', monospace; font-size: 8px; fill: #d0703f; letter-spacing: 1px; }
+    </style>
+    <filter id="noise">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" result="turb" />
+      <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.06 0" />
+      <feComposite in2="SourceGraphic" in="gl" operator="in" />
+    </filter>
+  </defs>
+
+  <!-- Background Sumi -->
+  <rect width="1920" height="1080" fill="#0e0d0b" />
+  <rect width="1920" height="1080" fill="#17150f" opacity="0.6" filter="url(#noise)" />
+
+  <!-- Master Header -->
+  <rect x="50" y="40" width="1820" height="70" rx="8" fill="#17150f" stroke="#d0703f" stroke-width="1.5" />
+  <text x="80" y="75" class="title">TINCAN 2.2 // MASTER STORYBOARD CONTACT SHEET</text>
+  <text x="80" y="96" class="sub">6-Scene Narrative Audio Drama // Zen Ink-and-Paper &amp; Dirty-Gradient Aesthetic // 3×2 Matrix</text>
+
+  <!-- Header Hanko Seal -->
+  <rect x="1790" y="48" width="54" height="54" rx="4" fill="none" stroke="#d0703f" stroke-width="2" />
+  <text x="1805" y="78" class="stamp-kanji">全</text>
+  <text x="1800" y="94" class="stamp-sub">ALL 6</text>
+
+  <!-- Grid Panels (3 cols x 2 rows) -->
+  <!-- Col 1: 50 + 0 * 593 = 50 | Col 2: 50 + 613 = 663 | Col 3: 50 + 1226 = 1276 -->
+  <!-- Row 1: y=140, h=420 | Row 2: y=590, h=420 -->
+
+  <!-- Panel 1 -->
+  <g transform="translate(50, 140)">
+    <rect width="580" height="420" rx="10" fill="#17150f" stroke="#42522e" stroke-width="1.5" />
+    <image href="panel_01_cyber_lab_crt.png" x="10" y="10" width="560" height="315" preserveAspectRatio="xMidYMid slice" rx="6" />
+    <rect x="10" y="335" width="560" height="75" rx="6" fill="#0e0d0b" />
+    <text x="24" y="360" class="card-title">ACT I: The Ink-and-Paper Sanctuary</text>
+    <text x="24" y="382" class="card-meta">Tatami &amp; Wood Desk // $ tincan whoami // tc:7f9a...e3b1 // 29.79s</text>
+    <rect x="500" y="345" width="50" height="50" rx="4" fill="none" stroke="#d0703f" stroke-width="1.5" />
+    <text x="515" y="373" class="stamp-kanji">寂</text>
+    <text x="510" y="388" class="stamp-sub">SUMI</text>
+  </g>
+
+  <!-- Panel 2 -->
+  <g transform="translate(670, 140)">
+    <rect width="580" height="420" rx="10" fill="#17150f" stroke="#d0703f" stroke-width="1.5" />
+    <image href="panel_02_kokoro_voice_alert.png" x="10" y="10" width="560" height="315" preserveAspectRatio="xMidYMid slice" rx="6" />
+    <rect x="10" y="335" width="560" height="75" rx="6" fill="#0e0d0b" />
+    <text x="24" y="360" class="card-title">ACT II: Kokoro-82M Neural Whisper</text>
+    <text x="24" y="382" class="card-meta">24kHz Acoustic Waveform // Persimmon Pulse // Zero-Account TTS // 26.50s</text>
+    <rect x="500" y="345" width="50" height="50" rx="4" fill="none" stroke="#d0703f" stroke-width="1.5" />
+    <text x="515" y="373" class="stamp-kanji">声</text>
+    <text x="508" y="388" class="stamp-sub">VOICE</text>
+  </g>
+
+  <!-- Panel 3 -->
+  <g transform="translate(1290, 140)">
+    <rect width="580" height="420" rx="10" fill="#17150f" stroke="#964622" stroke-width="1.5" />
+    <image href="panel_03_toronto_loft_tofu.png" x="10" y="10" width="560" height="315" preserveAspectRatio="xMidYMid slice" rx="6" />
+    <rect x="10" y="335" width="560" height="75" rx="6" fill="#0e0d0b" />
+    <text x="24" y="360" class="card-title">ACT III: Toronto Loft TOFU Handshake</text>
+    <text x="24" y="382" class="card-meta">Dusk Loft // iOS Passkey &amp; Ed25519 QR Sheet // 04-verify // 24.62s</text>
+    <rect x="500" y="345" width="50" height="50" rx="4" fill="none" stroke="#964622" stroke-width="1.5" />
+    <text x="515" y="373" class="stamp-kanji" fill="#964622">信</text>
+    <text x="508" y="388" class="stamp-sub" fill="#964622">TRUST</text>
+  </g>
+
+  <!-- Panel 4 -->
+  <g transform="translate(50, 590)">
+    <rect width="580" height="420" rx="10" fill="#17150f" stroke="#2e365c" stroke-width="1.5" />
+    <image href="panel_04_webrtc_capsule_flight.png" x="10" y="10" width="560" height="315" preserveAspectRatio="xMidYMid slice" rx="6" />
+    <rect x="10" y="335" width="560" height="75" rx="6" fill="#0e0d0b" />
+    <text x="24" y="360" class="card-title">ACT IV: Sealed NaCl Cryptographic Flight</text>
+    <text x="24" y="382" class="card-meta">Dirty-Gradient Stream // X25519 Sealed Envelope // Blind Relay // 30.83s</text>
+    <rect x="500" y="345" width="50" height="50" rx="4" fill="none" stroke="#2e365c" stroke-width="1.5" />
+    <text x="515" y="373" class="stamp-kanji" fill="#ece6da">封</text>
+    <text x="510" y="388" class="stamp-sub" fill="#ece6da">SEAL</text>
+  </g>
+
+  <!-- Panel 5 -->
+  <g transform="translate(670, 590)">
+    <rect width="580" height="420" rx="10" fill="#17150f" stroke="#705436" stroke-width="1.5" />
+    <image href="panel_05_ai_brain_arena.png" x="10" y="10" width="560" height="315" preserveAspectRatio="xMidYMid slice" rx="6" />
+    <rect x="10" y="335" width="560" height="75" rx="6" fill="#0e0d0b" />
+    <text x="24" y="360" class="card-title">ACT V: Editorial AI Brain Arena Duel</text>
+    <text x="24" y="382" class="card-meta">Split Sumi Cards // TTFT &amp; tok/s Telemetry // Kaki Win Stamp // 29.21s</text>
+    <rect x="500" y="345" width="50" height="50" rx="4" fill="none" stroke="#d0703f" stroke-width="1.5" />
+    <text x="515" y="373" class="stamp-kanji">勝</text>
+    <text x="508" y="388" class="stamp-sub">WIN</text>
+  </g>
+
+  <!-- Panel 6 -->
+  <g transform="translate(1290, 590)">
+    <rect width="580" height="420" rx="10" fill="#17150f" stroke="#d0703f" stroke-width="1.5" />
+    <image href="panel_06_tier_l5_messiah_gold.png" x="10" y="10" width="560" height="315" preserveAspectRatio="xMidYMid slice" rx="6" />
+    <rect x="10" y="335" width="560" height="75" rx="6" fill="#0e0d0b" />
+    <text x="24" y="360" class="card-title">ACT VI: Ascension to L5 Mesh Sovereign</text>
+    <text x="24" y="382" class="card-meta">L1→L5 Cooperative Mesh // Car/iOS/Desktop Constellation // 32.21s</text>
+    <rect x="500" y="345" width="50" height="50" rx="4" fill="none" stroke="#d0703f" stroke-width="1.5" />
+    <text x="515" y="373" class="stamp-kanji">昇</text>
+    <text x="508" y="388" class="stamp-sub">SOV</text>
+  </g>
+</svg>

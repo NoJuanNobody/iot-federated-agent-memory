@@ -14,6 +14,20 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root {
+    --sumi: #0e0d0b;
+    --sumi-2: #17150f;
+    --sumi-card: #201d16;
+    --sumi-well: #0a0907;
+    --washi: #ece6da;
+    --washi-quiet: rgba(236, 230, 218, 0.70);
+    --washi-dim: rgba(236, 230, 218, 0.40);
+    --line: rgba(236, 230, 218, 0.14);
+    --kaki: #d0703f;
+    --rust: #964622;
+    --moss: #42522e;
+    --indigo: #2e365c;
+    --mincho: 'Shippori Mincho', serif;
+    --gothic: 'Zen Kaku Gothic New', sans-serif;
       --bg-color: #020617;
       --panel-bg: rgba(15, 23, 42, 0.92);
       --border-color: rgba(51, 65, 85, 0.7);
@@ -212,9 +226,142 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     ::-webkit-scrollbar-thumb:hover {
       background: rgba(148, 163, 184, 0.5);
     }
+
+    /* ==========================================================================
+       Zen Interior Design System Styles
+       ========================================================================== */
+    body {
+      font-family: var(--gothic), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+      color: var(--washi) !important;
+      background-color: var(--sumi) !important;
+    }
+
+    .mesh-window[data-zen-window="true"],
+    .mesh-window {
+      background: var(--sumi-2) !important;
+      border: 1px solid var(--line) !important;
+      border-radius: 8px !important;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--line) !important;
+      backdrop-filter: blur(12px) !important;
+    }
+
+    .mesh-window .window-header {
+      background: var(--sumi) !important;
+      border-bottom: 1px solid var(--line) !important;
+      color: var(--washi) !important;
+      font-family: var(--mincho) !important;
+      font-weight: 600 !important;
+      letter-spacing: 0.04em !important;
+      padding: 10px 14px !important;
+    }
+
+    .mesh-window .window-header .window-title {
+      font-family: var(--mincho) !important;
+      color: var(--washi) !important;
+    }
+
+    .mesh-window .window-body {
+      background: var(--sumi-2) !important;
+      color: var(--washi-quiet) !important;
+      font-family: var(--gothic) !important;
+    }
+
+    .mesh-window .stat-card,
+    .mesh-window .card,
+    .mesh-window .panel-card,
+    .mesh-window .stream-card,
+    .mesh-window .quest-card {
+      background: var(--sumi-card) !important;
+      border: 1px solid var(--line) !important;
+      color: var(--washi) !important;
+    }
+
+    .mesh-window input,
+    .mesh-window textarea,
+    .mesh-window select {
+      background: var(--sumi-well) !important;
+      border: 1px solid var(--line) !important;
+      color: var(--washi) !important;
+      font-family: var(--gothic) !important;
+    }
+
+    .mesh-window input:focus,
+    .mesh-window textarea:focus,
+    .mesh-window select:focus {
+      border-color: var(--kaki) !important;
+      outline: none !important;
+      box-shadow: 0 0 0 1px var(--kaki) !important;
+    }
+
+    .mesh-window button.btn-primary,
+    .mesh-window .btn-action,
+    .btn-kaki {
+      background: var(--kaki) !important;
+      color: #0e0d0b !important;
+      border: none !important;
+      font-weight: 600 !important;
+    }
+
+    .mesh-window button.btn-primary:hover,
+    .mesh-window .btn-action:hover,
+    .btn-kaki:hover {
+      background: var(--rust) !important;
+      color: var(--washi) !important;
+    }
+
+    .mesh-window table th {
+      border-bottom: 1px solid var(--line) !important;
+      color: var(--washi-dim) !important;
+      font-family: var(--mincho) !important;
+    }
+
+    .mesh-window table td {
+      border-bottom: 1px solid rgba(236, 230, 218, 0.06) !important;
+      color: var(--washi-quiet) !important;
+    }
+
+    #accountSetupModal[data-zen-modal="true"],
+    #accountSetupModal {
+      backdrop-filter: blur(16px) !important;
+    }
+
+    #accountSetupModal .modal-content,
+    #accountSetupModal .bg-slate-900 {
+      background: var(--sumi-2) !important;
+      border: 1px solid var(--line) !important;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.7) !important;
+      color: var(--washi) !important;
+    }
+
+    #accountSetupModal h2,
+    #accountSetupModal h3 {
+      font-family: var(--mincho) !important;
+      color: var(--washi) !important;
+    }
+
+    #zenDirtSurface {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      opacity: 0.035;
+      z-index: 99999;
+      mix-blend-mode: overlay;
+    }
   </style>
 </head>
 <body class="theme-slate bg-slate-950 text-slate-100 min-h-screen overflow-x-hidden font-sans select-none">
+
+  <!-- Zen Interior feTurbulence dirty-gradient noise layer -->
+  <svg id="zenDirtSurface" aria-hidden="true">
+    <filter id="zenDirt">
+      <feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="3" stitchTiles="stitch" />
+      <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.25 0" />
+    </filter>
+    <rect width="100%" height="100%" filter="url(#zenDirt)" />
+  </svg>
 
   <!-- Interactive Background Canvas: Peer Topology & Flying Packets -->
   <canvas id="meshTopologyCanvas" class="fixed inset-0 pointer-events-none z-0"></canvas>
@@ -235,7 +382,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
   <!-- ===================================================================== -->
   <!-- Non-Negotiable Account Registration & Identity Gate Modal -->
   <!-- ===================================================================== -->
-  <div id="accountSetupModal" class="hidden fixed inset-0 z-[9999] bg-slate-950/95 backdrop-blur-xl flex items-center justify-center p-4 pointer-events-auto select-none">
+  <div id="accountSetupModal" data-zen-modal="true" class="hidden fixed inset-0 z-[9999] bg-slate-950/95 backdrop-blur-xl flex items-center justify-center p-4 pointer-events-auto select-none">
     <div class="bg-slate-900 border-2 border-emerald-500/80 rounded-2xl max-w-lg w-full shadow-[0_0_80px_rgba(16,185,129,0.35)] overflow-hidden p-6 space-y-4">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <div class="flex items-center gap-3">
@@ -517,7 +664,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- ===================================================================== -->
     <!-- Window 1: Terminal & Quickstart.exe -->
     <!-- ===================================================================== -->
-    <div id="win-terminal" class="mesh-window w-[540px]" data-window-id="win-terminal" style="top: 72px; left: 24px; z-index: 20;">
+    <div id="win-terminal" class="mesh-window w-[540px]" data-zen-window="true" data-window-id="win-terminal" style="top: 72px; left: 24px; z-index: 20;">
       <div class="window-header flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-slate-800">
         <div class="flex items-center gap-2">
           <span class="text-base">⚡</span>
@@ -609,7 +756,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- ===================================================================== -->
     <!-- Window 2: Relay TV Watch Party.app (Baked-in Ads & Memes) -->
     <!-- ===================================================================== -->
-    <div id="win-tv" class="mesh-window w-[520px]" data-window-id="win-tv" style="top: 72px; right: 24px; z-index: 21;">
+    <div id="win-tv" class="mesh-window w-[520px]" data-zen-window="true" data-window-id="win-tv" style="top: 72px; right: 24px; z-index: 21;">
       <div class="window-header flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-slate-800">
         <div class="flex items-center gap-2">
           <span class="text-base">📺</span>
@@ -710,7 +857,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- ===================================================================== -->
     <!-- Window 3: AI Brain Router & Model Arena.app -->
     <!-- ===================================================================== -->
-    <div id="win-arena" class="mesh-window w-[560px]" data-window-id="win-arena" style="top: 720px; left: 24px; z-index: 22;">
+    <div id="win-arena" class="mesh-window w-[560px]" data-zen-window="true" data-window-id="win-arena" style="top: 720px; left: 24px; z-index: 22;">
       <div class="window-header flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-slate-800">
         <div class="flex items-center gap-2">
           <span class="text-base">🧠</span>
@@ -815,7 +962,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- ===================================================================== -->
     <!-- Window 4A: WebRTC Video & Voice Studio.app -->
     <!-- ===================================================================== -->
-    <div id="win-call" class="mesh-window w-[540px]" data-window-id="win-call" style="top: 720px; right: 24px; z-index: 23;">
+    <div id="win-call" class="mesh-window w-[540px]" data-zen-window="true" data-window-id="win-call" style="top: 720px; right: 24px; z-index: 23;">
       <div class="window-header flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-slate-800">
         <div class="flex items-center gap-2">
           <span class="text-base">📹</span>
@@ -903,7 +1050,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- ===================================================================== -->
     <!-- Window 4B: Encrypted Mesh Chat & Comms.app (Separated from Video) -->
     <!-- ===================================================================== -->
-    <div id="win-comms" class="mesh-window w-[480px]" data-window-id="win-comms" style="top: 720px; left: 620px; z-index: 23;">
+    <div id="win-comms" class="mesh-window w-[480px]" data-zen-window="true" data-window-id="win-comms" style="top: 720px; left: 620px; z-index: 23;">
       <div class="window-header flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-cyan-900/50">
         <div class="flex items-center gap-2">
           <span class="text-base">💬</span>
@@ -957,7 +1104,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- ===================================================================== -->
     <!-- Window 5: Rewards, Arena & Operator Leaderboard.app -->
     <!-- ===================================================================== -->
-    <div id="win-quests" class="mesh-window w-[1100px] max-w-full" data-window-id="win-quests" style="top: 1380px; left: 24px; z-index: 24;">
+    <div id="win-quests" class="mesh-window w-[1100px] max-w-full" data-zen-window="true" data-window-id="win-quests" style="top: 1380px; left: 24px; z-index: 24;">
       <div class="window-header flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-slate-800">
         <div class="flex items-center gap-2">
           <span class="text-base">🪙</span>
@@ -1221,7 +1368,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- ===================================================================== -->
     <!-- Window 6: Admin Moderator Control Panel -->
     <!-- ===================================================================== -->
-    <div id="win-moderator" class="mesh-window w-[680px] hidden" data-window-id="win-moderator" style="top: 84px; left: 180px; z-index: 25;">
+    <div id="win-moderator" class="mesh-window w-[680px] hidden" data-zen-window="true" data-window-id="win-moderator" style="top: 84px; left: 180px; z-index: 25;">
       <div class="window-header flex items-center justify-between px-3 py-2 bg-gradient-to-r from-amber-950/90 via-slate-900/90 to-amber-950/90 border-b border-amber-600/50">
         <div class="flex items-center gap-2">
           <span class="text-base">🛡️</span>
@@ -1560,7 +1707,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- ===================================================================== -->
     <!-- Window 7: Token Billing, Top-Up & Sponsored Ads.app -->
     <!-- ===================================================================== -->
-    <div id="win-billing" class="mesh-window w-[620px]" data-window-id="win-billing" style="top: 140px; left: 120px; z-index: 26;">
+    <div id="win-billing" class="mesh-window w-[620px]" data-zen-window="true" data-window-id="win-billing" style="top: 140px; left: 120px; z-index: 26;">
       <div class="window-header flex items-center justify-between px-3 py-2 bg-gradient-to-r from-emerald-950/90 via-slate-900/90 to-cyan-950/90 border-b border-emerald-500/40">
         <div class="flex items-center gap-2">
           <span class="text-base">💳</span>
@@ -1764,7 +1911,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- ===================================================================== -->
     <!-- Window 8: Cyberspace Discussion Board · GraphRAG + BM25 + @verifier-agent -->
     <!-- ===================================================================== -->
-    <div id="win-board" class="mesh-window w-[940px] max-w-full" data-window-id="win-board" style="top: 84px; left: 130px; z-index: 27;">
+    <div id="win-board" class="mesh-window w-[940px] max-w-full" data-zen-window="true" data-window-id="win-board" style="top: 84px; left: 130px; z-index: 27;">
       <div class="window-header flex items-center justify-between px-3 py-2 bg-gradient-to-r from-indigo-950/95 via-slate-900/95 to-cyan-950/95 border-b border-indigo-500/50">
         <div class="flex items-center gap-2">
           <span class="text-base">🌐</span>
@@ -2196,7 +2343,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- ===================================================================== -->
     <!-- Window 9: Network Roster & Operator Leaderboard.app -->
     <!-- ===================================================================== -->
-    <div id="win-network" class="mesh-window w-[560px] max-w-full" data-window-id="win-network" style="top: 72px; right: 24px; z-index: 28;">
+    <div id="win-network" class="mesh-window w-[560px] max-w-full" data-zen-window="true" data-window-id="win-network" style="top: 72px; right: 24px; z-index: 28;">
       <div class="window-header flex items-center justify-between px-3 py-2 bg-gradient-to-r from-emerald-950/95 via-slate-900/95 to-slate-900/95 border-b border-emerald-500/50">
         <div class="flex items-center gap-2">
           <span class="text-base">👥</span>
@@ -2292,7 +2439,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- ===================================================================== -->
     <!-- Window 9: 📁 Mesh Finder & Filesystem (Ranger VFS).app -->
     <!-- ===================================================================== -->
-    <div id="win-agentspace" class="mesh-window w-[980px] max-w-full hidden" data-window-id="win-agentspace" style="top: 76px; left: 140px; z-index: 35;">
+    <div id="win-agentspace" class="mesh-window w-[980px] max-w-full hidden" data-zen-window="true" data-window-id="win-agentspace" style="top: 76px; left: 140px; z-index: 35;">
       <div class="window-header flex items-center justify-between px-3 py-2 bg-gradient-to-r from-slate-900 via-purple-950/80 to-slate-900 border-b border-purple-500/40">
         <div class="flex items-center gap-2">
           <span class="text-base">📁</span>
