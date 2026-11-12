@@ -763,7 +763,7 @@ class CyberspaceBoardEngine:
         ai_router: Optional[Any] = None,
         tincan_relay: Optional[Any] = None,
         webrtc_relay: Optional[Any] = None,
-        seed: bool = True,
+        seed: bool = False,
         enable_s3_sync: bool = True,
     ) -> None:
         self._lock = threading.RLock()

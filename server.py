@@ -100,7 +100,7 @@ tincan_relay = TinCanBlindRelay()
 playlist = RelayVideoPlaylist()
 sponsor_manager = SponsorAdManager()
 sponsor_manager.sync_from_playlist([asdict(it) for it in playlist.items])
-mesh_os = TinCanMeshOSEngine(seed=True)
+mesh_os = TinCanMeshOSEngine(seed=False)
 account_registry = PeerAccountRegistry()
 set_thread_account_registry(account_registry)
 passkey_auth = PasskeyAuthService(account_registry)
@@ -165,11 +165,10 @@ cyberspace_board = CyberspaceBoardEngine(
     ai_router=router,
     tincan_relay=tincan_relay,
     webrtc_relay=relay,
-    seed=True,
+    seed=False,
 )
 crdt_node = CRDTMeshGossipSync(local_node_id="relay-primary")
 vending_machine = HMACVendingMachine()
-vending_machine.mint_credits("mesh-default", 50.0)
 mqtt_adapter = MQTTTelemetryClientAdapter(
     vending_machine=vending_machine,
     wallet_id="mesh-default",

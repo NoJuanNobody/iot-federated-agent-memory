@@ -49,6 +49,8 @@ import server
 @pytest.fixture(scope="module")
 def live_server():
     """Spins up a lightweight background HTTP server on an ephemeral port."""
+    # Ensure vending machine has balance for test runs if required by telemetry test
+    server.vending_machine.mint_credits("mesh-default", 50.0)
     test_port = 18099
     httpd = ThreadingHTTPServer(("127.0.0.1", test_port), server.MeshGatewayHandler)
     server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
