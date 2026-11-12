@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TinCan · verify</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="phone">
+
+<div class="dirt" aria-hidden="true">
+  <div class="dirt-washes "></div>
+  <svg class="fine" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+    <filter id="fineverify" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.95" numOctaves="4" seed="15" stitchTiles="stitch" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.92  0 0 0 0 0.88  0 0 0 0 0.76  0 0 0 0.7 0"/>
+    </filter>
+    <rect width="100%" height="100%" filter="url(#fineverify)"/>
+  </svg>
+  <svg class="coarse" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+    <filter id="coarseverify" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.18" numOctaves="2" seed="32" stitchTiles="stitch" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.85  0 0 0 0 0.78  0 0 0 0 0.62  0 0 0 0.55 0"/>
+    </filter>
+    <rect width="100%" height="100%" filter="url(#coarseverify)"/>
+  </svg>
+</div>
+<div class="vignette" aria-hidden="true"></div>
+
+<div class="ui">
+
+<div class="status">
+  <div class="time">9:41</div>
+  <div class="sys">
+    <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor" aria-hidden="true">
+      <rect x="0" y="8" width="3" height="4" rx="0.6"/>
+      <rect x="4.5" y="5.5" width="3" height="6.5" rx="0.6"/>
+      <rect x="9" y="3" width="3" height="9" rx="0.6"/>
+      <rect x="13.5" y="0" width="3" height="12" rx="0.6" opacity="0.35"/>
+    </svg>
+    <svg width="25" height="12" viewBox="0 0 25 12" fill="none" aria-hidden="true">
+      <rect x="0.6" y="1.2" width="20" height="9.6" rx="2.2" stroke="currentColor" stroke-width="1.2"/>
+      <rect x="2.2" y="2.8" width="14.2" height="6.4" rx="1" fill="currentColor"/>
+      <path d="M22.2 4.2v3.6c1.1-.6 1.1-3 0-3.6z" fill="currentColor"/>
+    </svg>
+  </div>
+</div>
+
+<div class="nav">
+  <div class="back"><svg viewBox="0 0 22 22" fill="none"><path d="M13.5 5L7 11l6.5 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="mid"><h1>Maya</h1><div class="sub">Sealed · not yet compared</div></div>
+  <div class="side"><svg viewBox="0 0 22 22" fill="currentColor"><circle cx="5" cy="11" r="1.4"/><circle cx="11" cy="11" r="1.4"/><circle cx="17" cy="11" r="1.4"/></svg></div>
+</div>
+<div class="body" style="position:relative">
+  <div class="sheet-bg"></div>
+  <div class="sheet">
+    <div class="grabber"></div>
+    <p class="kicker">Contact verification</p>
+    <h2>Compare with Maya</h2>
+    <p class="who">Safety number of both Ed25519 keys</p>
+    <div class="card safety">
+      <div class="nums">52065 99180 34475 65447<br>89630 67456 58593 93319</div>
+    </div>
+    <div class="qr-wrap"><img src="verify-qr.png" alt="Verification QR for Tony and Maya"></div>
+    <p class="explain">Scan the QR or read the numbers aloud. Both encode the same pair of tc: addresses. If they do not match, do not send.</p>
+    <div class="actions">
+      <div class="btn">Mark as verified</div>
+      <div class="btn danger">They don’t match</div>
+    </div>
+  </div>
+</div>
+
+</div>
+<div class="homebar"></div>
+</div>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TinCan · inbox</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="phone">
+
+<div class="dirt" aria-hidden="true">
+  <div class="dirt-washes "></div>
+  <svg class="fine" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+    <filter id="fineinbox" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.95" numOctaves="4" seed="8" stitchTiles="stitch" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.92  0 0 0 0 0.88  0 0 0 0 0.76  0 0 0 0.7 0"/>
+    </filter>
+    <rect width="100%" height="100%" filter="url(#fineinbox)"/>
+  </svg>
+  <svg class="coarse" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+    <filter id="coarseinbox" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.18" numOctaves="2" seed="25" stitchTiles="stitch" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.85  0 0 0 0 0.78  0 0 0 0 0.62  0 0 0 0.55 0"/>
+    </filter>
+    <rect width="100%" height="100%" filter="url(#coarseinbox)"/>
+  </svg>
+</div>
+<div class="vignette" aria-hidden="true"></div>
+
+<div class="ui">
+
+<div class="status">
+  <div class="time">9:41</div>
+  <div class="sys">
+    <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor" aria-hidden="true">
+      <rect x="0" y="8" width="3" height="4" rx="0.6"/>
+      <rect x="4.5" y="5.5" width="3" height="6.5" rx="0.6"/>
+      <rect x="9" y="3" width="3" height="9" rx="0.6"/>
+      <rect x="13.5" y="0" width="3" height="12" rx="0.6" opacity="0.35"/>
+    </svg>
+    <svg width="25" height="12" viewBox="0 0 25 12" fill="none" aria-hidden="true">
+      <rect x="0.6" y="1.2" width="20" height="9.6" rx="2.2" stroke="currentColor" stroke-width="1.2"/>
+      <rect x="2.2" y="2.8" width="14.2" height="6.4" rx="1" fill="currentColor"/>
+      <path d="M22.2 4.2v3.6c1.1-.6 1.1-3 0-3.6z" fill="currentColor"/>
+    </svg>
+  </div>
+</div>
+
+<div class="nav leading"><div class="mid"><h1>Inbox</h1></div><div class="side"><svg width="28" height="28" viewBox="0 0 44 44" fill="none" aria-hidden="true">
+  <path d="M29.2 11.2A13.2 13.2 0 1 0 30.4 20.8" stroke="#ece6da" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="30.3" cy="15.8" r="2" fill="#d0703f"/>
+</svg></div></div>
+<div class="body">
+  <div class="inbox">
+    <div class="inbox-head"><p class="kicker">Sealed on this phone · 3 threads</p></div>
+    <div class="row">
+      <div class="avatar">M</div>
+      <div class="meta">
+        <h3>Maya <span class="seal-dot" title="Sealed"></span></h3>
+        <p>ComfyUI Flux 3 render finished on Mac Studio. Ready for review.</p>
+      </div>
+      <div class="when">2m</div>
+    </div>
+    <div class="row">
+      <div class="avatar">A</div>
+      <div class="meta">
+        <h3>Alex <span class="seal-dot"></span></h3>
+        <p>Need help debugging X25519 signature verification</p>
+      </div>
+      <div class="when">1h</div>
+    </div>
+    <div class="row">
+      <div class="avatar">S</div>
+      <div class="meta">
+        <h3>Studio <span class="seal-dot"></span></h3>
+        <p>Screenshare room studio-review is open</p>
+      </div>
+      <div class="when">Sun</div>
+    </div>
+  </div>
+</div>
+<nav class="tabbar"><div class="tab on"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="3" stroke="currentColor" stroke-width="1.7"/><path d="M4.5 8.2L12 13.2 19.5 8.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Inbox</span></div><div class="tab"><svg viewBox="0 0 24 24" fill="none"><circle cx="7" cy="12" r="3.2" stroke="currentColor" stroke-width="1.7"/><circle cx="17" cy="12" r="3.2" stroke="currentColor" stroke-width="1.7"/><path d="M10.3 12h3.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span>Arena</span></div><div class="tab"><svg viewBox="0 0 24 24" fill="none"><path d="M6 16.5V8.5a4 4 0 0 1 4-4h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M10.5 2.8l4.2 4.2-4.2 4.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 16.5c2.2 2.6 5.4 4 9.2 4 1.4 0 2.3-.6 2.3-1.7 0-.7-.5-1-1.3-1.3l-2-.6c-.6-.2-.8-.5-.8-1 0-.3.1-.6.5-1.1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span>Calls</span></div><div class="tab"><svg viewBox="0 0 24 24" fill="none"><path d="M16.2 6.4A7 7 0 1 0 16.8 11.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="16.7" cy="8.7" r="1.3" fill="currentColor"/></svg><span>You</span></div></nav><div class="homebar"></div>
+
+</div>
+<div class="homebar"></div>
+</div>
+</body>
+</html>
