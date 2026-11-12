@@ -9,6 +9,11 @@ Provides a unified, responsive showcase for all updated design mockups across:
 
 from typing import Dict, List, Any
 
+AEONIK_MOCKUPS = [
+    {"id": "aeonik-term", "title": "Aeonik Industrial Terminal", "desc": "4-quadrant desktop terminal: SHELL git status, SYSTEM metrics & sparklines, TREE filesystem, and RECENT build logs.", "img": "/docs/designs/aeonik-terminal.png", "link": "/mesh"},
+    {"id": "aeonik-fono", "title": "Aeonik Fono Mobile Interface", "desc": "Minimalist celadon mobile interface: circular gauge ring capsule, modular equipment cards, and schedule table with pill toggles.", "img": "/docs/designs/aeonik-fono.png", "link": "/fono"},
+]
+
 IOS_MOCKUPS = [
     {"id": "01-onboarding", "title": "1. Onboarding & Key Wrap", "desc": "Ed25519 key generation, 24-word seed restore, Secure Enclave FaceID wrap.", "img": "/docs/designs/ios-app/01-onboarding.png"},
     {"id": "02-inbox", "title": "2. Sealed Inbox", "desc": "NaCl-sealed message inbox, TOFU trust badges, low-latency push alerts.", "img": "/docs/designs/ios-app/02-inbox.png"},
@@ -246,6 +251,7 @@ main.container {{
   </div>
   <div class="nav-actions">
     <a href="/mesh" class="nav-link">🖥️ Mesh OS Desktop</a>
+    <a href="/fono" class="nav-link">📱 Aeonik Fono</a>
     <a href="/ios" class="nav-link">📱 iOS Simulator</a>
     <a href="/car" class="nav-link">🚗 Car Head-Unit</a>
     <a href="/storyboard" class="nav-link">🎬 Storyboard</a>
@@ -253,15 +259,49 @@ main.container {{
 </header>
 
 <div class="tabs-bar">
-  <button class="tab-btn active" onclick="switchGalleryTab('ios')">📱 Native iOS App (11 Mockups)</button>
+  <button class="tab-btn active" onclick="switchGalleryTab('aeonik')">🌿 Aeonik Celadon &amp; Ink (New Reskin)</button>
+  <button class="tab-btn" onclick="switchGalleryTab('ios')">📱 Native iOS App (11 Mockups)</button>
   <button class="tab-btn" onclick="switchGalleryTab('car')">🚗 Car Head-Unit UI (5 Mockups)</button>
   <button class="tab-btn" onclick="switchGalleryTab('storyboard')">🎬 Zen Storyboard (7 Panels)</button>
-  <button class="tab-btn" onclick="switchGalleryTab('desktop')">🖥️ Mesh OS Zen Windows (3 Mockups)</button>
+  <button class="tab-btn" onclick="switchGalleryTab('desktop')">🖥️ Mesh OS Windows (3 Mockups)</button>
 </div>
 
 <main class="container">
+  <!-- TAB 0: AEONIK RESKIN -->
+  <div id="tab-aeonik" class="tab-section active">
+    <div class="intro-panel">
+      <div class="intro-text">
+        <h2>Aeonik Celadon &amp; Ink Design System</h2>
+        <p>Industrial minimalist design system (#ecf1e6 Celadon + 1px #111111 hairline borders). Features 4-quadrant desktop terminal (git status, system sparklines, filesystem tree) and Aeonik Fono mobile interface with circular gauge rings and schedule pill toggles.</p>
+      </div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <a href="/mesh" class="btn-cta">⚡ Open Reskinned Terminal</a>
+        <a href="/fono" class="btn-cta" style="background: #111;">📱 Open Aeonik Fono</a>
+      </div>
+    </div>
+    <div class="grid-gallery">
+      {''.join(f"""
+      <div class="mockup-card">
+        <div class="card-preview">
+          <img src="{m['img']}" alt="{m['title']}" loading="lazy" onclick="openLightbox('{m['img']}')">
+        </div>
+        <div class="card-content">
+          <div>
+            <div class="card-title">{m['title']}</div>
+            <div class="card-desc">{m['desc']}</div>
+          </div>
+          <div class="card-links">
+            <a href="{m['img']}" target="_blank" class="btn-sm">View Full Res</a>
+            <a href="{m['link']}" class="btn-sm">Open Live View</a>
+          </div>
+        </div>
+      </div>
+      """ for m in AEONIK_MOCKUPS)}
+    </div>
+  </div>
+
   <!-- TAB 1: iOS APP -->
-  <div id="tab-ios" class="tab-section active">
+  <div id="tab-ios" class="tab-section">
     <div class="intro-panel">
       <div class="intro-text">
         <h2>TinCan 2.2 · Native iOS App</h2>

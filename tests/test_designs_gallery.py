@@ -67,8 +67,15 @@ def test_server_designs_routes(running_test_server):
         assert resp.status == 200
         assert "text/html" in resp.headers["Content-Type"]
 
-    # Test static file serving: /docs/designs/ios-app/01-onboarding.png
-    with urllib.request.urlopen(f"{running_test_server}/docs/designs/ios-app/01-onboarding.png") as resp:
+    # Test /fono
+    with urllib.request.urlopen(f"{running_test_server}/fono") as resp:
+        assert resp.status == 200
+        assert "text/html" in resp.headers["Content-Type"]
+        body = resp.read().decode("utf-8")
+        assert "Aeonik Fono" in body
+
+    # Test static file serving: /docs/designs/aeonik-terminal.png
+    with urllib.request.urlopen(f"{running_test_server}/docs/designs/aeonik-terminal.png") as resp:
         assert resp.status == 200
         assert resp.headers["Content-Type"] == "image/png"
         assert len(resp.read()) > 1000

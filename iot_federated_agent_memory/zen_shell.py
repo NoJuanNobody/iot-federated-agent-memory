@@ -24,17 +24,17 @@ ZEN_HEAD = r"""
   </script>
   <style>
     :root {
-      --zen-sumi: #0e0d0b;
-      --zen-sumi-2: #17150f;
-      --zen-washi: #ece6da;
-      --zen-washi-2: rgba(236, 230, 218, 0.66);
-      --zen-washi-3: rgba(236, 230, 218, 0.6);
-      --zen-tick: rgba(236, 230, 218, 0.38);
-      --zen-line: rgba(236, 230, 218, 0.14);
-      --zen-kaki: #d0703f;
+      --zen-sumi: #ecf1e6;
+      --zen-sumi-2: #ecf1e6;
+      --zen-washi: #111111;
+      --zen-washi-2: rgba(17, 17, 17, 0.7);
+      --zen-washi-3: rgba(17, 17, 17, 0.5);
+      --zen-tick: rgba(17, 17, 17, 0.38);
+      --zen-line: #111111;
+      --zen-kaki: #111111;
       --zen-ease: cubic-bezier(0.16, 1, 0.3, 1);
-      --zen-mincho: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
-      --zen-gothic: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+      --zen-mincho: -apple-system, BlinkMacSystemFont, "Aeonik", "Inter", sans-serif;
+      --zen-gothic: -apple-system, BlinkMacSystemFont, "Aeonik", "Inter", sans-serif;
     }
 
     html.zen-boot .mesh-window,
@@ -188,10 +188,8 @@ ZEN_HEAD = r"""
       position: fixed; inset: 0; z-index: 60;
       display: flex; align-items: center;
       padding: 6vh max(1.5rem, 9vw);
-      background:
-        radial-gradient(60% 60% at 12% 30%, rgba(118, 60, 34, 0.34), transparent 70%),
-        radial-gradient(50% 60% at 90% 90%, rgba(50, 60, 40, 0.3), transparent 70%),
-        linear-gradient(90deg, rgba(14, 13, 11, 0.86) 0%, rgba(14, 13, 11, 0.6) 55%, rgba(14, 13, 11, 0.24) 100%);
+      background: rgba(236, 241, 230, 0.94);
+      backdrop-filter: blur(16px);
       opacity: 0; visibility: hidden;
       transition: opacity 520ms var(--zen-ease), visibility 0s linear 520ms;
     }

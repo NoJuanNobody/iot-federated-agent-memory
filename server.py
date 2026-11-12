@@ -783,12 +783,12 @@ HTML_UI = MESH_OS_HTML_UI
 
 
 def _get_html_Entry(html_str: str):
-    key = id(html_str)
+    key = hashlib.sha256(html_str.encode("utf-8")).hexdigest()[:16]
     entry = _html_cache.get(key)
     if entry is None:
         raw = html_str.encode("utf-8")
         gz = gzip.compress(raw, compresslevel=6)
-        etag = f'"{hashlib.sha256(raw).hexdigest()[:16]}"'
+        etag = f'"{key}"'
         entry = (raw, gz, etag)
         _html_cache[key] = entry
     return entry
@@ -2259,6 +2259,14 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             else:
                 self._send_html("<h1>Design Mockups Showcase</h1>", 200)
             return
+        elif clean_path in ("/fono", "/aeonik", "/fono/", "/aeonik/"):
+            fono_path = os.path.join(os.path.dirname(__file__), "docs", "designs", "ios-app", "html", "00-fono.html")
+            if os.path.isfile(fono_path):
+                with open(fono_path, "r", encoding="utf-8") as f:
+                    self._send_html(f.read(), 200)
+            else:
+                self._send_html("<h1>Aeonik Fono Mobile UI</h1>", 200)
+            return
         elif clean_path in ("/storyboard",) or clean_path.startswith("/storyboard/"):
             sb_path = os.path.join(os.path.dirname(__file__), "docs", "panels", "storyboard_viewer.html")
             if os.path.isfile(sb_path):
@@ -2838,3 +2846,15 @@ def _storyboard_root():
         with open(sb_path, "r", encoding="utf-8") as f:
             return HTMLResponse(f.read())
     return HTMLResponse("<h1>Storyboard Viewer</h1>")
+
+@app.get("/fono")
+def _fono_root():
+    fp = os.path.join(os.path.dirname(__file__), "docs", "designs", "ios-app", "html", "00-fono.html")
+    if os.path.isfile(fp):
+        with open(fp, "r", encoding="utf-8") as f:
+            return HTMLResponse(f.read())
+    return HTMLResponse("<h1>Aeonik Fono Mobile UI</h1>")
+
+@app.get("/aeonik")
+def _aeonik_root():
+    return _fono_root()

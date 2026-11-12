@@ -228,42 +228,55 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     /* ==========================================================================
-       Zen Interior Design System Styles
+       Aeonik / Celadon & Ink Industrial Design System Styles
        ========================================================================== */
     body {
-      font-family: var(--gothic), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-      color: var(--washi) !important;
-      background-color: var(--sumi) !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Aeonik", "Inter", sans-serif !important;
+      color: #111111 !important;
+      background-color: #ecf1e6 !important;
     }
 
     .mesh-window[data-zen-window="true"],
     .mesh-window {
-      background: var(--sumi-2) !important;
-      border: 1px solid var(--line) !important;
-      border-radius: 8px !important;
-      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--line) !important;
-      backdrop-filter: blur(12px) !important;
+      background: #ecf1e6 !important;
+      border: 1px solid #111111 !important;
+      border-radius: 24px !important;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08), 0 0 0 1px #111111 !important;
+      color: #111111 !important;
+      overflow: hidden;
     }
 
     .mesh-window .window-header {
-      background: var(--sumi) !important;
-      border-bottom: 1px solid var(--line) !important;
-      color: var(--washi) !important;
-      font-family: var(--mincho) !important;
+      background: #ecf1e6 !important;
+      border-bottom: 1px solid #111111 !important;
+      color: #111111 !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Aeonik", "Inter", sans-serif !important;
       font-weight: 600 !important;
-      letter-spacing: 0.04em !important;
-      padding: 10px 14px !important;
+      letter-spacing: -0.01em !important;
+      padding: 12px 18px !important;
     }
 
     .mesh-window .window-header .window-title {
-      font-family: var(--mincho) !important;
-      color: var(--washi) !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Aeonik", "Inter", sans-serif !important;
+      color: #111111 !important;
+      font-size: 1.15rem !important;
+      letter-spacing: -0.02em !important;
+    }
+
+    .mesh-window .window-controls button {
+      background: transparent !important;
+      border: none !important;
+      color: #111111 !important;
+      font-size: 14px !important;
+      font-weight: 500 !important;
+      padding: 2px 6px !important;
+      cursor: pointer;
     }
 
     .mesh-window .window-body {
-      background: var(--sumi-2) !important;
-      color: var(--washi-quiet) !important;
-      font-family: var(--gothic) !important;
+      background: #ecf1e6 !important;
+      color: #111111 !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Aeonik", "Inter", sans-serif !important;
     }
 
     .mesh-window .stat-card,
@@ -271,33 +284,36 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     .mesh-window .panel-card,
     .mesh-window .stream-card,
     .mesh-window .quest-card {
-      background: var(--sumi-card) !important;
-      border: 1px solid var(--line) !important;
-      color: var(--washi) !important;
+      background: #f4f8f0 !important;
+      border: 1px solid #111111 !important;
+      border-radius: 16px !important;
+      color: #111111 !important;
     }
 
     .mesh-window input,
     .mesh-window textarea,
     .mesh-window select {
-      background: var(--sumi-well) !important;
-      border: 1px solid var(--line) !important;
-      color: var(--washi) !important;
-      font-family: var(--gothic) !important;
+      background: #ffffff !important;
+      border: 1px solid #111111 !important;
+      color: #111111 !important;
+      font-family: "JetBrains Mono", monospace !important;
+      border-radius: 8px !important;
     }
 
     .mesh-window input:focus,
     .mesh-window textarea:focus,
     .mesh-window select:focus {
-      border-color: var(--kaki) !important;
+      border-color: #000000 !important;
       outline: none !important;
-      box-shadow: 0 0 0 1px var(--kaki) !important;
+      box-shadow: 0 0 0 1px #000000 !important;
     }
 
     .mesh-window button.btn-primary,
     .mesh-window .btn-action,
     .btn-kaki {
-      background: var(--kaki) !important;
-      color: #0e0d0b !important;
+      background: #111111 !important;
+      color: #ecf1e6 !important;
+      border-radius: 9999px !important;
       border: none !important;
       font-weight: 600 !important;
     }
@@ -305,19 +321,22 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     .mesh-window button.btn-primary:hover,
     .mesh-window .btn-action:hover,
     .btn-kaki:hover {
-      background: var(--rust) !important;
-      color: var(--washi) !important;
+      background: #333333 !important;
+      color: #ffffff !important;
     }
 
     .mesh-window table th {
-      border-bottom: 1px solid var(--line) !important;
-      color: var(--washi-dim) !important;
-      font-family: var(--mincho) !important;
+      border-bottom: 1px solid #111111 !important;
+      color: #111111 !important;
+      font-family: "JetBrains Mono", monospace !important;
+      text-transform: uppercase;
+      font-size: 0.75rem;
     }
 
     .mesh-window table td {
-      border-bottom: 1px solid rgba(236, 230, 218, 0.06) !important;
-      color: var(--washi-quiet) !important;
+      border-bottom: 1px solid rgba(17, 17, 17, 0.12) !important;
+      color: #111111 !important;
+      font-family: "JetBrains Mono", monospace !important;
     }
 
     #accountSetupModal[data-zen-modal="true"],
@@ -662,93 +681,181 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
   <main id="desktopWorkspace" class="relative w-full min-h-screen pt-16 pb-24 px-3 sm:px-6 z-10 select-text">
 
     <!-- ===================================================================== -->
-    <!-- Window 1: Terminal & Quickstart.exe -->
     <!-- ===================================================================== -->
-    <div id="win-terminal" class="mesh-window w-[540px]" data-zen-window="true" data-window-id="win-terminal" style="top: 72px; left: 24px; z-index: 20;">
-      <div class="window-header flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-slate-800">
-        <div class="flex items-center gap-2">
-          <span class="text-base">⚡</span>
-          <span class="text-xs font-bold text-white font-mono">Terminal &amp; Quickstart.exe</span>
-          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+    <!-- Window 1: Terminal & Quickstart.exe (Aeonik Celadon Industrial Layout) -->
+    <!-- ===================================================================== -->
+    <div id="win-terminal" class="mesh-window w-[840px] max-w-[96vw]" data-zen-window="true" data-window-id="win-terminal" style="top: 60px; left: 32px; z-index: 20;">
+      <div class="window-header flex items-center justify-between px-6 py-4 bg-[#ecf1e6] border-b border-black">
+        <div class="flex items-baseline gap-4">
+          <span class="text-xs font-mono font-medium text-neutral-800">14:41</span>
+          <span class="text-2xl font-bold tracking-tight text-black font-sans">Terminal</span>
+          <span class="text-xs font-mono text-neutral-600 hidden sm:inline">| ~/projects/aeonik</span>
         </div>
-        <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
-          <button onclick="openPopoutWindow('win-terminal')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
-          <button onclick="minimizeWindow('win-terminal')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
-          <button onclick="maximizeWindow('win-terminal')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">□</button>
+        <div class="window-controls flex items-center gap-3 font-mono text-sm">
+          <button onclick="openPopoutWindow('win-terminal')" class="text-xs text-neutral-600 hover:text-black" title="Pop out into separate monitor">↗</button>
+          <button onclick="minimizeWindow('win-terminal')" class="text-neutral-600 hover:text-black">—</button>
+          <button onclick="maximizeWindow('win-terminal')" class="text-neutral-600 hover:text-black">□</button>
+          <button onclick="toggleWindow('win-terminal')" class="text-neutral-600 hover:text-black">✕</button>
         </div>
       </div>
-      <div class="window-body p-4 space-y-4 max-h-[620px] overflow-y-auto">
-        <div class="flex items-center justify-between">
-          <h2 class="font-bold text-white text-sm">Quickstart &amp; One-Line Curl Commands</h2>
-          <span class="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800 px-2 py-0.5 rounded font-mono">Instant Terminal Access</span>
-        </div>
-
-        <div>
-          <p class="text-xs text-slate-400 mb-1.5">1. One-Line Terminal Installer (Installs TinCan CLI &amp; Skills):</p>
-          <div class="bg-black/80 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between font-mono text-xs">
-            <code id="curlInstallCmd" class="text-emerald-400 select-all overflow-x-auto">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code>
-            <button onclick="copyCommand('curlInstallCmd')" class="ml-3 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-sans font-semibold transition shrink-0 active:scale-95">
-              Copy Curl
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <p class="text-xs text-slate-400 mb-1.5">2. Or Install TinCan Skills Directly via npx skills:</p>
-          <div class="bg-black/80 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between font-mono text-xs">
-            <code id="installCmd" class="text-indigo-300 select-all overflow-x-auto">npx skills add NoJuanNobody/tincan-skills -g -y</code>
-            <button onclick="copyCommand('installCmd')" class="ml-3 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[11px] font-sans font-semibold transition shrink-0 active:scale-95">
-              Copy Command
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <p class="text-xs text-slate-400 mb-1.5">3. Live AI Model Prompt over OpenRouter Gateway (Gemini 2.5, Claude, Grok, GPT-4o):</p>
-          <div class="bg-black/80 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between font-mono text-xs">
-            <code id="chatCmd" class="text-cyan-400 select-all overflow-x-auto">curl -s -X POST https://iot-federated-agent-memory-production.up.railway.app/api/chat -H "Content-Type: application/json" -d '{"prompt":"Hello world!"}'</code>
-            <button onclick="copyCommand('chatCmd')" class="ml-3 px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-[11px] font-sans font-semibold transition shrink-0 active:scale-95">
-              Copy Curl
-            </button>
-          </div>
-        </div>
-
-        <!-- Live Chat Quick Launcher -->
-        <div class="p-3 bg-cyan-950/40 border border-cyan-800/80 rounded-lg flex items-center justify-between">
-          <div class="space-y-0.5">
-            <div class="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
-              <span>💬</span> Live Mesh &amp; Peer Chat
-            </div>
-            <p class="text-[11px] text-slate-400">Broadcast messages in real time across all connected browsers and phones.</p>
-          </div>
-          <button onclick="focusChatWindow()" class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs font-bold font-mono transition shrink-0 active:scale-95 shadow">
-            Open Chat →
-          </button>
-        </div>
-
-        <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-3 space-y-2">
-          <div class="flex items-center justify-between">
-            <h3 class="text-xs font-bold uppercase tracking-wider text-amber-400">TinCan Voice, Video &amp; Mesh Cheat Sheet</h3>
-            <span class="text-[10px] font-mono text-slate-400">Watch the @nojuannobody walkthrough →</span>
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 font-mono text-xs">
-            <div class="p-2 bg-slate-900 rounded border border-slate-800">
-              <div class="text-slate-400 text-[10px]">Speak + Send Remote TTS</div>
-              <div class="text-emerald-300 mt-0.5">tincan say "Hey!" --to peer1</div>
-            </div>
-            <div class="p-2 bg-slate-900 rounded border border-slate-800">
-              <div class="text-slate-400 text-[10px]">Live 2-Way Voice Call</div>
-              <div class="text-cyan-300 mt-0.5">tincan call peer1 --voice-only</div>
-            </div>
-            <div class="p-2 bg-slate-900 rounded border border-slate-800">
-              <div class="text-slate-400 text-[10px]">Live Video / Screenshare</div>
-              <div class="text-indigo-300 mt-0.5">tincan call peer1 --screen</div>
-            </div>
-            <div class="p-2 bg-slate-900 rounded border border-slate-800">
-              <div class="text-slate-400 text-[10px]">Approve Queued Peer Action</div>
-              <div class="text-amber-300 mt-0.5">tincan trigger 1</div>
+      <div class="window-body p-0 grid grid-cols-1 md:grid-cols-2 font-mono text-xs border-b border-black max-h-[640px] overflow-y-auto bg-[#ecf1e6]">
+        <!-- Quadrant 1: SHELL -->
+        <div class="p-5 border-b md:border-b-0 md:border-r border-black flex flex-col justify-between space-y-4">
+          <div>
+            <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black">SHELL</div>
+            <div class="space-y-1.5 text-neutral-900 leading-relaxed text-[11px]">
+              <p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> git status</p>
+              <p class="text-neutral-700">On branch main<br>Your branch is up to date with 'origin/main'.</p>
+              <p class="text-neutral-600 pt-1">Changes not staged for commit:</p>
+              <p class="text-neutral-600 pl-2">
+                M &nbsp;src/terminal/theme.toml<br>
+                M &nbsp;src/terminal/palette.rs<br>
+                ?? assets/terminal-preview.png
+              </p>
+              <p class="pt-2">
+                <span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> <span class="inline-block w-2.5 h-4 bg-black align-middle animate-pulse"></span>
+              </p>
             </div>
           </div>
+          <!-- Interactive Quick Actions -->
+          <div class="pt-3 border-t border-black/30 space-y-2">
+            <div class="text-[10px] font-bold uppercase text-neutral-600">Quick Commands</div>
+            <div class="flex flex-wrap gap-1.5">
+              <button onclick="copyCommand('curlInstallCmd')" class="px-2.5 py-1 bg-black text-[#ecf1e6] rounded text-[10px] hover:opacity-80 active:scale-95 transition">Copy Install Curl</button>
+              <button onclick="copyCommand('installCmd')" class="px-2.5 py-1 border border-black rounded text-[10px] hover:bg-black hover:text-[#ecf1e6] active:scale-95 transition">npx skills</button>
+              <button onclick="copyCommand('chatCmd')" class="px-2.5 py-1 border border-black rounded text-[10px] hover:bg-black hover:text-[#ecf1e6] active:scale-95 transition">AI Chat API</button>
+            </div>
+            <div class="hidden">
+              <code id="curlInstallCmd">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code>
+              <code id="installCmd">npx skills add NoJuanNobody/tincan-skills -g -y</code>
+              <code id="chatCmd">curl -s -X POST https://iot-federated-agent-memory-production.up.railway.app/api/chat -H "Content-Type: application/json" -d '{"prompt":"Hello world!"}'</code>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quadrant 2: SYSTEM -->
+        <div class="p-5 flex flex-col justify-between space-y-3">
+          <div>
+            <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black">SYSTEM</div>
+            <div class="grid grid-cols-4 gap-2 pb-3 border-b border-black text-center">
+              <div>
+                <div class="text-[10px] text-neutral-600">CPU</div>
+                <div class="text-base font-bold text-black">12%</div>
+              </div>
+              <div>
+                <div class="text-[10px] text-neutral-600">MEM</div>
+                <div class="text-base font-bold text-black">4.6G<span class="text-[9px] text-neutral-500 font-normal">/16G</span></div>
+              </div>
+              <div>
+                <div class="text-[10px] text-neutral-600">DISK</div>
+                <div class="text-base font-bold text-black">38%</div>
+              </div>
+              <div>
+                <div class="text-[10px] text-neutral-600">UPTIME</div>
+                <div class="text-base font-bold text-black">3d 6h</div>
+              </div>
+            </div>
+            <!-- Sparkline matching Mockup 1 -->
+            <div class="py-2.5 border-b border-black text-center tracking-tighter text-[9px] select-none text-neutral-800 font-mono">
+              | |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| |
+            </div>
+            <!-- Process Table matching Mockup 1 -->
+            <div class="pt-2 text-[11px] space-y-1">
+              <div class="flex justify-between font-bold text-neutral-600 pb-1">
+                <span class="w-12">PID</span>
+                <span class="w-12">CPU%</span>
+                <span class="w-12">MEM%</span>
+                <span class="flex-1 text-right">COMMAND</span>
+              </div>
+              <div class="flex justify-between text-neutral-800">
+                <span class="w-12">4821</span>
+                <span class="w-12">3.1</span>
+                <span class="w-12">5.2</span>
+                <span class="flex-1 text-right">code</span>
+              </div>
+              <div class="flex justify-between text-neutral-800">
+                <span class="w-12">3970</span>
+                <span class="w-12">1.8</span>
+                <span class="w-12">2.9</span>
+                <span class="flex-1 text-right">zellij</span>
+              </div>
+              <div class="flex justify-between text-neutral-800">
+                <span class="w-12">5154</span>
+                <span class="w-12">1.2</span>
+                <span class="w-12">1.9</span>
+                <span class="flex-1 text-right">cargo</span>
+              </div>
+              <div class="flex justify-between text-neutral-800">
+                <span class="w-12">2261</span>
+                <span class="w-12">0.6</span>
+                <span class="w-12">1.4</span>
+                <span class="flex-1 text-right">postgres</span>
+              </div>
+              <div class="flex justify-between text-neutral-800">
+                <span class="w-12">1104</span>
+                <span class="w-12">0.3</span>
+                <span class="w-12">0.8</span>
+                <span class="flex-1 text-right">systemd</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quadrant 3: TREE -->
+        <div class="p-5 border-t md:border-t-0 md:border-r border-black">
+          <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black">TREE ~/projects/aeonik</div>
+          <pre class="text-[11px] text-neutral-800 leading-tight">
+aeonik/
+├── Cargo.toml
+├── README.md
+├── src/
+│   ├── terminal/
+│   │   ├── mod.rs
+│   │   ├── theme.toml
+│   │   ├── palette.rs
+│   │   └── renderer.rs
+│   └── lib.rs
+├── assets/
+│   └── terminal-preview.png
+└── tests/
+    └── theme.rs</pre>
+          <div class="pt-3 text-[10px] text-neutral-500">8 directories, 9 files</div>
+        </div>
+
+        <!-- Quadrant 4: RECENT -->
+        <div class="p-5 border-t border-black space-y-2 text-[11px]">
+          <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black">RECENT</div>
+          <p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> cargo build</p>
+          <p class="text-neutral-600 pl-2">
+            Compiling aeonik-terminal v0.2.0 (/projects/aeonik)<br>
+            Finished dev [unoptimized + debuginfo] target(s) in 4.23s
+          </p>
+          <p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> ls -la target/debug/</p>
+          <p class="text-neutral-600 pl-2 text-[10px]">
+            total 72K<br>
+            drwxr-xr-x 6 aeonik staff 4.0K Jan 24 14:37 .<br>
+            drwxr-xr-x 3 aeonik staff 4.0K Jan 24 14:02 ..<br>
+            -rwxr-xr-x 1 aeonik staff 56K Jan 24 14:37 aeonik-terminal
+          </p>
+          <p class="pt-1">
+            <span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> <span class="inline-block w-2.5 h-4 bg-black align-middle animate-pulse"></span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Bottom Status Bar matching Mockup 1 -->
+      <div class="px-6 py-2.5 bg-[#ecf1e6] flex items-center justify-between font-mono text-xs text-neutral-800 border-t border-black">
+        <div class="flex items-center gap-3">
+          <span>⚲ main ↑1 ↓0</span>
+          <span>|</span>
+          <span>~/projects/aeonik</span>
+        </div>
+        <div class="flex items-center gap-4 text-neutral-600">
+          <span>zsh</span>
+          <span>|</span>
+          <span>120×34</span>
+          <span>|</span>
+          <span>UTF-8</span>
         </div>
       </div>
     </div>
