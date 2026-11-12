@@ -12,7 +12,19 @@
       "start_sec": 0.0,
       "duration_sec": 29.792,
       "start_ticks": 0,
-      "duration_ticks": 7567560000000
+      "duration_ticks": 7567560000000,
+      "zen_id": "panel_01_zen_sanctuary",
+      "title": "I. The Ink-and-Paper Sanctuary",
+      "zen_panel_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/.worktrees/storyboard-panels/docs/panels/panel_01_zen_sanctuary.png",
+      "palette": [
+        "#0e0d0b",
+        "#17150f",
+        "#ece6da",
+        "#d0703f",
+        "#42522e",
+        "#705436"
+      ],
+      "cpl_prompt": "Minimalist tatami and cedar wood desk; warm ambient glow of a 9:16 vertical video feed; terminal session displaying $ tincan whoami -> tc:7f9a...e3b1; washi paper texture; editorial Sumi framing."
     },
     {
       "id": "panel_02_kokoro_voice_alert",
@@ -22,7 +34,19 @@
       "start_sec": 29.792,
       "duration_sec": 26.5,
       "start_ticks": 7567560000000,
-      "duration_ticks": 6731424000000
+      "duration_ticks": 6731424000000,
+      "zen_id": "panel_02_kokoro_whisper",
+      "title": "II. Kokoro-82M Neural Whisper",
+      "zen_panel_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/.worktrees/storyboard-panels/docs/panels/panel_02_kokoro_whisper.png",
+      "palette": [
+        "#0e0d0b",
+        "#17150f",
+        "#ece6da",
+        "#d0703f",
+        "#964622",
+        "#42522e"
+      ],
+      "cpl_prompt": "Persimmon 24kHz acoustic waveform pulse across Sumi background; traditional Washi voice seal (\u58f0); zero-account local neural speech synthesis telemetry; raw PCM streams."
     },
     {
       "id": "panel_03_toronto_loft_tofu",
@@ -32,7 +56,19 @@
       "start_sec": 56.292,
       "duration_sec": 24.625,
       "start_ticks": 14298984000000,
-      "duration_ticks": 6255144000000
+      "duration_ticks": 6255144000000,
+      "zen_id": "panel_03_toronto_loft_tofu",
+      "title": "III. Toronto Loft TOFU Handshake",
+      "zen_panel_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/.worktrees/storyboard-panels/docs/panels/panel_03_toronto_loft_tofu.png",
+      "palette": [
+        "#0e0d0b",
+        "#17150f",
+        "#ece6da",
+        "#d0703f",
+        "#964622",
+        "#705436"
+      ],
+      "cpl_prompt": "Dusk concrete and timber loft architecture; physical Washi verification sheet (04-verify); procedural Ed25519 QR matrix; Apple Secure Enclave Passkey enrollment; Trust-On-First-Use seal."
     },
     {
       "id": "panel_04_webrtc_capsule_flight",
@@ -42,7 +78,19 @@
       "start_sec": 80.917,
       "duration_sec": 30.833,
       "start_ticks": 20554128000000,
-      "duration_ticks": 7832160000000
+      "duration_ticks": 7832160000000,
+      "zen_id": "panel_04_webrtc_capsule_flight",
+      "title": "IV. Sealed NaCl Cryptographic Flight",
+      "zen_panel_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/.worktrees/storyboard-panels/docs/panels/panel_04_webrtc_capsule_flight.png",
+      "palette": [
+        "#0e0d0b",
+        "#17150f",
+        "#ece6da",
+        "#d0703f",
+        "#964622",
+        "#2e365c"
+      ],
+      "cpl_prompt": "Dirty-gradient particle flight path over Indigo Wash; X25519 sealed envelope capsule crossing zero-knowledge blind relay; Poly1305 MAC tag and 24-byte nonce verification; sealed inkan stamp (\u5c01)."
     },
     {
       "id": "panel_05_ai_brain_arena",
@@ -52,7 +100,19 @@
       "start_sec": 111.75,
       "duration_sec": 29.208,
       "start_ticks": 28386288000000,
-      "duration_ticks": 7419384000000
+      "duration_ticks": 7419384000000,
+      "zen_id": "panel_05_ai_brain_arena",
+      "title": "V. Editorial AI Brain Arena Duel",
+      "zen_panel_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/.worktrees/storyboard-panels/docs/panels/panel_05_ai_brain_arena.png",
+      "palette": [
+        "#0e0d0b",
+        "#17150f",
+        "#ece6da",
+        "#d0703f",
+        "#42522e",
+        "#705436"
+      ],
+      "cpl_prompt": "Split Sumi comparison cards; Model Alpha vs Model Beta prompt outputs; live TTFT and tok/s telemetry; OpenRouter spend metering; Kaki winner inkan seal (\u52dd)."
     },
     {
       "id": "panel_06_tier_l5_messiah_gold",
@@ -62,7 +122,23 @@
       "start_sec": 140.958,
       "duration_sec": 32.208,
       "start_ticks": 35805672000000,
-      "duration_ticks": 8181432000000
+      "duration_ticks": 8181432000000,
+      "zen_id": "panel_06_l5_mesh_sovereign",
+      "title": "VI. Ascension to L5 Mesh Sovereign",
+      "zen_panel_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/.worktrees/storyboard-panels/docs/panels/panel_06_l5_mesh_sovereign.png",
+      "palette": [
+        "#0e0d0b",
+        "#17150f",
+        "#ece6da",
+        "#d0703f",
+        "#2e365c",
+        "#42522e"
+      ],
+      "cpl_prompt": "Cooperative L1 through L5 mesh progression ladder; Car cabin audio, iOS mobile, and Mac desktop unified sovereign nodes; double Washi inkan stamp \u6607\u5929 (Ascension)."
     }
-  ]
+  ],
+  "design_system": "TinCan 2.2 Zen (Sumi / Washi / Kaki)",
+  "contact_sheet": "/Users/alejandrolondono/dev/iot-federated-agent-memory/.worktrees/storyboard-panels/docs/panels/zen_storyboard_contact_sheet.png",
+  "contact_sheet_svg": "/Users/alejandrolondono/dev/iot-federated-agent-memory/.worktrees/storyboard-panels/docs/panels/zen_storyboard_contact_sheet.svg",
+  "viewer": "/Users/alejandrolondono/dev/iot-federated-agent-memory/.worktrees/storyboard-panels/docs/panels/storyboard_viewer.html"
 }
