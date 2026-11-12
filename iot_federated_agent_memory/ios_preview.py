@@ -259,6 +259,13 @@ def render_ios_simulator_html(initial_screen: str = "02-inbox", base_dir: str | 
     # Read all screens
     screens_raw = _load_design_files(html_dir)
 
+    # Bulletproof fallback: if individual screen HTMLs were not resolved, use interactive_preview.html
+    if all("not found" in content for content in screens_raw.values()):
+        interactive_path = os.path.join(base_dir, "interactive_preview.html")
+        if os.path.isfile(interactive_path):
+            with open(interactive_path, "r", encoding="utf-8") as f:
+                return f.read()
+
     # Build screen frames
     screen_cards = []
     for screen_id in IOS_SCREENS:

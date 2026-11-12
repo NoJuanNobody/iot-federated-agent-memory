@@ -11,7 +11,7 @@ import json
 import pytest
 from PIL import Image
 
-REPO_ROOT = "/Users/alejandrolondono/dev/iot-federated-agent-memory/.worktrees/storyboard-panels"
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 PANELS_DIR = os.path.join(REPO_ROOT, "docs/panels")
 MANIFEST_PATH = os.path.join(PANELS_DIR, "audio_drama_manifest.json")
 VIEWER_PATH = os.path.join(PANELS_DIR, "storyboard_viewer.html")

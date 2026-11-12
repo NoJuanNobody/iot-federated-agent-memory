@@ -71,6 +71,11 @@ try:
 except Exception:
     ios_preview = None
 
+try:
+    from iot_federated_agent_memory.designs_gallery import render_designs_gallery_html
+except Exception:
+    render_designs_gallery_html = None
+
 PORT = int(os.environ.get("PORT", 8080))
 
 
@@ -827,6 +832,39 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
+
+    def _send_file(self, file_path: str) -> None:
+        import mimetypes
+        ctype, _ = mimetypes.guess_type(file_path)
+        if not ctype:
+            if file_path.endswith(".woff2"):
+                ctype = "font/woff2"
+            elif file_path.endswith(".svg"):
+                ctype = "image/svg+xml"
+            elif file_path.endswith(".png"):
+                ctype = "image/png"
+            elif file_path.endswith(".wav"):
+                ctype = "audio/wav"
+            elif file_path.endswith(".css"):
+                ctype = "text/css"
+            elif file_path.endswith(".js"):
+                ctype = "application/javascript"
+            elif file_path.endswith(".json"):
+                ctype = "application/json"
+            else:
+                ctype = "application/octet-stream"
+        try:
+            with open(file_path, "rb") as f:
+                content = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(content)))
+            self.send_header("Cache-Control", "public, max-age=3600")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self._write_body(content)
+        except Exception:
+            self._send_empty(404)
 
     def _send_json(self, data, code=200):
         raw = json.dumps(data, separators=(",", ":")).encode("utf-8")
@@ -2215,7 +2253,29 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
         clean_path = parsed.path.rstrip("/") if parsed.path != "/" else "/"
-        if clean_path in ("/car",) or clean_path.startswith("/car/"):
+        if clean_path in ("/designs", "/mockups") or clean_path.startswith("/designs/") or clean_path.startswith("/mockups/"):
+            if render_designs_gallery_html is not None:
+                self._send_html(render_designs_gallery_html(), 200)
+            else:
+                self._send_html("<h1>Design Mockups Showcase</h1>", 200)
+            return
+        elif clean_path in ("/storyboard",) or clean_path.startswith("/storyboard/"):
+            sb_path = os.path.join(os.path.dirname(__file__), "docs", "panels", "storyboard_viewer.html")
+            if os.path.isfile(sb_path):
+                with open(sb_path, "r", encoding="utf-8") as f:
+                    self._send_html(f.read(), 200)
+            else:
+                self._send_html("<h1>Storyboard Viewer</h1>", 200)
+            return
+        elif clean_path.startswith("/docs/") or clean_path.startswith("/assets/"):
+            safe_rel = clean_path.lstrip("/").replace("..", "")
+            fpath = os.path.join(os.path.dirname(__file__), safe_rel)
+            if os.path.isfile(fpath):
+                self._send_file(fpath)
+            else:
+                self._send_empty(404)
+            return
+        elif clean_path in ("/car",) or clean_path.startswith("/car/"):
             parts = [p for p in clean_path.split("/") if p]
             mode = parts[1] if len(parts) > 1 else "driving"
             if render_car_headunit_html is not None:
@@ -2762,3 +2822,19 @@ def _ios_screen(screen: str):
     if ios_preview is not None and hasattr(ios_preview, "render_ios_simulator_html"):
         return HTMLResponse(ios_preview.render_ios_simulator_html(screen))
     return HTMLResponse(f"<!DOCTYPE html><html><body><h1>TinCan iOS Simulator: {screen}</h1></body></html>")
+
+@app.get("/designs")
+def _designs_root():
+    return HTMLResponse(render_designs_gallery_html() if render_designs_gallery_html else "<h1>Design Mockups</h1>")
+
+@app.get("/mockups")
+def _mockups_root():
+    return HTMLResponse(render_designs_gallery_html() if render_designs_gallery_html else "<h1>Design Mockups</h1>")
+
+@app.get("/storyboard")
+def _storyboard_root():
+    sb_path = os.path.join(os.path.dirname(__file__), "docs", "panels", "storyboard_viewer.html")
+    if os.path.isfile(sb_path):
+        with open(sb_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(f.read())
+    return HTMLResponse("<h1>Storyboard Viewer</h1>")

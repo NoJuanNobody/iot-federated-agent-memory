@@ -2855,6 +2855,15 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <button id="dockModBtn" onclick="toggleWindow('win-moderator')" class="hidden px-2.5 py-1.5 bg-amber-950/80 hover:bg-amber-900 border border-amber-600 text-amber-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Admin Moderator Control Panel">
       <span>🛡️</span> <span class="hidden md:inline font-bold">Mod Panel</span>
     </button>
+    <a href="/designs" class="px-2.5 py-1.5 bg-orange-950/80 hover:bg-orange-900 border border-orange-500/80 text-orange-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95 font-semibold" title="View Updated Native iOS &amp; Car UI Mockups">
+      <span>🎨</span> <span class="hidden md:inline">Mockups</span>
+    </a>
+    <a href="/ios" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="9-Screen Native iOS App Simulator">
+      <span>📱</span> <span class="hidden md:inline">iOS App</span>
+    </a>
+    <a href="/car" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="1280x720 Aftermarket Car Head-Unit">
+      <span>🚗</span> <span class="hidden md:inline">Car UI</span>
+    </a>
     <div class="h-5 w-px bg-slate-700 mx-1"></div>
     <button onclick="fireTestPacket()" class="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:brightness-110 text-white rounded-xl text-xs font-mono font-semibold transition active:scale-95 flex items-center gap-1 shadow-md" title="Launch animated test packet across mesh topology">
       <span>🥫</span> <span>Fire Test Packet</span>

@@ -15,7 +15,7 @@
       "duration_ticks": 7567560000000,
       "zen_id": "panel_01_zen_sanctuary",
       "title": "I. The Ink-and-Paper Sanctuary",
-      "zen_panel_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/.worktrees/storyboard-panels/docs/panels/panel_01_zen_sanctuary.png",
+      "zen_panel_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/docs/panels/panel_01_zen_sanctuary.png",
       "palette": [
         "#0e0d0b",
         "#17150f",
@@ -37,7 +37,7 @@
       "duration_ticks": 6731424000000,
       "zen_id": "panel_02_kokoro_whisper",
       "title": "II. Kokoro-82M Neural Whisper",
-      "zen_panel_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/.worktrees/storyboard-panels/docs/panels/panel_02_kokoro_whisper.png",
+      "zen_panel_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/docs/panels/panel_02_kokoro_whisper.png",
       "palette": [
         "#0e0d0b",
         "#17150f",
@@ -59,7 +59,7 @@
       "duration_ticks": 6255144000000,
       "zen_id": "panel_03_toronto_loft_tofu",
       "title": "III. Toronto Loft TOFU Handshake",
-      "zen_panel_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/.worktrees/storyboard-panels/docs/panels/panel_03_toronto_loft_tofu.png",
+      "zen_panel_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/docs/panels/panel_03_toronto_loft_tofu.png",
       "palette": [
         "#0e0d0b",
         "#17150f",
@@ -81,7 +81,7 @@
       "duration_ticks": 7832160000000,
       "zen_id": "panel_04_webrtc_capsule_flight",
       "title": "IV. Sealed NaCl Cryptographic Flight",
-      "zen_panel_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/.worktrees/storyboard-panels/docs/panels/panel_04_webrtc_capsule_flight.png",
+      "zen_panel_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/docs/panels/panel_04_webrtc_capsule_flight.png",
       "palette": [
         "#0e0d0b",
         "#17150f",
@@ -103,7 +103,7 @@
       "duration_ticks": 7419384000000,
       "zen_id": "panel_05_ai_brain_arena",
       "title": "V. Editorial AI Brain Arena Duel",
-      "zen_panel_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/.worktrees/storyboard-panels/docs/panels/panel_05_ai_brain_arena.png",
+      "zen_panel_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/docs/panels/panel_05_ai_brain_arena.png",
       "palette": [
         "#0e0d0b",
         "#17150f",
@@ -125,7 +125,7 @@
       "duration_ticks": 8181432000000,
       "zen_id": "panel_06_l5_mesh_sovereign",
       "title": "VI. Ascension to L5 Mesh Sovereign",
-      "zen_panel_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/.worktrees/storyboard-panels/docs/panels/panel_06_l5_mesh_sovereign.png",
+      "zen_panel_path": "/Users/alejandrolondono/dev/iot-federated-agent-memory/docs/panels/panel_06_l5_mesh_sovereign.png",
       "palette": [
         "#0e0d0b",
         "#17150f",
@@ -138,7 +138,7 @@
     }
   ],
   "design_system": "TinCan 2.2 Zen (Sumi / Washi / Kaki)",
-  "contact_sheet": "/Users/alejandrolondono/dev/iot-federated-agent-memory/.worktrees/storyboard-panels/docs/panels/zen_storyboard_contact_sheet.png",
-  "contact_sheet_svg": "/Users/alejandrolondono/dev/iot-federated-agent-memory/.worktrees/storyboard-panels/docs/panels/zen_storyboard_contact_sheet.svg",
-  "viewer": "/Users/alejandrolondono/dev/iot-federated-agent-memory/.worktrees/storyboard-panels/docs/panels/storyboard_viewer.html"
+  "contact_sheet": "/Users/alejandrolondono/dev/iot-federated-agent-memory/docs/panels/zen_storyboard_contact_sheet.png",
+  "contact_sheet_svg": "/Users/alejandrolondono/dev/iot-federated-agent-memory/docs/panels/zen_storyboard_contact_sheet.svg",
+  "viewer": "/Users/alejandrolondono/dev/iot-federated-agent-memory/docs/panels/storyboard_viewer.html"
 }
