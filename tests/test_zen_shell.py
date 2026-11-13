@@ -25,3 +25,13 @@ def test_classic_routes_and_gate_hooks_are_kept():
     # registration still gates every tool through the classic check
     assert "requireVerifiedIdentity(what)" in html
     assert "accountSetupModal" in html
+
+
+def test_feed_has_visible_quick_launch_for_terminal():
+    html = MESH_OS_HTML_UI
+    assert html.count('id="zenQuick"') == 1
+    # every quick-launch target is a real tool window
+    for tool_id in ("win-terminal", "win-agentspace", "win-arena"):
+        assert f'data-tool="{tool_id}"' in html
+        assert f'id="{tool_id}"' in html
+    assert 'data-tool="all"' in html
