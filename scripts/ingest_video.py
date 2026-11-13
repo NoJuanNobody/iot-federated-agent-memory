@@ -5,6 +5,7 @@ Ingest TikTok / Social Videos into TinCan Self-Hosted MP4 Store & Railway S3 Buc
 Usage:
   python3 scripts/ingest_video.py --all-defaults
   python3 scripts/ingest_video.py "https://www.tiktok.com/@nojuannobody/video/7705677376465767711" --title "Walkthrough"
+  railway run python3 scripts/ingest_video.py --repair   # re-ingest playlist items stored as TikTok/Instagram page links
 """
 
 from __future__ import annotations
@@ -60,7 +61,20 @@ def main() -> int:
     parser.add_argument("--title", default=None, help="Display title")
     parser.add_argument("--creator", default="@nojuannobody", help="Creator handle")
     parser.add_argument("--category", default="instruction", help="Category (instruction, ad, spotlight)")
+    parser.add_argument("--repair", action="store_true", help="Re-ingest S3 playlist items whose embed_url is a page link, not an MP4")
     args = parser.parse_args()
+
+    if args.repair:
+        pl = RelayVideoPlaylist(sync_s3=True)
+        if not pl._s3_hydrated:
+            print("[-] Could not read playlist.json from S3; refusing to repair fallback state", file=sys.stderr)
+            return 1
+        report = pl.repair_unplayable()
+        for vid in report["repaired"]:
+            print(f"[+] Repaired: {vid} -> /videos/{vid}.mp4")
+        for f in report["failed"]:
+            print(f"[-] Still unplayable: {f['video_id']} ({f['source'][:60]}): {f['error']}", file=sys.stderr)
+        return 0 if not report["failed"] else 1
 
     if args.all_defaults or not args.url_or_id:
         ok_all = True

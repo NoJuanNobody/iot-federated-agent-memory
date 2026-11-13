@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir pynacl cryptography "webauthn==3.0.1"
+RUN pip install --no-cache-dir pynacl cryptography "webauthn==3.0.1" yt-dlp
 
 COPY . .
 

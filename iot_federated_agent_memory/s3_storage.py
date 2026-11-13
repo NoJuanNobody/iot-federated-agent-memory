@@ -8,12 +8,17 @@ import hmac
 import json
 import os
 import subprocess
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional
 
 _CACHED_CREDS: Optional[Dict[str, str]] = None
+
+
+class S3ReadError(Exception):
+    """Raised by strict reads when the bucket could not be reached or answered with an error other than 404."""
 
 
 def get_s3_credentials(bucket_alias: str = "tincan-videos") -> Optional[Dict[str, str]]:
@@ -320,10 +325,17 @@ def s3_put_json(
 def s3_get_json(
     object_key: str,
     creds: Optional[Dict[str, str]] = None,
+    strict: bool = False,
 ) -> Optional[Any]:
-    """Retrieve and deserialize a JSON document from the Railway S3 bucket."""
+    """Retrieve and deserialize a JSON document from the Railway S3 bucket.
+
+    With strict=True, None means the object does not exist (HTTP 404); any other
+    failure raises S3ReadError so callers can tell "empty" apart from "unreachable".
+    """
     resolved = creds or get_s3_credentials()
     if not resolved:
+        if strict:
+            raise S3ReadError("S3 credentials unavailable")
         return None
 
     parsed_ep = urllib.parse.urlparse(resolved["endpoint"])
@@ -345,7 +357,13 @@ def s3_get_json(
         with urllib.request.urlopen(req, timeout=15) as resp:
             raw = resp.read().decode("utf-8")
         return json.loads(raw)
-    except Exception:
+    except urllib.error.HTTPError as exc:
+        if strict and exc.code != 404:
+            raise S3ReadError(f"HTTP {exc.code} reading {clean_key}") from exc
+        return None
+    except Exception as exc:
+        if strict:
+            raise S3ReadError(f"{type(exc).__name__} reading {clean_key}: {exc}") from exc
         return None
 
 

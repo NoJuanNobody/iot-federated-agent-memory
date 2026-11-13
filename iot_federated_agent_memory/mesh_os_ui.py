@@ -5777,6 +5777,12 @@ aeonik/
 
     const relayVid = document.getElementById('relayNativeVideo');
     if (relayVid) {
+      // A source that can't load (missing file, page URL, unsupported codec) never fires 'ended',
+      // so without this the rotation would stall on it forever.
+      relayVid.addEventListener('error', () => {
+        adminAdWatchCompleted = true;  // an ad that can't play must not lock admins on it
+        if (autoRotateEnabled && playlistVideos.length > 1) setTimeout(nextPlaylistVideo, 600);
+      });
       relayVid.addEventListener('timeupdate', () => {
         if (isCurrentVideoAd() && isAdmin) {
           currentAdMaxWatchedTime = Math.max(currentAdMaxWatchedTime, relayVid.currentTime);
