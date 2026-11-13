@@ -859,7 +859,9 @@ class SingleFileSpaceVFS:
         description: Optional[str] = None,
         enable_s3_sync: bool = True,
     ):
-        self.scope = scope.lower().strip() or "user"
+        # The scope becomes a directory name below spaces/, so it must never carry
+        # path separators or '..' (that would let /api/space/* reach any file).
+        self.scope = re.sub(r"[^a-z0-9_\-]", "_", str(scope or "").lower().strip()) or "user"
         self.owner_id = str(owner_id).strip() or "default"
         clean_id = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", self.owner_id)
         self.clean_id = clean_id

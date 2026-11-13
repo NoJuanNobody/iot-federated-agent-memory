@@ -7,3 +7,4 @@ __pycache__/
 *.db
 tincan-desktop/target/
 .worktrees/
+iot_federated_agent_memory/arena_context/

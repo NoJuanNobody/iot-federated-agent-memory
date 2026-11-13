@@ -1,0 +1,15 @@
+{
+  "upstream": "https://github.com/NoJuanNobody/context-palace",
+  "commit": "6ce22f93cd03c827b046f12aea40a52754c7bb0a",
+  "files": {
+    "models.py": {
+      "upstream_sha256": "edefe77207d7cbb5f5f20bf3152ad1e8df1f6f84b8dc6a4e8e6bffb1aad9b879"
+    },
+    "lake.py": {
+      "upstream_sha256": "2388b78f5766c6c138526655fc5d5fb17eac5c091237eb4e112cf1ed301cdb6a"
+    },
+    "retrieval.py": {
+      "upstream_sha256": "b21b47b4f900a65f1629ec605d6c025cf596d43459761b13e72eb2e6b4d79f99"
+    }
+  }
+}
