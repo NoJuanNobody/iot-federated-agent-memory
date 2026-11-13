@@ -3148,6 +3148,217 @@ class CyberspaceBoardEngine:
         }
 
     # =========================================================================
+    # Unified search bar: one input with #topics, @people/@agents, is:verified,
+    # /search and /topic. Autocomplete and trending are computed from the board.
+    # =========================================================================
+
+    SUGGEST_GROUPS = (
+        ("cyberspace", "Cyberspace topics"),
+        ("agents", "AI agents"),
+        ("architecture", "Architecture"),
+        ("people", "People"),
+        ("topics", "More topics"),
+    )
+    _TOKEN_RE = re.compile(r"(?<![\w.])([#@])([A-Za-z0-9_\-]+)")
+
+    def _tag_index(self) -> Dict[str, Dict[str, Any]]:
+        """tag -> {count, categories Counter} across topics and their replies."""
+        with self._lock:
+            topics = self._load_all_topics_from_db()
+        index: Dict[str, Dict[str, Any]] = {}
+        for t in topics:
+            cat = (t.get("category") or "cyberspace").lower()
+            for tag in t.get("tags", []):
+                key = tag.lower().lstrip("#")
+                if not key:
+                    continue
+                entry = index.setdefault(key, {"count": 0, "categories": Counter()})
+                entry["count"] += 1
+                entry["categories"][cat] += 1
+        return index
+
+    def suggest(self, query: str, limit: int = 6) -> Dict[str, Any]:
+        """Autocomplete for the board's single search input.
+
+        ``query`` is the token being typed: "#arch" completes topics (tags and
+        categories), "@gem" completes AI agents and people, and a bare word
+        completes all of them. Every suggestion comes from the board's data.
+        """
+        raw = (query or "").strip()
+        sigil = raw[:1] if raw[:1] in ("#", "@") else ""
+        needle = raw[1:].lower() if sigil else raw.lower()
+        limit = max(1, min(int(limit or 6), 20))
+        groups: Dict[str, List[Dict[str, Any]]] = {k: [] for k, _ in self.SUGGEST_GROUPS}
+
+        def match(name: str) -> bool:
+            return not needle or needle in name.lower()
+
+        def rank(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            items.sort(key=lambda i: (not i["name"].lower().startswith(needle), -i.get("count", 0), i["name"]))
+            return items[:limit]
+
+        if sigil in ("", "#"):
+            tag_index = self._tag_index()
+            cat_counts = Counter()
+            with self._lock:
+                for t in self._load_all_topics_from_db():
+                    cat_counts[(t.get("category") or "cyberspace").lower()] += 1
+            seen = set()
+            for c in BOARD_CATEGORIES:
+                if match(c["id"]):
+                    item = {"token": f"#{c['id']}", "name": c["id"], "label": c["name"], "kind": "category",
+                            "count": cat_counts.get(c["id"], 0)}
+                    bucket = c["id"] if c["id"] in ("cyberspace", "architecture") else "topics"
+                    if c["id"] == "ai-agents":
+                        bucket = "agents"
+                    groups[bucket].append(item)
+                    seen.add(c["id"])
+            for tag, info in tag_index.items():
+                if tag in seen or not match(tag):
+                    continue
+                home = info["categories"].most_common(1)[0][0] if info["categories"] else "cyberspace"
+                bucket = home if home in ("cyberspace", "architecture") else ("agents" if home == "ai-agents" else "topics")
+                groups[bucket].append({"token": f"#{tag}", "name": tag, "label": f"#{tag}", "kind": "tag",
+                                       "count": info["count"]})
+        if sigil in ("", "@"):
+            roster = self.get_roster_and_profiles()
+            for ag in roster["agents"]:
+                handle = ag.get("handle", "").lstrip("@")
+                if handle and match(handle):
+                    groups["agents"].append({"token": f"@{handle}", "name": handle, "label": ag.get("display_name") or handle,
+                                             "kind": "agent", "count": 0})
+            for u in roster["users"]:
+                handle = (u.get("username") or "").lstrip("@")
+                if handle and handle.lower() not in KNOWN_AI_AGENTS and match(handle):
+                    groups["people"].append({"token": f"@{handle}", "name": handle, "label": u.get("full_name") or handle,
+                                             "kind": "user", "verified": bool(u.get("verified")),
+                                             "count": int(u.get("topics_count", 0)) + int(u.get("posts_count", 0))})
+        out = []
+        for key, title in self.SUGGEST_GROUPS:
+            items = rank(groups[key])
+            if items:
+                out.append({"group": key, "title": title, "items": items})
+        return {"query": raw, "groups": out, "count": sum(len(g["items"]) for g in out)}
+
+    def trending(self, window_days: float = 7.0, limit: int = 6, now: Optional[float] = None) -> Dict[str, Any]:
+        """Hashtags ranked by real activity: topics and replies that carry the tag
+        inside the window. Falls back to all-time counts (and says so) when the
+        window is empty. No invented numbers."""
+        now = float(now if now is not None else time.time())
+        since = now - float(window_days) * 86400.0
+        with self._lock:
+            topics = self._load_all_topics_from_db()
+
+        def tally(cutoff: float) -> Dict[str, Dict[str, int]]:
+            stats: Dict[str, Dict[str, int]] = {}
+            for t in topics:
+                topic_tags = {x.lower().lstrip("#") for x in t.get("tags", []) if x}
+                topic_new = float(t.get("created_at") or 0) >= cutoff
+                recent_posts = [p for p in t.get("posts", []) if float(p.get("created_at") or 0) >= cutoff]
+                for tag in topic_tags:
+                    if not topic_new and not recent_posts:
+                        continue
+                    st = stats.setdefault(tag, {"topics": 0, "posts": 0})
+                    if topic_new:
+                        st["topics"] += 1
+                    st["posts"] += len(recent_posts)
+            return stats
+
+        stats = tally(since)
+        window = f"{int(window_days) if float(window_days).is_integer() else window_days}d"
+        if not stats:
+            stats = tally(0.0)
+            window = "all"
+        ranked = sorted(stats.items(), key=lambda kv: (-(kv[1]["topics"] + kv[1]["posts"]), -kv[1]["topics"], kv[0]))
+        items = [{"tag": f"#{k}", "name": k, "topics": v["topics"], "posts": v["posts"],
+                  "activity": v["topics"] + v["posts"]} for k, v in ranked[: max(1, int(limit))]]
+        return {"window": window, "items": items}
+
+    @classmethod
+    def parse_unified_query(cls, query: str) -> Dict[str, Any]:
+        """Split the single input into slash command, #tags, @mentions, is:verified and free text."""
+        q = (query or "").strip()
+        command = "search"
+        m = re.match(r"^/(search|topic)\b\s*", q, re.I)
+        if m:
+            command = m.group(1).lower()
+            q = q[m.end():]
+        verified = False
+        def _verified(mo):
+            nonlocal verified
+            verified = True
+            return " "
+        q = re.sub(r"(?<!\S)is:verified(?!\S)", _verified, q, flags=re.I)
+        tags, mentions = [], []
+        for sigil, name in cls._TOKEN_RE.findall(q):
+            (tags if sigil == "#" else mentions).append(name.lower())
+        text = cls._TOKEN_RE.sub(" ", q)
+        if command == "topic":
+            # "/topic graph rag" means the topic #graph-rag; "/topic bm25" means #bm25.
+            words = [w for w in re.split(r"\s+", text.strip()) if w]
+            if words:
+                tags.append("-".join(w.lower() for w in words))
+            text = ""
+        text = re.sub(r"\s+", " ", text).strip()
+        return {
+            "command": command,
+            "tags": list(dict.fromkeys(tags)),
+            "mentions": list(dict.fromkeys(mentions)),
+            "verified_only": verified,
+            "text": text,
+        }
+
+    def unified_search(self, query: str, top_k: int = 15, sort_by: str = "hot") -> Dict[str, Any]:
+        """One query for the whole board. Hybrid (BM25 + GraphRAG) always runs
+        when there is text or a mention; #tags (or a category) and is:verified
+        narrow the results. The ranking diagnostics ride along for the
+        "how this ranked" disclosure."""
+        parsed = self.parse_unified_query(query)
+        tags, mentions = parsed["tags"], parsed["mentions"]
+        cat_ids = {c["id"] for c in BOARD_CATEGORIES}
+
+        def keep(t: Dict[str, Any]) -> bool:
+            t_tags = {x.lower().lstrip("#") for x in t.get("tags", [])}
+            cat = (t.get("category") or "").lower()
+            for tag in tags:
+                if tag not in t_tags and not (tag in cat_ids and tag == cat):
+                    return False
+            if parsed["verified_only"] and not t.get("author_verified"):
+                return False
+            return True
+
+        hybrid_query = " ".join([parsed["text"]] + [f"@{m}" for m in mentions] + [f"#{t}" for t in tags]).strip()
+        ran_hybrid = bool(parsed["text"] or mentions)
+        if ran_hybrid:
+            res = self.search(query=hybrid_query, mode="hybrid", top_k=max(top_k * 3, 30))
+            results = [r for r in res.get("results", []) if keep(r)][:top_k]
+            diagnostics = {
+                "mode": "hybrid",
+                "query": hybrid_query,
+                "weights": {"bm25": 0.55, "graphrag": 0.45},
+                "bm25": res.get("bm25_diagnostics", {}),
+                "subgraph": {
+                    "nodes": len((res.get("subgraph") or {}).get("nodes", [])),
+                    "edges": len((res.get("subgraph") or {}).get("edges", [])),
+                    "seed_entities": (res.get("subgraph") or {}).get("seed_entities", []),
+                },
+            }
+            synthesis = res.get("synthesis", "")
+        else:
+            listed = self.list_topics(sort_by=sort_by, limit=500)
+            results = [t for t in listed["topics"] if keep(t)][:top_k]
+            diagnostics = {"mode": "filter", "query": hybrid_query, "sort_by": listed.get("sort_by")}
+            synthesis = ""
+        return {
+            "query": query or "",
+            "parsed": parsed,
+            "count": len(results),
+            "results": results,
+            "synthesis": synthesis,
+            "diagnostics": diagnostics,
+        }
+
+    # =========================================================================
     # Hybrid Search: Okapi BM25 + Personalized PageRank GraphRAG + LLM Synthesis
     # =========================================================================
 

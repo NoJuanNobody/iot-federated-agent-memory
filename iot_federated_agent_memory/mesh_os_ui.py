@@ -361,6 +361,52 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       font-family: "JetBrains Mono", monospace !important;
     }
 
+    /* ==========================================================================
+       Board unified search bar (Aeonik Celadon & Ink)
+       ========================================================================== */
+    .ubar-wrap { position: relative; font-family: "JetBrains Mono", ui-monospace, monospace; }
+    .ubar-row { display: flex; gap: 0.5rem; align-items: stretch; }
+    .ubar { flex: 1; min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem; padding: 0.35rem 0.5rem 0.35rem 0.85rem;
+            background: #ffffff; border: 1px solid #111111; border-radius: 9999px; cursor: text; }
+    .ubar:focus-within { box-shadow: 0 0 0 1px #111111; }
+    .ubar-icon { color: #111111; font-size: 14px; line-height: 1; }
+    .ubar-chips { display: contents; }
+    .ubar-chip { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.05rem 0.25rem 0.05rem 0.55rem; border: 1px solid #111111;
+                 border-radius: 9999px; background: #ecf1e6; color: #111111; font-size: 11px; line-height: 1.5; }
+    .ubar-chip[data-kind="filter"] { background: #111111; color: #ecf1e6; }
+    .ubar-chip button { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 10px; padding: 0 0.2rem; border-radius: 9999px; }
+    .ubar-chip button:hover, .ubar-chip button:focus-visible { background: rgba(17,17,17,0.12); outline: none; }
+    .ubar input#boardSearchInput, .mesh-window .ubar input#boardSearchInput {
+      flex: 1; min-width: 10rem; border: 0 !important; box-shadow: none !important; background: transparent !important; padding: 0.15rem 0 !important;
+      font-size: 12px; color: #111111 !important; outline: none !important; }
+    .ubar-kbd { font-size: 10px; color: #525252; border: 1px solid rgba(17,17,17,0.25); border-radius: 6px; padding: 0 0.35rem; }
+    .mesh-window select.ubar-sort { border-radius: 9999px !important; padding: 0 0.75rem; font-size: 11px; }
+    .ubar-suggest { position: absolute; z-index: 60; left: 0; right: 0; top: 2.75rem; max-height: 320px; overflow-y: auto; padding: 0.35rem;
+                    background: #f4f8f0; border: 1px solid #111111; border-radius: 16px; box-shadow: 0 16px 40px rgba(0,0,0,0.08); }
+    .ubar-suggest.hidden { display: none; }
+    .ubar-group-title { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #525252; padding: 0.4rem 0.6rem 0.2rem; }
+    .ubar-option { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 10px;
+                   font-size: 12px; color: #111111; cursor: pointer; }
+    .ubar-option .ubar-opt-label { color: #525252; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ubar-option .ubar-opt-count { color: #525252; font-size: 10px; flex-shrink: 0; }
+    .ubar-option[aria-selected="true"], .ubar-option:hover { background: #111111; color: #ecf1e6; }
+    .ubar-option[aria-selected="true"] .ubar-opt-label, .ubar-option[aria-selected="true"] .ubar-opt-count,
+    .ubar-option:hover .ubar-opt-label, .ubar-option:hover .ubar-opt-count { color: rgba(236,241,230,0.8); }
+    .ubar-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 11px; color: #111111; }
+    .ubar-trending { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
+    .ubar-trending .ubar-trend-label { color: #525252; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; margin-right: 0.2rem; }
+    .ubar-trend { border: 1px solid #111111; border-radius: 9999px; padding: 0 0.5rem; background: transparent; color: #111111; font-size: 11px; cursor: pointer; }
+    .ubar-trend:hover, .ubar-trend:focus-visible { background: #111111; color: #ecf1e6; outline: none; }
+    .ubar-trend span { color: #525252; font-size: 10px; margin-left: 0.2rem; }
+    .ubar-trend:hover span { color: rgba(236,241,230,0.8); }
+    .ubar-rank summary, .ubar-rank-mini summary { cursor: pointer; color: #525252; font-size: 10px; text-decoration: underline; text-underline-offset: 2px; list-style: none; }
+    .ubar-rank summary::-webkit-details-marker, .ubar-rank-mini summary::-webkit-details-marker { display: none; }
+    .ubar-rank[open] { flex-basis: 100%; }
+    .ubar-rank-body, .ubar-rank-mini-body { margin-top: 0.4rem; padding: 0.6rem 0.75rem; border: 1px solid #111111; border-radius: 16px; background: #f4f8f0;
+                     font-size: 11px; color: #111111; }
+    .ubar-rank-body table { width: 100%; border-collapse: collapse; margin-top: 0.35rem; }
+    .ubar-rank-body th, .ubar-rank-body td { text-align: left; padding: 0.15rem 0.3rem; border-bottom: 1px solid rgba(17,17,17,0.12); font-size: 10px; }
+
     #accountSetupModal[data-zen-modal="true"],
     #accountSetupModal {
       backdrop-filter: blur(16px) !important;
@@ -2196,9 +2242,6 @@ aeonik/
             <button id="boardTabBtn-discussions" type="button" onclick="switchBoardTab('discussions')" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-bold text-xs transition">
               💬 Discussions &amp; Threads
             </button>
-            <button id="boardTabBtn-search" type="button" onclick="switchBoardTab('search')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition">
-              🔍 GraphRAG + BM25 IR Lab
-            </button>
             <button id="boardTabBtn-graph" type="button" onclick="switchBoardTab('graph')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition">
               🕸️ Knowledge Graph Explorer
             </button>
@@ -2231,52 +2274,40 @@ aeonik/
         <!-- TAB 1: DISCUSSIONS & THREADS -->
         <!-- =============================================================== -->
         <div id="boardTab-discussions" class="space-y-3.5">
-          <!-- Quick Hybrid Search + Category Filter + Sort Bar -->
-          <div class="p-3 bg-slate-900/90 rounded-xl border border-indigo-500/40 space-y-2.5">
-            <div class="flex flex-col sm:flex-row gap-2">
-              <input id="boardSearchInput" type="text" placeholder="Search discussions, @username, @gemini-brain, @verifier-agent, #graphrag, #bm25..." onkeydown="if(event.key==='Enter') searchCyberspaceBoard()" class="flex-1 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono text-xs focus:border-indigo-400 focus:outline-none" />
-              <select id="boardSearchMode" onchange="if(document.getElementById('boardSearchInput').value.trim()) searchCyberspaceBoard()" class="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-cyan-300 font-mono text-xs">
-                <option value="hybrid">⚡ Hybrid (GraphRAG + BM25)</option>
-                <option value="graphrag">🕸️ GraphRAG (PPR + 2-Hop)</option>
-                <option value="bm25">📚 Okapi BM25 (Lexical IR)</option>
+          <!-- Unified search bar: one input. #topics, @people/@agents, /search, /topic, is:verified. Cmd/Ctrl+K focuses it. -->
+          <div id="boardUnifiedSearch" class="ubar-wrap space-y-2">
+            <div class="ubar-row">
+              <div id="boardUnifiedBar" class="ubar" onclick="document.getElementById('boardSearchInput').focus()">
+                <span class="ubar-icon" aria-hidden="true">&#x2315;</span>
+                <div id="boardSearchChips" class="ubar-chips" aria-label="Active filters"></div>
+                <input id="boardSearchInput" type="text" autocomplete="off" spellcheck="false"
+                       role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="boardSuggestList"
+                       aria-label="Search the board"
+                       placeholder="Search or type #topic, @agent, /topic, is:verified"
+                       oninput="onBoardSearchInput(event)" onkeydown="onBoardSearchKeydown(event)" onblur="setTimeout(closeBoardSuggest, 150)" />
+                <kbd class="ubar-kbd" title="Cmd/Ctrl+K focuses search">&#x2318;K</kbd>
+              </div>
+              <select id="boardSortSelect" onchange="loadCyberspaceBoard()" class="ubar-sort" aria-label="Sort">
+                <option value="hot">Hot</option>
+                <option value="new">Newest</option>
+                <option value="top">Top</option>
+                <option value="discussed">Most discussed</option>
               </select>
-              <button type="button" onclick="searchCyberspaceBoard()" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-cyan-600 hover:brightness-110 text-white font-mono font-bold text-xs transition active:scale-95">
-                Search
-              </button>
-              <button type="button" onclick="resetCyberspaceSearch()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-xs border border-slate-700">
-                Reset
-              </button>
             </div>
-
-            <!-- Category Pills + Sort Selector -->
-            <div class="flex flex-wrap items-center justify-between gap-2 pt-1 font-mono text-[10px]">
-              <div id="boardCategoryBar" class="flex flex-wrap items-center gap-1">
-                <button type="button" onclick="setBoardCategoryFilter('')" data-cat="" class="board-cat-btn px-2 py-0.5 rounded bg-indigo-600 text-white font-bold">All Topics</button>
-                <button type="button" onclick="setBoardCategoryFilter('cyberspace')" data-cat="cyberspace" class="board-cat-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">#cyberspace</button>
-                <button type="button" onclick="setBoardCategoryFilter('ai')" data-cat="ai" class="board-cat-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">#ai-agents</button>
-                <button type="button" onclick="setBoardCategoryFilter('architecture')" data-cat="architecture" class="board-cat-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">#architecture</button>
-                <button type="button" onclick="setBoardCategoryFilter('security')" data-cat="security" class="board-cat-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">#security</button>
-                <button type="button" onclick="setBoardCategoryFilter('qa')" data-cat="qa" class="board-cat-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">#q&amp;a</button>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <label class="flex items-center gap-1 text-emerald-300 cursor-pointer">
-                  <input id="boardVerifiedOnlyToggle" type="checkbox" onchange="loadCyberspaceBoard()" class="rounded border-slate-700 bg-slate-950" />
-                  <span>✅ Verified Only</span>
-                </label>
-                <select id="boardSortSelect" onchange="loadCyberspaceBoard()" class="px-2 py-0.5 rounded bg-slate-950 border border-slate-700 text-slate-200 text-[10px]">
-                  <option value="hot">🔥 Hot / Pinned</option>
-                  <option value="new">🆕 Newest</option>
-                  <option value="top">⬆️ Top Voted</option>
-                  <option value="discussed">💬 Most Discussed</option>
-                </select>
-              </div>
+            <div id="boardSuggestList" role="listbox" class="ubar-suggest hidden"></div>
+            <div class="ubar-meta">
+              <div id="boardTrending" class="ubar-trending" aria-label="Trending topics"></div>
+              <details id="boardRankDetails" class="ubar-rank">
+                <summary>how this ranked</summary>
+                <div id="boardRankBody" class="ubar-rank-body">Search with words or an @mention to see how hybrid BM25 + GraphRAG ranked the results.</div>
+              </details>
             </div>
 
             <!-- Inline GraphRAG + BM25 Search Synthesis Box -->
             <div id="boardSynthesisBox" class="hidden p-2.5 bg-indigo-950/60 border border-indigo-500/50 rounded-lg space-y-2 font-mono text-[11px]">
               <div class="flex items-center justify-between">
                 <span class="text-[10px] uppercase tracking-wider text-cyan-300 font-bold">🧠 Hybrid GraphRAG + Okapi BM25 Synthesis</span>
-                <button type="button" onclick="switchBoardTab('search')" class="text-[10px] text-indigo-300 underline hover:text-white">Open Full IR Diagnostics ↗</button>
+                <button type="button" onclick="openBoardRankDetails()" class="text-[10px] text-indigo-300 underline hover:text-white">how this ranked</button>
               </div>
               <div id="boardSynthesisText" class="text-indigo-100 leading-relaxed"></div>
               <div id="boardSubgraphEntities" class="flex flex-wrap gap-1.5 pt-1"></div>
@@ -2344,69 +2375,6 @@ aeonik/
 
           <!-- Topics Feed & Active Thread View -->
           <div id="boardTopicsFeed" class="space-y-3"></div>
-        </div>
-
-        <!-- =============================================================== -->
-        <!-- TAB 2: GRAPHRAG + OKAPI BM25 INFORMATION RETRIEVAL LAB -->
-        <!-- =============================================================== -->
-        <div id="boardTab-search" class="hidden space-y-3.5 font-mono">
-          <div class="p-3.5 bg-slate-900/90 rounded-xl border border-indigo-500/50 space-y-3">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h3 class="text-xs font-bold text-indigo-300 uppercase tracking-wider">🔬 Hybrid GraphRAG (Personalized PageRank) + Okapi BM25 IR Workbench</h3>
-                <p class="text-[11px] text-slate-400 font-sans">Inspect lexical BM25 term IDF weights ($k_1=1.5, b=0.75$), Personalized PageRank ($\alpha=0.85$) scores, and multi-hop GraphRAG relational paths.</p>
-              </div>
-              <span class="px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700 text-[10px]">Reciprocal Rank Fusion</span>
-            </div>
-
-            <div class="flex flex-col sm:flex-row gap-2">
-              <input id="boardLabSearchInput" type="text" value="graphrag bm25 @gemini-brain @verifier-agent" placeholder="Enter query terms, @username, @agent, or #tag..." onkeydown="if(event.key==='Enter') runIrLabSearch()" class="flex-1 px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs focus:border-indigo-400 focus:outline-none" />
-              <select id="boardLabSearchMode" onchange="runIrLabSearch()" class="px-2.5 py-2 rounded-lg bg-slate-950 border border-slate-700 text-cyan-300 text-xs">
-                <option value="hybrid">⚡ Hybrid (0.52 BM25 + 0.48 GraphRAG)</option>
-                <option value="bm25">📚 Okapi BM25 Only</option>
-                <option value="graphrag">🕸️ GraphRAG PPR Only</option>
-              </select>
-              <button type="button" onclick="runIrLabSearch()" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition active:scale-95">
-                Run IR Query
-              </button>
-            </div>
-
-            <!-- BM25 Corpus & Term IDF Diagnostics -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div class="p-3 bg-slate-950/90 rounded-lg border border-emerald-800/60 space-y-2">
-                <div class="flex items-center justify-between text-[11px]">
-                  <span class="font-bold text-emerald-300">📚 Okapi BM25 Lexical Index Diagnostics</span>
-                  <span id="bm25CorpusParams" class="text-[10px] text-slate-400">k1=1.5, b=0.75</span>
-                </div>
-                <table class="w-full text-left text-[10px]">
-                  <thead class="text-slate-400 border-b border-slate-800">
-                    <tr>
-                      <th class="py-1">Query Token</th>
-                      <th class="py-1">Doc Freq (df)</th>
-                      <th class="py-1 text-right">BM25 IDF Weight</th>
-                    </tr>
-                  </thead>
-                  <tbody id="bm25TermTableBody" class="divide-y divide-slate-900 text-slate-200">
-                    <tr><td colspan="3" class="py-2 text-slate-500 text-center">Run a query above to inspect BM25 IDF weights.</td></tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div class="p-3 bg-slate-950/90 rounded-lg border border-cyan-800/60 space-y-2">
-                <div class="flex items-center justify-between text-[11px]">
-                  <span class="font-bold text-cyan-300">🕸️ GraphRAG Subgraph &amp; Seed Activation</span>
-                  <span id="graphragSubgraphStats" class="text-[10px] text-slate-400">PPR α=0.85</span>
-                </div>
-                <div id="irLabSynthesisBox" class="text-[11px] text-indigo-200 leading-relaxed bg-indigo-950/40 p-2 rounded border border-indigo-900/50">
-                  Run a query to synthesize knowledge across topics, @users, @agents, and #tags.
-                </div>
-                <div id="irLabSeedBadges" class="flex flex-wrap gap-1 pt-1"></div>
-              </div>
-            </div>
-
-            <!-- Detailed Ranked Retrieval Table -->
-            <div id="irLabResultsList" class="space-y-2 pt-1"></div>
-          </div>
         </div>
 
         <!-- =============================================================== -->
@@ -6411,7 +6379,13 @@ aeonik/
 
     function switchBoardTab(tabName) {
       activeBoardTab = tabName;
-      ['discussions', 'search', 'graph', 'verify'].forEach(t => {
+      if (tabName === 'search') {
+        // The old Search Lab now lives behind the "how this ranked" disclosure.
+        tabName = 'discussions';
+        activeBoardTab = tabName;
+        openBoardRankDetails();
+      }
+      ['discussions', 'graph', 'verify'].forEach(t => {
         const panel = document.getElementById(`boardTab-${t}`);
         const btn = document.getElementById(`boardTabBtn-${t}`);
         if (panel) panel.classList.toggle('hidden', t !== tabName);
@@ -6423,9 +6397,7 @@ aeonik/
           }
         }
       });
-      if (tabName === 'search') {
-        runIrLabSearch();
-      } else if (tabName === 'graph') {
+      if (tabName === 'graph') {
         loadAndDrawBoardGraph();
       } else if (tabName === 'verify') {
         prefillVerificationFormDefaults();
@@ -6434,16 +6406,9 @@ aeonik/
     }
 
     function setBoardCategoryFilter(cat) {
-      activeBoardCategoryFilter = cat || '';
-      document.querySelectorAll('.board-cat-btn').forEach(btn => {
-        const c = btn.getAttribute('data-cat') || '';
-        if (c === activeBoardCategoryFilter) {
-          btn.className = 'board-cat-btn px-2 py-0.5 rounded bg-indigo-600 text-white font-bold';
-        } else {
-          btn.className = 'board-cat-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300';
-        }
-      });
-      loadCyberspaceBoard();
+      // Categories are just topics in the single search bar.
+      if (!cat) { boardChips = boardChips.filter(c => !c.startsWith('#')); renderBoardChips(); loadCyberspaceBoard(); return; }
+      addBoardChip('#' + String(cat).replace(/^#/, ''));
     }
 
     function formatBoardMentions(text) {
@@ -6483,11 +6448,255 @@ aeonik/
 
     function quickSearchBoardEntity(entityToken) {
       switchBoardTab('discussions');
-      const inp = document.getElementById('boardSearchInput');
-      if (inp) {
-        inp.value = entityToken;
+      const tok = String(entityToken || '').trim();
+      if (/^[#@][A-Za-z0-9_\-]+$/.test(tok)) {
+        addBoardChip(tok);
+      } else {
+        const inp = document.getElementById('boardSearchInput');
+        if (inp) inp.value = tok;
         searchCyberspaceBoard();
       }
+    }
+
+    // ---------------------------------------------------------------------
+    // Unified board search bar: chips, slash commands, autocomplete, trending
+    // ---------------------------------------------------------------------
+    let boardChips = [];
+    let boardSuggestItems = [];
+    let boardSuggestIndex = -1;
+    let boardSuggestSeq = 0;
+    const BOARD_SLASH_COMMANDS = [
+      { token: '/search ', name: '/search', label: 'Search posts, people and agents (hybrid BM25 + GraphRAG)' },
+      { token: '/topic ', name: '/topic', label: 'Jump to a topic: /topic graphrag' },
+    ];
+    const BOARD_FILTERS = [{ token: 'is:verified', name: 'is:verified', label: 'Only posts by verified citizens' }];
+
+    function boardChipKind(tok) { return tok.startsWith('#') ? 'topic' : tok.startsWith('@') ? 'mention' : 'filter'; }
+
+    function renderBoardChips() {
+      const box = document.getElementById('boardSearchChips');
+      if (!box) return;
+      box.innerHTML = boardChips.map((c, i) =>
+        `<span class="ubar-chip" data-kind="${boardChipKind(c)}">${escapeHtml(c)}<button type="button" aria-label="Remove ${escapeHtml(c)}" onclick="event.stopPropagation(); removeBoardChip(${i})">&#x2715;</button></span>`
+      ).join('');
+    }
+
+    function addBoardChip(tok, runSearch = true) {
+      tok = String(tok || '').trim();
+      if (!tok) return;
+      if (/^is:verified$/i.test(tok)) tok = 'is:verified';
+      else tok = tok[0] + tok.slice(1).toLowerCase();
+      if (!boardChips.includes(tok)) boardChips.push(tok);
+      renderBoardChips();
+      if (runSearch) searchCyberspaceBoard();
+    }
+
+    function removeBoardChip(i) {
+      boardChips.splice(i, 1);
+      renderBoardChips();
+      if (boardChips.length || (document.getElementById('boardSearchInput')?.value || '').trim()) searchCyberspaceBoard();
+      else resetCyberspaceSearch();
+    }
+
+    function buildBoardQuery() {
+      const text = (document.getElementById('boardSearchInput')?.value || '').trim();
+      // A slash command must lead the query.
+      const m = text.match(/^\/(search|topic)\b\s*/i);
+      const cmd = m ? m[0].trim() + ' ' : '';
+      const rest = m ? text.slice(m[0].length) : text;
+      return (cmd + [...boardChips, rest].filter(Boolean).join(' ')).trim();
+    }
+
+    function boardCurrentToken(inp) {
+      const v = inp.value;
+      const caret = inp.selectionStart ?? v.length;
+      const before = v.slice(0, caret);
+      const m = before.match(/(^|\s)(\S*)$/);
+      const tok = m ? m[2] : '';
+      return { tok, start: caret - tok.length, end: caret };
+    }
+
+    function closeBoardSuggest() {
+      const list = document.getElementById('boardSuggestList');
+      const inp = document.getElementById('boardSearchInput');
+      if (list) list.classList.add('hidden');
+      if (inp) { inp.setAttribute('aria-expanded', 'false'); inp.removeAttribute('aria-activedescendant'); }
+      boardSuggestItems = [];
+      boardSuggestIndex = -1;
+    }
+
+    function renderBoardSuggest(groups) {
+      const list = document.getElementById('boardSuggestList');
+      const inp = document.getElementById('boardSearchInput');
+      if (!list) return;
+      boardSuggestItems = [];
+      let html = '';
+      groups.forEach(g => {
+        if (!g.items.length) return;
+        html += `<div class="ubar-group-title" role="presentation">${escapeHtml(g.title)}</div>`;
+        g.items.forEach(it => {
+          const idx = boardSuggestItems.length;
+          boardSuggestItems.push(it);
+          const count = it.count ? `<span class="ubar-opt-count">${Number(it.count)}</span>` : (it.verified ? '<span class="ubar-opt-count">verified</span>' : '');
+          html += `<div id="boardSuggestOpt-${idx}" role="option" aria-selected="false" class="ubar-option" onmousedown="event.preventDefault(); applyBoardSuggestion(${idx})">
+              <span>${escapeHtml(it.token.trim())}</span>
+              <span class="ubar-opt-label">${escapeHtml(it.label && it.label !== it.token ? it.label : '')}</span>${count}</div>`;
+        });
+      });
+      if (!boardSuggestItems.length) { closeBoardSuggest(); return; }
+      list.innerHTML = html;
+      list.classList.remove('hidden');
+      if (inp) inp.setAttribute('aria-expanded', 'true');
+      boardSuggestIndex = 0;
+      highlightBoardSuggestion();
+    }
+
+    function highlightBoardSuggestion() {
+      const inp = document.getElementById('boardSearchInput');
+      boardSuggestItems.forEach((_, i) => {
+        const el = document.getElementById(`boardSuggestOpt-${i}`);
+        if (!el) return;
+        const on = i === boardSuggestIndex;
+        el.setAttribute('aria-selected', on ? 'true' : 'false');
+        if (on) { el.scrollIntoView({ block: 'nearest' }); if (inp) inp.setAttribute('aria-activedescendant', el.id); }
+      });
+    }
+
+    function applyBoardSuggestion(idx) {
+      const it = boardSuggestItems[idx];
+      const inp = document.getElementById('boardSearchInput');
+      if (!it || !inp) return;
+      const { start, end } = boardCurrentToken(inp);
+      const before = inp.value.slice(0, start);
+      const after = inp.value.slice(end);
+      if (it.token.startsWith('/')) {
+        inp.value = it.token + (before + after).trim();
+        inp.setSelectionRange(inp.value.length, inp.value.length);
+        closeBoardSuggest();
+        inp.focus();
+        return;
+      }
+      inp.value = (before + after).replace(/\s+/g, ' ').trimStart();
+      closeBoardSuggest();
+      addBoardChip(it.token);
+      inp.focus();
+    }
+
+    async function onBoardSearchInput(ev) {
+      const inp = ev.target;
+      const { tok, start } = boardCurrentToken(inp);
+      const seq = ++boardSuggestSeq;
+      // Turn a finished "#tag " / "@name " / "is:verified " into a chip as soon as space is typed.
+      if (ev.data === ' ') {
+        const prev = inp.value.slice(0, inp.selectionStart - 1).match(/(^|\s)([#@][A-Za-z0-9_\-]+|is:verified)$/i);
+        if (prev) {
+          const t = prev[2];
+          inp.value = (inp.value.slice(0, inp.selectionStart - 1 - t.length) + inp.value.slice(inp.selectionStart)).replace(/\s+/g, ' ').trimStart();
+          closeBoardSuggest();
+          addBoardChip(t);
+          return;
+        }
+      }
+      if (start === 0 && tok.startsWith('/')) {
+        renderBoardSuggest([{ title: 'Commands', items: BOARD_SLASH_COMMANDS.filter(c => c.name.startsWith(tok.toLowerCase())) }]);
+        return;
+      }
+      if (tok.length >= 2 && 'is:verified'.startsWith(tok.toLowerCase())) {
+        renderBoardSuggest([{ title: 'Filters', items: BOARD_FILTERS }]);
+        return;
+      }
+      if (!(tok.startsWith('#') || tok.startsWith('@') || tok.length >= 2)) { closeBoardSuggest(); return; }
+      try {
+        const res = await fetch(`/api/board/suggest?q=${encodeURIComponent(tok)}&limit=5`);
+        if (!res.ok || seq !== boardSuggestSeq) return;
+        const data = await res.json();
+        if (seq !== boardSuggestSeq) return;
+        renderBoardSuggest(data.groups || []);
+      } catch (e) {}
+    }
+
+    function onBoardSearchKeydown(ev) {
+      const inp = ev.target;
+      const open = boardSuggestItems.length > 0;
+      if (ev.key === 'ArrowDown' && open) { ev.preventDefault(); boardSuggestIndex = (boardSuggestIndex + 1) % boardSuggestItems.length; highlightBoardSuggestion(); return; }
+      if (ev.key === 'ArrowUp' && open) { ev.preventDefault(); boardSuggestIndex = (boardSuggestIndex - 1 + boardSuggestItems.length) % boardSuggestItems.length; highlightBoardSuggestion(); return; }
+      if ((ev.key === 'Enter' || ev.key === 'Tab') && open && boardSuggestIndex >= 0) { ev.preventDefault(); applyBoardSuggestion(boardSuggestIndex); return; }
+      if (ev.key === 'Escape') { if (open) { ev.preventDefault(); closeBoardSuggest(); } else if (inp.value) { inp.value = ''; } return; }
+      if (ev.key === 'Enter') { ev.preventDefault(); closeBoardSuggest(); searchCyberspaceBoard(); return; }
+      if (ev.key === 'Backspace' && !inp.value && boardChips.length) { ev.preventDefault(); removeBoardChip(boardChips.length - 1); }
+    }
+
+    function focusBoardSearch() {
+      const win = document.getElementById('win-board');
+      if (win && (win.classList.contains('hidden') || win.classList.contains('minimized') || win.style.display === 'none')) {
+        if (typeof toggleWindow === 'function') toggleWindow('win-board');
+      }
+      if (typeof switchBoardTab === 'function' && activeBoardTab !== 'discussions') switchBoardTab('discussions');
+      const inp = document.getElementById('boardSearchInput');
+      if (inp) { inp.focus(); inp.select(); }
+    }
+
+    function boardWindowVisible() {
+      const win = document.getElementById('win-board');
+      return !!win && !win.classList.contains('hidden') && !win.classList.contains('minimized') && win.style.display !== 'none';
+    }
+
+    // Cmd/Ctrl+K focuses the board search while the board is open. Otherwise the
+    // keystroke falls through to the Zen shell launcher, which also owns Cmd/Ctrl+K.
+    window.addEventListener('keydown', (ev) => {
+      if (!((ev.metaKey || ev.ctrlKey) && !ev.altKey && !ev.shiftKey && (ev.key === 'k' || ev.key === 'K'))) return;
+      if (document.body.classList.contains('zen-launcher') || !boardWindowVisible()) return;
+      const gate = document.getElementById('accountSetupModal');
+      if (gate && !gate.classList.contains('hidden')) return;
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      focusBoardSearch();
+    }, true);
+
+    function openBoardRankDetails() {
+      const d = document.getElementById('boardRankDetails');
+      if (d) { d.open = true; d.scrollIntoView({ block: 'nearest' }); }
+    }
+
+    function renderBoardRankDiagnostics(data) {
+      const body = document.getElementById('boardRankBody');
+      if (!body) return;
+      const d = (data && data.diagnostics) || {};
+      const p = (data && data.parsed) || {};
+      const filters = [
+        ...(p.tags || []).map(t => '#' + t), ...(p.mentions || []).map(m => '@' + m), p.verified_only ? 'is:verified' : ''
+      ].filter(Boolean);
+      if (d.mode !== 'hybrid') {
+        body.innerHTML = `Filtered by ${filters.length ? escapeHtml(filters.join(' ')) : 'nothing'} and sorted by ${escapeHtml(d.sort_by || 'hot')}. Add words or an @mention to rank with hybrid BM25 + GraphRAG.`;
+        return;
+      }
+      const bm = d.bm25 || {};
+      const terms = bm.query_terms || [];
+      const rows = terms.length ? terms.map(t => `<tr><td>${escapeHtml(t.term)}</td><td>${Number(t.df || 0)} / ${Number(bm.corpus_size || 0)}</td><td>${Number(t.idf || 0).toFixed(4)}</td></tr>`).join('')
+        : '<tr><td colspan="3">No lexical terms.</td></tr>';
+      const sg = d.subgraph || {};
+      body.innerHTML = `
+        <div>Hybrid score = ${Number((d.weights || {}).bm25 || 0.55)} &times; BM25 + ${Number((d.weights || {}).graphrag || 0.45)} &times; GraphRAG (personalized PageRank, &alpha;=0.85), each normalized to the top result.</div>
+        <div>Query: <code>${escapeHtml(d.query || '')}</code>${filters.length ? ` &middot; filters ${escapeHtml(filters.join(' '))}` : ''}</div>
+        <div>BM25 corpus: N=${Number(bm.corpus_size || 0)} docs &middot; avgdl=${escapeHtml(String(bm.avg_doc_length ?? 0))} &middot; k1=${escapeHtml(String(bm.k1 ?? 1.5))} &middot; b=${escapeHtml(String(bm.b ?? 0.75))}</div>
+        <table><thead><tr><th>Term</th><th>Doc freq</th><th>IDF</th></tr></thead><tbody>${rows}</tbody></table>
+        <div style="margin-top:0.35rem">GraphRAG subgraph: ${Number(sg.nodes || 0)} nodes &middot; ${Number(sg.edges || 0)} edges${(sg.seed_entities || []).length ? ` &middot; seeds ${escapeHtml(sg.seed_entities.join(', '))}` : ''}</div>`;
+    }
+
+    async function loadBoardTrending() {
+      const box = document.getElementById('boardTrending');
+      if (!box) return;
+      try {
+        const res = await fetch('/api/board/trending?days=7&limit=6');
+        if (!res.ok) return;
+        const data = await res.json();
+        const items = data.items || [];
+        if (!items.length) { box.innerHTML = ''; return; }
+        const label = data.window === 'all' ? 'Top topics' : `Trending ${escapeHtml(data.window)}`;
+        box.innerHTML = `<span class="ubar-trend-label">${label}</span>` + items.map(it =>
+          `<button type="button" class="ubar-trend" onclick="addBoardChip('${escapeHtml(it.tag)}')" title="${Number(it.topics)} new topic(s), ${Number(it.posts)} repl${it.posts === 1 ? 'y' : 'ies'}">${escapeHtml(it.tag)}<span>${Number(it.activity)}</span></button>`
+        ).join('');
+      } catch (e) {}
     }
 
     async function loadBoardDynamicRoster() {
@@ -6787,11 +6996,11 @@ aeonik/
     async function loadCyberspaceBoard() {
       refreshBoardVerificationBadge();
       loadBoardDynamicRoster();
+      loadBoardTrending();
+      if (buildBoardQuery()) { searchCyberspaceBoard(); return; }
       try {
         const sortBy = document.getElementById('boardSortSelect')?.value || 'hot';
-        const verifiedOnly = document.getElementById('boardVerifiedOnlyToggle')?.checked ? '1' : '0';
-        const catParam = activeBoardCategoryFilter ? `&category=${encodeURIComponent(activeBoardCategoryFilter)}` : '';
-        const res = await fetch(`/api/board/topics?limit=40&sort_by=${encodeURIComponent(sortBy)}&verified_only=${verifiedOnly}${catParam}`);
+        const res = await fetch(`/api/board/topics?limit=40&sort_by=${encodeURIComponent(sortBy)}`);
         if (!res.ok) return;
         const data = await res.json();
         const gBadge = document.getElementById('boardGraphStatsBadge');
@@ -6803,45 +7012,53 @@ aeonik/
     }
 
     async function searchCyberspaceBoard() {
-      const inp = document.getElementById('boardSearchInput');
-      const modeSel = document.getElementById('boardSearchMode');
-      const q = inp ? inp.value.trim() : '';
-      const mode = modeSel ? modeSel.value : 'hybrid';
+      const q = buildBoardQuery();
       if (!q) {
         resetCyberspaceSearch();
         return;
       }
       try {
-        const res = await fetch(`/api/board/search?q=${encodeURIComponent(q)}&mode=${encodeURIComponent(mode)}&top_k=15`);
+        const sortBy = document.getElementById('boardSortSelect')?.value || 'hot';
+        // Hybrid (BM25 + GraphRAG) always runs behind the bar; there is no mode picker.
+        const res = await fetch(`/api/board/query?q=${encodeURIComponent(q)}&top_k=15&sort_by=${encodeURIComponent(sortBy)}`);
         if (!res.ok) return;
         const data = await res.json();
+        // "/topic name" and finished #tags become chips so the bar shows what is applied.
+        const parsed = data.parsed || {};
+        const inp = document.getElementById('boardSearchInput');
+        if (parsed.command === 'topic' && inp && /^\/topic\b/i.test(inp.value.trim())) {
+          inp.value = '';
+          (parsed.tags || []).forEach(t => { if (!boardChips.includes('#' + t)) boardChips.push('#' + t); });
+          if (parsed.verified_only && !boardChips.includes('is:verified')) boardChips.push('is:verified');
+          renderBoardChips();
+        }
         const synBox = document.getElementById('boardSynthesisBox');
         const synText = document.getElementById('boardSynthesisText');
         const subEntities = document.getElementById('boardSubgraphEntities');
         if (synBox && synText) {
-          synBox.classList.remove('hidden');
+          synBox.classList.toggle('hidden', !data.synthesis);
           synText.innerHTML = `<strong>${escapeHtml(data.synthesis || '')}</strong>`;
-          const nodes = (data.subgraph && data.subgraph.nodes) || [];
           if (subEntities) {
-            subEntities.innerHTML = nodes.slice(0, 14).map(n => {
-              const badgeTone = n.type === 'agent' ? 'bg-indigo-950 text-indigo-300 border-indigo-700' :
-                                n.type === 'user' ? 'bg-cyan-950 text-cyan-300 border-cyan-700' :
-                                n.type === 'tag' ? 'bg-pink-950/70 text-pink-300 border-pink-800' :
-                                'bg-slate-800 text-slate-300 border-slate-700';
-              return `<span onclick="quickSearchBoardEntity('${escapeHtml(n.label)}')" class="cursor-pointer px-1.5 py-0.5 rounded border text-[10px] ${badgeTone}">${escapeHtml(n.type)}: ${escapeHtml(n.label)} (PPR:${Number(n.ppr_score || 0).toFixed(3)})</span>`;
-            }).join('');
+            const seeds = ((data.diagnostics || {}).subgraph || {}).seed_entities || [];
+            subEntities.innerHTML = seeds.slice(0, 14).map(n =>
+              `<span onclick="quickSearchBoardEntity('${escapeHtml(n)}')" class="cursor-pointer px-1.5 py-0.5 rounded border text-[10px] bg-slate-800 text-slate-300 border-slate-700">${escapeHtml(n)}</span>`
+            ).join('');
           }
         }
-        renderCyberspaceTopics(data.results || [], true);
-        playXpChime();
+        renderBoardRankDiagnostics(data);
+        renderCyberspaceTopics(data.results || [], (data.diagnostics || {}).mode === 'hybrid');
       } catch (e) {}
     }
 
     function resetCyberspaceSearch() {
       const inp = document.getElementById('boardSearchInput');
       if (inp) inp.value = '';
+      boardChips = [];
+      renderBoardChips();
+      closeBoardSuggest();
       const synBox = document.getElementById('boardSynthesisBox');
       if (synBox) synBox.classList.add('hidden');
+      renderBoardRankDiagnostics(null);
       loadCyberspaceBoard();
     }
 
@@ -6967,20 +7184,24 @@ aeonik/
         const canModifyTopic = isAdmin || t.author_peer_id === myPeerId || (myUn && author.toLowerCase() === myUn);
 
         const scoreBadges = (t.bm25_score !== undefined || t.graphrag_score !== undefined) ? `
+          <details class="ubar-rank-mini font-mono"><summary>how this ranked</summary><div class="ubar-rank-mini-body space-y-1">
           <div class="flex flex-wrap items-center gap-1 font-mono text-[10px]">
             <span class="px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700">Hybrid: ${Number(t.score || 0).toFixed(3)}</span>
             <span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">BM25: ${Number(t.bm25_score || 0).toFixed(3)}</span>
             <span class="px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-700">GraphRAG: ${Number(t.graphrag_score || 0).toFixed(3)}</span>
           </div>
+          ${(t.matched_terms && t.matched_terms.length) ? `<div class="text-[10px]">Matched terms: ${t.matched_terms.map(x => escapeHtml(x)).join(', ')}</div>` : ''}
+          ${(t.graph_paths && t.graph_paths.length) ? `<div class="text-[10px]">Graph paths: ${t.graph_paths.map(p => escapeHtml(p)).join(' · ')}</div>` : ''}
+          </div></details>
         ` : '';
 
         const snippetHtml = t.highlighted_snippet ? `
           <div class="p-2 bg-emerald-950/30 border border-emerald-800/50 rounded text-[11px] text-slate-300 font-mono">
-            <span class="text-emerald-300 font-bold">📚 BM25 Context Match:</span> ${t.highlighted_snippet}
+            ${t.highlighted_snippet}
           </div>
         ` : '';
 
-        const graphPathsHtml = (t.graph_paths && t.graph_paths.length) ? `
+        const graphPathsHtml = false ? `
           <div class="mt-1 p-2 bg-slate-950/90 rounded border border-indigo-900/60 font-mono text-[10px] text-indigo-300">
             <span class="font-bold text-cyan-300">🕸️ GraphRAG Traversal Paths:</span> ${t.graph_paths.map(p => escapeHtml(p)).join(' · ')}
           </div>
@@ -7191,74 +7412,6 @@ aeonik/
       } catch (err) {
         alert('Reply failed: ' + err.message);
       }
-    }
-
-    // =========================================================================
-    // Tab 2: GraphRAG + Okapi BM25 IR Diagnostics Lab
-    // =========================================================================
-    async function runIrLabSearch() {
-      const q = (document.getElementById('boardLabSearchInput')?.value || '').trim();
-      const mode = document.getElementById('boardLabSearchMode')?.value || 'hybrid';
-      if (!q) return;
-      try {
-        const res = await fetch(`/api/board/search?q=${encodeURIComponent(q)}&mode=${encodeURIComponent(mode)}&top_k=12`);
-        if (!res.ok) return;
-        const data = await res.json();
-        const diag = data.bm25_diagnostics || {};
-        const paramsEl = document.getElementById('bm25CorpusParams');
-        const tbody = document.getElementById('bm25TermTableBody');
-        const synEl = document.getElementById('irLabSynthesisBox');
-        const seedsEl = document.getElementById('irLabSeedBadges');
-        const subStatsEl = document.getElementById('graphragSubgraphStats');
-        const listEl = document.getElementById('irLabResultsList');
-
-        if (paramsEl) {
-          paramsEl.innerText = `N=${diag.corpus_size || 0} docs · avgdl=${diag.avg_doc_length || 0} · k1=${diag.k1 || 1.5} · b=${diag.b || 0.75}`;
-        }
-        if (tbody) {
-          const terms = diag.query_terms || [];
-          if (!terms.length) {
-            tbody.innerHTML = '<tr><td colspan="3" class="py-2 text-slate-500 text-center">No lexical tokens parsed.</td></tr>';
-          } else {
-            tbody.innerHTML = terms.map(t => `
-              <tr>
-                <td class="py-1 text-cyan-300 font-bold">${escapeHtml(t.term)}</td>
-                <td class="py-1 text-slate-300">${Number(t.df || 0)} / ${Number(diag.corpus_size || 0)}</td>
-                <td class="py-1 text-right text-emerald-400 font-bold">${Number(t.idf || 0).toFixed(4)}</td>
-              </tr>
-            `).join('');
-          }
-        }
-        if (synEl) {
-          synEl.innerHTML = escapeHtml(data.synthesis || '');
-        }
-        const sub = data.subgraph || {};
-        if (subStatsEl) {
-          subStatsEl.innerText = `PPR α=0.85 · ${(sub.nodes || []).length} active nodes · ${(sub.edges || []).length} edges`;
-        }
-        if (seedsEl) {
-          seedsEl.innerHTML = (sub.seed_entities || []).map(s =>
-            `<span class="px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700 text-[10px]">Seed: ${escapeHtml(s)}</span>`
-          ).join('');
-        }
-        if (listEl) {
-          const results = data.results || [];
-          listEl.innerHTML = results.map((r, idx) => `
-            <div class="p-3 bg-slate-950/90 rounded-lg border border-slate-800 space-y-1.5">
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <span onclick="activeBoardTopicId='${r.topic_id}'; switchBoardTab('discussions');" class="cursor-pointer font-bold text-white hover:text-cyan-300 text-xs">#${idx + 1} · ${escapeHtml(r.title)} <span class="text-slate-400 font-normal">(@${escapeHtml((r.author_username || '').replace(/^@/, ''))})</span></span>
-                <div class="flex items-center gap-1.5 text-[10px]">
-                  <span class="px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700">Hybrid: ${Number(r.score || 0).toFixed(4)}</span>
-                  <span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">BM25: ${Number(r.bm25_score || 0).toFixed(4)} (raw ${Number(r.bm25_raw || 0).toFixed(2)})</span>
-                  <span class="px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-700">GraphRAG PPR: ${Number(r.graphrag_score || 0).toFixed(4)}</span>
-                </div>
-              </div>
-              <div class="text-[11px] text-slate-300">${r.highlighted_snippet || escapeHtml(r.body || '')}</div>
-              ${(r.graph_paths && r.graph_paths.length) ? `<div class="text-[10px] text-cyan-300">🕸️ Paths: ${r.graph_paths.map(p => escapeHtml(p)).join(' · ')}</div>` : ''}
-            </div>
-          `).join('');
-        }
-      } catch (e) {}
     }
 
     // =========================================================================

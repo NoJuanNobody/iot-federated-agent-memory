@@ -2810,6 +2810,31 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             max_hops = int(query.get("max_hops", ["2"])[0])
             res = cyberspace_board.search(query=q_str, mode=mode, top_k=top_k, max_hops=max_hops)
             self._send_json(res, 200)
+        elif parsed.path == "/api/board/query":
+            # Single search bar: #topics, @people/@agents, is:verified, /search, /topic.
+            query = parse_qs(parsed.query)
+            q_str = query.get("q", [""])[0]
+            try:
+                top_k = max(1, min(int(query.get("top_k", ["15"])[0]), 50))
+            except ValueError:
+                top_k = 15
+            sort_by = query.get("sort_by", ["hot"])[0]
+            self._send_json(cyberspace_board.unified_search(q_str, top_k=top_k, sort_by=sort_by), 200)
+        elif parsed.path == "/api/board/suggest":
+            query = parse_qs(parsed.query)
+            try:
+                limit = int(query.get("limit", ["6"])[0])
+            except ValueError:
+                limit = 6
+            self._send_json(cyberspace_board.suggest(query.get("q", [""])[0], limit=limit), 200)
+        elif parsed.path == "/api/board/trending":
+            query = parse_qs(parsed.query)
+            try:
+                days = float(query.get("days", ["7"])[0])
+                limit = int(query.get("limit", ["6"])[0])
+            except ValueError:
+                days, limit = 7.0, 6
+            self._send_json(cyberspace_board.trending(window_days=days, limit=limit), 200)
         elif parsed.path == "/api/board/graph":
             self._send_json(cyberspace_board.graphrag.get_full_graph_snapshot(), 200)
         elif parsed.path == "/api/board/graph/path":
