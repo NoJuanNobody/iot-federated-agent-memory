@@ -2267,14 +2267,6 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             else:
                 self._send_html("<h1>Aeonik Fono Mobile UI</h1>", 200)
             return
-        elif clean_path in ("/storyboard",) or clean_path.startswith("/storyboard/"):
-            sb_path = os.path.join(os.path.dirname(__file__), "docs", "panels", "storyboard_viewer.html")
-            if os.path.isfile(sb_path):
-                with open(sb_path, "r", encoding="utf-8") as f:
-                    self._send_html(f.read(), 200)
-            else:
-                self._send_html("<h1>Storyboard Viewer</h1>", 200)
-            return
         elif clean_path.startswith("/docs/") or clean_path.startswith("/assets/"):
             safe_rel = clean_path.lstrip("/").replace("..", "")
             fpath = os.path.join(os.path.dirname(__file__), safe_rel)
@@ -2846,14 +2838,6 @@ def _designs_root():
 @app.get("/mockups")
 def _mockups_root():
     return HTMLResponse(render_designs_gallery_html() if render_designs_gallery_html else "<h1>Design Mockups</h1>")
-
-@app.get("/storyboard")
-def _storyboard_root():
-    sb_path = os.path.join(os.path.dirname(__file__), "docs", "panels", "storyboard_viewer.html")
-    if os.path.isfile(sb_path):
-        with open(sb_path, "r", encoding="utf-8") as f:
-            return HTMLResponse(f.read())
-    return HTMLResponse("<h1>Storyboard Viewer</h1>")
 
 @app.get("/fono")
 def _fono_root():

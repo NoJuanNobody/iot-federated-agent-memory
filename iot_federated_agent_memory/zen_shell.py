@@ -339,7 +339,6 @@ ZEN_BODY = r"""
         { id: 'win-mockups', name: 'Design Mockups', desc: 'Updated iOS App & Car UI mockups, contact sheets, and specs', gate: 'view mockups', url: '/designs' },
         { id: 'win-ios', name: 'iOS App Simulator', desc: '9-screen native TinCan 2.2 iOS interactive simulator', gate: 'launch iOS simulator', url: '/ios' },
         { id: 'win-car', name: 'Car Head-Unit', desc: '1280x720 Sumi-Dock aftermarket dashboard UI', gate: 'launch car head-unit', url: '/car' },
-        { id: 'win-storyboard', name: 'Storyboard', desc: 'Narrative audio drama and 6-panel contact sheet', gate: 'open storyboard', url: '/storyboard' },
         { id: 'win-tv', name: 'Watch party', desc: 'The collection together, with reactions', gate: 'join a watch party' },
         { id: 'chat', name: 'Talk', desc: 'Room chat, voice and video calls', gate: 'talk in the room' },
         { id: 'win-board', name: 'Board', desc: 'Topics, threads and the knowledge graph', gate: 'open the board' },
