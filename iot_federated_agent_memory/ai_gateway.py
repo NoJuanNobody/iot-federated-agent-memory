@@ -422,13 +422,17 @@ class DynamicAIGatewayRouter:
                 continue  # dynamically registered raw model ids are listed from the catalog below
             out.append({
                 "id": alias,
-                "name": f"{cfg.display_name} ({cfg.model_alias})",
+                "name": cfg.display_name,
+                "secondary": cfg.model_alias,
                 "provider": cfg.lab_id,
                 "model": cfg.model_alias,
                 "kind": "configured",
                 "active": bool(cfg.is_active),
             })
             seen.add(alias)
+            # The alias already covers its raw model id, so the catalog copy is not listed twice.
+            if cfg.model_alias:
+                seen.add(cfg.model_alias)
         for m in self.get_available_models(force_refresh=force_refresh):
             mid = m.get("id")
             if not mid or mid in seen or mid.startswith(self._NON_CHAT_PREFIXES):
@@ -438,6 +442,7 @@ class DynamicAIGatewayRouter:
             out.append({
                 "id": mid,
                 "name": m.get("name") or mid,
+                "secondary": mid,
                 "provider": m.get("provider") or mid.split("/")[0],
                 "model": mid,
                 "kind": "catalog",
@@ -446,9 +451,11 @@ class DynamicAIGatewayRouter:
         return out
 
     def is_arena_model_allowed(self, model_id: str) -> bool:
+        """True for any listed arena model, or the raw id behind a configured alias
+        (e.g. google/gemini-2.5-flash, which the picker shows as gemini-brain)."""
         if not model_id or not isinstance(model_id, str):
             return False
-        return any(m["id"] == model_id for m in self.get_arena_models())
+        return any(model_id in (m["id"], m["model"]) for m in self.get_arena_models())
 
     def arena_default_pair(self) -> Dict[str, str]:
         ids = [m["id"] for m in self.get_arena_models()]

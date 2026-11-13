@@ -16,8 +16,13 @@ ZEN_HEAD = r"""
   <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600&family=Zen+Kaku+Gothic+New:wght@400;500&display=swap" rel="stylesheet">
   <script>
     (function () {
+      // /arena/ and /arena open the same window: drop the trailing slash before the shell reads the path.
+      if (location.pathname.length > 1 && /\/$/.test(location.pathname)) {
+        history.replaceState(null, '', location.pathname.replace(/\/+$/, '') + location.search + location.hash);
+      }
       var q = new URLSearchParams(location.search);
-      var singleRoutes = ['/tv', '/call', '/arena', '/terminal', '/billing', '/tokens', '/board', '/cyberspace'];
+      var singleRoutes = ['/tv', '/call', '/comms', '/chat', '/arena', '/terminal', '/billing', '/tokens', '/board', '/cyberspace',
+                          '/space', '/files', '/finder', '/agentspace', '/quests', '/rewards', '/network'];
       if (q.get('classic') === '1' || q.get('window') || singleRoutes.indexOf(location.pathname) !== -1) return;
       document.documentElement.classList.add('zen-boot');
     })();
@@ -56,42 +61,19 @@ ZEN_HEAD = r"""
     body.zen:not(.zen-working) #multiplayerCursorsLayer { display: none; }
     body.zen #desktopWorkspace .mesh-window { pointer-events: auto; }
 
-    /* ---------- stage: blurred backdrop, dirty wash, clip, grain ---------- */
+    /* ---------- stage: flat celadon paper with the clip framed on it ---------- */
     #zenStage { position: fixed; inset: 0; z-index: 1; overflow: hidden; background: var(--zen-sumi); }
-    #zenBackdrop {
-      position: absolute; inset: -6%; width: 112%; height: 112%;
-      filter: blur(34px) saturate(0.75) brightness(0.62);
-      transform: scale(1.08);
-      transition: opacity 900ms var(--zen-ease), filter 900ms var(--zen-ease);
-    }
-    #zenWash {
-      position: absolute; inset: -20%;
-      background:
-        radial-gradient(44% 38% at 14% 22%, rgba(150, 70, 34, 0.8), transparent 72%),
-        radial-gradient(40% 46% at 88% 76%, rgba(66, 82, 46, 0.78), transparent 70%),
-        radial-gradient(56% 32% at 74% 6%, rgba(46, 54, 92, 0.66), transparent 70%),
-        radial-gradient(32% 36% at 28% 90%, rgba(112, 84, 54, 0.6), transparent 70%),
-        radial-gradient(22% 26% at 58% 42%, rgba(128, 104, 70, 0.22), transparent 70%),
-        radial-gradient(120% 92% at 50% 50%, transparent 38%, rgba(10, 9, 8, 0.9) 100%);
-      mix-blend-mode: hard-light;
-      opacity: 0.9;
-      animation: zenDrift 70s ease-in-out infinite alternate;
-    }
-    @keyframes zenDrift {
-      0% { transform: translate3d(0, 0, 0) rotate(0deg); }
-      50% { transform: translate3d(3%, -2%, 0) rotate(4deg); }
-      100% { transform: translate3d(-2%, 3%, 0) rotate(-3deg); }
-    }
     #zenFrame {
       position: absolute; left: 50%; top: 50%;
       --zen-ar: 0.5625;
-      height: min(92dvh, calc((100vw - 2rem) / var(--zen-ar)));
+      height: min(84dvh, calc((100vw - 2rem) / var(--zen-ar)));
       aspect-ratio: var(--zen-ar);
       transform: translate(-50%, -50%);
-      border-radius: 14px;
+      border-radius: 16px;
       overflow: hidden;
-      background: #000;
-      box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.85), 0 0 0 1px var(--zen-line);
+      background: #111111;
+      border: 1px solid var(--zen-line);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08);
       transition: opacity 420ms var(--zen-ease), transform 620ms var(--zen-ease), filter 900ms var(--zen-ease);
       cursor: pointer;
     }
@@ -100,24 +82,20 @@ ZEN_HEAD = r"""
     #zenFrame.zen-enter-up { opacity: 0; transform: translate(-50%, calc(-50% + 4%)); transition: none; }
     #zenFrame.zen-enter-down { opacity: 0; transform: translate(-50%, calc(-50% - 4%)); transition: none; }
     #zenVideo { width: 100%; height: 100%; object-fit: cover; display: block; }
-    #zenGrain {
-      position: absolute; inset: -50%; width: 200%; height: 200%;
-      pointer-events: none; opacity: 0.16; mix-blend-mode: overlay;
-      animation: zenGrain 0.9s steps(6) infinite;
+    /* Clip tag: makes it obvious the framed video is a clip in the feed, not a dialog */
+    #zenClipTag {
+      position: absolute; left: 0.75rem; top: 0.75rem; z-index: 2; pointer-events: none;
+      display: inline-flex; align-items: center; gap: 0.4rem; max-width: calc(100% - 1.5rem);
+      padding: 0.2rem 0.65rem; border: 1px solid #111111; border-radius: 9999px; background: #ecf1e6; color: #111111;
+      font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; line-height: 1.4;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    @keyframes zenGrain {
-      0% { transform: translate(0, 0); } 20% { transform: translate(-3%, 2%); }
-      40% { transform: translate(2%, -4%); } 60% { transform: translate(-4%, -1%); }
-      80% { transform: translate(3%, 3%); } 100% { transform: translate(0, 0); }
-    }
-
     /* ---------- feed chrome ---------- */
     .zen-chrome { position: fixed; z-index: 30; transition: opacity 600ms var(--zen-ease), transform 600ms var(--zen-ease); }
     body.zen-working .zen-chrome.zen-feed-only,
     body.zen-launcher .zen-chrome.zen-feed-only { opacity: 0; pointer-events: none; transform: translateY(6px); }
     body.zen-working #zenFrame { opacity: 0.32; filter: blur(6px) saturate(0.6); }
-    body.zen-working #zenBackdrop { opacity: 0.55; }
-    body.zen-launcher #zenFrame { filter: blur(10px) brightness(0.72); transform: translate(-50%, -50%) scale(0.97); }
+    body.zen-launcher #zenFrame { filter: blur(10px) saturate(0.6); opacity: 0.35; transform: translate(-50%, -50%) scale(0.97); }
 
     .zen-btn {
       appearance: none; background: none; border: 0; color: inherit; cursor: pointer;
@@ -133,14 +111,13 @@ ZEN_HEAD = r"""
       display: flex; align-items: center; gap: 0.7rem;
       font-family: var(--zen-mincho); font-weight: 600; font-size: 1.05rem; letter-spacing: 0.02em;
       color: var(--zen-washi);
-      text-shadow: 0 1px 12px rgba(0, 0, 0, 0.6);
     }
     #zenMark svg { width: 30px; height: 30px; transition: transform 900ms var(--zen-ease); }
     #zenMark:hover svg { transform: rotate(-24deg); }
     #zenMark .zen-hint {
       display: none;
       font-family: var(--zen-gothic); font-weight: 400; font-size: 0.72rem; letter-spacing: 0.04em;
-      color: var(--zen-washi-3); margin-left: 0.15rem;
+      color: #4a4a4a; margin-left: 0.15rem;
       opacity: 0; transform: translateX(-4px); transition: opacity 400ms var(--zen-ease), transform 400ms var(--zen-ease);
     }
     #zenMark:hover .zen-hint, #zenMark:focus-visible .zen-hint { opacity: 1; transform: none; }
@@ -148,36 +125,36 @@ ZEN_HEAD = r"""
     #zenCaption {
       left: 1.5rem; bottom: max(1.5rem, env(safe-area-inset-bottom));
       max-width: min(30ch, 34vw);
-      text-shadow: 0 1px 14px rgba(0, 0, 0, 0.7);
     }
     #zenCaption .zen-title { font-family: var(--zen-mincho); font-weight: 500; font-size: 1.12rem; line-height: 1.35; text-wrap: balance; }
-    #zenCaption .zen-meta { margin-top: 0.4rem; font-family: var(--zen-gothic); font-size: 0.78rem; color: var(--zen-washi-2); letter-spacing: 0.03em; }
+    #zenCaption .zen-meta { margin-top: 0.4rem; font-family: var(--zen-gothic); font-size: 0.8rem; color: #4a4a4a; letter-spacing: 0.02em; }
 
     #zenActions {
       right: 1.5rem; bottom: max(1.5rem, env(safe-area-inset-bottom));
       display: flex; align-items: center; gap: 1.4rem;
       font-family: var(--zen-gothic); font-size: 0.86rem;
     }
-    #zenSound { display: flex; align-items: center; gap: 0.5rem; color: var(--zen-washi-2); }
+    #zenSound { display: flex; align-items: center; gap: 0.5rem; color: #4a4a4a; }
     #zenSound:hover { color: var(--zen-washi); }
     #zenSound svg { width: 18px; height: 18px; }
     #zenJoin {
-      color: var(--zen-washi);
-      padding: 0.55rem 1.05rem;
-      border: 1px solid rgba(236, 230, 218, 0.32);
-      border-radius: 999px;
-      background: rgba(14, 13, 11, 0.32);
-      backdrop-filter: blur(10px);
-      transition: background 300ms var(--zen-ease), border-color 300ms var(--zen-ease);
+      color: #111111;
+      padding: 0.5rem 1rem;
+      border: 1px solid #111111;
+      border-radius: 9999px;
+      background: #ecf1e6;
+      font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.8rem; font-weight: 500;
+      max-width: 16rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      transition: background 200ms var(--zen-ease), color 200ms var(--zen-ease);
     }
-    #zenJoin:hover { background: rgba(236, 230, 218, 0.12); border-color: rgba(236, 230, 218, 0.55); }
+    #zenJoin:hover, #zenJoin:focus-visible { background: #111111; color: #ecf1e6; }
 
     #zenTicks {
       right: 1.5rem; top: 50%; transform: translateY(-50%);
       display: flex; flex-direction: column; gap: 0.55rem; list-style: none; margin: 0; padding: 0;
     }
     body.zen-working #zenTicks, body.zen-launcher #zenTicks { transform: translateY(-50%); }
-    #zenTicks button { display: block; width: 2px; height: 18px; background: var(--zen-tick); border-radius: 1px; transition: background 400ms, height 400ms var(--zen-ease); }
+    #zenTicks button { display: block; width: 2px; height: 18px; background: rgba(17, 17, 17, 0.35); border-radius: 1px; transition: background 400ms, height 400ms var(--zen-ease); }
     #zenTicks button::after { content: ""; position: absolute; inset: -6px -10px; }
     #zenTicks li { position: relative; }
     #zenTicks button[aria-current="true"] { background: var(--zen-kaki); height: 30px; }
@@ -200,13 +177,13 @@ ZEN_HEAD = r"""
       flex: 1; background: transparent; border: 0; color: var(--zen-washi); caret-color: var(--zen-kaki);
       font-family: var(--zen-gothic); font-size: 0.95rem; letter-spacing: 0.02em;
     }
-    #zenSearch::placeholder { color: var(--zen-washi-3); }
+    #zenSearch::placeholder { color: #5c5c5c; }
     #zenSearch:focus { outline: none; }
-    #zenLauncher label:focus-within { border-bottom-color: rgba(236, 230, 218, 0.42); }
-    #zenLauncher kbd { font-family: var(--zen-gothic); font-size: 0.72rem; color: var(--zen-washi-3); border: 1px solid var(--zen-line); border-radius: 5px; padding: 0.1rem 0.4rem; }
+    #zenLauncher label:focus-within { border-bottom-width: 2px; }
+    #zenLauncher kbd { font-family: var(--zen-gothic); font-size: 0.72rem; color: #4a4a4a; border: 1px solid var(--zen-line); border-radius: 5px; padding: 0.1rem 0.4rem; }
     #zenTools { list-style: none; margin: 0; padding: 0; overflow-y: auto; }
     #zenTools button {
-      position: relative; width: 100%; text-align: left; display: grid; grid-template-columns: 15rem 1fr; align-items: baseline; gap: 1.25rem;
+      position: relative; width: 100%; text-align: left; display: grid; grid-template-columns: minmax(0, 19rem) minmax(0, 1fr); align-items: baseline; gap: 1.5rem;
       padding: 0.5rem 0 0.5rem 1.5rem; color: var(--zen-washi-2);
       transition: color 260ms var(--zen-ease);
     }
@@ -216,12 +193,12 @@ ZEN_HEAD = r"""
       transition: opacity 260ms var(--zen-ease), transform 420ms var(--zen-ease);
     }
     #zenTools button[aria-selected="true"]::before { opacity: 1; transform: none; }
-    #zenTools .zl-name { font-family: var(--zen-mincho); font-weight: 500; font-size: clamp(1.6rem, 3.1vw, 2.3rem); line-height: 1.15; letter-spacing: -0.01em; white-space: nowrap; }
-    #zenTools .zl-desc { font-family: var(--zen-gothic); font-size: 0.82rem; color: var(--zen-washi-3); transition: color 260ms; }
+    #zenTools .zl-name { font-family: var(--zen-mincho); font-weight: 500; font-size: clamp(1.4rem, 2.4vw, 2rem); line-height: 1.2; letter-spacing: -0.015em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    #zenTools .zl-desc { font-family: var(--zen-gothic); font-size: 0.85rem; color: #4a4a4a; line-height: 1.35; transition: color 260ms; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
     #zenTools button:hover, #zenTools button[aria-selected="true"] { color: var(--zen-washi); }
-    #zenTools button:hover .zl-desc, #zenTools button[aria-selected="true"] .zl-desc { color: var(--zen-washi-2); }
-    #zenTools .zl-empty { font-family: var(--zen-gothic); font-size: 0.85rem; color: var(--zen-washi-3); padding: 0.5rem 0; }
-    #zenLauncher .zl-foot { margin-top: 1.6rem; font-family: var(--zen-gothic); font-size: 0.74rem; color: var(--zen-washi-3); letter-spacing: 0.03em; }
+    #zenTools button:hover .zl-desc, #zenTools button[aria-selected="true"] .zl-desc { color: #111111; }
+    #zenTools .zl-empty { font-family: var(--zen-gothic); font-size: 0.85rem; color: #4a4a4a; padding: 0.5rem 0; }
+    #zenLauncher .zl-foot { margin-top: 1.6rem; font-family: var(--zen-gothic); font-size: 0.78rem; color: #4a4a4a; letter-spacing: 0.02em; }
 
     /* ---------- classic windows and the identity gate, re-dressed ---------- */
     body.zen .mesh-window {
@@ -268,7 +245,7 @@ ZEN_HEAD = r"""
     @media (hover: hover) and (pointer: fine) { #zenMark .zen-hint { display: inline; } }
 
     @media (prefers-reduced-motion: reduce) {
-      #zenWash, #zenGrain { animation: none; }
+      #zenFrame { animation: none; }
       #zenFrame, #zenLauncher, .zen-chrome, #zenTools button { transition-duration: 1ms !important; }
     }
   </style>
@@ -276,18 +253,16 @@ ZEN_HEAD = r"""
 
 ZEN_BODY = r"""
   <div id="zenStage" aria-hidden="false">
-    <canvas id="zenBackdrop" width="36" height="64" aria-hidden="true"></canvas>
-    <div id="zenWash" aria-hidden="true"></div>
     <div id="zenFrame" role="button" tabindex="-1" aria-label="Tap for sound">
+      <span id="zenClipTag" aria-hidden="true">&#9654;&#xFE0E; Clip</span>
       <video id="zenVideo" playsinline muted autoplay preload="auto"></video>
     </div>
-    <div id="zenGrain" aria-hidden="true"></div>
   </div>
 
   <button id="zenMark" class="zen-btn zen-chrome" type="button" aria-label="Open tools" aria-haspopup="dialog" aria-controls="zenLauncher">
     <svg viewBox="0 0 32 32" aria-hidden="true" fill="none">
-      <path d="M26.6 10.4A12 12 0 1 0 27.7 19" stroke="#ece6da" stroke-width="2.4" stroke-linecap="round"/>
-      <circle cx="27.6" cy="14.6" r="1.6" fill="#d0703f"/>
+      <path d="M26.6 10.4A12 12 0 1 0 27.7 19" stroke="#111111" stroke-width="2.4" stroke-linecap="round"/>
+      <circle cx="27.6" cy="14.6" r="1.6" fill="#111111"/>
     </svg>
     <span>TinCan</span>
     <span class="zen-hint">tools · ⌘K</span>
@@ -458,7 +433,8 @@ ZEN_BODY = r"""
       let zenAdWatchCompleted = false;
       let zenAdMaxWatched = 0;
 
-      const FALLBACK = [{ embed_url: '/videos/7705677376465767711.mp4', title: 'TinCan Mesh Walkthrough', creator: '@nojuannobody' }];
+      // This clip is a screen recording of the Aleploi voice app, so label it as that.
+      const FALLBACK = [{ embed_url: '/videos/7705677376465767711.mp4', title: 'Aleploi Voice demo (screen recording)', creator: '@nojuannobody' }];
 
       function playQuietly() {
         if (!video.src || body.classList.contains('zen-working')) return;
@@ -490,6 +466,7 @@ ZEN_BODY = r"""
         video.src = c.embed_url || c.cite_url;
         video.muted = !soundOn;
         $('zenTitle').textContent = c.title || '';
+        $('zenClipTag').textContent = '\u25B6\uFE0E Clip ' + (i + 1) + '/' + clips.length + (c.creator ? ' · ' + c.creator : '');
         const meta = [
           c.creator,
           isAd ? (isAdmin() ? '🛡️ Intelligence Gathering · Ad View Required' : 'Sponsored') : ''
@@ -618,33 +595,6 @@ ZEN_BODY = r"""
         show(0);
       });
 
-      // Blurred backdrop sampled from the playing clip.
-      const bd = $('zenBackdrop');
-      const bctx = bd.getContext('2d');
-      let tick = 0;
-      (function paint() {
-        requestAnimationFrame(paint);
-        if (document.hidden || (tick++ % 3)) return;
-        if (video.readyState >= 2) {
-          try { bctx.drawImage(video, 0, 0, bd.width, bd.height); } catch (e) {}
-        }
-      })();
-
-      // Grain: one small noise tile, generated once.
-      (function grain() {
-        const c = document.createElement('canvas');
-        c.width = c.height = 160;
-        const g = c.getContext('2d');
-        const img = g.createImageData(160, 160);
-        for (let p = 0; p < img.data.length; p += 4) {
-          const v = Math.random() * 255;
-          img.data[p] = img.data[p + 1] = img.data[p + 2] = v;
-          img.data[p + 3] = 255;
-        }
-        g.putImageData(img, 0, 0);
-        $('zenGrain').style.backgroundImage = `url(${c.toDataURL('image/png')})`;
-      })();
-
       // ---- Launcher ---------------------------------------------------------------
       let filtered = [];
       let sel = 0;
@@ -701,8 +651,9 @@ ZEN_BODY = r"""
       $('zenSearch').addEventListener('input', () => { sel = 0; renderTools(); });
 
       function refreshJoin() {
-        const u = localStorage.getItem('tincan_username');
+        const u = (localStorage.getItem('tincan_username') || '').trim().replace(/^@+/, '');
         $('zenJoin').textContent = verified() && u ? '@' + u : 'Join the mesh';
+        $('zenJoin').title = verified() && u ? 'Signed in as @' + u + ' · open tools' : 'Create your TinCan identity';
       }
       $('zenJoin').addEventListener('click', () => {
         if (verified()) openLauncher();

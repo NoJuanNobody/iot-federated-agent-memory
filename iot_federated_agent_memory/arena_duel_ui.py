@@ -204,7 +204,7 @@ ARENA_DUEL_SCRIPT = r"""
     const groups = {configured: 'Configured brains', catalog: 'Router catalog'};
     const optionsHtml = Object.entries(groups).map(([kind, label]) => {
       const opts = modelList.filter((m) => m.kind === kind)
-        .map((m) => '<option value="' + esc(m.id) + '">' + esc(kind === 'configured' ? m.name : m.id) + '</option>').join('');
+        .map((m) => '<option value="' + esc(m.id) + '" title="' + esc(m.secondary || m.id) + '">' + esc(m.name || m.id) + (m.secondary && m.secondary !== m.name ? ' \u00b7 ' + esc(m.secondary) : '') + '</option>').join('');
       return opts ? '<optgroup label="' + label + '">' + opts + '</optgroup>' : '';
     }).join('');
     VIEWS.forEach((q) => {

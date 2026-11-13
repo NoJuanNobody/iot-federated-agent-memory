@@ -796,6 +796,14 @@ ARENA_CONTEXT_API = ArenaContextAPI(
 
 HTML_UI = MESH_OS_HTML_UI
 
+# Paths that open the shell straight into one window (mesh_os_ui.py maps each to its window id;
+# zen_shell.py keeps the classic desktop for them). Keep the three lists in sync.
+SINGLE_WINDOW_ROUTES = frozenset({
+    "/tv", "/call", "/comms", "/chat", "/arena", "/terminal", "/billing", "/tokens",
+    "/board", "/cyberspace", "/space", "/files", "/finder", "/agentspace",
+    "/quests", "/rewards", "/network",
+})
+
 
 def _get_html_Entry(html_str: str):
     key = hashlib.sha256(html_str.encode("utf-8")).hexdigest()[:16]
@@ -2529,11 +2537,37 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         else:
             self._send_empty(404)
 
+    def _send_shell_html(self) -> None:
+        """Serve the Mesh OS shell (ETag + gzip), same as GET /."""
+        raw, gz, etag = _get_html_Entry(HTML_UI)
+        if self.headers.get("If-None-Match") == etag:
+            self.send_response(304)
+            self.send_header("ETag", etag)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        use_gzip = self._accepts_gzip()
+        body = gz if use_gzip else raw
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("ETag", etag)
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Vary", "Accept-Encoding")
+        if use_gzip:
+            self.send_header("Content-Encoding", "gzip")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self._write_body(body)
+
     def do_GET(self):
         parsed = urlparse(self.path)
         if ARENA_CONTEXT_API.handle_get(self, parsed):
             return
         clean_path = parsed.path.rstrip("/") if parsed.path != "/" else "/"
+        if clean_path in SINGLE_WINDOW_ROUTES:
+            # Single-window routes: the shell reads location.pathname and opens that window.
+            self._send_shell_html()
+            return
         if clean_path in ("/designs", "/mockups") or clean_path.startswith("/designs/") or clean_path.startswith("/mockups/"):
             if render_designs_gallery_html is not None:
                 self._send_html(render_designs_gallery_html(), 200)

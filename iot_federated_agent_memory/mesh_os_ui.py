@@ -380,7 +380,11 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       flex: 1; min-width: 10rem; border: 0 !important; box-shadow: none !important; background: transparent !important; padding: 0.15rem 0 !important;
       font-size: 12px; color: #111111 !important; outline: none !important; }
     .ubar-kbd { font-size: 10px; color: #525252; border: 1px solid rgba(17,17,17,0.25); border-radius: 6px; padding: 0 0.35rem; }
-    .mesh-window select.ubar-sort { border-radius: 9999px !important; padding: 0 0.75rem; font-size: 11px; }
+    .ubar-sortwrap { display: inline-flex; align-items: center; gap: 0.3rem; margin-left: auto; padding-left: 0.6rem; border-left: 1px solid rgba(17,17,17,0.2); white-space: nowrap; }
+    .ubar-sort-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #4a4a4a; }
+    .mesh-window select.ubar-sort, select.ubar-sort { border: 0 !important; background: transparent !important; box-shadow: none !important; color: #111111; padding: 0.1rem 0.2rem; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .mesh-window select.ubar-sort:focus-visible { outline: 1px solid #111111; outline-offset: 2px; }
+    .ubar-trend-empty { color: #4a4a4a; font-size: 11px; }
     .ubar-suggest { position: absolute; z-index: 60; left: 0; right: 0; top: 2.75rem; max-height: 320px; overflow-y: auto; padding: 0.35rem;
                     background: #f4f8f0; border: 1px solid #111111; border-radius: 16px; box-shadow: 0 16px 40px rgba(0,0,0,0.08); }
     .ubar-suggest.hidden { display: none; }
@@ -781,7 +785,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             <button onclick="copyToClipboard('curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash', this)" class="px-3 py-1 bg-black hover:bg-neutral-800 text-[#ecf1e6] rounded-full text-[11px] font-bold active:scale-95 transition">
               📋 Copy
             </button>
-            <button onclick="closeTerminalQuickStart(); simulateOneClickInstall();" class="px-3 py-1 border border-black hover:bg-black hover:text-[#ecf1e6] text-black rounded-full text-[11px] font-bold active:scale-95 transition">
+            <button onclick="closeTerminalQuickStart(); simulateOneClickInstall();" title="Copies the installer command for your computer's terminal" class="px-3 py-1 border border-black hover:bg-black hover:text-[#ecf1e6] text-black rounded-full text-[11px] font-bold active:scale-95 transition">
               ▶ Run in Terminal
             </button>
           </div>
@@ -831,20 +835,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- Window 1: Terminal & Quickstart.exe (Aeonik Celadon Industrial Layout) -->
     <!-- ===================================================================== -->
     <div id="win-terminal" class="mesh-window w-[840px] max-w-[96vw]" data-zen-window="true" data-window-id="win-terminal" style="top: 60px; left: 32px; z-index: 20;">
-      <div class="window-header flex items-center justify-between px-6 py-4 bg-[#ecf1e6] border-b border-black">
-        <div class="flex items-baseline gap-4">
-          <span id="aeonikHeaderClock" class="text-xs font-mono font-medium text-neutral-800">14:41</span>
-          <span class="text-2xl font-bold tracking-tight text-black font-sans">Terminal</span>
-          <span id="aeonikHeaderCwd" class="text-xs font-mono text-neutral-600 hidden sm:inline">| ~/projects/aeonik</span>
-        </div>
-        <div class="window-controls flex items-center gap-3 font-mono text-sm">
-          <a href="/fono" target="_blank" class="px-2 py-0.5 border border-black rounded-full text-[10px] text-black hover:bg-black hover:text-[#ecf1e6] no-underline" title="Open Aeonik Fono Mobile Controller">📱 Fono</a>
-          <button onclick="openPopoutWindow('win-terminal')" class="text-xs text-neutral-600 hover:text-black" title="Pop out into separate monitor">↗</button>
-          <button onclick="minimizeWindow('win-terminal')" class="text-neutral-600 hover:text-black">—</button>
-          <button onclick="maximizeWindow('win-terminal')" class="text-neutral-600 hover:text-black">□</button>
-          <button onclick="toggleWindow('win-terminal')" class="text-neutral-600 hover:text-black">✕</button>
-        </div>
-      </div>
+      <!--TC_TITLEBAR {"id": "win-terminal", "title": "Terminal", "meta_html": "<span id=\"aeonikHeaderClock\">--:--</span> <span id=\"aeonikHeaderCwd\" class=\"hidden sm:inline\">~/space</span>", "extra_controls_html": "<a href=\"/fono\" target=\"_blank\" class=\"tc-ctl\" title=\"Open the Fono mobile controller\">Fono</a>"}-->
       <div class="window-body p-0 grid grid-cols-1 md:grid-cols-2 font-mono text-xs border-b border-black max-h-[640px] overflow-y-auto bg-[#ecf1e6]">
         <!-- Quadrant 1: SHELL -->
         <div class="p-5 border-b md:border-b-0 md:border-r border-black flex flex-col justify-between space-y-4">
@@ -856,20 +847,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                 <span id="termShellStatusPill" class="px-2 py-0.5 border border-black rounded-full text-[9px] font-semibold uppercase">Ready</span>
               </div>
             </div>
-            <div id="termShellTranscript" class="space-y-1.5 text-neutral-900 leading-relaxed text-[11px] max-h-[190px] overflow-y-auto pr-1">
-              <p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> git status</p>
-              <p class="text-neutral-700">On branch main<br>Your branch is up to date with 'origin/main'.</p>
-              <p class="text-neutral-600 pt-1">Changes not staged for commit:</p>
-              <p class="text-neutral-600 pl-2">
-                M &nbsp;src/terminal/theme.toml<br>
-                M &nbsp;src/terminal/palette.rs<br>
-                ?? assets/terminal-preview.png
-              </p>
+            <div id="termShellTranscript" class="space-y-1.5 text-neutral-900 leading-relaxed text-[11px] max-h-[190px] overflow-y-auto pr-1" aria-live="polite">
+              <p class="text-neutral-700">Commands run against your own .space: <b>ls</b> [dir], <b>cat</b> file, <b>tree</b>, <b>run</b> [file], <b>py</b> code, <b>runs</b>, <b>drive</b>, <b>status</b>, <b>ask</b> question, <b>help</b>.</p>
             </div>
             <!-- Interactive Shell Input Prompt -->
             <div class="pt-2 flex items-center gap-1.5 text-[11px]">
-              <span class="font-semibold text-black shrink-0">aeonik@studio:~/projects/aeonik$</span>
-              <input id="aeonikShellInput" type="text" placeholder="type command (git status, cargo build, tincan status, ask ...)" onkeydown="if(event.key==='Enter') execAeonikShellCommand()" class="flex-1 bg-transparent border-b border-black text-black text-[11px] px-1 py-0.5 focus:outline-none" />
+              <span id="termPromptLabel" class="font-semibold text-black shrink-0">you@tincan:~/space$</span>
+              <input id="aeonikShellInput" type="text" placeholder="ls, cat /src/main.py, run, py print(1), ask …" onkeydown="if(event.key==='Enter') execAeonikShellCommand()" class="flex-1 bg-transparent border-b border-black text-black text-[11px] px-1 py-0.5 focus:outline-none" />
               <button onclick="execAeonikShellCommand()" class="px-2 py-0.5 bg-black text-[#ecf1e6] rounded text-[9px] font-bold">RUN</button>
             </div>
           </div>
@@ -891,7 +875,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             </div>
             <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
               <button onclick="simulateOneClickInstall()" class="px-2.5 py-1 bg-black text-[#ecf1e6] rounded-full text-[10px] font-semibold hover:opacity-85 active:scale-95 transition">
-                ▶ 1-Click Run in Terminal
+                Copy install command
               </button>
               <a href="/install.command" download="Install-TinCan.command" class="px-2.5 py-1 border border-black text-black rounded-full text-[10px] font-semibold hover:bg-black hover:text-[#ecf1e6] active:scale-95 transition no-underline">
                 ⬇ macOS .command
@@ -908,143 +892,65 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- Quadrant 2: SYSTEM -->
-        <div class="p-5 flex flex-col justify-between space-y-3">
+        <!-- Quadrant 2: SPACE (live stats for your .space VFS and the drive mirror) -->
+        <div class="p-5 flex flex-col justify-between space-y-3 min-w-0">
           <div>
-            <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black flex items-center justify-between">
-              <span>SYSTEM</span>
-              <button onclick="refreshAeonikSystemTelemetry()" class="px-2 py-0.5 border border-black rounded-full text-[9px] font-semibold hover:bg-black hover:text-[#ecf1e6] transition">↻ Live Telemetry</button>
+            <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black flex items-center justify-between gap-2">
+              <span class="tc-truncate">SPACE <span id="termSpaceOwner" class="font-normal normal-case tracking-normal text-neutral-600"></span></span>
+              <button onclick="refreshTerminalSpace()" class="px-2 py-0.5 border border-black rounded-full text-[9px] font-semibold hover:bg-black hover:text-[#ecf1e6] transition shrink-0">↻ Refresh</button>
             </div>
             <div class="grid grid-cols-4 gap-2 pb-3 border-b border-black text-center">
-              <div class="cursor-pointer" onclick="refreshAeonikSystemTelemetry()">
-                <div class="text-[10px] text-neutral-600">CPU</div>
-                <div id="aeonikSysCpu" class="text-base font-bold text-black">12%</div>
-              </div>
-              <div class="cursor-pointer" onclick="refreshAeonikSystemTelemetry()">
-                <div class="text-[10px] text-neutral-600">MEM</div>
-                <div id="aeonikSysMem" class="text-base font-bold text-black">4.6G<span class="text-[9px] text-neutral-500 font-normal">/16G</span></div>
-              </div>
-              <div class="cursor-pointer" onclick="refreshAeonikSystemTelemetry()">
-                <div class="text-[10px] text-neutral-600">DISK</div>
-                <div id="aeonikSysDisk" class="text-base font-bold text-black">38%</div>
-              </div>
-              <div class="cursor-pointer" onclick="refreshAeonikSystemTelemetry()">
-                <div class="text-[10px] text-neutral-600">UPTIME</div>
-                <div id="aeonikSysUptime" class="text-base font-bold text-black">3d 6h</div>
-              </div>
+              <div><div class="text-[10px] text-neutral-600">FILES</div><div id="termStatFiles" class="text-base font-bold text-black">–</div></div>
+              <div><div class="text-[10px] text-neutral-600">SIZE</div><div id="termStatSize" class="text-base font-bold text-black">–</div></div>
+              <div><div class="text-[10px] text-neutral-600">RUNS</div><div id="termStatRuns" class="text-base font-bold text-black">–</div></div>
+              <div><div class="text-[10px] text-neutral-600">DRIVE</div><div id="termStatDrive" class="text-base font-bold text-black">–</div></div>
             </div>
-            <!-- Sparkline matching Mockup 1 -->
-            <div id="aeonikSparkline" onclick="refreshAeonikSystemTelemetry()" title="Click to sample live mesh telemetry" class="py-2.5 border-b border-black text-center tracking-tighter text-[9px] select-none text-neutral-800 font-mono cursor-pointer">
-              | |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| |
-            </div>
-            <!-- Process Table matching Mockup 1 -->
+            <div id="termSpaceNote" class="py-2 border-b border-black text-[10px] text-neutral-700 font-mono tc-truncate">Loading your space…</div>
+            <!-- Recent runs from the space's exec_runs table -->
             <div class="pt-2 text-[11px] space-y-1">
-              <div class="flex justify-between font-bold text-neutral-600 pb-1">
-                <span class="w-12 cursor-pointer hover:text-black" onclick="sortAeonikProcs('pid')">PID</span>
-                <span class="w-12 cursor-pointer hover:text-black" onclick="sortAeonikProcs('cpu')">CPU%</span>
-                <span class="w-12 cursor-pointer hover:text-black" onclick="sortAeonikProcs('mem')">MEM%</span>
-                <span class="flex-1 text-right cursor-pointer hover:text-black" onclick="sortAeonikProcs('cmd')">COMMAND</span>
+              <div class="grid grid-cols-[1fr_4rem_3.5rem_4rem] gap-2 font-bold text-neutral-600 pb-1">
+                <span>ENTRYPOINT</span><span>RUNTIME</span><span class="text-right">EXIT</span><span class="text-right">MS</span>
               </div>
-              <div id="aeonikProcTable" class="space-y-1">
-                <div class="flex justify-between text-neutral-800 hover:bg-black/5 px-1 rounded cursor-pointer" onclick="inspectAeonikProcess('4821', 'code')">
-                  <span class="w-12">4821</span>
-                  <span class="w-12">3.1</span>
-                  <span class="w-12">5.2</span>
-                  <span class="flex-1 text-right">code</span>
-                </div>
-                <div class="flex justify-between text-neutral-800 hover:bg-black/5 px-1 rounded cursor-pointer" onclick="inspectAeonikProcess('3970', 'zellij')">
-                  <span class="w-12">3970</span>
-                  <span class="w-12">1.8</span>
-                  <span class="w-12">2.9</span>
-                  <span class="flex-1 text-right">zellij</span>
-                </div>
-                <div class="flex justify-between text-neutral-800 hover:bg-black/5 px-1 rounded cursor-pointer" onclick="inspectAeonikProcess('5154', 'cargo')">
-                  <span class="w-12">5154</span>
-                  <span class="w-12">1.2</span>
-                  <span class="w-12">1.9</span>
-                  <span class="flex-1 text-right">cargo</span>
-                </div>
-                <div class="flex justify-between text-neutral-800 hover:bg-black/5 px-1 rounded cursor-pointer" onclick="inspectAeonikProcess('2261', 'postgres')">
-                  <span class="w-12">2261</span>
-                  <span class="w-12">0.6</span>
-                  <span class="w-12">1.4</span>
-                  <span class="flex-1 text-right">postgres</span>
-                </div>
-                <div class="flex justify-between text-neutral-800 hover:bg-black/5 px-1 rounded cursor-pointer" onclick="inspectAeonikProcess('1104', 'systemd')">
-                  <span class="w-12">1104</span>
-                  <span class="w-12">0.3</span>
-                  <span class="w-12">0.8</span>
-                  <span class="flex-1 text-right">systemd</span>
-                </div>
-              </div>
+              <div id="termRunsTable" class="space-y-1"></div>
             </div>
           </div>
         </div>
 
-        <!-- Quadrant 3: TREE -->
-        <div class="p-5 border-t md:border-t-0 md:border-r border-black">
-          <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black flex items-center justify-between">
-            <span>TREE ~/projects/aeonik</span>
-            <span class="text-[9px] font-normal text-neutral-600">Click file to inspect</span>
+        <!-- Quadrant 3: TREE (your .space files, plus the drive mirror when TinCan runs on this computer) -->
+        <div class="p-5 border-t md:border-t-0 md:border-r border-black min-w-0 flex flex-col">
+          <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black flex items-center justify-between gap-2">
+            <span id="termTreeTitle" class="tc-truncate">TREE ~/space</span>
+            <span class="text-[9px] font-normal text-neutral-600 shrink-0">Click a file to open it</span>
           </div>
-          <pre class="text-[11px] text-neutral-800 leading-tight">
-aeonik/
-├── <span class="cursor-pointer hover:underline font-semibold" onclick="inspectAeonikFile('Cargo.toml')">Cargo.toml</span>
-├── <span class="cursor-pointer hover:underline font-semibold" onclick="inspectAeonikFile('README.md')">README.md</span>
-├── src/
-│   ├── terminal/
-│   │   ├── <span class="cursor-pointer hover:underline" onclick="inspectAeonikFile('src/terminal/mod.rs')">mod.rs</span>
-│   │   ├── <span class="cursor-pointer hover:underline font-semibold" onclick="inspectAeonikFile('src/terminal/theme.toml')">theme.toml</span>
-│   │   ├── <span class="cursor-pointer hover:underline font-semibold" onclick="inspectAeonikFile('src/terminal/palette.rs')">palette.rs</span>
-│   │   └── <span class="cursor-pointer hover:underline" onclick="inspectAeonikFile('src/terminal/renderer.rs')">renderer.rs</span>
-│   └── <span class="cursor-pointer hover:underline" onclick="inspectAeonikFile('src/lib.rs')">lib.rs</span>
-├── assets/
-│   └── <span class="cursor-pointer hover:underline" onclick="inspectAeonikFile('assets/terminal-preview.png')">terminal-preview.png</span>
-└── tests/
-    └── <span class="cursor-pointer hover:underline" onclick="inspectAeonikFile('tests/theme.rs')">theme.rs</span></pre>
-          <div id="aeonikTreeSummary" class="pt-3 text-[10px] text-neutral-500">8 directories, 9 files</div>
+          <div id="termTree" class="text-[11px] text-neutral-800 leading-snug max-h-[260px] overflow-y-auto pr-1 pb-2" role="tree" aria-label="Space files"></div>
+          <div id="termDriveTree" class="text-[11px] text-neutral-800 leading-snug max-h-[160px] overflow-y-auto pr-1 pb-2 mt-2 pt-2 border-t border-black hidden" aria-label="Drive mirror"></div>
+          <div id="aeonikTreeSummary" class="pt-2 text-[10px] text-neutral-600"></div>
         </div>
 
-        <!-- Quadrant 4: RECENT -->
-        <div class="p-5 border-t border-black space-y-2 text-[11px]">
-          <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black flex items-center justify-between">
+        <!-- Quadrant 4: RECENT (real runs and file views from your space) -->
+        <div class="p-5 border-t border-black space-y-2 text-[11px] min-w-0">
+          <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black flex items-center justify-between gap-2">
             <span>RECENT</span>
             <div class="flex items-center gap-1">
-              <button onclick="runAeonikRecentAction('build')" class="px-2 py-0.5 bg-black text-[#ecf1e6] rounded-full text-[9px] font-semibold hover:opacity-85">▶ cargo build</button>
-              <button onclick="runAeonikRecentAction('test')" class="px-2 py-0.5 border border-black text-black rounded-full text-[9px] font-semibold hover:bg-black hover:text-[#ecf1e6]">▶ cargo test</button>
+              <button onclick="runAeonikRecentAction('run')" class="px-2 py-0.5 bg-black text-[#ecf1e6] rounded-full text-[9px] font-semibold hover:opacity-85">▶ run /src/main.py</button>
+              <button onclick="runAeonikRecentAction('runs')" class="px-2 py-0.5 border border-black text-black rounded-full text-[9px] font-semibold hover:bg-black hover:text-[#ecf1e6]">↻ last runs</button>
             </div>
           </div>
-          <div id="aeonikRecentOutput" class="space-y-2">
-            <p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> cargo build</p>
-            <p class="text-neutral-600 pl-2">
-              Compiling aeonik-terminal v0.2.0 (/projects/aeonik)<br>
-              Finished dev [unoptimized + debuginfo] target(s) in 4.23s
-            </p>
-            <p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> ls -la target/debug/</p>
-            <p class="text-neutral-600 pl-2 text-[10px]">
-              total 72K<br>
-              drwxr-xr-x 6 aeonik staff 4.0K Jan 24 14:37 .<br>
-              drwxr-xr-x 3 aeonik staff 4.0K Jan 24 14:02 ..<br>
-              -rwxr-xr-x 1 aeonik staff 56K Jan 24 14:37 aeonik-terminal
-            </p>
-            <p class="pt-1">
-              <span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> <span class="inline-block w-2.5 h-4 bg-black align-middle animate-pulse"></span>
-            </p>
-          </div>
+          <div id="aeonikRecentOutput" class="space-y-2 max-h-[260px] overflow-y-auto pr-1"></div>
         </div>
       </div>
 
       <!-- Bottom Status Bar matching Mockup 1 -->
       <div class="px-6 py-2.5 bg-[#ecf1e6] flex items-center justify-between font-mono text-xs text-neutral-800 border-t border-black">
         <div class="flex items-center gap-3">
-          <span id="aeonikGitBranch">⚲ main ↑1 ↓0</span>
+          <span id="aeonikGitBranch" title="Merkle root of your .space">merkle –</span>
           <span>|</span>
-          <span id="aeonikStatusCwd">~/projects/aeonik</span>
+          <span id="aeonikStatusCwd">~/space</span>
         </div>
         <div class="flex items-center gap-4 text-neutral-600">
-          <span>zsh</span>
+          <span id="termStatusScope">user scope</span>
           <span>|</span>
-          <span>120×34</span>
+          <span id="termStatusDrive">drive: –</span>
           <span>|</span>
           <span>UTF-8</span>
         </div>
@@ -1055,18 +961,7 @@ aeonik/
     <!-- Window 2: Relay TV Watch Party.app (Baked-in Ads & Memes) -->
     <!-- ===================================================================== -->
     <div id="win-tv" class="mesh-window w-[520px]" data-zen-window="true" data-window-id="win-tv" style="top: 72px; right: 24px; z-index: 21;">
-      <div class="window-header flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-slate-800">
-        <div class="flex items-center gap-2">
-          <span class="text-base">📺</span>
-          <span class="text-xs font-bold text-white font-mono">Watch Party TV (Ads &amp; Memes).app</span>
-          <span class="px-1.5 py-0.2 rounded-full bg-pink-500/20 text-pink-300 text-[9px] font-mono border border-pink-500/40 font-bold">ADS &amp; MEMES</span>
-        </div>
-        <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
-          <button onclick="openPopoutWindow('win-tv')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
-          <button onclick="minimizeWindow('win-tv')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
-          <button onclick="maximizeWindow('win-tv')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">□</button>
-        </div>
-      </div>
+      <!--TC_TITLEBAR {"id": "win-tv", "icon": "📺", "title": "Watch Party", "badge": "Ads & memes"}-->
       <div id="tv" class="window-body p-4 space-y-3 max-h-[620px] overflow-y-auto">
         <div class="w-full flex items-center justify-between">
           <div>
@@ -1156,18 +1051,7 @@ aeonik/
     <!-- Window 3: AI Brain Router & Model Arena.app -->
     <!-- ===================================================================== -->
     <div id="win-arena" class="mesh-window w-[560px]" data-zen-window="true" data-window-id="win-arena" style="top: 720px; left: 24px; z-index: 22;">
-      <div class="window-header flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-slate-800">
-        <div class="flex items-center gap-2">
-          <span class="text-base">🧠</span>
-          <span class="text-xs font-bold text-white font-mono">AI Brain Router &amp; Arena.app</span>
-          <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
-        </div>
-        <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
-          <button onclick="openPopoutWindow('win-arena')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
-          <button onclick="minimizeWindow('win-arena')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
-          <button onclick="maximizeWindow('win-arena')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">□</button>
-        </div>
-      </div>
+      <!--TC_TITLEBAR {"id": "win-arena", "icon": "🧠", "title": "AI Brain Router & Arena"}-->
       <div class="window-body p-4 space-y-4 max-h-[620px] overflow-y-auto">
         <!-- Two-brain duel with per-brain context (arena_duel_ui.py) -->
         <!--ARENA_DUEL:arenaWin-->
@@ -1184,26 +1068,32 @@ aeonik/
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-2 text-xs font-mono">
-          <div class="p-2.5 bg-slate-950/80 border border-slate-800 rounded-lg">
-            <div class="text-slate-400 text-[10px]">OpenRouter Remaining Balance</div>
-            <div id="orRemaining" class="text-base font-bold text-emerald-400 mt-0.5">--</div>
-            <div id="orCreditsTotal" class="text-[10px] text-slate-500">of -- credits</div>
+        <!-- Shown instead of four "--" tiles when the server has no OpenRouter billing connection -->
+        <div id="orDashEmpty" class="tc-empty hidden" role="status">
+          <strong>OpenRouter billing is not connected on this server.</strong>
+          <span id="orDashEmptyReason">Balance, lifetime spend and key usage appear here once an OpenRouter key is configured for the relay.</span>
+          Calls, tokens and cost routed through TinCan are still counted above.
+        </div>
+        <div id="orStatGrid" class="grid grid-cols-2 gap-2 text-xs">
+          <div class="tc-stat p-2.5 border rounded-lg">
+            <div class="tc-stat__label">Remaining balance</div>
+            <div id="orRemaining" class="tc-stat__value">--</div>
+            <div id="orCreditsTotal" class="tc-stat__sub">of -- credits</div>
           </div>
-          <div class="p-2.5 bg-slate-950/80 border border-slate-800 rounded-lg">
-            <div class="text-slate-400 text-[10px]">Total Lifetime Spend</div>
-            <div id="orTotalUsage" class="text-base font-bold text-amber-400 mt-0.5">--</div>
-            <div class="text-[10px] text-slate-500">Account aggregate</div>
+          <div class="tc-stat p-2.5 border rounded-lg">
+            <div class="tc-stat__label">Lifetime spend</div>
+            <div id="orTotalUsage" class="tc-stat__value">--</div>
+            <div class="tc-stat__sub">Account aggregate</div>
           </div>
-          <div class="p-2.5 bg-slate-950/80 border border-slate-800 rounded-lg">
-            <div class="text-slate-400 text-[10px]">Active Key Usage</div>
-            <div id="orKeyUsage" class="text-base font-bold text-cyan-400 mt-0.5">--</div>
-            <div id="orKeyToday" class="text-[10px] text-slate-500">Today: --</div>
+          <div class="tc-stat p-2.5 border rounded-lg">
+            <div class="tc-stat__label">Active key usage</div>
+            <div id="orKeyUsage" class="tc-stat__value">--</div>
+            <div id="orKeyToday" class="tc-stat__sub">Today: --</div>
           </div>
-          <div class="p-2.5 bg-slate-950/80 border border-slate-800 rounded-lg">
-            <div class="text-slate-400 text-[10px]">Key Budget Cap</div>
-            <div id="orKeyLimitRem" class="text-base font-bold text-indigo-400 mt-0.5">--</div>
-            <div id="orKeyLabel" class="text-[10px] text-slate-500 truncate">Key: --</div>
+          <div class="tc-stat p-2.5 border rounded-lg">
+            <div class="tc-stat__label">Key budget cap</div>
+            <div id="orKeyLimitRem" class="tc-stat__value">--</div>
+            <div id="orKeyLabel" class="tc-stat__sub truncate">Key: --</div>
           </div>
         </div>
 
@@ -1226,22 +1116,22 @@ aeonik/
               Active: gemini-brain → google/gemini-2.5-flash
             </span>
           </div>
-          <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
-            <div>
-              <label class="block text-slate-400 mb-1 text-[11px]">Target Alias</label>
-              <select id="aliasSelect" onchange="syncSelectedAliasModel(true)" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono">
+          <div class="tc-swap-grid grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 text-xs items-end">
+            <div class="min-w-0">
+              <label for="aliasSelect" class="block text-slate-400 mb-1 text-[11px]">Target alias</label>
+              <select id="aliasSelect" onchange="syncSelectedAliasModel(true); this.title = this.options[this.selectedIndex]?.text || ''" class="tc-truncate w-full min-w-0 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono">
                 <option value="gemini-brain">gemini-brain → google/gemini-2.5-flash</option>
                 <option value="claude-brain">claude-brain → anthropic/claude-sonnet-5.5</option>
                 <option value="grok-brain">grok-brain → x-ai/grok-4.7</option>
                 <option value="openai-brain">openai-brain → openai/gpt-4o</option>
               </select>
             </div>
-            <div class="sm:col-span-2">
-              <label class="block text-slate-400 mb-1 text-[11px]">OpenRouter Model ID</label>
+            <div class="min-w-0">
+              <label for="modelInput" class="block text-slate-400 mb-1 text-[11px]">OpenRouter model ID</label>
               <input type="text" id="modelInput" placeholder="e.g. meta-llama/llama-3.3-70b-instruct" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono placeholder:text-slate-600">
             </div>
             <div class="flex items-end">
-              <button onclick="updateModel()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded px-2.5 py-1.5 transition active:scale-95 text-xs">
+              <button onclick="updateModel()" class="tc-btn w-full whitespace-nowrap bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded px-2.5 py-1.5 transition active:scale-95 text-xs">
                 Update Model
               </button>
             </div>
@@ -1264,19 +1154,7 @@ aeonik/
     <!-- Window 4A: WebRTC Video & Voice Studio.app -->
     <!-- ===================================================================== -->
     <div id="win-call" class="mesh-window w-[540px]" data-zen-window="true" data-window-id="win-call" style="top: 720px; right: 24px; z-index: 23;">
-      <div class="window-header flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-slate-800">
-        <div class="flex items-center gap-2">
-          <span class="text-base">📹</span>
-          <span class="text-xs font-bold text-white font-mono">WebRTC Video Studio.app</span>
-          <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
-        </div>
-        <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
-          <button onclick="openPopoutWindow('win-call')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
-          <button onclick="minimizeWindow('win-call')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
-          <button onclick="maximizeWindow('win-call')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">□</button>
-          <button onclick="toggleWindow('win-call')" class="px-1.5 py-0.5 rounded bg-red-950/80 hover:bg-red-800 text-red-300 text-[11px]">✕</button>
-        </div>
-      </div>
+      <!--TC_TITLEBAR {"id": "win-call", "icon": "📹", "title": "WebRTC Video Studio"}-->
       <div id="call" class="window-body p-4 space-y-3 max-h-[620px] overflow-y-auto">
         <div class="flex flex-wrap justify-between items-center gap-2">
           <div>
@@ -1352,19 +1230,7 @@ aeonik/
     <!-- Window 4B: Encrypted Mesh Chat & Comms.app (Separated from Video) -->
     <!-- ===================================================================== -->
     <div id="win-comms" class="mesh-window w-[480px]" data-zen-window="true" data-window-id="win-comms" style="top: 720px; left: 620px; z-index: 23;">
-      <div class="window-header flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-cyan-900/50">
-        <div class="flex items-center gap-2">
-          <span class="text-base">💬</span>
-          <span class="text-xs font-bold text-cyan-300 font-mono">Encrypted Mesh Chat &amp; Comms.app</span>
-          <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
-        </div>
-        <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
-          <button onclick="openPopoutWindow('win-comms')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
-          <button onclick="minimizeWindow('win-comms')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
-          <button onclick="maximizeWindow('win-comms')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">□</button>
-          <button onclick="toggleWindow('win-comms')" class="px-1.5 py-0.5 rounded bg-red-950/80 hover:bg-red-800 text-red-300 text-[11px]">✕</button>
-        </div>
-      </div>
+      <!--TC_TITLEBAR {"id": "win-comms", "icon": "💬", "title": "Encrypted Mesh Chat"}-->
       <div class="window-body p-4 space-y-3 max-h-[620px] overflow-y-auto">
         <div class="flex items-center justify-between">
           <div>
@@ -1406,19 +1272,7 @@ aeonik/
     <!-- Window 5: Rewards, Arena & Operator Leaderboard.app -->
     <!-- ===================================================================== -->
     <div id="win-quests" class="mesh-window w-[1100px] max-w-full" data-zen-window="true" data-window-id="win-quests" style="top: 1380px; left: 24px; z-index: 24;">
-      <div class="window-header flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-slate-800">
-        <div class="flex items-center gap-2">
-          <span class="text-base">🪙</span>
-          <span class="text-xs font-bold text-amber-300 font-mono">Rewards &amp; Token Minting Program.app</span>
-          <span class="w-2 h-2 rounded-full bg-amber-400"></span>
-        </div>
-        <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
-          <button onclick="openPopoutWindow('win-quests')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
-          <button onclick="minimizeWindow('win-quests')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
-          <button onclick="maximizeWindow('win-quests')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">□</button>
-          <button onclick="toggleWindow('win-quests')" class="px-1.5 py-0.5 rounded bg-red-950/80 hover:bg-red-800 text-red-300 text-[11px]">✕</button>
-        </div>
-      </div>
+      <!--TC_TITLEBAR {"id": "win-quests", "icon": "🪙", "title": "Quests · Rewards & Token Minting"}-->
       <div class="window-body p-4 space-y-6 max-h-[750px] overflow-y-auto">
 
         <!-- Top Section: Utility Token Minting Ledger & Proof-of-Uptime Program -->
@@ -1577,19 +1431,7 @@ aeonik/
     <!-- Window 6: Admin Moderator Control Panel -->
     <!-- ===================================================================== -->
     <div id="win-moderator" class="mesh-window w-[680px] hidden" data-zen-window="true" data-window-id="win-moderator" style="top: 84px; left: 180px; z-index: 25;">
-      <div class="window-header flex items-center justify-between px-3 py-2 bg-gradient-to-r from-amber-950/90 via-slate-900/90 to-amber-950/90 border-b border-amber-600/50">
-        <div class="flex items-center gap-2">
-          <span class="text-base">🛡️</span>
-          <span class="text-xs font-bold text-amber-300 font-mono tracking-wide">Admin Moderator Control Panel</span>
-          <span class="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[10px] font-mono border border-amber-500/50">AUTHORITY LEVEL: HIGH</span>
-        </div>
-        <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
-          <button onclick="openPopoutWindow('win-moderator')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
-          <button onclick="minimizeWindow('win-moderator')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
-          <button onclick="maximizeWindow('win-moderator')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">□</button>
-          <button onclick="toggleWindow('win-moderator')" class="px-1.5 py-0.5 rounded bg-amber-950 hover:bg-amber-900 text-amber-300 text-[11px] border border-amber-800">✕</button>
-        </div>
-      </div>
+      <!--TC_TITLEBAR {"id": "win-moderator", "icon": "🛡️", "title": "Admin Moderator", "badge": "Authority: high"}-->
       <div class="window-body p-4 space-y-4 max-h-[660px] overflow-y-auto">
 
         <!-- Moderator KPI Cards -->
@@ -1916,19 +1758,7 @@ aeonik/
     <!-- Window 7: Token Billing, Top-Up & Sponsored Ads.app -->
     <!-- ===================================================================== -->
     <div id="win-billing" class="mesh-window w-[620px]" data-zen-window="true" data-window-id="win-billing" style="top: 140px; left: 120px; z-index: 26;">
-      <div class="window-header flex items-center justify-between px-3 py-2 bg-gradient-to-r from-emerald-950/90 via-slate-900/90 to-cyan-950/90 border-b border-emerald-500/40">
-        <div class="flex items-center gap-2">
-          <span class="text-base">💳</span>
-          <span class="text-xs font-bold text-emerald-300 font-mono tracking-wide">Token Store &amp; Sponsor Ads.app</span>
-          <span class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-mono border border-emerald-500/40 font-semibold">COST SUBSIDY</span>
-        </div>
-        <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
-          <button onclick="openPopoutWindow('win-billing')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
-          <button onclick="minimizeWindow('win-billing')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
-          <button onclick="maximizeWindow('win-billing')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">⤢</button>
-          <button onclick="toggleWindow('win-billing')" class="px-1.5 py-0.5 rounded bg-red-950/80 hover:bg-red-800 text-red-300 text-[11px]">✕</button>
-        </div>
-      </div>
+      <!--TC_TITLEBAR {"id": "win-billing", "icon": "💳", "title": "Token Store & Sponsor Ads", "badge": "Cost subsidy"}-->
       <div class="window-body p-4 space-y-4 max-h-[720px] overflow-y-auto text-xs font-sans">
         <!-- Live Balance Banner -->
         <div class="p-3 bg-slate-900/80 rounded-xl border border-emerald-500/40 flex items-center justify-between">
@@ -2120,19 +1950,7 @@ aeonik/
     <!-- Window 8: Cyberspace Discussion Board · GraphRAG + BM25 + @verifier-agent -->
     <!-- ===================================================================== -->
     <div id="win-board" class="mesh-window w-[940px] max-w-full" data-zen-window="true" data-window-id="win-board" style="top: 84px; left: 130px; z-index: 27;">
-      <div class="window-header flex items-center justify-between px-3 py-2 bg-gradient-to-r from-indigo-950/95 via-slate-900/95 to-cyan-950/95 border-b border-indigo-500/50">
-        <div class="flex items-center gap-2">
-          <span class="text-base">🌐</span>
-          <span class="text-xs font-bold text-indigo-300 font-mono tracking-wide">Cyberspace Discussion Board &amp; Knowledge Base.app</span>
-          <span class="px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 text-[10px] font-mono border border-indigo-500/40 font-semibold">PPR GraphRAG + Okapi BM25 + @verifier-agent</span>
-        </div>
-        <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
-          <button onclick="openPopoutWindow('win-board')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
-          <button onclick="minimizeWindow('win-board')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
-          <button onclick="maximizeWindow('win-board')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">⤢</button>
-          <button onclick="toggleWindow('win-board')" class="px-1.5 py-0.5 rounded bg-red-950/80 hover:bg-red-800 text-red-300 text-[11px]">✕</button>
-        </div>
-      </div>
+      <!--TC_TITLEBAR {"id": "win-board", "icon": "🌐", "title": "Cyberspace Board", "badge": "GraphRAG + BM25"}-->
 
       <div id="board" class="window-body p-4 space-y-3.5 max-h-[780px] overflow-y-auto text-xs font-sans">
         <!-- Identity Verification Agent (@verifier-agent) Status & Form Dispatch Banner -->
@@ -2209,14 +2027,17 @@ aeonik/
                        aria-label="Search the board"
                        placeholder="Search or type #topic, @agent, /topic, is:verified"
                        oninput="onBoardSearchInput(event)" onkeydown="onBoardSearchKeydown(event)" onblur="setTimeout(closeBoardSuggest, 150)" />
+                <label class="ubar-sortwrap" onclick="event.stopPropagation()" title="Sort results (or type /sort new)">
+                  <span class="ubar-sort-label">sort</span>
+                  <select id="boardSortSelect" onchange="onBoardSortChange()" class="ubar-sort" aria-label="Sort">
+                    <option value="hot">Hot</option>
+                    <option value="new">Newest</option>
+                    <option value="top">Top</option>
+                    <option value="discussed">Most discussed</option>
+                  </select>
+                </label>
                 <kbd class="ubar-kbd" title="Cmd/Ctrl+K focuses search">&#x2318;K</kbd>
               </div>
-              <select id="boardSortSelect" onchange="loadCyberspaceBoard()" class="ubar-sort" aria-label="Sort">
-                <option value="hot">Hot</option>
-                <option value="new">Newest</option>
-                <option value="top">Top</option>
-                <option value="discussed">Most discussed</option>
-              </select>
             </div>
             <div id="boardSuggestList" role="listbox" class="ubar-suggest hidden"></div>
             <div class="ubar-meta">
@@ -2474,19 +2295,7 @@ aeonik/
     <!-- Window 9: Network Roster & Operator Leaderboard.app -->
     <!-- ===================================================================== -->
     <div id="win-network" class="mesh-window w-[560px] max-w-full" data-zen-window="true" data-window-id="win-network" style="top: 72px; right: 24px; z-index: 28;">
-      <div class="window-header flex items-center justify-between px-3 py-2 bg-gradient-to-r from-emerald-950/95 via-slate-900/95 to-slate-900/95 border-b border-emerald-500/50">
-        <div class="flex items-center gap-2">
-          <span class="text-base">👥</span>
-          <span class="text-xs font-bold text-emerald-300 font-mono tracking-wide">Network Presence &amp; Standalone Leaderboard.app</span>
-          <span id="netWinActiveBadge" class="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600 text-[10px] font-bold">🟢 <span id="netWinActiveNum">2</span> active</span>
-        </div>
-        <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
-          <button onclick="openPopoutWindow('win-network')" class="px-1.5 py-0.5 rounded bg-emerald-900/90 hover:bg-emerald-800 text-emerald-200 border border-emerald-600 text-[10px] font-bold transition active:scale-95" title="Pop out into separate window or secondary monitor">↗ Pop Out</button>
-          <button onclick="minimizeWindow('win-network')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
-          <button onclick="maximizeWindow('win-network')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">□</button>
-          <button onclick="toggleWindow('win-network')" class="px-1.5 py-0.5 rounded bg-red-950/80 hover:bg-red-900 text-red-300 text-[11px]">✕</button>
-        </div>
-      </div>
+      <!--TC_TITLEBAR {"id": "win-network", "icon": "👥", "title": "Network Presence & Leaderboard", "meta_html": "<span id=\"netWinActiveBadge\"><span id=\"netWinActiveNum\">0</span> active</span>"}-->
       <div class="window-body p-4 space-y-4 max-h-[680px] overflow-y-auto">
         <!-- Top Metrics Cards -->
         <div class="grid grid-cols-3 gap-2 text-center font-mono">
@@ -2570,19 +2379,7 @@ aeonik/
     <!-- Window 9: 📁 Mesh Finder & Filesystem (Ranger VFS).app -->
     <!-- ===================================================================== -->
     <div id="win-agentspace" class="mesh-window w-[980px] max-w-full hidden" data-zen-window="true" data-window-id="win-agentspace" style="top: 76px; left: 140px; z-index: 35;">
-      <div class="window-header flex items-center justify-between px-3 py-2 bg-gradient-to-r from-slate-900 via-purple-950/80 to-slate-900 border-b border-purple-500/40">
-        <div class="flex items-center gap-2">
-          <span class="text-base">📁</span>
-          <span class="text-xs font-bold text-slate-100 font-mono tracking-wide">Mesh Finder &amp; Filesystem (Ranger VFS) · AgentSpace &amp; Wasm Studio.app</span>
-          <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 text-[10px] font-mono border border-purple-500/40 font-semibold">MAC-UNIX VFS · RANGER NAVIGATION · MULTI-FORMAT PREVIEW · VS CODE EXTENSIONS</span>
-        </div>
-        <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
-          <button onclick="openPopoutWindow('win-agentspace')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
-          <button onclick="minimizeWindow('win-agentspace')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
-          <button onclick="maximizeWindow('win-agentspace')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">⤢</button>
-          <button onclick="toggleWindow('win-agentspace')" class="px-1.5 py-0.5 rounded bg-red-950/80 hover:bg-red-800 text-red-300 text-[11px]">✕</button>
-        </div>
-      </div>
+      <!--TC_TITLEBAR {"id": "win-agentspace", "icon": "📁", "title": "Space · Ranger VFS & Wasm Studio", "badge": "VFS"}-->
       <div class="window-body p-4 space-y-4 max-h-[780px] overflow-y-auto text-xs font-sans">
         <!-- Scope Selector & Breadcrumb Header -->
         <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
@@ -2633,8 +2430,8 @@ aeonik/
           <div class="md:col-span-3 space-y-3">
             <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
               <div class="flex items-center justify-between">
-                <span class="font-mono font-bold text-slate-300 text-xs">Places · This Computer</span>
-                <button onclick="gatherDriveMirror('manual')" class="text-[10px] text-slate-500 hover:text-slate-200 font-mono" title="Re-scan the drive now">↻ rescan</button>
+                <span class="font-mono font-bold text-slate-300 text-xs tc-truncate min-w-0" title="Places · This Computer">Places · This Computer</span>
+                <button onclick="gatherDriveMirror('manual')" class="tc-ctl shrink-0 whitespace-nowrap text-[10px] font-mono" title="Re-scan the drive now">↻&#xFE0E; rescan</button>
               </div>
               <!-- Mirrors the real drive. Gathered fresh at login / session start, held in memory only, never saved. -->
               <div id="drivePlacesList" class="space-y-0.5 font-mono text-xs max-h-[260px] overflow-y-auto">
@@ -2658,7 +2455,7 @@ aeonik/
                   <span class="text-cyan-400">🧊</span>
                   <span class="font-bold text-cyan-300 font-mono text-xs">Hyper3D Rodin 3D</span>
                 </div>
-                <span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-mono">GEN-3D</span>
+                <span class="tc-chip shrink-0 font-mono">GEN-3D</span>
               </div>
               <input id="rodinPromptInput" type="text" placeholder="e.g. Cyberpunk hovercar mesh" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-white font-mono text-xs focus:border-cyan-500 focus:outline-none">
               <div class="grid grid-cols-2 gap-2 text-xs font-mono">
@@ -2687,8 +2484,8 @@ aeonik/
           <!-- Col 2: Ranger Files List -->
           <div id="rangerListPane" class="space-y-3 min-w-0 md:shrink-0">
             <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-              <div class="flex items-center justify-between gap-2">
-                <span id="rangerListTitle" class="font-mono font-bold text-slate-300 text-xs truncate">Files in VFS</span>
+              <div class="flex items-center justify-between gap-2 min-w-0">
+                <span id="rangerListTitle" class="font-mono font-bold text-slate-300 text-xs tc-truncate min-w-0 flex-1" title="Files in VFS">Files in VFS</span>
                 <button id="rangerNewFileBtn" onclick="promptCreateFile()" class="text-[10px] px-2 py-0.5 rounded bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-800 font-mono shrink-0">
                   + New File
                 </button>
@@ -3064,8 +2861,9 @@ aeonik/
       else if (window.location.pathname === '/terminal') singleWindowParam = 'win-terminal';
       else if (window.location.pathname === '/billing' || window.location.pathname === '/tokens') singleWindowParam = 'win-billing';
       else if (window.location.pathname === '/board' || window.location.pathname === '/cyberspace') singleWindowParam = 'win-board';
-      else if (window.location.pathname === '/files' || window.location.pathname === '/finder' || window.location.pathname === '/agentspace') singleWindowParam = 'win-agentspace';
+      else if (['/space', '/files', '/finder', '/agentspace'].includes(window.location.pathname)) singleWindowParam = 'win-agentspace';
       else if (window.location.pathname === '/rewards' || window.location.pathname === '/quests') singleWindowParam = 'win-quests';
+      else if (window.location.pathname === '/network') singleWindowParam = 'win-network';
     }
     if (singleWindowParam && !singleWindowParam.startsWith('win-')) {
       singleWindowParam = 'win-' + singleWindowParam;
@@ -3669,10 +3467,12 @@ aeonik/
             // Transform the Pop Out button in header into a Redock button
             const popBtn = w.querySelector('button[onclick*="openPopoutWindow"]');
             if (popBtn) {
-              popBtn.innerText = '↙ Redock';
-              popBtn.onclick = () => window.close();
-              popBtn.title = 'Close pop-out and return window to main desktop';
-              popBtn.className = 'px-2 py-0.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] shadow transition active:scale-95';
+              const openedAsPopout = !!urlParams.get('window') && !!window.opener;
+              popBtn.innerText = openedAsPopout ? '↙ Redock' : '⌂ Desktop';
+              popBtn.onclick = openedAsPopout ? () => window.close() : () => { window.location.href = '/'; };
+              popBtn.title = openedAsPopout ? 'Close pop-out and return window to main desktop' : 'Open the full TinCan desktop';
+              popBtn.setAttribute('aria-label', popBtn.title);
+              popBtn.className = 'tc-ctl tc-ctl--pop';
             }
 
             // Hide the minimize button in popout window as it fills the window
@@ -3682,6 +3482,8 @@ aeonik/
             // Hide the maximize button in popout window
             const maxBtn = w.querySelector('button[onclick*="maximizeWindow"]');
             if (maxBtn) maxBtn.style.display = 'none';
+
+            document.body.classList.add('tc-single');
 
             // If this is the TV watch party, ensure video starts playing
             if (id === 'win-tv') {
@@ -3728,9 +3530,13 @@ aeonik/
       );
     }
 
+    // Handles are stored without the leading @; tolerate older values saved as "@name".
+    function cleanHandle(u) { return String(u == null ? '' : u).trim().replace(/^@+/, ''); }
+    function formatHandle(u) { const h = cleanHandle(u); return h ? '@' + h : ''; }
+
     function getVerifiedDisplayName() {
       const fn = (localStorage.getItem('tincan_fullname') || '').trim();
-      const un = (localStorage.getItem('tincan_username') || '').trim();
+      const un = cleanHandle(localStorage.getItem('tincan_username'));
       if (fn && un) return `${fn} (@${un})`;
       if (un) return `@${un}`;
       if (fn) return fn;
@@ -3897,13 +3703,13 @@ aeonik/
       const username = (account.username || (account.full_name || '').split(' ')[0] || '').trim();
       localStorage.setItem('tincan_registration_epoch', REGISTRATION_EPOCH);
       localStorage.setItem('tincan_fullname', account.full_name || username);
-      localStorage.setItem('tincan_username', username);
+      localStorage.setItem('tincan_username', cleanHandle(username));
       localStorage.setItem('tincan_email', account.email || '');
       localStorage.setItem('tincan_phone', account.phone_number || '');
       localStorage.setItem('tincan_role', account.role || 'Mesh Operator');
       localStorage.setItem('tincan_consent_pii', 'true');
       const hudName = document.getElementById('hudAccountName');
-      if (hudName && username) hudName.innerText = '@' + username;
+      if (hudName && username) hudName.innerText = formatHandle(username);
       const localLbl = document.getElementById('localPeerLabel');
       if (localLbl) localLbl.innerText = getVerifiedDisplayName();
       const modal = document.getElementById('accountSetupModal');
@@ -4100,13 +3906,13 @@ aeonik/
           }
           localStorage.setItem('tincan_registration_epoch', REGISTRATION_EPOCH);
           localStorage.setItem('tincan_fullname', fullName);
-          localStorage.setItem('tincan_username', username);
+          localStorage.setItem('tincan_username', cleanHandle(username));
           localStorage.setItem('tincan_email', email);
           localStorage.setItem('tincan_phone', phone);
           localStorage.setItem('tincan_role', role);
           localStorage.setItem('tincan_consent_pii', 'true');
           const hudName = document.getElementById('hudAccountName');
-          if (hudName) hudName.innerText = '@' + username;
+          if (hudName) hudName.innerText = formatHandle(username);
           const localLbl = document.getElementById('localPeerLabel');
           if (localLbl) localLbl.innerText = getVerifiedDisplayName();
 
@@ -4169,7 +3975,7 @@ aeonik/
       }
 
       if (savedUser) {
-        if (hudName) hudName.innerText = '@' + savedUser;
+        if (hudName) hudName.innerText = formatHandle(savedUser);
         const localLbl = document.getElementById('localPeerLabel');
         if (localLbl) localLbl.innerText = getVerifiedDisplayName();
         // Re-sync localStorage identity to server in case container restarted
@@ -4480,49 +4286,22 @@ aeonik/
       copyToClipboard(text, btnEl);
     }
 
-    let _installSimRunning = false;
     function simulateOneClickInstall() {
+      // A browser cannot run commands on your computer: copy the real installer
+      // command and say so, instead of printing a pretend install log.
       const win = document.getElementById('win-terminal');
-      if (win && win.classList.contains('hidden')) {
-        win.classList.remove('hidden');
-      }
+      if (win && win.classList.contains('hidden')) win.classList.remove('hidden');
       const transcript = document.getElementById('termShellTranscript');
-      const statusPill = document.getElementById('termShellStatusPill');
-      const cmdEl = document.getElementById('curlInstallCmd');
-      const cmdText = cmdEl ? cmdEl.innerText : 'curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash';
-      copyToClipboard(cmdText);
-      if (!transcript || _installSimRunning) return;
-      _installSimRunning = true;
-      if (statusPill) {
-        statusPill.innerText = 'Installing...';
-        statusPill.className = 'px-2 py-0.5 bg-black text-[#ecf1e6] border border-black rounded-full text-[9px] font-semibold uppercase';
-      }
-      const steps = [
-        '<p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> ' + cmdText + '</p>',
-        '<p class="text-neutral-700">[*] Installing TinCan 2.2 Mesh OS &amp; Peer Connector...</p>',
-        '<p class="text-neutral-700">[+] Verified Ed25519/X25519 cryptography &amp; linked ~/.local/bin/tincan</p>',
-        '<p class="text-neutral-700">[+] Installed 6 agent skills: tincan, tincan-mesh-os, connect-peer...</p>',
-        '<p class="font-bold text-black">✓ TinCan 2.2 Installation Complete! (Command also copied to your clipboard)</p>',
-        '<p class="pt-1"><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> <span class="inline-block w-2.5 h-4 bg-black align-middle animate-pulse"></span></p>'
-      ];
-      transcript.innerHTML = steps[0];
-      let idx = 1;
-      const timer = setInterval(() => {
-        if (idx < steps.length) {
-          transcript.innerHTML += steps[idx];
-          idx++;
-        } else {
-          clearInterval(timer);
-          _installSimRunning = false;
-          if (statusPill) {
-            statusPill.innerText = 'Installed ✓';
-            statusPill.className = 'px-2 py-0.5 bg-black text-[#ecf1e6] border border-black rounded-full text-[9px] font-semibold uppercase';
-          }
-          if (typeof awardLocalXp === 'function') {
-            awardLocalXp(50, 'Executed One-Click Terminal Installer');
-          }
-        }
-      }, 320);
+      const cmdEl = document.getElementById(typeof activeInstallCmdId !== 'undefined' ? activeInstallCmdId : 'curlInstallCmd') || document.getElementById('curlInstallCmd');
+      const cmdText = cmdEl ? cmdEl.innerText : '';
+      if (cmdText) copyToClipboard(cmdText);
+      if (!transcript) return;
+      const p = document.createElement('p');
+      p.className = 'pt-1 text-neutral-800';
+      p.innerHTML = 'Copied to your clipboard. Paste it into the terminal on your computer to install TinCan:<br><code class="select-all break-all">' +
+        String(cmdText).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '</code>';
+      transcript.appendChild(p);
+      transcript.scrollTop = transcript.scrollHeight;
     }
 
     // =========================================================================
@@ -5470,6 +5249,14 @@ aeonik/
         const data = await res.json();
         const or = data.openrouter || {};
 
+        const orGrid = document.getElementById('orStatGrid');
+        const orEmpty = document.getElementById('orDashEmpty');
+        if (orGrid && orEmpty) {
+          orGrid.classList.toggle('hidden', !or.connected);
+          orEmpty.classList.toggle('hidden', !!or.connected);
+          const why = document.getElementById('orDashEmptyReason');
+          if (why && !or.connected && or.error) why.textContent = `OpenRouter did not answer: ${String(or.error).slice(0, 140)}.`;
+        }
         if (or.connected) {
           document.getElementById('orRemaining').innerText = `$${Number(or.account_remaining_balance_usd).toFixed(4)}`;
           document.getElementById('orCreditsTotal').innerText = `of $${Number(or.account_total_credits_usd).toFixed(2)} total credits`;
@@ -5488,7 +5275,7 @@ aeonik/
         const prevSelected = sel ? sel.value : 'gemini-brain';
         if (sel && Object.keys(latestProvidersMap).length > 0) {
           sel.innerHTML = Object.entries(latestProvidersMap).map(([alias, info]) =>
-            `<option value="${alias}">${alias} → ${info.model}</option>`
+            `<option value="${alias}" title="${alias} → ${info.model}">${alias} → ${info.model}</option>`
           ).join('');
           if (latestProvidersMap[prevSelected]) {
             sel.value = prevSelected;
@@ -5502,18 +5289,20 @@ aeonik/
           const isSelected = sel && sel.value === alias;
           const card = document.createElement('div');
           card.onclick = () => selectProviderCardForSwap(alias);
-          card.className = `cursor-pointer p-3 bg-slate-800/60 rounded-lg border ${isSelected ? 'border-indigo-500 ring-1 ring-indigo-500/40' : 'border-slate-700/80 hover:border-slate-600'} space-y-1.5 font-mono text-xs transition`;
+          card.className = `tc-provider-card cursor-pointer p-3 rounded-lg border ${isSelected ? 'is-selected' : ''} space-y-2 text-xs transition`;
+          card.title = `Click to swap ${alias}`;
+          const esc = (v) => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
           card.innerHTML = `
-            <div class="flex justify-between items-center">
-              <span class="font-bold text-white">${alias}</span>
-              <span class="text-[10px] bg-indigo-950 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-800">${info.display_name}</span>
+            <div class="flex justify-between items-center gap-2 min-w-0">
+              <span class="font-semibold font-mono truncate">${esc(alias)}</span>
+              <span class="tc-chip shrink-0">${esc(info.display_name)}</span>
             </div>
-            <div class="text-emerald-300 truncate text-[11px] font-semibold"><span class="text-slate-500 font-normal">Model:</span> ${info.model}</div>
-            <div class="grid grid-cols-3 gap-1 pt-1 text-slate-300 border-t border-slate-700/50 text-[10px]">
-              <div><span class="text-slate-500">In/1M:</span> <span class="text-amber-300">$${Number(info.input_cost_per_1m_usd || 0).toFixed(2)}</span></div>
-              <div><span class="text-slate-500">Out/1M:</span> <span class="text-amber-300">$${Number(info.output_cost_per_1m_usd || 0).toFixed(2)}</span></div>
-              <div><span class="text-slate-500">Calls:</span> <span class="text-cyan-300">${info.total_calls ?? info.call_count ?? 0}</span></div>
-            </div>
+            <div class="tc-truncate font-mono text-[11px]" title="${esc(info.model)}"><span class="tc-stat__label">Model</span> ${esc(info.model)}</div>
+            <dl class="tc-provider-stats">
+              <div><dt>In / 1M</dt><dd>$${Number(info.input_cost_per_1m_usd || 0).toFixed(2)}</dd></div>
+              <div><dt>Out / 1M</dt><dd>$${Number(info.output_cost_per_1m_usd || 0).toFixed(2)}</dd></div>
+              <div><dt>Calls</dt><dd>${Number(info.total_calls ?? info.call_count ?? 0)}</dd></div>
+            </dl>
           `;
           container.appendChild(card);
         }
@@ -6230,7 +6019,37 @@ aeonik/
     const BOARD_SLASH_COMMANDS = [
       { token: '/search ', name: '/search', label: 'Search posts, people and agents (hybrid BM25 + GraphRAG)' },
       { token: '/topic ', name: '/topic', label: 'Jump to a topic: /topic graphrag' },
+      { token: '/sort ', name: '/sort', label: 'Sort results: /sort hot, new, top or discussed' },
     ];
+    const BOARD_SORTS = [
+      { token: 'sort:hot', name: 'sort:hot', label: 'Hot: activity weighted by age' },
+      { token: 'sort:new', name: 'sort:new', label: 'Newest first' },
+      { token: 'sort:top', name: 'sort:top', label: 'Most upvoted' },
+      { token: 'sort:discussed', name: 'sort:discussed', label: 'Most replies' },
+    ];
+
+    function setBoardSort(value) {
+      const sel = document.getElementById('boardSortSelect');
+      if (!sel || ![...sel.options].some(o => o.value === value)) return false;
+      sel.value = value;
+      onBoardSortChange();
+      return true;
+    }
+
+    function onBoardSortChange() {
+      if (boardChips.length || (document.getElementById('boardSearchInput')?.value || '').trim()) searchCyberspaceBoard();
+      else loadCyberspaceBoard();
+    }
+
+    // "/sort new" or a "sort:top" token in the bar sets the sort and is removed from the query.
+    function consumeBoardSortToken(inp) {
+      const m = inp.value.match(/^\/sort\s+(\w+)\s*$/i) || inp.value.match(/(?:^|\s)sort:(\w+)(?=\s|$)/i);
+      if (!m) return false;
+      const v = m[1].toLowerCase() === 'newest' ? 'new' : m[1].toLowerCase();
+      if (!setBoardSort(v)) return false;
+      inp.value = inp.value.replace(m[0], ' ').replace(/\s+/g, ' ').trim();
+      return true;
+    }
     const BOARD_FILTERS = [{ token: 'is:verified', name: 'is:verified', label: 'Only posts by verified citizens' }];
 
     function boardChipKind(tok) { return tok.startsWith('#') ? 'topic' : tok.startsWith('@') ? 'mention' : 'filter'; }
@@ -6261,7 +6080,9 @@ aeonik/
     }
 
     function buildBoardQuery() {
-      const text = (document.getElementById('boardSearchInput')?.value || '').trim();
+      // sort: tokens and /sort set the sort control; they are not search terms.
+      const text = (document.getElementById('boardSearchInput')?.value || '')
+        .replace(/(?:^|\s)sort:\w+(?=\s|$)/gi, ' ').replace(/^\s*\/sort\b\s*\w*/i, '').trim();
       // A slash command must lead the query.
       const m = text.match(/^\/(search|topic)\b\s*/i);
       const cmd = m ? m[0].trim() + ' ' : '';
@@ -6331,6 +6152,13 @@ aeonik/
       const { start, end } = boardCurrentToken(inp);
       const before = inp.value.slice(0, start);
       const after = inp.value.slice(end);
+      if (it.token.startsWith('sort:')) {
+        inp.value = (before + after).replace(/^\/sort\s*/i, '').replace(/\s+/g, ' ').trim();
+        closeBoardSuggest();
+        setBoardSort(it.token.slice(5));
+        inp.focus();
+        return;
+      }
       if (it.token.startsWith('/')) {
         inp.value = it.token + (before + after).trim();
         inp.setSelectionRange(inp.value.length, inp.value.length);
@@ -6359,6 +6187,13 @@ aeonik/
           return;
         }
       }
+      const sortCmd = inp.value.match(/^\/sort\s+(\S*)$/i);
+      if (sortCmd || (tok.length >= 2 && ('sort:'.startsWith(tok.toLowerCase()) || tok.toLowerCase().startsWith('sort:')))) {
+        const want = (sortCmd ? sortCmd[1] : tok.slice(5)).toLowerCase();
+        const { tok: cur } = boardCurrentToken(inp);
+        renderBoardSuggest([{ title: 'Sort', items: BOARD_SORTS.filter(o => o.token.slice(5).startsWith(want) || cur.toLowerCase() === '/sort') }]);
+        return;
+      }
       if (start === 0 && tok.startsWith('/')) {
         renderBoardSuggest([{ title: 'Commands', items: BOARD_SLASH_COMMANDS.filter(c => c.name.startsWith(tok.toLowerCase())) }]);
         return;
@@ -6384,7 +6219,11 @@ aeonik/
       if (ev.key === 'ArrowUp' && open) { ev.preventDefault(); boardSuggestIndex = (boardSuggestIndex - 1 + boardSuggestItems.length) % boardSuggestItems.length; highlightBoardSuggestion(); return; }
       if ((ev.key === 'Enter' || ev.key === 'Tab') && open && boardSuggestIndex >= 0) { ev.preventDefault(); applyBoardSuggestion(boardSuggestIndex); return; }
       if (ev.key === 'Escape') { if (open) { ev.preventDefault(); closeBoardSuggest(); } else if (inp.value) { inp.value = ''; } return; }
-      if (ev.key === 'Enter') { ev.preventDefault(); closeBoardSuggest(); searchCyberspaceBoard(); return; }
+      if (ev.key === 'Enter') {
+        ev.preventDefault(); closeBoardSuggest();
+        if (consumeBoardSortToken(inp) && !inp.value && !boardChips.length) return;
+        searchCyberspaceBoard(); return;
+      }
       if (ev.key === 'Backspace' && !inp.value && boardChips.length) { ev.preventDefault(); removeBoardChip(boardChips.length - 1); }
     }
 
@@ -6453,7 +6292,10 @@ aeonik/
         if (!res.ok) return;
         const data = await res.json();
         const items = data.items || [];
-        if (!items.length) { box.innerHTML = ''; return; }
+        if (!items.length) {
+          box.innerHTML = '<span class="ubar-trend-label">Trending</span><span class="ubar-trend-empty">No tagged topics yet. Start one with #tags and it will show up here.</span>';
+          return;
+        }
         const label = data.window === 'all' ? 'Top topics' : `Trending ${escapeHtml(data.window)}`;
         box.innerHTML = `<span class="ubar-trend-label">${label}</span>` + items.map(it =>
           `<button type="button" class="ubar-trend" onclick="addBoardChip('${escapeHtml(it.tag)}')" title="${Number(it.topics)} new topic(s), ${Number(it.posts)} repl${it.posts === 1 ? 'y' : 'ies'}">${escapeHtml(it.tag)}<span>${Number(it.activity)}</span></button>`
@@ -6684,13 +6526,13 @@ aeonik/
         }
         localStorage.setItem('tincan_registration_epoch', REGISTRATION_EPOCH);
         localStorage.setItem('tincan_fullname', fullName);
-        localStorage.setItem('tincan_username', username);
+        localStorage.setItem('tincan_username', cleanHandle(username));
         localStorage.setItem('tincan_email', email);
         localStorage.setItem('tincan_phone', phone);
         localStorage.setItem('tincan_role', role);
         localStorage.setItem('tincan_consent_pii', 'true');
         const hudName = document.getElementById('hudAccountName');
-        if (hudName) hudName.innerText = '@' + username;
+        if (hudName) hudName.innerText = formatHandle(username);
 
         playXpChime();
         spawnPacketFlight(myPeerId, '@verifier-agent', 'verified', '✅ Attested');
@@ -8166,8 +8008,8 @@ aeonik/
         const sel = it.kind === 'file' && rangerView && rangerView.source === it.source && rangerView.path === it.path;
         const bg = sel ? 'bg-purple-950/80 text-purple-200 font-bold border-l-2 border-purple-400' : 'hover:bg-slate-900 text-slate-300';
         const size = it.kind === 'file' && it.size != null ? rangerFmtSize(it.size) : (it.kind === 'dir' ? '›' : '');
-        return `<div role="option" data-idx="${i}" class="ranger-row px-2 py-1.5 cursor-pointer flex items-center justify-between transition ${bg}">
-              <div class="flex items-center gap-1.5 truncate"><span>${rangerIcon(it)}</span><span class="truncate">${rangerEsc(it.name)}</span></div>
+        return `<div role="option" data-idx="${i}" title="${rangerEsc(it.path || it.name)}" class="ranger-row px-2 py-1.5 cursor-pointer flex items-center justify-between gap-2 transition ${bg}">
+              <div class="flex items-center gap-1.5 min-w-0 flex-1"><span class="shrink-0">${rangerIcon(it)}</span><span class="tc-truncate min-w-0">${rangerEsc(it.name)}</span></div>
               <span class="text-[9px] text-slate-500 shrink-0 font-mono">${rangerEsc(size)}</span>
             </div>`;
       }).join('');
@@ -8798,9 +8640,20 @@ aeonik/
       };
       apply(pct, false);
       let dragging = false;
+      // While dragging, freeze the window's height so rewrapping text in the
+      // narrower pane cannot shrink or grow it, and stop text selection.
+      let frozen = null;
       handle.addEventListener('pointerdown', ev => {
         dragging = true; handle.setPointerCapture(ev.pointerId);
-        document.body.style.userSelect = 'none'; ev.preventDefault();
+        document.body.style.userSelect = 'none'; document.body.classList.add('tc-dragging'); ev.preventDefault();
+        const win = split.closest('.mesh-window');
+        const body = split.closest('.window-body');
+        frozen = [];
+        [[win, 'height'], [body, 'height'], [split, 'minHeight']].forEach(([el, prop]) => {
+          if (!el) return;
+          frozen.push([el, prop, el.style[prop]]);
+          el.style[prop] = el.getBoundingClientRect().height + 'px';
+        });
       });
       handle.addEventListener('pointermove', ev => {
         if (!dragging) return;
@@ -8809,7 +8662,9 @@ aeonik/
       });
       const end = ev => {
         if (!dragging) return;
-        dragging = false; document.body.style.userSelect = '';
+        dragging = false; document.body.style.userSelect = ''; document.body.classList.remove('tc-dragging');
+        (frozen || []).forEach(([el, prop, prev]) => { el.style[prop] = prev; });
+        frozen = null;
         try { handle.releasePointerCapture(ev.pointerId); } catch (e) {}
         apply(pct, true);
       };
@@ -8873,31 +8728,195 @@ aeonik/
     }, 2000);
 
     // =========================================================================
-    // Aeonik 4-Quadrant Interactive Terminal Engine (SHELL, SYSTEM, TREE, RECENT)
+    // Terminal (SHELL, SPACE, TREE, RECENT) wired to your .space and the drive mirror
     // =========================================================================
-    const AEONIK_FILES = {
-      'Cargo.toml': '[package]\nname = "aeonik-terminal"\nversion = "0.2.0"\nedition = "2024"\n\n[dependencies]\ntokio = { version = "1.40", features = ["full"] }\nratatui = "0.28"\ncrossterm = "0.28"',
-      'README.md': '# Aeonik Celadon & Ink Terminal\nMinimalist 4-quadrant developer workspace for TinCan 2.2.\n- Canvas: #ecf1e6 (Celadon)\n- Hairline: 1px solid #111111 (Sumi Ink)',
-      'src/terminal/mod.rs': 'pub mod theme;\npub mod palette;\npub mod renderer;\n\npub use renderer::TerminalGrid;',
-      'src/terminal/theme.toml': '[palette]\ncanvas = "#ecf1e6"\nink = "#111111"\nmuted = "#555555"\nborder_px = 1\nradius_px = 24',
-      'src/terminal/palette.rs': 'pub const CELADON_BG: &str = "#ecf1e6";\npub const INK_FG: &str = "#111111";\npub const HAIRLINE_WIDTH: u8 = 1;',
-      'src/terminal/renderer.rs': 'pub struct TerminalGrid {\n    pub cols: u16,\n    pub rows: u16,\n}\nimpl TerminalGrid {\n    pub fn render_quadrants(&self) -> bool { true }\n}',
-      'src/lib.rs': 'pub mod terminal;\npub fn version() -> &\'static str { "0.2.0-aeonik" }',
-      'assets/terminal-preview.png': '[Binary PNG Asset · 2048x2048 · /docs/designs/aeonik-terminal.png]',
-      'tests/theme.rs': '#[test]\nfn test_celadon_palette() {\n    assert_eq!(aeonik_terminal::terminal::palette::CELADON_BG, "#ecf1e6");\n}'
-    };
+    // Terminal: every pane reads your own .space VFS (/api/space/*) and the
+    // read-only drive mirror (/api/drive/*). No canned output.
+    const termEsc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    let termSummary = null;
+    let termDrive = { available: null, mirror: null };
 
-    let aeonikProcs = [
-      { pid: 4821, cpu: 3.1, mem: 5.2, cmd: 'code' },
-      { pid: 3970, cpu: 1.8, mem: 2.9, cmd: 'zellij' },
-      { pid: 5154, cpu: 1.2, mem: 1.9, cmd: 'cargo' },
-      { pid: 2261, cpu: 0.6, mem: 1.4, cmd: 'postgres' },
-      { pid: 1104, cpu: 0.3, mem: 0.8, cmd: 'systemd' }
-    ];
+    function termScope() { return (typeof currentSpaceScope !== 'undefined' && currentSpaceScope) || 'user'; }
+    function termOwner() {
+      return (typeof currentSpaceOwner !== 'undefined' && currentSpaceOwner) || myPeerId || 'default';
+    }
+    function termHandle() {
+      const u = (localStorage.getItem('tincan_username') || '').trim().replace(/^@+/, '');
+      return u || 'you';
+    }
+    function termBytes(n) {
+      n = Number(n) || 0;
+      if (n < 1024) return n + 'B';
+      if (n < 1048576) return (n / 1024).toFixed(1) + 'K';
+      return (n / 1048576).toFixed(1) + 'M';
+    }
+    function termPrompt() { return termHandle() + '@tincan:~/space$'; }
+
+    function termTickClock() {
+      const el = document.getElementById('aeonikHeaderClock');
+      if (el) el.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const pl = document.getElementById('termPromptLabel');
+      if (pl) pl.textContent = termPrompt();
+    }
+    setInterval(termTickClock, 15000);
+
+    async function termFetchSummary() {
+      const r = await fetch(`/api/space/ls?scope=${encodeURIComponent(termScope())}&owner_id=${encodeURIComponent(termOwner())}`, { cache: 'no-store' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      termSummary = await r.json();
+      return termSummary;
+    }
+
+    async function termFetchDrive() {
+      try {
+        if (typeof driveState !== 'undefined' && driveState && driveState.mirror) {
+          termDrive = { available: true, mirror: driveState.mirror };
+          return termDrive;
+        }
+        const r = await fetch('/api/drive/status', { cache: 'no-store' });
+        const st = r.ok ? await r.json() : { available: false };
+        if (!st.available) { termDrive = { available: false, mirror: null, on_railway: !!st.on_railway }; return termDrive; }
+        const m = await fetch('/api/drive/mirror?depth=2', { cache: 'no-store' });
+        termDrive = { available: true, mirror: m.ok ? await m.json() : null };
+      } catch (e) {
+        termDrive = { available: false, mirror: null };
+      }
+      return termDrive;
+    }
+
+    function termBuildTree(files) {
+      const root = {};
+      files.forEach(f => {
+        const parts = String(f.path || '').split('/').filter(Boolean);
+        let node = root;
+        parts.forEach((part, i) => {
+          if (i === parts.length - 1) { node[part] = { __file: f }; return; }
+          if (!node[part] || node[part].__file) node[part] = {};
+          node = node[part];
+        });
+      });
+      return root;
+    }
+
+    function termRenderTreeNode(node, prefix) {
+      const names = Object.keys(node).sort((a, b) => {
+        const fa = !!node[a].__file, fb = !!node[b].__file;
+        return fa === fb ? a.localeCompare(b) : (fa ? 1 : -1);
+      });
+      let html = '';
+      names.forEach((name, i) => {
+        const last = i === names.length - 1;
+        const branch = prefix + (last ? '└── ' : '├── ');
+        const child = node[name];
+        if (child.__file) {
+          const f = child.__file;
+          html += `<div class="flex items-baseline min-w-0" role="treeitem"><span class="whitespace-pre text-neutral-500 shrink-0">${termEsc(branch)}</span>` +
+            `<button type="button" class="tc-truncate text-left hover:underline" title="${termEsc(f.path)} · ${termBytes(f.size_bytes)}" onclick="inspectAeonikFile(${termEsc(JSON.stringify(f.path))})">${termEsc(name)}</button>` +
+            `<span class="ml-auto pl-2 text-[10px] text-neutral-500 shrink-0">${termBytes(f.size_bytes)}</span></div>`;
+        } else {
+          html += `<div class="flex items-baseline min-w-0" role="treeitem" aria-expanded="true"><span class="whitespace-pre text-neutral-500 shrink-0">${termEsc(branch)}</span><span class="tc-truncate font-semibold" title="${termEsc(name)}/">${termEsc(name)}/</span></div>`;
+          html += termRenderTreeNode(child, prefix + (last ? '    ' : '│   '));
+        }
+      });
+      return html;
+    }
+
+    function termRenderDrive() {
+      const box = document.getElementById('termDriveTree');
+      const st = document.getElementById('termStatusDrive');
+      const stat = document.getElementById('termStatDrive');
+      if (!box) return;
+      if (!termDrive.available) {
+        box.classList.remove('hidden');
+        box.innerHTML = '<div class="text-[10px] text-neutral-600">Drive mirror: only available when TinCan runs on this computer. Open Space to pick a folder from your browser instead.</div>';
+        if (st) st.textContent = 'drive: off';
+        if (stat) stat.textContent = 'off';
+        return;
+      }
+      const m = termDrive.mirror;
+      const places = (m && m.places) || [];
+      box.classList.remove('hidden');
+      box.innerHTML = `<div class="font-semibold mb-1 tc-truncate" title="${termEsc(m ? m.root : '')}">drive ${termEsc(m ? (m.root_label || m.root) : '')}/</div>` +
+        places.map((pl, i) => {
+          const last = i === places.length - 1;
+          const kids = (pl.children || []).length;
+          return `<div class="flex items-baseline min-w-0"><span class="whitespace-pre text-neutral-500 shrink-0">${last ? '└── ' : '├── '}</span>` +
+            `<span class="tc-truncate ${pl.pinned ? 'font-semibold' : ''}" title="${termEsc(pl.path || pl.name)}">${termEsc(pl.name || pl.path)}/</span>` +
+            `<span class="ml-auto pl-2 text-[10px] text-neutral-500 shrink-0">${kids ? kids + ' dirs' : ''}</span></div>`;
+        }).join('');
+      if (st) st.textContent = 'drive: ' + places.length + ' places';
+      if (stat) stat.textContent = String(places.length);
+    }
+
+    function termRenderSummary() {
+      const s = termSummary || { files: [], recent_runs: [] };
+      const files = s.files || [];
+      const runs = s.recent_runs || [];
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      set('termStatFiles', String(files.length));
+      set('termStatSize', termBytes(s.space_size_bytes));
+      set('termStatRuns', String(runs.length));
+      set('termSpaceOwner', '· ' + termOwner());
+      set('termTreeTitle', 'TREE ~/space · ' + termOwner());
+      set('aeonikHeaderCwd', '~/space · ' + termOwner());
+      set('aeonikStatusCwd', '~/space · ' + termOwner());
+      set('termStatusScope', termScope() + ' scope');
+      set('aeonikGitBranch', 'merkle ' + String(s.merkle_root || '–').slice(0, 10));
+      const dirs = new Set();
+      files.forEach(f => { const parts = String(f.path).split('/').filter(Boolean); for (let i = 1; i < parts.length; i++) dirs.add(parts.slice(0, i).join('/')); });
+      set('aeonikTreeSummary', `${dirs.size} director${dirs.size === 1 ? 'y' : 'ies'}, ${files.length} file${files.length === 1 ? '' : 's'}`);
+      // updated_at is unix seconds (or an ISO string from older rows); show the newest as a local date.
+      const toMs = v => { const n = Number(v); if (Number.isFinite(n) && n > 0) return n < 1e12 ? n * 1000 : n; const t = Date.parse(v); return Number.isFinite(t) ? t : 0; };
+      const newestMs = files.reduce((m, f) => Math.max(m, toMs(f.updated_at)), 0);
+      const newest = newestMs ? new Date(newestMs).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+      set('termSpaceNote', files.length ? `${s.space_file ? String(s.space_file).split('/').pop() : termOwner() + '.space'} · ${files.length} files · updated ${newest || '–'}` : 'Your space is empty. Save a file here or add one in Space.');
+      const tree = document.getElementById('termTree');
+      if (tree) tree.innerHTML = files.length ? termRenderTreeNode(termBuildTree(files), '') : '<div class="tc-empty">No files in your space yet. Open <strong>Space</strong> to add files or import a folder.</div>';
+      const tbl = document.getElementById('termRunsTable');
+      if (tbl) {
+        tbl.innerHTML = runs.length ? runs.map(r =>
+          `<button type="button" class="w-full grid grid-cols-[1fr_4rem_3.5rem_4rem] gap-2 text-left text-neutral-800 hover:bg-black/5 px-1 rounded" onclick="termShowRun(${termEsc(JSON.stringify(r.run_id))})" title="${termEsc(r.created_at || '')}">` +
+          `<span class="tc-truncate">${termEsc(r.entrypoint || '(inline)')}</span><span class="tc-truncate">${termEsc(r.runtime || '')}</span>` +
+          `<span class="text-right ${Number(r.exit_code) === 0 ? '' : 'text-[#8a1c1c]'}">${termEsc(r.exit_code)}</span><span class="text-right">${termEsc(r.duration_ms)}</span></button>`
+        ).join('') : '<div class="text-[10px] text-neutral-600 px-1">No runs yet. Try <b>run</b> in the shell.</div>';
+      }
+    }
+
+    async function refreshTerminalSpace() {
+      termTickClock();
+      try {
+        await termFetchSummary();
+      } catch (e) {
+        const n = document.getElementById('termSpaceNote');
+        if (n) n.textContent = 'Could not read your space: ' + e.message;
+      }
+      termRenderSummary();
+      await termFetchDrive();
+      termRenderDrive();
+    }
+
+    function termShowRun(runId) {
+      const r = ((termSummary && termSummary.recent_runs) || []).find(x => x.run_id === runId);
+      const rec = document.getElementById('aeonikRecentOutput');
+      if (!r || !rec) return;
+      rec.innerHTML = `<p><span class="font-semibold text-black">${termEsc(termPrompt())}</span> run ${termEsc(r.entrypoint || '')} <span class="text-neutral-600">(${termEsc(r.runtime)}, exit ${termEsc(r.exit_code)}, ${termEsc(r.duration_ms)} ms)</span></p>` +
+        (r.stdout ? `<pre class="whitespace-pre-wrap break-words text-neutral-800 pl-2">${termEsc(r.stdout)}</pre>` : '') +
+        (r.stderr ? `<pre class="whitespace-pre-wrap break-words text-[#8a1c1c] pl-2">${termEsc(r.stderr)}</pre>` : '');
+    }
 
     function clearAeonikShell() {
       const tr = document.getElementById('termShellTranscript');
       if (tr) tr.innerHTML = '';
+    }
+
+    async function termExec(body) {
+      const r = await fetch('/api/space/exec', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({ scope: termScope(), owner_id: termOwner() }, body))
+      });
+      const d = await r.json();
+      if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`);
+      return d;
     }
 
     async function execAeonikShellCommand(presetCmd) {
@@ -8907,169 +8926,131 @@ aeonik/
       const cmd = (presetCmd || (inp ? inp.value : '') || '').trim();
       if (!cmd || !tr) return;
       if (!presetCmd && inp) inp.value = '';
-
-      if (cmd === 'clear') {
-        clearAeonikShell();
-        return;
-      }
+      if (cmd === 'clear') { clearAeonikShell(); return; }
 
       const cmdLine = document.createElement('p');
       cmdLine.className = 'pt-1';
-      cmdLine.innerHTML = '<span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> ' + cmd.replace(/</g, '&lt;');
+      cmdLine.innerHTML = `<span class="font-semibold text-black">${termEsc(termPrompt())}</span> ${termEsc(cmd)}`;
       tr.appendChild(cmdLine);
-
-      const outLine = document.createElement('p');
-      outLine.className = 'text-neutral-700 pl-2';
-      tr.appendChild(outLine);
-
+      const out = document.createElement('pre');
+      out.className = 'text-neutral-700 pl-2 whitespace-pre-wrap break-words font-mono';
+      tr.appendChild(out);
       if (pill) pill.innerText = 'Running';
-
-      if (cmd === 'git status') {
-        outLine.innerHTML = "On branch main<br>Your branch is up to date with 'origin/main'.<br>M &nbsp;src/terminal/theme.toml<br>M &nbsp;src/terminal/palette.rs";
-      } else if (cmd === 'ls' || cmd === 'ls -la') {
-        outLine.innerHTML = 'Cargo.toml &nbsp;README.md &nbsp;src/ &nbsp;assets/ &nbsp;tests/';
-      } else if (cmd.startsWith('cat ')) {
-        const fname = cmd.slice(4).trim();
-        inspectAeonikFile(fname);
-        outLine.innerText = 'Opened ' + fname + ' in RECENT pane.';
-      } else if (cmd === 'cargo build' || cmd === 'cargo test') {
-        runAeonikRecentAction(cmd === 'cargo test' ? 'test' : 'build');
-        outLine.innerText = 'Triggered ' + cmd + ' in RECENT pane.';
-      } else if (cmd === 'tincan status' || cmd === 'status') {
-        try {
+      const [verb, ...rest] = cmd.split(/\s+/);
+      const arg = rest.join(' ');
+      try {
+        if (verb === 'help') {
+          out.textContent = 'ls [dir]      list files in your space\ncat <file>    open a file in RECENT\ntree          refresh the TREE pane\nrun [file]    run a file in the sandbox (default /src/main.py)\npy <code>     run Python in the sandbox\nruns          list recent runs\ndrive         drive mirror status\nstatus        mesh room status\nask <q>       ask the AI gateway';
+        } else if (verb === 'ls') {
+          const s = await termFetchSummary();
+          const dir = arg ? ('/' + arg.replace(/^\/+|\/+$/g, '') + '/') : '/';
+          const names = new Set();
+          (s.files || []).forEach(f => {
+            if (!String(f.path).startsWith(dir)) return;
+            const restPath = String(f.path).slice(dir.length);
+            const first = restPath.split('/')[0];
+            names.add(restPath.includes('/') ? first + '/' : first);
+          });
+          out.textContent = names.size ? Array.from(names).sort().join('  ') : `ls: ${dir}: no files`;
+          termRenderSummary();
+        } else if (verb === 'cat' && arg) {
+          await inspectAeonikFile(arg.startsWith('/') ? arg : '/' + arg);
+          out.textContent = 'Opened ' + arg + ' in RECENT.';
+        } else if (verb === 'tree') {
+          await refreshTerminalSpace();
+          out.textContent = (document.getElementById('aeonikTreeSummary') || {}).textContent || '';
+        } else if (verb === 'run') {
+          const entry = arg ? (arg.startsWith('/') ? arg : '/' + arg) : '/src/main.py';
+          const d = await termExec({ entrypoint: entry, runtime: 'auto' });
+          out.textContent = ((d.stdout || '') + (d.stderr ? '\n' + d.stderr : '')) || `exit ${d.exit_code}`;
+          await refreshTerminalSpace();
+        } else if (verb === 'py' || verb === 'exec') {
+          const d = await termExec({ runtime: 'python', code_override: arg });
+          out.textContent = ((d.stdout || '') + (d.stderr ? '\n' + d.stderr : '')) || `exit ${d.exit_code}`;
+          await refreshTerminalSpace();
+        } else if (verb === 'runs') {
+          const s = await termFetchSummary();
+          out.textContent = (s.recent_runs || []).map(r => `${r.created_at || ''}  ${r.runtime}  exit ${r.exit_code}  ${r.duration_ms}ms  ${r.entrypoint || '(inline)'}`).join('\n') || 'No runs yet.';
+          termRenderSummary();
+        } else if (verb === 'drive') {
+          await termFetchDrive();
+          termRenderDrive();
+          out.textContent = termDrive.available ? `Mirroring ${termDrive.mirror ? termDrive.mirror.root : 'drive'} (read-only, never saved).` : 'Drive mirror is off here: it only runs when TinCan runs on this computer.';
+        } else if (verb === 'status' || cmd === 'tincan status') {
           const r = await fetch('/api/mesh/state');
           const d = await r.json();
-          const pCount = Object.keys(d.peers || {}).length;
-          outLine.innerHTML = 'Mesh Room: <b>' + (d.room || 'main') + '</b> · Active Peers: <b>' + pCount + '</b> · Relay: ONLINE';
-        } catch (e) {
-          outLine.innerText = 'Mesh Relay: Local Mode';
-        }
-      } else if (cmd.startsWith('py ') || cmd.startsWith('exec ')) {
-        const code = cmd.replace(/^(py|exec)\s+/, '');
-        outLine.innerText = 'Executing in sandbox...';
-        try {
-          const r = await fetch('/api/space/exec', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ scope: 'user', owner_id: myPeerId || 'aeonik', runtime: 'python', code_override: code })
-          });
-          const d = await r.json();
-          outLine.innerText = d.stdout || d.stderr || JSON.stringify(d);
-        } catch (e) {
-          outLine.innerText = 'Exec error: ' + e.message;
-        }
-      } else {
-        const prompt = cmd.replace(/^(ask|tincan chat)\s+/i, '');
-        outLine.innerText = 'Querying TinCan AI Gateway...';
-        try {
+          out.textContent = `room ${d.room || 'main'} · ${Object.keys(d.peers || {}).length} peers · relay online`;
+        } else {
+          const prompt = cmd.replace(/^(ask|tincan chat)\s+/i, '');
+          out.textContent = 'Asking the AI gateway…';
           const r = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'gemini-brain', prompt: prompt, peer_id: myPeerId || 'aeonik-terminal' })
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: 'gemini-brain', prompt: prompt, peer_id: myPeerId || 'terminal' })
           });
           const d = await r.json();
-          outLine.innerText = d.content || d.response || JSON.stringify(d);
-        } catch (e) {
-          outLine.innerText = 'Command completed: ' + cmd;
+          out.textContent = d.content || d.response || d.error || JSON.stringify(d);
         }
+      } catch (e) {
+        out.textContent = verb + ': ' + e.message;
+        out.classList.add('text-[#8a1c1c]');
       }
-
       if (pill) pill.innerText = 'Ready';
       tr.scrollTop = tr.scrollHeight;
     }
 
-    function renderAeonikProcs() {
-      const box = document.getElementById('aeonikProcTable');
-      if (!box) return;
-      box.innerHTML = aeonikProcs.map(p =>
-        '<div class="flex justify-between text-neutral-800 hover:bg-black/5 px-1 rounded cursor-pointer" onclick="inspectAeonikProcess(\'' + p.pid + '\', \'' + p.cmd + '\')">' +
-        '<span class="w-12">' + p.pid + '</span>' +
-        '<span class="w-12">' + p.cpu.toFixed(1) + '</span>' +
-        '<span class="w-12">' + p.mem.toFixed(1) + '</span>' +
-        '<span class="flex-1 text-right">' + p.cmd + '</span></div>'
-      ).join('');
-    }
-
-    function sortAeonikProcs(field) {
-      if (field === 'cmd') {
-        aeonikProcs.sort((a, b) => a.cmd.localeCompare(b.cmd));
-      } else {
-        aeonikProcs.sort((a, b) => b[field] - a[field]);
-      }
-      renderAeonikProcs();
-    }
-
-    function inspectAeonikProcess(pid, cmd) {
+    async function inspectAeonikFile(path) {
       const rec = document.getElementById('aeonikRecentOutput');
       if (!rec) return;
-      rec.innerHTML =
-        '<p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> ps -p ' + pid + ' -o pid,pcpu,pmem,comm</p>' +
-        '<p class="text-neutral-700 pl-2">Process <b>' + cmd + '</b> (PID ' + pid + ') · Status: S+ (Active foreground daemon)</p>' +
-        '<p class="pt-1"><button onclick="refreshAeonikSystemTelemetry()" class="px-2 py-0.5 border border-black rounded text-[10px]">↻ Sample Process Telemetry</button></p>';
-    }
-
-    async function refreshAeonikSystemTelemetry() {
-      const cpu = Math.floor(8 + Math.random() * 18);
-      const mem = (4.2 + Math.random() * 1.1).toFixed(1);
-      const cpuEl = document.getElementById('aeonikSysCpu');
-      const memEl = document.getElementById('aeonikSysMem');
-      const sparkEl = document.getElementById('aeonikSparkline');
-      if (cpuEl) cpuEl.innerText = cpu + '%';
-      if (memEl) memEl.innerHTML = mem + 'G<span class="text-[9px] text-neutral-500 font-normal">/16G</span>';
-      if (sparkEl) {
-        const bars = Array.from({ length: 70 }, () => (Math.random() > 0.18 ? '|' : ' ')).join('');
-        sparkEl.innerText = '| ' + bars + ' |';
+      rec.innerHTML = `<p class="text-neutral-600">Opening ${termEsc(path)}…</p>`;
+      try {
+        const r = await fetch(`/api/space/file?scope=${encodeURIComponent(termScope())}&owner_id=${encodeURIComponent(termOwner())}&path=${encodeURIComponent(path)}`, { cache: 'no-store' });
+        const d = await r.json();
+        if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`);
+        const text = d.content != null ? d.content : '';
+        const binary = d.content == null && Number(d.size_bytes) > 0;
+        rec.innerHTML =
+          `<div class="flex items-center justify-between gap-2"><span class="font-semibold text-black tc-truncate" title="${termEsc(path)}">cat ${termEsc(path)}</span>` +
+          (binary ? '' : `<button onclick="saveAeonikFile(${termEsc(JSON.stringify(path))})" class="px-2 py-0.5 bg-black text-[#ecf1e6] rounded-full text-[9px] font-bold shrink-0">Save</button>`) + '</div>' +
+          (binary ? `<p class="text-neutral-600">${termEsc(d.mime_type || 'binary')} · ${termBytes(d.size_bytes)} · open it in Space to preview.</p>`
+                  : `<textarea id="aeonikInlineFileEditor" rows="8" class="w-full mt-1 p-2 bg-white border border-black rounded text-[10px] font-mono text-black">${termEsc(text)}</textarea>`);
+      } catch (e) {
+        rec.innerHTML = `<p class="text-[#8a1c1c]">cat ${termEsc(path)}: ${termEsc(e.message)}</p>`;
       }
-      aeonikProcs.forEach(p => {
-        p.cpu = Math.max(0.1, Math.round((p.cpu + (Math.random() - 0.48) * 0.6) * 10) / 10);
-      });
-      renderAeonikProcs();
     }
 
-    function inspectAeonikFile(relPath) {
-      const rec = document.getElementById('aeonikRecentOutput');
-      if (!rec) return;
-      const content = AEONIK_FILES[relPath] || ('// File: ' + relPath);
-      rec.innerHTML =
-        '<div class="flex items-center justify-between"><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$ cat ' + relPath + '</span>' +
-        '<button onclick="saveAeonikFile(\'' + relPath + '\')" class="px-2 py-0.5 bg-black text-[#ecf1e6] rounded text-[9px] font-bold">💾 Save to Space</button></div>' +
-        '<textarea id="aeonikInlineFileEditor" rows="6" class="w-full mt-1 p-2 bg-white border border-black rounded text-[10px] font-mono text-black">' +
-        content.replace(/</g, '&lt;') + '</textarea>';
-    }
-
-    async function saveAeonikFile(relPath) {
+    async function saveAeonikFile(path) {
       const ed = document.getElementById('aeonikInlineFileEditor');
       if (!ed) return;
-      const val = ed.value;
-      AEONIK_FILES[relPath] = val;
       try {
-        await fetch('/api/space/file', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scope: 'user', owner_id: myPeerId || 'aeonik', path: '/' + relPath, content: val })
+        const r = await fetch('/api/space/file', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scope: termScope(), owner_id: termOwner(), path: path, content: ed.value, updated_by: termHandle() })
         });
-        showQuickNotification('Saved ' + relPath + ' to workspace VFS');
+        const d = await r.json();
+        if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`);
+        showQuickNotification('Saved ' + path + ' to your space');
+        refreshTerminalSpace();
       } catch (e) {
-        showQuickNotification('Saved ' + relPath + ' locally');
+        showQuickNotification('Could not save ' + path + ': ' + e.message);
       }
     }
 
-    function runAeonikRecentAction(kind) {
+    async function runAeonikRecentAction(kind) {
+      if (kind === 'runs') { await refreshTerminalSpace(); const runs = (termSummary && termSummary.recent_runs) || []; if (runs.length) termShowRun(runs[0].run_id); return; }
       const rec = document.getElementById('aeonikRecentOutput');
-      if (!rec) return;
-      if (kind === 'test') {
-        rec.innerHTML =
-          '<p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> cargo test</p>' +
-          '<p class="text-neutral-700 pl-2">running 4 tests<br>test terminal::palette::test_celadon_palette ... ok<br>test terminal::renderer::test_quadrants ... ok<br>test terminal::theme::test_border_hairline ... ok<br>test result: <b>ok</b>. 4 passed; 0 failed; finished in 0.38s</p>';
-      } else {
-        const dur = (1.1 + Math.random() * 2.5).toFixed(2);
-        rec.innerHTML =
-          '<p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> cargo build</p>' +
-          '<p class="text-neutral-600 pl-2">Compiling aeonik-terminal v0.2.0 (/projects/aeonik)<br>Finished dev [unoptimized + debuginfo] target(s) in ' + dur + 's</p>' +
-          '<p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> ls -la target/debug/</p>' +
-          '<p class="text-neutral-600 pl-2 text-[10px]">total 72K<br>-rwxr-xr-x 1 aeonik staff 56K aeonik-terminal</p>';
+      if (rec) rec.innerHTML = '<p class="text-neutral-600">Running /src/main.py in your sandbox…</p>';
+      try {
+        const d = await termExec({ entrypoint: '/src/main.py', runtime: 'auto' });
+        await refreshTerminalSpace();
+        const runs = (termSummary && termSummary.recent_runs) || [];
+        if (runs.length) termShowRun(runs[0].run_id);
+        else if (rec) rec.innerHTML = `<pre class="whitespace-pre-wrap">${termEsc(d.stdout || d.stderr || '')}</pre>`;
+      } catch (e) {
+        if (rec) rec.innerHTML = `<p class="text-[#8a1c1c]">run /src/main.py: ${termEsc(e.message)}</p>`;
       }
     }
+
+    window.addEventListener('load', () => { setTimeout(refreshTerminalSpace, 2600); });
   </script>
 </body>
 </html>
@@ -9084,3 +9065,8 @@ MESH_OS_HTML_UI = apply_arena_duel(MESH_OS_HTML_UI)
 from .zen_shell import apply_zen_shell  # noqa: E402
 
 MESH_OS_HTML_UI = apply_zen_shell(MESH_OS_HTML_UI)
+
+# Shared Celadon window chrome: one titlebar component, design tokens, fonts, legacy palette compiler.
+from .window_chrome import apply_window_chrome  # noqa: E402
+
+MESH_OS_HTML_UI = apply_window_chrome(MESH_OS_HTML_UI)

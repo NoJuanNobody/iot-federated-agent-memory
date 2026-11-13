@@ -18,7 +18,12 @@ def test_arena_models_from_router_without_3d():
     ids = [m["id"] for m in models]
     # Configured brains first
     assert ids[:4] == list(router.providers.keys())[:4]
-    assert "google/gemini-2.5-flash" in ids
+    # No duplicates: gemini-brain already is google/gemini-2.5-flash, so the raw id is not listed again.
+    assert "google/gemini-2.5-flash" not in ids and "openai/gpt-4o" not in ids
+    assert len({m["model"] for m in models}) == len(models)
+    assert "google/gemini-2.5-pro" in ids
+    gem = next(m for m in models if m["id"] == "gemini-brain")
+    assert gem["name"] == "Google Gemini Flash" and gem["secondary"] == "google/gemini-2.5-flash"
     assert not any(i.startswith(("ronin/", "rodin/", "hyper3d/")) for i in ids)
     assert router.arena_default_pair() == {"a": "gemini-brain", "b": "claude-brain"}
 
