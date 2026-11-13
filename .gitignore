@@ -12,3 +12,4 @@ iot_federated_agent_memory/spaces/
 .impeccable/review/
 
 auth_secret.key
+iot_federated_agent_memory/arena_context/

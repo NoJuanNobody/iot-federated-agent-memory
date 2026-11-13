@@ -400,6 +400,65 @@ class DynamicAIGatewayRouter:
         self._available_models_cached_at = now
         return models
 
+    # Default AI Brain Arena match-up: the two configured brains the duel always used.
+    ARENA_DEFAULT_PAIR = ("gemini-brain", "claude-brain")
+    _NON_CHAT_PREFIXES = ("ronin/", "rodin/", "hyper3d/")
+
+    def get_arena_models(self, force_refresh: bool = False) -> List[Dict[str, Any]]:
+        """Chat models the Brain Arena may compare.
+
+        Built from what this router actually supports: the configured provider
+        aliases (claude-brain, gemini-brain, ...) first, then the chat models in
+        the router catalog (DEFAULT_OPENROUTER_MODELS, plus the live OpenRouter
+        list when a key is configured). 3D generators (Ronin/Rodin) are left out
+        because they are not chat completions and bill per generation.
+        """
+        out: List[Dict[str, Any]] = []
+        seen = set()
+        for alias, cfg in self.providers.items():
+            if alias.startswith(self._NON_CHAT_PREFIXES) or alias in ("ronin", "rodin", "hyper3d"):
+                continue
+            if "/" in alias:
+                continue  # dynamically registered raw model ids are listed from the catalog below
+            out.append({
+                "id": alias,
+                "name": f"{cfg.display_name} ({cfg.model_alias})",
+                "provider": cfg.lab_id,
+                "model": cfg.model_alias,
+                "kind": "configured",
+                "active": bool(cfg.is_active),
+            })
+            seen.add(alias)
+        for m in self.get_available_models(force_refresh=force_refresh):
+            mid = m.get("id")
+            if not mid or mid in seen or mid.startswith(self._NON_CHAT_PREFIXES):
+                continue
+            if str(m.get("category", "")).lower().startswith("3d"):
+                continue
+            out.append({
+                "id": mid,
+                "name": m.get("name") or mid,
+                "provider": m.get("provider") or mid.split("/")[0],
+                "model": mid,
+                "kind": "catalog",
+            })
+            seen.add(mid)
+        return out
+
+    def is_arena_model_allowed(self, model_id: str) -> bool:
+        if not model_id or not isinstance(model_id, str):
+            return False
+        return any(m["id"] == model_id for m in self.get_arena_models())
+
+    def arena_default_pair(self) -> Dict[str, str]:
+        ids = [m["id"] for m in self.get_arena_models()]
+        a, b = self.ARENA_DEFAULT_PAIR
+        if a not in ids:
+            a = ids[0] if ids else a
+        if b not in ids or b == a:
+            b = next((i for i in ids if i != a), b)
+        return {"a": a, "b": b}
+
     def route_request(self, requested_alias: str, estimated_cost: float = 0.02) -> LabProviderConfig:
         """Route request to the target lab, or fallback if credit pool is exhausted."""
         primary = self.providers.get(requested_alias)

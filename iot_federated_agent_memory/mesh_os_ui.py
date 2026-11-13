@@ -13,6 +13,28 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
   <title>TinCan Mesh OS 2.1 — Multi-Window, Multiplayer &amp; AI Mesh Gateway</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    /* Ranger VFS: resizable split + read-only viewer */
+    @media (min-width: 768px) {
+      #rangerListPane { width: var(--ranger-list-w, 38%); min-width: 180px; }
+    }
+    .ranger-code { border-collapse: collapse; width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; line-height: 1.55; }
+    .ranger-code td.ln { width: 1%; padding: 0 0.6rem 0 0.5rem; text-align: right; color: #475569; user-select: none; vertical-align: top; border-right: 1px solid #1e293b; white-space: nowrap; }
+    .ranger-code td.lc { padding: 0 0.75rem; color: #e2e8f0; white-space: pre; }
+    .ranger-code.wrap td.lc { white-space: pre-wrap; word-break: break-word; }
+    .ranger-code tr:hover td { background: rgba(30, 41, 59, 0.5); }
+    .tk-c { color: #64748b; font-style: italic; } .tk-s { color: #86efac; } .tk-n { color: #fbbf24; }
+    .tk-w { color: #c4b5fd; } .tk-f { color: #67e8f9; } .tk-k { color: #93c5fd; } .tk-t { color: #f9a8d4; }
+    .ranger-md { color: #cbd5e1; font-size: 12px; line-height: 1.6; }
+    .ranger-md h1, .ranger-md h2, .ranger-md h3, .ranger-md h4 { color: #f1f5f9; font-weight: 700; margin: 0.9em 0 0.4em; }
+    .ranger-md h1 { font-size: 1.35em; border-bottom: 1px solid #1e293b; padding-bottom: 0.2em; } .ranger-md h2 { font-size: 1.18em; } .ranger-md h3 { font-size: 1.05em; }
+    .ranger-md p, .ranger-md ul, .ranger-md ol, .ranger-md blockquote, .ranger-md pre, .ranger-md table { margin: 0.5em 0; }
+    .ranger-md ul { list-style: disc; padding-left: 1.4em; } .ranger-md ol { list-style: decimal; padding-left: 1.4em; }
+    .ranger-md code { background: #0f172a; border: 1px solid #1e293b; border-radius: 4px; padding: 0 0.3em; font-size: 0.92em; color: #c4b5fd; }
+    .ranger-md pre { background: #020617; border: 1px solid #1e293b; border-radius: 8px; padding: 0.6em 0.8em; overflow-x: auto; }
+    .ranger-md pre code { background: none; border: 0; padding: 0; color: #e2e8f0; }
+    .ranger-md blockquote { border-left: 3px solid #7c3aed; padding-left: 0.8em; color: #94a3b8; }
+    .ranger-md hr { border: 0; border-top: 1px solid #1e293b; margin: 1em 0; }
+    .ranger-md table { border-collapse: collapse; } .ranger-md th, .ranger-md td { border: 1px solid #1e293b; padding: 0.25em 0.6em; } .ranger-md th { background: #0f172a; color: #e2e8f0; }
     :root {
     --sumi: #0e0d0b;
     --sumi-2: #17150f;
@@ -339,6 +361,52 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       font-family: "JetBrains Mono", monospace !important;
     }
 
+    /* ==========================================================================
+       Board unified search bar (Aeonik Celadon & Ink)
+       ========================================================================== */
+    .ubar-wrap { position: relative; font-family: "JetBrains Mono", ui-monospace, monospace; }
+    .ubar-row { display: flex; gap: 0.5rem; align-items: stretch; }
+    .ubar { flex: 1; min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem; padding: 0.35rem 0.5rem 0.35rem 0.85rem;
+            background: #ffffff; border: 1px solid #111111; border-radius: 9999px; cursor: text; }
+    .ubar:focus-within { box-shadow: 0 0 0 1px #111111; }
+    .ubar-icon { color: #111111; font-size: 14px; line-height: 1; }
+    .ubar-chips { display: contents; }
+    .ubar-chip { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.05rem 0.25rem 0.05rem 0.55rem; border: 1px solid #111111;
+                 border-radius: 9999px; background: #ecf1e6; color: #111111; font-size: 11px; line-height: 1.5; }
+    .ubar-chip[data-kind="filter"] { background: #111111; color: #ecf1e6; }
+    .ubar-chip button { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 10px; padding: 0 0.2rem; border-radius: 9999px; }
+    .ubar-chip button:hover, .ubar-chip button:focus-visible { background: rgba(17,17,17,0.12); outline: none; }
+    .ubar input#boardSearchInput, .mesh-window .ubar input#boardSearchInput {
+      flex: 1; min-width: 10rem; border: 0 !important; box-shadow: none !important; background: transparent !important; padding: 0.15rem 0 !important;
+      font-size: 12px; color: #111111 !important; outline: none !important; }
+    .ubar-kbd { font-size: 10px; color: #525252; border: 1px solid rgba(17,17,17,0.25); border-radius: 6px; padding: 0 0.35rem; }
+    .mesh-window select.ubar-sort { border-radius: 9999px !important; padding: 0 0.75rem; font-size: 11px; }
+    .ubar-suggest { position: absolute; z-index: 60; left: 0; right: 0; top: 2.75rem; max-height: 320px; overflow-y: auto; padding: 0.35rem;
+                    background: #f4f8f0; border: 1px solid #111111; border-radius: 16px; box-shadow: 0 16px 40px rgba(0,0,0,0.08); }
+    .ubar-suggest.hidden { display: none; }
+    .ubar-group-title { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #525252; padding: 0.4rem 0.6rem 0.2rem; }
+    .ubar-option { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 10px;
+                   font-size: 12px; color: #111111; cursor: pointer; }
+    .ubar-option .ubar-opt-label { color: #525252; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ubar-option .ubar-opt-count { color: #525252; font-size: 10px; flex-shrink: 0; }
+    .ubar-option[aria-selected="true"], .ubar-option:hover { background: #111111; color: #ecf1e6; }
+    .ubar-option[aria-selected="true"] .ubar-opt-label, .ubar-option[aria-selected="true"] .ubar-opt-count,
+    .ubar-option:hover .ubar-opt-label, .ubar-option:hover .ubar-opt-count { color: rgba(236,241,230,0.8); }
+    .ubar-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 11px; color: #111111; }
+    .ubar-trending { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
+    .ubar-trending .ubar-trend-label { color: #525252; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; margin-right: 0.2rem; }
+    .ubar-trend { border: 1px solid #111111; border-radius: 9999px; padding: 0 0.5rem; background: transparent; color: #111111; font-size: 11px; cursor: pointer; }
+    .ubar-trend:hover, .ubar-trend:focus-visible { background: #111111; color: #ecf1e6; outline: none; }
+    .ubar-trend span { color: #525252; font-size: 10px; margin-left: 0.2rem; }
+    .ubar-trend:hover span { color: rgba(236,241,230,0.8); }
+    .ubar-rank summary, .ubar-rank-mini summary { cursor: pointer; color: #525252; font-size: 10px; text-decoration: underline; text-underline-offset: 2px; list-style: none; }
+    .ubar-rank summary::-webkit-details-marker, .ubar-rank-mini summary::-webkit-details-marker { display: none; }
+    .ubar-rank[open] { flex-basis: 100%; }
+    .ubar-rank-body, .ubar-rank-mini-body { margin-top: 0.4rem; padding: 0.6rem 0.75rem; border: 1px solid #111111; border-radius: 16px; background: #f4f8f0;
+                     font-size: 11px; color: #111111; }
+    .ubar-rank-body table { width: 100%; border-collapse: collapse; margin-top: 0.35rem; }
+    .ubar-rank-body th, .ubar-rank-body td { text-align: left; padding: 0.15rem 0.3rem; border-bottom: 1px solid rgba(17,17,17,0.12); font-size: 10px; }
+
     #accountSetupModal[data-zen-modal="true"],
     #accountSetupModal {
       backdrop-filter: blur(16px) !important;
@@ -357,6 +425,78 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       font-family: var(--mincho) !important;
       color: var(--washi) !important;
     }
+
+    /* ==========================================================================
+       Aeonik Celadon & Ink: notification bar
+       ========================================================================== */
+    .aeonik-notice {
+      position: fixed; top: 4.25rem; left: 50%; transform: translateX(-50%); z-index: 100;
+      width: min(640px, calc(100% - 1.5rem));
+      display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+      padding: 0.4rem 0.45rem 0.4rem 0.9rem;
+      background: #ecf1e6; color: #111111;
+      border: 1px solid #111111; border-radius: 9999px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08);
+      font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; line-height: 1.4;
+    }
+    .aeonik-notice.hidden { display: none; }
+    .aeonik-notice__body { display: flex; align-items: center; gap: 0.55rem; min-width: 0; }
+    .aeonik-notice__dot { width: 6px; height: 6px; border-radius: 9999px; background: #111111; flex-shrink: 0; }
+    .aeonik-notice__label {
+      flex-shrink: 0; padding: 0.05rem 0.55rem; border-radius: 9999px; border: 1px solid #111111;
+      font-size: 10px; font-weight: 600; letter-spacing: 0.06em; background: #111111; color: #ecf1e6;
+    }
+    .aeonik-notice[data-variant="info"] .aeonik-notice__label { background: transparent; color: #111111; }
+    .aeonik-notice[data-variant="info"] .aeonik-notice__dot { background: transparent; border: 1px solid #111111; }
+    .aeonik-notice__text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #111111; }
+    .aeonik-notice__close {
+      flex-shrink: 0; width: 1.6rem; height: 1.6rem; border-radius: 9999px; border: 1px solid #111111;
+      background: transparent; color: #111111; font-size: 11px; line-height: 1; cursor: pointer; transition: background 0.15s, color 0.15s;
+    }
+    .aeonik-notice__close:hover, .aeonik-notice__close:focus-visible { background: #111111; color: #ecf1e6; outline: none; }
+
+    /* ==========================================================================
+       Aeonik Celadon & Ink scope for the rebuilt Ranger file panes and the arena
+       model pickers: remaps the legacy slate/purple/cyan utilities to paper + ink.
+       ========================================================================== */
+    .aeonik-scope { color: #111111; }
+    .aeonik-scope :is([class~="bg-slate-950"],[class~="bg-slate-900"],[class~="bg-slate-900/70"],[class~="bg-slate-900/90"]) { background: #f4f8f0 !important; }
+    .aeonik-scope :is([class~="bg-slate-800"],[class~="bg-slate-700"]) { background: #ffffff !important; }
+    .aeonik-scope :is([class~="hover:bg-slate-900"],[class~="hover:bg-slate-800"],[class~="hover:bg-slate-700"]):hover { background: rgba(17, 17, 17, 0.07) !important; }
+    .aeonik-scope :is([class~="border-slate-800"],[class~="border-slate-700"],[class~="border-emerald-900/60"],[class~="border-cyan-900/60"],[class~="border-cyan-700/60"],[class~="border-purple-800"]) { border-color: #111111 !important; }
+    .aeonik-scope :is([class~="divide-slate-800/40"]) > * + * { border-color: rgba(17, 17, 17, 0.12) !important; }
+    .aeonik-scope :is([class~="text-slate-100"],[class~="text-slate-200"],[class~="text-slate-300"],[class~="text-purple-200"],[class~="text-purple-300"],[class~="text-purple-400"],[class~="text-cyan-300"],[class~="text-cyan-400"],[class~="text-emerald-300"],[class~="text-emerald-400"]) { color: #111111 !important; }
+    .aeonik-scope :is([class~="text-slate-400"],[class~="text-slate-500"]) { color: #525252 !important; }
+    .aeonik-scope :is([class~="text-slate-600"],[class~="text-slate-600/70"]) { color: #737373 !important; }
+    .aeonik-scope :is([class~="hover:text-slate-200"],[class~="hover:text-slate-300"]):hover { color: #000000 !important; text-decoration: underline; }
+    .aeonik-scope :is([class~="bg-purple-950"],[class~="bg-purple-950/80"]) { background: #111111 !important; color: #ecf1e6 !important; }
+    .aeonik-scope :is([class~="bg-purple-950"],[class~="bg-purple-950/80"]) * { color: #ecf1e6 !important; }
+    .aeonik-scope [class~="hover:bg-purple-900"]:hover { background: #333333 !important; }
+    .aeonik-scope [class~="border-purple-400"] { border-color: #ecf1e6 !important; }
+    .aeonik-scope [class~="bg-cyan-700/80"] { background: #111111 !important; color: #ecf1e6 !important; border-radius: 9999px; }
+    .aeonik-scope button[class*="rounded"] { border-radius: 9999px; }
+    .aeonik-scope [class~="rounded-xl"], .aeonik-scope [class~="rounded-lg"] { border-radius: 16px !important; }
+    .aeonik-scope select { background: #ffffff !important; color: #111111 !important; border: 1px solid #111111 !important; border-radius: 8px !important; font-family: "JetBrains Mono", monospace !important; }
+    .aeonik-scope #rangerSplitter > div { background: rgba(17, 17, 17, 0.25) !important; }
+    .aeonik-scope #rangerSplitter:hover > div, .aeonik-scope #rangerSplitter:focus > div { background: #111111 !important; }
+    .aeonik-scope #spaceFileList:focus { box-shadow: 0 0 0 1px #111111; border-radius: 8px; }
+    .aeonik-scope .ring-purple-500\/70 { --tw-ring-color: #111111 !important; }
+    .aeonik-scope .ranger-code td.ln { color: #737373; border-right-color: rgba(17, 17, 17, 0.15); }
+    .aeonik-scope .ranger-code td.lc { color: #111111; }
+    .aeonik-scope .ranger-code tr:hover td { background: rgba(17, 17, 17, 0.05); }
+    .aeonik-scope .tk-c { color: #737373; } .aeonik-scope .tk-s { color: #2f6b3f; } .aeonik-scope .tk-n { color: #9a5b13; }
+    .aeonik-scope .tk-w { color: #5b3b8c; } .aeonik-scope .tk-f { color: #1f5f73; } .aeonik-scope .tk-k { color: #111111; font-weight: 600; } .aeonik-scope .tk-t { color: #8c2f5e; }
+    .aeonik-scope .ranger-md { color: #262626; }
+    .aeonik-scope .ranger-md h1, .aeonik-scope .ranger-md h2, .aeonik-scope .ranger-md h3, .aeonik-scope .ranger-md h4 { color: #111111; }
+    .aeonik-scope .ranger-md h1, .aeonik-scope .ranger-md hr { border-color: rgba(17, 17, 17, 0.15); }
+    .aeonik-scope .ranger-md code { background: #ffffff; border-color: rgba(17, 17, 17, 0.2); color: #111111; }
+    .aeonik-scope .ranger-md pre { background: #ffffff; border-color: #111111; }
+    .aeonik-scope .ranger-md pre code { color: #111111; }
+    .aeonik-scope .ranger-md blockquote { border-left-color: #111111; color: #525252; }
+    .aeonik-scope .ranger-md th, .aeonik-scope .ranger-md td { border-color: rgba(17, 17, 17, 0.2); }
+    .aeonik-scope .ranger-md th { background: #f4f8f0; color: #111111; }
+    .aeonik-scope .ranger-md a { color: #111111 !important; }
+    .aeonik-scope #finderImageContainer { background-image: none !important; }
 
     #zenDirtSurface {
       position: fixed;
@@ -388,14 +528,14 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
   <!-- Multiplayer Peer Cursors Layer -->
   <div id="multiplayerCursorsLayer" class="fixed inset-0 pointer-events-none z-40 overflow-hidden"></div>
 
-  <!-- High-Priority Admin Moderator Broadcast Banner -->
-  <div id="adminBroadcastBanner" class="hidden fixed top-0 left-0 right-0 z-[100] bg-gradient-to-r from-amber-600 via-red-600 to-amber-600 text-white font-mono text-xs py-2 px-4 shadow-2xl flex items-center justify-between border-b-2 border-yellow-300 animate-pulse">
-    <div class="flex items-center gap-2 max-w-5xl mx-auto">
-      <span class="text-base">🚨</span>
-      <span class="font-bold tracking-wider">[ADMIN MODERATOR ANNOUNCEMENT]:</span>
-      <span id="adminBroadcastText" class="font-semibold text-amber-100"></span>
+  <!-- Notification bar (admin broadcasts + quick notices). Aeonik Celadon & Ink: celadon paper, 1px ink hairline, pill shape, JetBrains Mono, ink-only accents. -->
+  <div id="adminBroadcastBanner" role="status" aria-live="polite" data-variant="admin" class="aeonik-notice hidden">
+    <div class="aeonik-notice__body">
+      <span id="adminBroadcastAccent" class="aeonik-notice__dot" aria-hidden="true"></span>
+      <span id="adminBroadcastLabel" class="aeonik-notice__label">ADMIN</span>
+      <span id="adminBroadcastText" class="aeonik-notice__text"></span>
     </div>
-    <button onclick="dismissAdminBanner()" class="px-2 py-0.5 rounded bg-black/40 hover:bg-black/70 text-white text-[11px] font-bold border border-white/30">✕ Dismiss</button>
+    <button type="button" onclick="dismissAdminBanner()" aria-label="Dismiss" class="aeonik-notice__close">&#x2715;</button>
   </div>
 
   <!-- ===================================================================== -->
@@ -1029,6 +1169,9 @@ aeonik/
         </div>
       </div>
       <div class="window-body p-4 space-y-4 max-h-[620px] overflow-y-auto">
+        <!-- Two-brain duel with per-brain context (arena_duel_ui.py) -->
+        <!--ARENA_DUEL:arenaWin-->
+
         <div class="flex flex-wrap justify-between items-center gap-2">
           <div>
             <h2 class="text-sm font-bold text-white flex items-center gap-2">
@@ -1374,101 +1517,8 @@ aeonik/
           </div>
         </div>
 
-        <!-- Middle Section: Side-by-Side AI Brain Arena -->
-        <div id="arenaBattleBox" class="bg-slate-950/90 border border-indigo-900/60 rounded-xl p-4 space-y-3">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5">
-                <span>⚔️</span> Side-by-Side AI Brain Arena Duel
-              </h3>
-              <p class="text-[11px] text-slate-400">Dispatch dual completions to any OpenRouter or Ronin model and vote for the best response (+150 XP).</p>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-[11px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800 px-2 py-0.5 rounded">
-                Dynamic OpenRouter &amp; Ronin Arbiter
-              </span>
-            </div>
-          </div>
-
-          <!-- Dynamic Model A & Model B Pickers -->
-          <datalist id="arenaModelsDatalist">
-            <option value="google/gemini-2.5-flash">Google Gemini 2.5 Flash</option>
-            <option value="google/gemini-2.5-pro">Google Gemini 2.5 Pro</option>
-            <option value="anthropic/claude-3.7-sonnet">Anthropic Claude 3.7 Sonnet</option>
-            <option value="anthropic/claude-3.5-sonnet">Anthropic Claude 3.5 Sonnet</option>
-            <option value="openai/gpt-4o">OpenAI GPT-4o</option>
-            <option value="openai/o3-mini">OpenAI o3-mini</option>
-            <option value="deepseek/deepseek-r1">DeepSeek R1</option>
-            <option value="deepseek/deepseek-chat">DeepSeek V3</option>
-            <option value="meta-llama/llama-3.3-70b-instruct">Meta Llama 3.3 70B</option>
-            <option value="qwen/qwen-2.5-72b-instruct">Qwen 2.5 72B</option>
-            <option value="mistralai/mistral-large-2411">Mistral Large</option>
-            <option value="x-ai/grok-2-1212">xAI Grok 2</option>
-            <option value="ronin/hyper3d-rodin-v2">Ronin / Hyper3D Rodin v2 (3D Mesh &amp; PBR)</option>
-            <option value="ronin/regular">Ronin Regular 3D Mesh</option>
-            <option value="ronin/sketch">Ronin Fast Sketch 3D</option>
-            <option value="ronin/detail">Ronin Detail 3D Mesh</option>
-            <option value="ronin/smooth">Ronin Smooth 3D Quad-Mesh</option>
-          </datalist>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-            <div class="bg-slate-900/70 border border-emerald-900/60 rounded-lg p-2 flex items-center gap-2">
-              <span class="text-[11px] font-mono text-emerald-400 font-bold shrink-0">Model A:</span>
-              <input list="arenaModelsDatalist" id="arenaModelAInput" value="google/gemini-2.5-flash" oninput="updateArenaModelLabels()" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-xs text-emerald-300 font-mono focus:border-emerald-500 focus:outline-none" placeholder="Any OpenRouter or Ronin model ID...">
-            </div>
-            <div class="bg-slate-900/70 border border-cyan-900/60 rounded-lg p-2 flex items-center gap-2">
-              <span class="text-[11px] font-mono text-cyan-400 font-bold shrink-0">Model B:</span>
-              <input list="arenaModelsDatalist" id="arenaModelBInput" value="anthropic/claude-3.7-sonnet" oninput="updateArenaModelLabels()" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-xs text-cyan-300 font-mono focus:border-cyan-500 focus:outline-none" placeholder="Any OpenRouter or Ronin model ID...">
-            </div>
-          </div>
-
-          <div class="flex gap-2">
-            <input id="arenaPromptInput" type="text" value="Explain zero-knowledge proofs and federated CRDT meshes in two concise sentences." class="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-xs text-white font-mono placeholder:text-slate-600">
-            <button onclick="runArenaBattle()" class="px-4 py-1.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:brightness-110 text-white font-semibold rounded text-xs transition active:scale-95 shrink-0 flex items-center gap-1.5">
-              <span>⚔️</span> <span>Battle 2 Brains</span>
-            </button>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-            <!-- Brain A -->
-            <div class="p-3 bg-slate-900/90 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
-              <div class="flex justify-between items-center pb-1.5 border-b border-slate-800">
-                <span class="font-bold text-xs text-emerald-300 font-mono">Brain A</span>
-                <span id="arenaLabelA" class="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">google/gemini-2.5-flash</span>
-              </div>
-              <div id="arenaResultA" class="text-xs font-mono text-slate-200 min-h-[90px] max-h-[160px] overflow-y-auto whitespace-pre-wrap bg-black/40 p-2.5 rounded">
-                Click "Battle 2 Brains" above to dispatch simultaneous prompts...
-              </div>
-              <div class="space-y-1.5 pt-1">
-                <button id="arenaVoteBtnA" onclick="voteArenaWinner('A')" class="w-full py-1.5 bg-emerald-700/80 hover:bg-emerald-600 text-white font-semibold rounded text-xs transition active:scale-95 font-mono">
-                  🏆 Vote Brain A (+150 XP)
-                </button>
-                <button onclick="sendArenaResultToSpace('A')" class="w-full py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-mono flex items-center justify-center gap-1 border border-slate-700 transition active:scale-95" title="Copy code/output to Dynamic Agent Space and execute in sandbox">
-                  🚀 Use in Agent Space &amp; Sandbox
-                </button>
-              </div>
-            </div>
-
-            <!-- Brain B -->
-            <div class="p-3 bg-slate-900/90 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
-              <div class="flex justify-between items-center pb-1.5 border-b border-slate-800">
-                <span class="font-bold text-xs text-cyan-300 font-mono">Brain B</span>
-                <span id="arenaLabelB" class="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">anthropic/claude-3.7-sonnet</span>
-              </div>
-              <div id="arenaResultB" class="text-xs font-mono text-slate-200 min-h-[90px] max-h-[160px] overflow-y-auto whitespace-pre-wrap bg-black/40 p-2.5 rounded">
-                Click "Battle 2 Brains" above to dispatch simultaneous prompts...
-              </div>
-              <div class="space-y-1.5 pt-1">
-                <button id="arenaVoteBtnB" onclick="voteArenaWinner('B')" class="w-full py-1.5 bg-cyan-700/80 hover:bg-cyan-600 text-white font-semibold rounded text-xs transition active:scale-95 font-mono">
-                  🏆 Vote Brain B (+150 XP)
-                </button>
-                <button onclick="sendArenaResultToSpace('B')" class="w-full py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-mono flex items-center justify-center gap-1 border border-slate-700 transition active:scale-95" title="Copy code/output to Dynamic Agent Space and execute in sandbox">
-                  🚀 Use in Agent Space &amp; Sandbox
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- Middle Section: Brain Arena duel (shared with win-arena, see arena_duel_ui.py) -->
+        <!--ARENA_DUEL:arena-->
 
         <!-- Bottom Section: Live Operator Leaderboard -->
         <div>
@@ -2116,9 +2166,6 @@ aeonik/
             <button id="boardTabBtn-discussions" type="button" onclick="switchBoardTab('discussions')" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-bold text-xs transition">
               💬 Discussions &amp; Threads
             </button>
-            <button id="boardTabBtn-search" type="button" onclick="switchBoardTab('search')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition">
-              🔍 GraphRAG + BM25 IR Lab
-            </button>
             <button id="boardTabBtn-graph" type="button" onclick="switchBoardTab('graph')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition">
               🕸️ Knowledge Graph Explorer
             </button>
@@ -2151,52 +2198,40 @@ aeonik/
         <!-- TAB 1: DISCUSSIONS & THREADS -->
         <!-- =============================================================== -->
         <div id="boardTab-discussions" class="space-y-3.5">
-          <!-- Quick Hybrid Search + Category Filter + Sort Bar -->
-          <div class="p-3 bg-slate-900/90 rounded-xl border border-indigo-500/40 space-y-2.5">
-            <div class="flex flex-col sm:flex-row gap-2">
-              <input id="boardSearchInput" type="text" placeholder="Search discussions, @username, @gemini-brain, @verifier-agent, #graphrag, #bm25..." onkeydown="if(event.key==='Enter') searchCyberspaceBoard()" class="flex-1 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono text-xs focus:border-indigo-400 focus:outline-none" />
-              <select id="boardSearchMode" onchange="if(document.getElementById('boardSearchInput').value.trim()) searchCyberspaceBoard()" class="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-cyan-300 font-mono text-xs">
-                <option value="hybrid">⚡ Hybrid (GraphRAG + BM25)</option>
-                <option value="graphrag">🕸️ GraphRAG (PPR + 2-Hop)</option>
-                <option value="bm25">📚 Okapi BM25 (Lexical IR)</option>
+          <!-- Unified search bar: one input. #topics, @people/@agents, /search, /topic, is:verified. Cmd/Ctrl+K focuses it. -->
+          <div id="boardUnifiedSearch" class="ubar-wrap space-y-2">
+            <div class="ubar-row">
+              <div id="boardUnifiedBar" class="ubar" onclick="document.getElementById('boardSearchInput').focus()">
+                <span class="ubar-icon" aria-hidden="true">&#x2315;</span>
+                <div id="boardSearchChips" class="ubar-chips" aria-label="Active filters"></div>
+                <input id="boardSearchInput" type="text" autocomplete="off" spellcheck="false"
+                       role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="boardSuggestList"
+                       aria-label="Search the board"
+                       placeholder="Search or type #topic, @agent, /topic, is:verified"
+                       oninput="onBoardSearchInput(event)" onkeydown="onBoardSearchKeydown(event)" onblur="setTimeout(closeBoardSuggest, 150)" />
+                <kbd class="ubar-kbd" title="Cmd/Ctrl+K focuses search">&#x2318;K</kbd>
+              </div>
+              <select id="boardSortSelect" onchange="loadCyberspaceBoard()" class="ubar-sort" aria-label="Sort">
+                <option value="hot">Hot</option>
+                <option value="new">Newest</option>
+                <option value="top">Top</option>
+                <option value="discussed">Most discussed</option>
               </select>
-              <button type="button" onclick="searchCyberspaceBoard()" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-cyan-600 hover:brightness-110 text-white font-mono font-bold text-xs transition active:scale-95">
-                Search
-              </button>
-              <button type="button" onclick="resetCyberspaceSearch()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-xs border border-slate-700">
-                Reset
-              </button>
             </div>
-
-            <!-- Category Pills + Sort Selector -->
-            <div class="flex flex-wrap items-center justify-between gap-2 pt-1 font-mono text-[10px]">
-              <div id="boardCategoryBar" class="flex flex-wrap items-center gap-1">
-                <button type="button" onclick="setBoardCategoryFilter('')" data-cat="" class="board-cat-btn px-2 py-0.5 rounded bg-indigo-600 text-white font-bold">All Topics</button>
-                <button type="button" onclick="setBoardCategoryFilter('cyberspace')" data-cat="cyberspace" class="board-cat-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">#cyberspace</button>
-                <button type="button" onclick="setBoardCategoryFilter('ai')" data-cat="ai" class="board-cat-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">#ai-agents</button>
-                <button type="button" onclick="setBoardCategoryFilter('architecture')" data-cat="architecture" class="board-cat-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">#architecture</button>
-                <button type="button" onclick="setBoardCategoryFilter('security')" data-cat="security" class="board-cat-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">#security</button>
-                <button type="button" onclick="setBoardCategoryFilter('qa')" data-cat="qa" class="board-cat-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">#q&amp;a</button>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <label class="flex items-center gap-1 text-emerald-300 cursor-pointer">
-                  <input id="boardVerifiedOnlyToggle" type="checkbox" onchange="loadCyberspaceBoard()" class="rounded border-slate-700 bg-slate-950" />
-                  <span>✅ Verified Only</span>
-                </label>
-                <select id="boardSortSelect" onchange="loadCyberspaceBoard()" class="px-2 py-0.5 rounded bg-slate-950 border border-slate-700 text-slate-200 text-[10px]">
-                  <option value="hot">🔥 Hot / Pinned</option>
-                  <option value="new">🆕 Newest</option>
-                  <option value="top">⬆️ Top Voted</option>
-                  <option value="discussed">💬 Most Discussed</option>
-                </select>
-              </div>
+            <div id="boardSuggestList" role="listbox" class="ubar-suggest hidden"></div>
+            <div class="ubar-meta">
+              <div id="boardTrending" class="ubar-trending" aria-label="Trending topics"></div>
+              <details id="boardRankDetails" class="ubar-rank">
+                <summary>how this ranked</summary>
+                <div id="boardRankBody" class="ubar-rank-body">Search with words or an @mention to see how hybrid BM25 + GraphRAG ranked the results.</div>
+              </details>
             </div>
 
             <!-- Inline GraphRAG + BM25 Search Synthesis Box -->
             <div id="boardSynthesisBox" class="hidden p-2.5 bg-indigo-950/60 border border-indigo-500/50 rounded-lg space-y-2 font-mono text-[11px]">
               <div class="flex items-center justify-between">
                 <span class="text-[10px] uppercase tracking-wider text-cyan-300 font-bold">🧠 Hybrid GraphRAG + Okapi BM25 Synthesis</span>
-                <button type="button" onclick="switchBoardTab('search')" class="text-[10px] text-indigo-300 underline hover:text-white">Open Full IR Diagnostics ↗</button>
+                <button type="button" onclick="openBoardRankDetails()" class="text-[10px] text-indigo-300 underline hover:text-white">how this ranked</button>
               </div>
               <div id="boardSynthesisText" class="text-indigo-100 leading-relaxed"></div>
               <div id="boardSubgraphEntities" class="flex flex-wrap gap-1.5 pt-1"></div>
@@ -2264,69 +2299,6 @@ aeonik/
 
           <!-- Topics Feed & Active Thread View -->
           <div id="boardTopicsFeed" class="space-y-3"></div>
-        </div>
-
-        <!-- =============================================================== -->
-        <!-- TAB 2: GRAPHRAG + OKAPI BM25 INFORMATION RETRIEVAL LAB -->
-        <!-- =============================================================== -->
-        <div id="boardTab-search" class="hidden space-y-3.5 font-mono">
-          <div class="p-3.5 bg-slate-900/90 rounded-xl border border-indigo-500/50 space-y-3">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h3 class="text-xs font-bold text-indigo-300 uppercase tracking-wider">🔬 Hybrid GraphRAG (Personalized PageRank) + Okapi BM25 IR Workbench</h3>
-                <p class="text-[11px] text-slate-400 font-sans">Inspect lexical BM25 term IDF weights ($k_1=1.5, b=0.75$), Personalized PageRank ($\alpha=0.85$) scores, and multi-hop GraphRAG relational paths.</p>
-              </div>
-              <span class="px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700 text-[10px]">Reciprocal Rank Fusion</span>
-            </div>
-
-            <div class="flex flex-col sm:flex-row gap-2">
-              <input id="boardLabSearchInput" type="text" value="graphrag bm25 @gemini-brain @verifier-agent" placeholder="Enter query terms, @username, @agent, or #tag..." onkeydown="if(event.key==='Enter') runIrLabSearch()" class="flex-1 px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs focus:border-indigo-400 focus:outline-none" />
-              <select id="boardLabSearchMode" onchange="runIrLabSearch()" class="px-2.5 py-2 rounded-lg bg-slate-950 border border-slate-700 text-cyan-300 text-xs">
-                <option value="hybrid">⚡ Hybrid (0.52 BM25 + 0.48 GraphRAG)</option>
-                <option value="bm25">📚 Okapi BM25 Only</option>
-                <option value="graphrag">🕸️ GraphRAG PPR Only</option>
-              </select>
-              <button type="button" onclick="runIrLabSearch()" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition active:scale-95">
-                Run IR Query
-              </button>
-            </div>
-
-            <!-- BM25 Corpus & Term IDF Diagnostics -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div class="p-3 bg-slate-950/90 rounded-lg border border-emerald-800/60 space-y-2">
-                <div class="flex items-center justify-between text-[11px]">
-                  <span class="font-bold text-emerald-300">📚 Okapi BM25 Lexical Index Diagnostics</span>
-                  <span id="bm25CorpusParams" class="text-[10px] text-slate-400">k1=1.5, b=0.75</span>
-                </div>
-                <table class="w-full text-left text-[10px]">
-                  <thead class="text-slate-400 border-b border-slate-800">
-                    <tr>
-                      <th class="py-1">Query Token</th>
-                      <th class="py-1">Doc Freq (df)</th>
-                      <th class="py-1 text-right">BM25 IDF Weight</th>
-                    </tr>
-                  </thead>
-                  <tbody id="bm25TermTableBody" class="divide-y divide-slate-900 text-slate-200">
-                    <tr><td colspan="3" class="py-2 text-slate-500 text-center">Run a query above to inspect BM25 IDF weights.</td></tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div class="p-3 bg-slate-950/90 rounded-lg border border-cyan-800/60 space-y-2">
-                <div class="flex items-center justify-between text-[11px]">
-                  <span class="font-bold text-cyan-300">🕸️ GraphRAG Subgraph &amp; Seed Activation</span>
-                  <span id="graphragSubgraphStats" class="text-[10px] text-slate-400">PPR α=0.85</span>
-                </div>
-                <div id="irLabSynthesisBox" class="text-[11px] text-indigo-200 leading-relaxed bg-indigo-950/40 p-2 rounded border border-indigo-900/50">
-                  Run a query to synthesize knowledge across topics, @users, @agents, and #tags.
-                </div>
-                <div id="irLabSeedBadges" class="flex flex-wrap gap-1 pt-1"></div>
-              </div>
-            </div>
-
-            <!-- Detailed Ranked Retrieval Table -->
-            <div id="irLabResultsList" class="space-y-2 pt-1"></div>
-          </div>
         </div>
 
         <!-- =============================================================== -->
@@ -2656,32 +2628,25 @@ aeonik/
         <!-- =============================================================== -->
         <!-- TAB 1: RANGER 3-COLUMN FILESYSTEM & MULTI-FORMAT PREVIEWER -->
         <!-- =============================================================== -->
-        <div id="finderTab-files" class="grid grid-cols-1 md:grid-cols-12 gap-3">
+        <div id="finderTab-files" class="aeonik-scope grid grid-cols-1 md:grid-cols-12 gap-3">
           <!-- Col 1: Places & Directory Tree (3 cols) -->
           <div class="md:col-span-3 space-y-3">
             <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
               <div class="flex items-center justify-between">
-                <span class="font-mono font-bold text-slate-300 text-xs">Places / Nav</span>
-                <span class="text-[10px] text-slate-500 font-mono">UNIX</span>
+                <span class="font-mono font-bold text-slate-300 text-xs">Places · This Computer</span>
+                <button onclick="gatherDriveMirror('manual')" class="text-[10px] text-slate-500 hover:text-slate-200 font-mono" title="Re-scan the drive now">↻ rescan</button>
               </div>
-              <div class="space-y-1 font-mono text-xs">
-                <button onclick="navigateFinderPath('/src')" class="w-full text-left px-2 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-200 flex items-center gap-1.5 transition">
-                  <span>📂</span> <span>/src (Code)</span>
-                </button>
-                <button onclick="navigateFinderPath('/media/videos')" class="w-full text-left px-2 py-1.5 rounded hover:bg-slate-900 text-slate-300 flex items-center gap-1.5 transition">
-                  <span>🎬</span> <span>/media/videos</span>
-                </button>
-                <button onclick="navigateFinderPath('/media/audio')" class="w-full text-left px-2 py-1.5 rounded hover:bg-slate-900 text-slate-300 flex items-center gap-1.5 transition">
-                  <span>🎵</span> <span>/media/audio</span>
-                </button>
-                <button onclick="navigateFinderPath('/models3d')" class="w-full text-left px-2 py-1.5 rounded hover:bg-slate-900 text-slate-300 flex items-center gap-1.5 transition">
-                  <span>🧊</span> <span>/models3d (GLB)</span>
-                </button>
-                <button onclick="navigateFinderPath('/docs')" class="w-full text-left px-2 py-1.5 rounded hover:bg-slate-900 text-slate-300 flex items-center gap-1.5 transition">
-                  <span>📄</span> <span>/docs (Markdown)</span>
-                </button>
-                <button onclick="navigateFinderPath('/artcraft')" class="w-full text-left px-2 py-1.5 rounded hover:bg-slate-900 text-slate-300 flex items-center gap-1.5 transition">
-                  <span>🎨</span> <span>/artcraft (Assets)</span>
+              <!-- Mirrors the real drive. Gathered fresh at login / session start, held in memory only, never saved. -->
+              <div id="drivePlacesList" class="space-y-0.5 font-mono text-xs max-h-[260px] overflow-y-auto">
+                <div class="text-slate-500 py-1 text-[10px]">Scanning your drive…</div>
+              </div>
+              <div id="drivePlacesStatus" class="text-[10px] font-mono text-slate-500 leading-snug"></div>
+              <button id="drivePickBtn" onclick="pickBrowserFolder()" class="hidden w-full text-left px-2 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-200 font-mono text-xs transition">
+                📂 Mirror a folder from this computer…
+              </button>
+              <div class="border-t border-slate-800 pt-1.5">
+                <button onclick="showSpaceVfs()" class="w-full text-left px-2 py-1.5 rounded hover:bg-slate-900 text-slate-300 font-mono text-xs flex items-center gap-1.5 transition" title="Files you uploaded or imported into your TinCan .space">
+                  <span>🥫</span> <span>TinCan .space (uploads &amp; imports)</span>
                 </button>
               </div>
             </div>
@@ -2717,40 +2682,69 @@ aeonik/
             </div>
           </div>
 
-          <!-- Col 2: Ranger Files List (4 cols) -->
-          <div class="md:col-span-4 space-y-3">
+          <!-- Col 2 + Col 3: files list | draggable divider | viewer (resizable split, stacks on small screens) -->
+          <div id="rangerSplit" class="md:col-span-9 flex flex-col md:flex-row gap-3 md:gap-0 min-w-0">
+          <!-- Col 2: Ranger Files List -->
+          <div id="rangerListPane" class="space-y-3 min-w-0 md:shrink-0">
             <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-              <div class="flex items-center justify-between">
-                <span class="font-mono font-bold text-slate-300 text-xs">Files in VFS</span>
-                <button onclick="promptCreateFile()" class="text-[10px] px-2 py-0.5 rounded bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-800 font-mono">
+              <div class="flex items-center justify-between gap-2">
+                <span id="rangerListTitle" class="font-mono font-bold text-slate-300 text-xs truncate">Files in VFS</span>
+                <button id="rangerNewFileBtn" onclick="promptCreateFile()" class="text-[10px] px-2 py-0.5 rounded bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-800 font-mono shrink-0">
                   + New File
                 </button>
               </div>
-              <div id="spaceFileList" class="space-y-1 max-h-[380px] overflow-y-auto font-mono text-[11px] text-slate-300 divide-y divide-slate-800/40">
+              <div id="rangerBreadcrumb" class="hidden flex flex-wrap items-center gap-0.5 font-mono text-[10px] text-slate-500"></div>
+              <div id="spaceFileList" tabindex="0" role="listbox" aria-label="Files" class="space-y-1 max-h-[380px] overflow-y-auto font-mono text-[11px] text-slate-300 divide-y divide-slate-800/40 focus:outline-none focus:ring-1 focus:ring-purple-700/60 rounded">
                 <div class="text-slate-500 py-2 text-center text-xs">Loading .space VFS...</div>
               </div>
+              <div class="pt-1 text-center font-mono text-[10px] text-slate-600/70 select-none pointer-events-none" aria-hidden="true">↑ ↓ ← → arrow keys to navigate</div>
             </div>
           </div>
 
-          <!-- Col 3: Multi-Format Previewer & Sandboxed Code Editor (5 cols) -->
-          <div class="md:col-span-5 space-y-3">
+          <!-- Draggable vertical divider (md+ only) -->
+          <div id="rangerSplitter" role="separator" aria-orientation="vertical" aria-label="Resize file list" tabindex="0"
+               class="hidden md:flex w-3 shrink-0 cursor-col-resize items-stretch justify-center group select-none" style="touch-action: none;">
+            <div class="w-px my-2 bg-slate-800 group-hover:bg-purple-500/70 group-focus:bg-purple-500/70 transition"></div>
+          </div>
+
+          <!-- Col 3: File viewer & sandboxed code editor -->
+          <div id="rangerViewerPane" class="space-y-3 min-w-0 md:flex-1">
             <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-              <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-                <div class="flex items-center gap-2">
-                  <span class="font-mono text-purple-400 font-bold text-xs" id="activeFilePath">/src/main.py</span>
-                  <span id="activeFileMime" class="text-[9px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono">text/plain</span>
+              <!-- File header: name/path, size, type, modified, source -->
+              <div class="border-b border-slate-800 pb-2 space-y-1.5">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-1.5 min-w-0">
+                      <span id="viewerFileIcon">📄</span>
+                      <span class="font-mono text-purple-400 font-bold text-xs truncate" id="activeFilePath" title="">/src/main.py</span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-1.5 mt-1 font-mono text-[9px]">
+                      <span id="viewerSourceBadge" class="px-1.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800">.space</span>
+                      <span id="activeFileMime" class="px-1.5 py-0.5 rounded bg-slate-900 text-slate-400">text/plain</span>
+                      <span id="viewerFileSize" class="text-slate-500"></span>
+                      <span id="viewerFileMtime" class="text-slate-600"></span>
+                    </div>
+                  </div>
+                  <div id="viewerSpaceActions" class="flex items-center gap-1.5 shrink-0">
+                    <button id="viewerEditBtn" onclick="toggleViewerEdit()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-xs rounded border border-slate-700 transition active:scale-95">✎ Edit</button>
+                    <button onclick="saveAgentSpaceFile()" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs rounded transition active:scale-95">
+                      💾 Save
+                    </button>
+                    <button onclick="deleteAgentSpaceFile()" class="px-2 py-1 bg-red-950 hover:bg-red-900 text-red-300 font-mono text-xs rounded border border-red-800 transition active:scale-95" title="Delete from .space">
+                      ✕
+                    </button>
+                  </div>
                 </div>
-                <div class="flex items-center gap-1.5">
-                  <button onclick="saveAgentSpaceFile()" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs rounded transition active:scale-95">
-                    💾 Save
-                  </button>
-                  <button onclick="deleteAgentSpaceFile()" class="px-2 py-1 bg-red-950 hover:bg-red-900 text-red-300 font-mono text-xs rounded border border-red-800 transition active:scale-95">
-                    ✕
-                  </button>
+                <div class="flex flex-wrap items-center gap-1 font-mono text-[10px]">
+                  <button onclick="copyViewerPath()" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">⧉ Copy path</button>
+                  <button onclick="downloadViewerFile()" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">⬇ Download</button>
+                  <button id="viewerRawToggle" onclick="toggleViewerRaw()" class="hidden px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">Raw</button>
+                  <button id="viewerWrapToggle" onclick="toggleViewerWrap()" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">Wrap</button>
+                  <a id="viewerVsCodeLink" href="#" class="hidden px-2 py-0.5 rounded text-slate-500 hover:text-slate-300" title="Opens the real file in VS Code on this computer (needs VS Code installed)">Open in VS Code ↗</a>
                 </div>
               </div>
 
-              <!-- Multimedia Preview Containers (Switched by extension) -->
+              <!-- Multimedia Preview Containers (Switched by file type) -->
               <div id="finderMediaPreviewBox" class="space-y-2">
                 <!-- Video Player Preview (for .mp4, .webm) -->
                 <div id="finderVideoContainer" class="hidden relative bg-black rounded-lg overflow-hidden border border-slate-800 aspect-video flex items-center justify-center">
@@ -2763,22 +2757,42 @@ aeonik/
                   <audio id="finderAudioPlayer" controls class="w-full"></audio>
                 </div>
 
-                <!-- 3D GLB Model Wireframe/Render Preview -->
-                <div id="finder3dContainer" class="hidden relative bg-slate-900 rounded-lg overflow-hidden border border-cyan-700/60 aspect-video flex flex-col items-center justify-center text-center p-3 font-mono">
-                  <span class="text-3xl mb-1">🧊</span>
-                  <div class="text-xs font-bold text-cyan-300">3D Mesh Asset (.glb/.gltf)</div>
-                  <p class="text-[10px] text-slate-400 mt-1">Single-file SQLite VFS 3D Asset ready for three.js or Rodin engine</p>
-                  <button onclick="launchArtCraftWasmApp('cadcraft')" class="mt-2 px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] rounded transition">
+                <!-- Image Preview -->
+                <div id="finderImageContainer" class="hidden bg-slate-900 rounded-lg border border-slate-800 p-2 flex items-center justify-center" style="background-image: linear-gradient(45deg,#0f172a 25%,transparent 25%),linear-gradient(-45deg,#0f172a 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#0f172a 75%),linear-gradient(-45deg,transparent 75%,#0f172a 75%); background-size: 16px 16px;">
+                  <img id="finderImagePreview" alt="" class="max-w-full max-h-[420px] object-contain">
+                </div>
+
+                <!-- 3D GLB Model Preview (model-viewer loaded on demand) -->
+                <div id="finder3dContainer" class="hidden relative bg-slate-900 rounded-lg overflow-hidden border border-cyan-700/60 aspect-video flex flex-col items-center justify-center text-center font-mono">
+                  <div id="finder3dStage" class="absolute inset-0"></div>
+                  <div id="finder3dFallback" class="relative p-3">
+                    <span class="text-3xl mb-1">🧊</span>
+                    <div class="text-xs font-bold text-cyan-300">3D Mesh Asset (.glb/.gltf)</div>
+                    <p id="finder3dNote" class="text-[10px] text-slate-400 mt-1">Loading 3D preview…</p>
+                  </div>
+                  <button onclick="launchArtCraftWasmApp('cadcraft')" class="absolute bottom-2 right-2 px-2 py-0.5 bg-cyan-700/80 hover:bg-cyan-600 text-white text-[10px] rounded transition">
                     Open in CadCraft Web ↗
                   </button>
                 </div>
 
-                <!-- Text/Code Editor -->
+                <!-- Binary / too-large notice -->
+                <div id="finderBinaryContainer" class="hidden p-4 bg-slate-900 rounded-lg border border-slate-800 text-center font-mono space-y-1">
+                  <div class="text-2xl">📦</div>
+                  <div id="finderBinaryText" class="text-xs text-slate-300">Binary file</div>
+                  <div class="text-[10px] text-slate-500">No inline preview for this type. Use ⬇ Download.</div>
+                </div>
+
+                <!-- Read-only viewer: highlighted code with line numbers, or rendered Markdown -->
+                <div id="finderViewerContainer" class="hidden">
+                  <div id="finderViewerNotice" class="hidden mb-1 px-2 py-1 rounded bg-amber-950/40 border border-amber-800/50 text-amber-300 font-mono text-[10px]"></div>
+                  <div id="finderViewer" class="ranger-viewer max-h-[460px] overflow-auto bg-slate-900/90 border border-slate-800 rounded-lg text-xs select-text"></div>
+                </div>
+
+                <!-- Text/Code Editor (edit mode for .space files) -->
                 <div id="finderCodeContainer">
                   <textarea id="agentspaceEditor" rows="8" class="w-full bg-slate-900/90 border border-slate-700 rounded-lg p-2.5 text-slate-100 font-mono text-xs focus:border-purple-500 focus:outline-none select-text" placeholder="Write Python, JS, or Wasm bytecode..."></textarea>
                 </div>
               </div>
-              
               <!-- Playground Run Bar -->
               <div class="flex flex-wrap items-center justify-between gap-2 pt-1 font-mono text-xs">
                 <div class="flex items-center gap-1.5">
@@ -2811,6 +2825,7 @@ aeonik/
               </div>
             </div>
           </div>
+          </div><!-- /#rangerSplit -->
         </div>
 
         <!-- =============================================================== -->
@@ -3147,11 +3162,23 @@ aeonik/
       }
     }
 
+    // Switch the notification bar between the admin (filled ink label) and info (outlined label) variants.
+    function setNotificationVariant(variant) {
+      const banner = document.getElementById('adminBroadcastBanner');
+      if (!banner) return;
+      const admin = variant !== 'info';
+      banner.dataset.variant = admin ? 'admin' : 'info';
+      const label = document.getElementById('adminBroadcastLabel');
+      if (label) label.textContent = admin ? 'ADMIN' : 'TINCAN';
+    }
+
     function showAdminBanner(text, sender) {
       const banner = document.getElementById('adminBroadcastBanner');
       const textEl = document.getElementById('adminBroadcastText');
       if (banner && textEl) {
+        setNotificationVariant('admin');
         textEl.innerText = `${text} (by ${sender || 'Admin'})`;
+        textEl.title = textEl.innerText;
         banner.classList.remove('hidden');
       }
     }
@@ -3882,6 +3909,8 @@ aeonik/
       const modal = document.getElementById('accountSetupModal');
       if (modal) modal.classList.add('hidden');
       try { refreshBillingWindow(); } catch (e) {}
+      // Login: re-gather the drive mirror fresh so spaces reflect the disk right now.
+      try { gatherDriveMirror('login'); } catch (e) {}
     }
 
     async function createPasskeyWithToken(enrollToken) {
@@ -4789,65 +4818,8 @@ aeonik/
     }
 
     // =========================================================================
-    // AI Brain Arena Battle Engine & Peer Voting
+    // AI Brain Arena: pickers, duel, voting and per-brain context live in arena_duel_ui.py
     // =========================================================================
-    async function runArenaBattle() {
-      initAudio();
-      const prompt = document.getElementById('arenaPromptInput').value.trim();
-      const resA = document.getElementById('arenaResultA');
-      const resB = document.getElementById('arenaResultB');
-
-      resA.innerText = 'Routing prompt to Gemini 2.5 Flash...';
-      resB.innerText = 'Routing prompt to Claude 3.7 Sonnet...';
-
-      spawnPacketFlight(myPeerId, 'gemini-brain', 'ai_prompt', 'gemini-brain');
-      spawnPacketFlight(myPeerId, 'claude-brain', 'ai_prompt', 'claude-brain');
-
-      try {
-        const [respA, respB] = await Promise.all([
-          fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'gemini-brain', prompt })
-          }).then(r => r.json()),
-          fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'claude-brain', prompt })
-          }).then(r => r.json())
-        ]);
-
-        resA.innerText = respA.choices?.[0]?.message?.content || respA.text || JSON.stringify(respA, null, 2);
-        resB.innerText = respB.choices?.[0]?.message?.content || respB.text || JSON.stringify(respB, null, 2);
-      } catch (err) {
-        resA.innerText = 'Battle error: ' + err.message;
-        resB.innerText = 'Battle error: ' + err.message;
-      }
-    }
-
-    async function voteArenaWinner(winnerAlias) {
-      initAudio();
-      playXpChime();
-      spawnPacketFlight(myPeerId, winnerAlias, 'ai_prompt', `Vote: ${winnerAlias}`);
-      try {
-        const res = await fetch('/api/mesh/arena/vote', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            peer_id: myPeerId,
-            winner_alias: winnerAlias,
-            prompt_preview: document.getElementById('arenaPromptInput').value.substring(0, 40),
-            display_name: myPeerId,
-            room: currentRoom
-          })
-        });
-        const data = await res.json();
-        alert(`🏆 Vote recorded for ${winnerAlias}! +150 XP awarded to your squad.`);
-        pollMeshState();
-      } catch (err) {
-        alert('Vote error: ' + err.message);
-      }
-    }
 
     async function triggerQuestAction(actionKey) {
       initAudio();
@@ -6169,7 +6141,13 @@ aeonik/
 
     function switchBoardTab(tabName) {
       activeBoardTab = tabName;
-      ['discussions', 'search', 'graph', 'verify'].forEach(t => {
+      if (tabName === 'search') {
+        // The old Search Lab now lives behind the "how this ranked" disclosure.
+        tabName = 'discussions';
+        activeBoardTab = tabName;
+        openBoardRankDetails();
+      }
+      ['discussions', 'graph', 'verify'].forEach(t => {
         const panel = document.getElementById(`boardTab-${t}`);
         const btn = document.getElementById(`boardTabBtn-${t}`);
         if (panel) panel.classList.toggle('hidden', t !== tabName);
@@ -6181,9 +6159,7 @@ aeonik/
           }
         }
       });
-      if (tabName === 'search') {
-        runIrLabSearch();
-      } else if (tabName === 'graph') {
+      if (tabName === 'graph') {
         loadAndDrawBoardGraph();
       } else if (tabName === 'verify') {
         prefillVerificationFormDefaults();
@@ -6192,16 +6168,9 @@ aeonik/
     }
 
     function setBoardCategoryFilter(cat) {
-      activeBoardCategoryFilter = cat || '';
-      document.querySelectorAll('.board-cat-btn').forEach(btn => {
-        const c = btn.getAttribute('data-cat') || '';
-        if (c === activeBoardCategoryFilter) {
-          btn.className = 'board-cat-btn px-2 py-0.5 rounded bg-indigo-600 text-white font-bold';
-        } else {
-          btn.className = 'board-cat-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300';
-        }
-      });
-      loadCyberspaceBoard();
+      // Categories are just topics in the single search bar.
+      if (!cat) { boardChips = boardChips.filter(c => !c.startsWith('#')); renderBoardChips(); loadCyberspaceBoard(); return; }
+      addBoardChip('#' + String(cat).replace(/^#/, ''));
     }
 
     function formatBoardMentions(text) {
@@ -6241,11 +6210,255 @@ aeonik/
 
     function quickSearchBoardEntity(entityToken) {
       switchBoardTab('discussions');
-      const inp = document.getElementById('boardSearchInput');
-      if (inp) {
-        inp.value = entityToken;
+      const tok = String(entityToken || '').trim();
+      if (/^[#@][A-Za-z0-9_\-]+$/.test(tok)) {
+        addBoardChip(tok);
+      } else {
+        const inp = document.getElementById('boardSearchInput');
+        if (inp) inp.value = tok;
         searchCyberspaceBoard();
       }
+    }
+
+    // ---------------------------------------------------------------------
+    // Unified board search bar: chips, slash commands, autocomplete, trending
+    // ---------------------------------------------------------------------
+    let boardChips = [];
+    let boardSuggestItems = [];
+    let boardSuggestIndex = -1;
+    let boardSuggestSeq = 0;
+    const BOARD_SLASH_COMMANDS = [
+      { token: '/search ', name: '/search', label: 'Search posts, people and agents (hybrid BM25 + GraphRAG)' },
+      { token: '/topic ', name: '/topic', label: 'Jump to a topic: /topic graphrag' },
+    ];
+    const BOARD_FILTERS = [{ token: 'is:verified', name: 'is:verified', label: 'Only posts by verified citizens' }];
+
+    function boardChipKind(tok) { return tok.startsWith('#') ? 'topic' : tok.startsWith('@') ? 'mention' : 'filter'; }
+
+    function renderBoardChips() {
+      const box = document.getElementById('boardSearchChips');
+      if (!box) return;
+      box.innerHTML = boardChips.map((c, i) =>
+        `<span class="ubar-chip" data-kind="${boardChipKind(c)}">${escapeHtml(c)}<button type="button" aria-label="Remove ${escapeHtml(c)}" onclick="event.stopPropagation(); removeBoardChip(${i})">&#x2715;</button></span>`
+      ).join('');
+    }
+
+    function addBoardChip(tok, runSearch = true) {
+      tok = String(tok || '').trim();
+      if (!tok) return;
+      if (/^is:verified$/i.test(tok)) tok = 'is:verified';
+      else tok = tok[0] + tok.slice(1).toLowerCase();
+      if (!boardChips.includes(tok)) boardChips.push(tok);
+      renderBoardChips();
+      if (runSearch) searchCyberspaceBoard();
+    }
+
+    function removeBoardChip(i) {
+      boardChips.splice(i, 1);
+      renderBoardChips();
+      if (boardChips.length || (document.getElementById('boardSearchInput')?.value || '').trim()) searchCyberspaceBoard();
+      else resetCyberspaceSearch();
+    }
+
+    function buildBoardQuery() {
+      const text = (document.getElementById('boardSearchInput')?.value || '').trim();
+      // A slash command must lead the query.
+      const m = text.match(/^\/(search|topic)\b\s*/i);
+      const cmd = m ? m[0].trim() + ' ' : '';
+      const rest = m ? text.slice(m[0].length) : text;
+      return (cmd + [...boardChips, rest].filter(Boolean).join(' ')).trim();
+    }
+
+    function boardCurrentToken(inp) {
+      const v = inp.value;
+      const caret = inp.selectionStart ?? v.length;
+      const before = v.slice(0, caret);
+      const m = before.match(/(^|\s)(\S*)$/);
+      const tok = m ? m[2] : '';
+      return { tok, start: caret - tok.length, end: caret };
+    }
+
+    function closeBoardSuggest() {
+      const list = document.getElementById('boardSuggestList');
+      const inp = document.getElementById('boardSearchInput');
+      if (list) list.classList.add('hidden');
+      if (inp) { inp.setAttribute('aria-expanded', 'false'); inp.removeAttribute('aria-activedescendant'); }
+      boardSuggestItems = [];
+      boardSuggestIndex = -1;
+    }
+
+    function renderBoardSuggest(groups) {
+      const list = document.getElementById('boardSuggestList');
+      const inp = document.getElementById('boardSearchInput');
+      if (!list) return;
+      boardSuggestItems = [];
+      let html = '';
+      groups.forEach(g => {
+        if (!g.items.length) return;
+        html += `<div class="ubar-group-title" role="presentation">${escapeHtml(g.title)}</div>`;
+        g.items.forEach(it => {
+          const idx = boardSuggestItems.length;
+          boardSuggestItems.push(it);
+          const count = it.count ? `<span class="ubar-opt-count">${Number(it.count)}</span>` : (it.verified ? '<span class="ubar-opt-count">verified</span>' : '');
+          html += `<div id="boardSuggestOpt-${idx}" role="option" aria-selected="false" class="ubar-option" onmousedown="event.preventDefault(); applyBoardSuggestion(${idx})">
+              <span>${escapeHtml(it.token.trim())}</span>
+              <span class="ubar-opt-label">${escapeHtml(it.label && it.label !== it.token ? it.label : '')}</span>${count}</div>`;
+        });
+      });
+      if (!boardSuggestItems.length) { closeBoardSuggest(); return; }
+      list.innerHTML = html;
+      list.classList.remove('hidden');
+      if (inp) inp.setAttribute('aria-expanded', 'true');
+      boardSuggestIndex = 0;
+      highlightBoardSuggestion();
+    }
+
+    function highlightBoardSuggestion() {
+      const inp = document.getElementById('boardSearchInput');
+      boardSuggestItems.forEach((_, i) => {
+        const el = document.getElementById(`boardSuggestOpt-${i}`);
+        if (!el) return;
+        const on = i === boardSuggestIndex;
+        el.setAttribute('aria-selected', on ? 'true' : 'false');
+        if (on) { el.scrollIntoView({ block: 'nearest' }); if (inp) inp.setAttribute('aria-activedescendant', el.id); }
+      });
+    }
+
+    function applyBoardSuggestion(idx) {
+      const it = boardSuggestItems[idx];
+      const inp = document.getElementById('boardSearchInput');
+      if (!it || !inp) return;
+      const { start, end } = boardCurrentToken(inp);
+      const before = inp.value.slice(0, start);
+      const after = inp.value.slice(end);
+      if (it.token.startsWith('/')) {
+        inp.value = it.token + (before + after).trim();
+        inp.setSelectionRange(inp.value.length, inp.value.length);
+        closeBoardSuggest();
+        inp.focus();
+        return;
+      }
+      inp.value = (before + after).replace(/\s+/g, ' ').trimStart();
+      closeBoardSuggest();
+      addBoardChip(it.token);
+      inp.focus();
+    }
+
+    async function onBoardSearchInput(ev) {
+      const inp = ev.target;
+      const { tok, start } = boardCurrentToken(inp);
+      const seq = ++boardSuggestSeq;
+      // Turn a finished "#tag " / "@name " / "is:verified " into a chip as soon as space is typed.
+      if (ev.data === ' ') {
+        const prev = inp.value.slice(0, inp.selectionStart - 1).match(/(^|\s)([#@][A-Za-z0-9_\-]+|is:verified)$/i);
+        if (prev) {
+          const t = prev[2];
+          inp.value = (inp.value.slice(0, inp.selectionStart - 1 - t.length) + inp.value.slice(inp.selectionStart)).replace(/\s+/g, ' ').trimStart();
+          closeBoardSuggest();
+          addBoardChip(t);
+          return;
+        }
+      }
+      if (start === 0 && tok.startsWith('/')) {
+        renderBoardSuggest([{ title: 'Commands', items: BOARD_SLASH_COMMANDS.filter(c => c.name.startsWith(tok.toLowerCase())) }]);
+        return;
+      }
+      if (tok.length >= 2 && 'is:verified'.startsWith(tok.toLowerCase())) {
+        renderBoardSuggest([{ title: 'Filters', items: BOARD_FILTERS }]);
+        return;
+      }
+      if (!(tok.startsWith('#') || tok.startsWith('@') || tok.length >= 2)) { closeBoardSuggest(); return; }
+      try {
+        const res = await fetch(`/api/board/suggest?q=${encodeURIComponent(tok)}&limit=5`);
+        if (!res.ok || seq !== boardSuggestSeq) return;
+        const data = await res.json();
+        if (seq !== boardSuggestSeq) return;
+        renderBoardSuggest(data.groups || []);
+      } catch (e) {}
+    }
+
+    function onBoardSearchKeydown(ev) {
+      const inp = ev.target;
+      const open = boardSuggestItems.length > 0;
+      if (ev.key === 'ArrowDown' && open) { ev.preventDefault(); boardSuggestIndex = (boardSuggestIndex + 1) % boardSuggestItems.length; highlightBoardSuggestion(); return; }
+      if (ev.key === 'ArrowUp' && open) { ev.preventDefault(); boardSuggestIndex = (boardSuggestIndex - 1 + boardSuggestItems.length) % boardSuggestItems.length; highlightBoardSuggestion(); return; }
+      if ((ev.key === 'Enter' || ev.key === 'Tab') && open && boardSuggestIndex >= 0) { ev.preventDefault(); applyBoardSuggestion(boardSuggestIndex); return; }
+      if (ev.key === 'Escape') { if (open) { ev.preventDefault(); closeBoardSuggest(); } else if (inp.value) { inp.value = ''; } return; }
+      if (ev.key === 'Enter') { ev.preventDefault(); closeBoardSuggest(); searchCyberspaceBoard(); return; }
+      if (ev.key === 'Backspace' && !inp.value && boardChips.length) { ev.preventDefault(); removeBoardChip(boardChips.length - 1); }
+    }
+
+    function focusBoardSearch() {
+      const win = document.getElementById('win-board');
+      if (win && (win.classList.contains('hidden') || win.classList.contains('minimized') || win.style.display === 'none')) {
+        if (typeof toggleWindow === 'function') toggleWindow('win-board');
+      }
+      if (typeof switchBoardTab === 'function' && activeBoardTab !== 'discussions') switchBoardTab('discussions');
+      const inp = document.getElementById('boardSearchInput');
+      if (inp) { inp.focus(); inp.select(); }
+    }
+
+    function boardWindowVisible() {
+      const win = document.getElementById('win-board');
+      return !!win && !win.classList.contains('hidden') && !win.classList.contains('minimized') && win.style.display !== 'none';
+    }
+
+    // Cmd/Ctrl+K focuses the board search while the board is open. Otherwise the
+    // keystroke falls through to the Zen shell launcher, which also owns Cmd/Ctrl+K.
+    window.addEventListener('keydown', (ev) => {
+      if (!((ev.metaKey || ev.ctrlKey) && !ev.altKey && !ev.shiftKey && (ev.key === 'k' || ev.key === 'K'))) return;
+      if (document.body.classList.contains('zen-launcher') || !boardWindowVisible()) return;
+      const gate = document.getElementById('accountSetupModal');
+      if (gate && !gate.classList.contains('hidden')) return;
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      focusBoardSearch();
+    }, true);
+
+    function openBoardRankDetails() {
+      const d = document.getElementById('boardRankDetails');
+      if (d) { d.open = true; d.scrollIntoView({ block: 'nearest' }); }
+    }
+
+    function renderBoardRankDiagnostics(data) {
+      const body = document.getElementById('boardRankBody');
+      if (!body) return;
+      const d = (data && data.diagnostics) || {};
+      const p = (data && data.parsed) || {};
+      const filters = [
+        ...(p.tags || []).map(t => '#' + t), ...(p.mentions || []).map(m => '@' + m), p.verified_only ? 'is:verified' : ''
+      ].filter(Boolean);
+      if (d.mode !== 'hybrid') {
+        body.innerHTML = `Filtered by ${filters.length ? escapeHtml(filters.join(' ')) : 'nothing'} and sorted by ${escapeHtml(d.sort_by || 'hot')}. Add words or an @mention to rank with hybrid BM25 + GraphRAG.`;
+        return;
+      }
+      const bm = d.bm25 || {};
+      const terms = bm.query_terms || [];
+      const rows = terms.length ? terms.map(t => `<tr><td>${escapeHtml(t.term)}</td><td>${Number(t.df || 0)} / ${Number(bm.corpus_size || 0)}</td><td>${Number(t.idf || 0).toFixed(4)}</td></tr>`).join('')
+        : '<tr><td colspan="3">No lexical terms.</td></tr>';
+      const sg = d.subgraph || {};
+      body.innerHTML = `
+        <div>Hybrid score = ${Number((d.weights || {}).bm25 || 0.55)} &times; BM25 + ${Number((d.weights || {}).graphrag || 0.45)} &times; GraphRAG (personalized PageRank, &alpha;=0.85), each normalized to the top result.</div>
+        <div>Query: <code>${escapeHtml(d.query || '')}</code>${filters.length ? ` &middot; filters ${escapeHtml(filters.join(' '))}` : ''}</div>
+        <div>BM25 corpus: N=${Number(bm.corpus_size || 0)} docs &middot; avgdl=${escapeHtml(String(bm.avg_doc_length ?? 0))} &middot; k1=${escapeHtml(String(bm.k1 ?? 1.5))} &middot; b=${escapeHtml(String(bm.b ?? 0.75))}</div>
+        <table><thead><tr><th>Term</th><th>Doc freq</th><th>IDF</th></tr></thead><tbody>${rows}</tbody></table>
+        <div style="margin-top:0.35rem">GraphRAG subgraph: ${Number(sg.nodes || 0)} nodes &middot; ${Number(sg.edges || 0)} edges${(sg.seed_entities || []).length ? ` &middot; seeds ${escapeHtml(sg.seed_entities.join(', '))}` : ''}</div>`;
+    }
+
+    async function loadBoardTrending() {
+      const box = document.getElementById('boardTrending');
+      if (!box) return;
+      try {
+        const res = await fetch('/api/board/trending?days=7&limit=6');
+        if (!res.ok) return;
+        const data = await res.json();
+        const items = data.items || [];
+        if (!items.length) { box.innerHTML = ''; return; }
+        const label = data.window === 'all' ? 'Top topics' : `Trending ${escapeHtml(data.window)}`;
+        box.innerHTML = `<span class="ubar-trend-label">${label}</span>` + items.map(it =>
+          `<button type="button" class="ubar-trend" onclick="addBoardChip('${escapeHtml(it.tag)}')" title="${Number(it.topics)} new topic(s), ${Number(it.posts)} repl${it.posts === 1 ? 'y' : 'ies'}">${escapeHtml(it.tag)}<span>${Number(it.activity)}</span></button>`
+        ).join('');
+      } catch (e) {}
     }
 
     async function loadBoardDynamicRoster() {
@@ -6545,11 +6758,11 @@ aeonik/
     async function loadCyberspaceBoard() {
       refreshBoardVerificationBadge();
       loadBoardDynamicRoster();
+      loadBoardTrending();
+      if (buildBoardQuery()) { searchCyberspaceBoard(); return; }
       try {
         const sortBy = document.getElementById('boardSortSelect')?.value || 'hot';
-        const verifiedOnly = document.getElementById('boardVerifiedOnlyToggle')?.checked ? '1' : '0';
-        const catParam = activeBoardCategoryFilter ? `&category=${encodeURIComponent(activeBoardCategoryFilter)}` : '';
-        const res = await fetch(`/api/board/topics?limit=40&sort_by=${encodeURIComponent(sortBy)}&verified_only=${verifiedOnly}${catParam}`);
+        const res = await fetch(`/api/board/topics?limit=40&sort_by=${encodeURIComponent(sortBy)}`);
         if (!res.ok) return;
         const data = await res.json();
         const gBadge = document.getElementById('boardGraphStatsBadge');
@@ -6561,45 +6774,53 @@ aeonik/
     }
 
     async function searchCyberspaceBoard() {
-      const inp = document.getElementById('boardSearchInput');
-      const modeSel = document.getElementById('boardSearchMode');
-      const q = inp ? inp.value.trim() : '';
-      const mode = modeSel ? modeSel.value : 'hybrid';
+      const q = buildBoardQuery();
       if (!q) {
         resetCyberspaceSearch();
         return;
       }
       try {
-        const res = await fetch(`/api/board/search?q=${encodeURIComponent(q)}&mode=${encodeURIComponent(mode)}&top_k=15`);
+        const sortBy = document.getElementById('boardSortSelect')?.value || 'hot';
+        // Hybrid (BM25 + GraphRAG) always runs behind the bar; there is no mode picker.
+        const res = await fetch(`/api/board/query?q=${encodeURIComponent(q)}&top_k=15&sort_by=${encodeURIComponent(sortBy)}`);
         if (!res.ok) return;
         const data = await res.json();
+        // "/topic name" and finished #tags become chips so the bar shows what is applied.
+        const parsed = data.parsed || {};
+        const inp = document.getElementById('boardSearchInput');
+        if (parsed.command === 'topic' && inp && /^\/topic\b/i.test(inp.value.trim())) {
+          inp.value = '';
+          (parsed.tags || []).forEach(t => { if (!boardChips.includes('#' + t)) boardChips.push('#' + t); });
+          if (parsed.verified_only && !boardChips.includes('is:verified')) boardChips.push('is:verified');
+          renderBoardChips();
+        }
         const synBox = document.getElementById('boardSynthesisBox');
         const synText = document.getElementById('boardSynthesisText');
         const subEntities = document.getElementById('boardSubgraphEntities');
         if (synBox && synText) {
-          synBox.classList.remove('hidden');
+          synBox.classList.toggle('hidden', !data.synthesis);
           synText.innerHTML = `<strong>${escapeHtml(data.synthesis || '')}</strong>`;
-          const nodes = (data.subgraph && data.subgraph.nodes) || [];
           if (subEntities) {
-            subEntities.innerHTML = nodes.slice(0, 14).map(n => {
-              const badgeTone = n.type === 'agent' ? 'bg-indigo-950 text-indigo-300 border-indigo-700' :
-                                n.type === 'user' ? 'bg-cyan-950 text-cyan-300 border-cyan-700' :
-                                n.type === 'tag' ? 'bg-pink-950/70 text-pink-300 border-pink-800' :
-                                'bg-slate-800 text-slate-300 border-slate-700';
-              return `<span onclick="quickSearchBoardEntity('${escapeHtml(n.label)}')" class="cursor-pointer px-1.5 py-0.5 rounded border text-[10px] ${badgeTone}">${escapeHtml(n.type)}: ${escapeHtml(n.label)} (PPR:${Number(n.ppr_score || 0).toFixed(3)})</span>`;
-            }).join('');
+            const seeds = ((data.diagnostics || {}).subgraph || {}).seed_entities || [];
+            subEntities.innerHTML = seeds.slice(0, 14).map(n =>
+              `<span onclick="quickSearchBoardEntity('${escapeHtml(n)}')" class="cursor-pointer px-1.5 py-0.5 rounded border text-[10px] bg-slate-800 text-slate-300 border-slate-700">${escapeHtml(n)}</span>`
+            ).join('');
           }
         }
-        renderCyberspaceTopics(data.results || [], true);
-        playXpChime();
+        renderBoardRankDiagnostics(data);
+        renderCyberspaceTopics(data.results || [], (data.diagnostics || {}).mode === 'hybrid');
       } catch (e) {}
     }
 
     function resetCyberspaceSearch() {
       const inp = document.getElementById('boardSearchInput');
       if (inp) inp.value = '';
+      boardChips = [];
+      renderBoardChips();
+      closeBoardSuggest();
       const synBox = document.getElementById('boardSynthesisBox');
       if (synBox) synBox.classList.add('hidden');
+      renderBoardRankDiagnostics(null);
       loadCyberspaceBoard();
     }
 
@@ -6725,20 +6946,24 @@ aeonik/
         const canModifyTopic = isAdmin || t.author_peer_id === myPeerId || (myUn && author.toLowerCase() === myUn);
 
         const scoreBadges = (t.bm25_score !== undefined || t.graphrag_score !== undefined) ? `
+          <details class="ubar-rank-mini font-mono"><summary>how this ranked</summary><div class="ubar-rank-mini-body space-y-1">
           <div class="flex flex-wrap items-center gap-1 font-mono text-[10px]">
             <span class="px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700">Hybrid: ${Number(t.score || 0).toFixed(3)}</span>
             <span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">BM25: ${Number(t.bm25_score || 0).toFixed(3)}</span>
             <span class="px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-700">GraphRAG: ${Number(t.graphrag_score || 0).toFixed(3)}</span>
           </div>
+          ${(t.matched_terms && t.matched_terms.length) ? `<div class="text-[10px]">Matched terms: ${t.matched_terms.map(x => escapeHtml(x)).join(', ')}</div>` : ''}
+          ${(t.graph_paths && t.graph_paths.length) ? `<div class="text-[10px]">Graph paths: ${t.graph_paths.map(p => escapeHtml(p)).join(' · ')}</div>` : ''}
+          </div></details>
         ` : '';
 
         const snippetHtml = t.highlighted_snippet ? `
           <div class="p-2 bg-emerald-950/30 border border-emerald-800/50 rounded text-[11px] text-slate-300 font-mono">
-            <span class="text-emerald-300 font-bold">📚 BM25 Context Match:</span> ${t.highlighted_snippet}
+            ${t.highlighted_snippet}
           </div>
         ` : '';
 
-        const graphPathsHtml = (t.graph_paths && t.graph_paths.length) ? `
+        const graphPathsHtml = false ? `
           <div class="mt-1 p-2 bg-slate-950/90 rounded border border-indigo-900/60 font-mono text-[10px] text-indigo-300">
             <span class="font-bold text-cyan-300">🕸️ GraphRAG Traversal Paths:</span> ${t.graph_paths.map(p => escapeHtml(p)).join(' · ')}
           </div>
@@ -6949,74 +7174,6 @@ aeonik/
       } catch (err) {
         alert('Reply failed: ' + err.message);
       }
-    }
-
-    // =========================================================================
-    // Tab 2: GraphRAG + Okapi BM25 IR Diagnostics Lab
-    // =========================================================================
-    async function runIrLabSearch() {
-      const q = (document.getElementById('boardLabSearchInput')?.value || '').trim();
-      const mode = document.getElementById('boardLabSearchMode')?.value || 'hybrid';
-      if (!q) return;
-      try {
-        const res = await fetch(`/api/board/search?q=${encodeURIComponent(q)}&mode=${encodeURIComponent(mode)}&top_k=12`);
-        if (!res.ok) return;
-        const data = await res.json();
-        const diag = data.bm25_diagnostics || {};
-        const paramsEl = document.getElementById('bm25CorpusParams');
-        const tbody = document.getElementById('bm25TermTableBody');
-        const synEl = document.getElementById('irLabSynthesisBox');
-        const seedsEl = document.getElementById('irLabSeedBadges');
-        const subStatsEl = document.getElementById('graphragSubgraphStats');
-        const listEl = document.getElementById('irLabResultsList');
-
-        if (paramsEl) {
-          paramsEl.innerText = `N=${diag.corpus_size || 0} docs · avgdl=${diag.avg_doc_length || 0} · k1=${diag.k1 || 1.5} · b=${diag.b || 0.75}`;
-        }
-        if (tbody) {
-          const terms = diag.query_terms || [];
-          if (!terms.length) {
-            tbody.innerHTML = '<tr><td colspan="3" class="py-2 text-slate-500 text-center">No lexical tokens parsed.</td></tr>';
-          } else {
-            tbody.innerHTML = terms.map(t => `
-              <tr>
-                <td class="py-1 text-cyan-300 font-bold">${escapeHtml(t.term)}</td>
-                <td class="py-1 text-slate-300">${Number(t.df || 0)} / ${Number(diag.corpus_size || 0)}</td>
-                <td class="py-1 text-right text-emerald-400 font-bold">${Number(t.idf || 0).toFixed(4)}</td>
-              </tr>
-            `).join('');
-          }
-        }
-        if (synEl) {
-          synEl.innerHTML = escapeHtml(data.synthesis || '');
-        }
-        const sub = data.subgraph || {};
-        if (subStatsEl) {
-          subStatsEl.innerText = `PPR α=0.85 · ${(sub.nodes || []).length} active nodes · ${(sub.edges || []).length} edges`;
-        }
-        if (seedsEl) {
-          seedsEl.innerHTML = (sub.seed_entities || []).map(s =>
-            `<span class="px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700 text-[10px]">Seed: ${escapeHtml(s)}</span>`
-          ).join('');
-        }
-        if (listEl) {
-          const results = data.results || [];
-          listEl.innerHTML = results.map((r, idx) => `
-            <div class="p-3 bg-slate-950/90 rounded-lg border border-slate-800 space-y-1.5">
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <span onclick="activeBoardTopicId='${r.topic_id}'; switchBoardTab('discussions');" class="cursor-pointer font-bold text-white hover:text-cyan-300 text-xs">#${idx + 1} · ${escapeHtml(r.title)} <span class="text-slate-400 font-normal">(@${escapeHtml((r.author_username || '').replace(/^@/, ''))})</span></span>
-                <div class="flex items-center gap-1.5 text-[10px]">
-                  <span class="px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700">Hybrid: ${Number(r.score || 0).toFixed(4)}</span>
-                  <span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">BM25: ${Number(r.bm25_score || 0).toFixed(4)} (raw ${Number(r.bm25_raw || 0).toFixed(2)})</span>
-                  <span class="px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-700">GraphRAG PPR: ${Number(r.graphrag_score || 0).toFixed(4)}</span>
-                </div>
-              </div>
-              <div class="text-[11px] text-slate-300">${r.highlighted_snippet || escapeHtml(r.body || '')}</div>
-              ${(r.graph_paths && r.graph_paths.length) ? `<div class="text-[10px] text-cyan-300">🕸️ Paths: ${r.graph_paths.map(p => escapeHtml(p)).join(' · ')}</div>` : ''}
-            </div>
-          `).join('');
-        }
-      } catch (e) {}
     }
 
     // =========================================================================
@@ -7314,6 +7471,8 @@ aeonik/
     </div>
   </div>
 
+  <!-- AgentSpace / Ranger VFS scripts (this code used to sit outside any script tag, so it never ran) -->
+  <script>
     // -------------------------------------------------------------------------
     // AgentSpace & Wasm Studio (Single-File SQLite VFS + Rodin 3D + 15 ArtCraft Apps)
     // -------------------------------------------------------------------------
@@ -7338,13 +7497,18 @@ aeonik/
       refreshAgentSpace();
     }
 
-    async function refreshAgentSpace() {
+    async function refreshAgentSpace(opts) {
+      const background = opts === 'background';
+      if (!background) rangerMode = 'space';
       const ownerInput = document.getElementById('spaceOwnerInput');
       currentSpaceOwner = (ownerInput && ownerInput.value.trim()) || (myPeerId || 'default');
       const fileListEl = document.getElementById('spaceFileList');
       const badgeEl = document.getElementById('spaceFileCountBadge');
       if (!fileListEl) return;
-      fileListEl.innerHTML = '<div class="text-slate-500 py-2 text-center text-xs">Fetching .space VFS...</div>';
+      if (rangerMode === 'space') {
+        setRangerListHeader();
+        fileListEl.innerHTML = '<div class="text-slate-500 py-2 text-center text-xs">Fetching .space VFS...</div>';
+      }
 
       try {
         const resp = await fetch(`/api/space/ls?scope=${currentSpaceScope}&owner_id=${encodeURIComponent(currentSpaceOwner)}`);
@@ -7352,57 +7516,52 @@ aeonik/
         const data = await resp.json();
         const files = data.files || [];
         if (badgeEl) badgeEl.textContent = `${files.length} Files`;
+        if (rangerMode !== 'space') return; // the drive mirror is showing; keep it
 
         if (files.length === 0) {
+          rangerItems = [];
           fileListEl.innerHTML = '<div class="text-slate-500 py-2 text-center text-xs">No files in space yet. Click + New File or Generate 3D.</div>';
           return;
         }
-
-        fileListEl.innerHTML = files.map(f => {
-          const isSelected = f.path === currentSpaceFile;
-          const bg = isSelected ? 'bg-purple-950/80 text-purple-200 font-bold border-l-2 border-purple-400' : 'hover:bg-slate-900 text-slate-300';
-          const icon = f.path.endsWith('.glb') ? '🧊' : (f.path.endsWith('.py') ? '🐍' : (f.path.endsWith('.js') ? '⚡' : '📄'));
-          return `
-            <div onclick="openAgentSpaceFile('${f.path}')" class="px-2 py-1.5 cursor-pointer flex items-center justify-between transition ${bg}">
-              <div class="flex items-center gap-1.5 truncate">
-                <span>${icon}</span>
-                <span class="truncate">${f.path}</span>
-              </div>
-              <span class="text-[9px] text-slate-500 shrink-0 font-mono">${f.size_bytes}b</span>
-            </div>
-          `;
-        }).join('');
+        renderRangerList(files.map(f => ({ kind: 'file', source: 'space', path: f.path, name: f.path, size: f.size_bytes, mime: f.mime_type })));
 
         if (!document.getElementById('agentspaceEditor').value && files.length > 0) {
           openAgentSpaceFile(files[0].path);
         }
       } catch (err) {
-        fileListEl.innerHTML = `<div class="text-red-400 py-2 text-center text-xs">Error loading space: ${err.message}</div>`;
+        if (rangerMode === 'space') fileListEl.innerHTML = `<div class="text-red-400 py-2 text-center text-xs">Error loading space: ${rangerEsc(err.message)}</div>`;
       }
     }
 
     async function openAgentSpaceFile(path) {
       currentSpaceFile = path;
       const pathEl = document.getElementById('activeFilePath');
-      const mimeEl = document.getElementById('activeFileMime');
       const editor = document.getElementById('agentspaceEditor');
       if (pathEl) pathEl.textContent = path;
       if (editor) editor.value = 'Loading...';
+      markRangerSelected(path);
 
       try {
         const resp = await fetch(`/api/space/file?scope=${currentSpaceScope}&owner_id=${encodeURIComponent(currentSpaceOwner)}&path=${encodeURIComponent(path)}`);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const rec = await resp.json();
-        if (mimeEl) mimeEl.textContent = rec.mime_type || 'text/plain';
+        const isText = rec.content !== null && rec.content !== undefined;
         if (editor) {
-          if (rec.content !== null && rec.content !== undefined) {
-            editor.value = rec.content;
-          } else {
-            editor.value = `[Binary Asset: ${rec.size_bytes} bytes | SHA256: ${rec.sha256}]\n(Base64 payload available in .space)`;
-          }
+          editor.value = isText ? rec.content : `[Binary Asset: ${rec.size_bytes} bytes | SHA256: ${rec.sha256}]\n(Base64 payload available in .space)`;
         }
+        let mediaUrl = null;
+        if (!isText && rec.content_b64 && (rec.size_bytes || 0) <= 48 * 1024 * 1024) {
+          mediaUrl = rangerObjectUrl(b64ToBlob(rec.content_b64, rec.mime_type));
+        }
+        showFileInViewer({
+          source: 'space', path: rec.path || path, name: (rec.path || path).split('/').pop(),
+          size: rec.size_bytes, mtime: rec.updated_at, mime: rec.mime_type || 'text/plain',
+          text: isText ? rec.content : null, binary: !isText, mediaUrl,
+          b64: isText ? null : rec.content_b64,
+        });
       } catch (err) {
         if (editor) editor.value = `Error loading file: ${err.message}`;
+        showViewerError(path, err.message);
       }
     }
 
@@ -7464,6 +7623,8 @@ aeonik/
       currentSpaceFile = name;
       const editor = document.getElementById('agentspaceEditor');
       if (editor) editor.value = '# New file in AgentSpace VFS\n';
+      rangerMode = 'space';
+      setViewerEditMode();
       saveAgentSpaceFile();
     }
 
@@ -7910,44 +8071,764 @@ aeonik/
       });
     }
 
-    function navigateFinderPath(path) {
-      const activePathEl = document.getElementById('activeFilePath');
-      if (activePathEl) activePathEl.innerText = path;
-      previewFileInFinder(path);
+    // ---- Ranger state (memory only; the drive mirror is never saved) ----------
+    let rangerMode = 'space';          // 'space' (.space VFS) | 'drive' (hard-drive mirror)
+    let rangerItems = [];              // rows currently shown in #spaceFileList
+    let rangerIndex = -1;              // keyboard selection
+    let rangerView = null;             // file currently in the viewer
+    let rangerRaw = false;             // Markdown raw toggle
+    let rangerWrap = false;
+    let rangerEditing = false;
+    let rangerUrls = [];
+    const driveState = { provider: null, mirror: null, cwd: '/', rootHandle: null, fileMap: null, rootLabel: '' };
+    const RANGER_SKIP = new Set(['node_modules', '.git', '__pycache__', '.venv', 'venv', '.next', 'dist', 'build', 'target', '.cache', '.DS_Store']);
+    const RANGER_TEXT_LIMIT = 512 * 1024;
+    const RANGER_HL_LIMIT = 200 * 1024;
+    const RANGER_LINE_LIMIT = 20000;
+
+    function rangerEsc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    function rangerFmtSize(n) {
+      if (n == null || isNaN(n)) return '';
+      if (n < 1024) return `${n} B`;
+      if (n < 1048576) return `${(n / 1024).toFixed(1)} KB`;
+      if (n < 1073741824) return `${(n / 1048576).toFixed(1)} MB`;
+      return `${(n / 1073741824).toFixed(2)} GB`;
+    }
+    function rangerFmtTime(t) {
+      if (!t) return '';
+      const ms = typeof t === 'number' ? (t > 1e12 ? t : t * 1000) : Date.parse(t);
+      return isNaN(ms) ? '' : 'modified ' + new Date(ms).toLocaleString();
+    }
+    function rangerExt(p) { const m = /\.([^.\/]+)$/.exec(p || ''); return m ? m[1].toLowerCase() : ''; }
+    function rangerKind(path, mime) {
+      const e = rangerExt(path);
+      if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif'].includes(e)) return 'image';
+      if (['mp4', 'webm', 'mov', 'm4v', 'ogv'].includes(e)) return 'video';
+      if (['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac', 'opus'].includes(e)) return 'audio';
+      if (['glb', 'gltf'].includes(e)) return 'model';
+      if (['md', 'markdown', 'mdx'].includes(e)) return 'markdown';
+      if (mime && /^image\//.test(mime) && !/^image\/vnd\./.test(mime)) return 'image';
+      if (mime && /^video\//.test(mime)) return 'video';
+      if (mime && /^audio\//.test(mime)) return 'audio';
+      return 'text';
+    }
+    function rangerIcon(item) {
+      if (item.kind === 'up') return '↰';
+      if (item.kind === 'dir') return '📁';
+      const k = rangerKind(item.path, item.mime);
+      return { image: '🖼', video: '🎬', audio: '🎵', model: '🧊', markdown: '📝' }[k] ||
+        ({ py: '🐍', js: '⚡', ts: '⚡', rs: '🦀', json: '🔧', sh: '💲' }[rangerExt(item.path)] || '📄');
+    }
+    function rangerObjectUrl(blob) { const u = URL.createObjectURL(blob); rangerUrls.push(u); return u; }
+    function rangerReleaseUrls() { rangerUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} }); rangerUrls = []; }
+    function b64ToBlob(b64, mime) {
+      const bin = atob(b64); const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      return new Blob([arr], { type: mime || 'application/octet-stream' });
     }
 
-    function previewFileInFinder(fpath, content = '') {
-      const lower = (fpath || '').toLowerCase();
-      const videoBox = document.getElementById('finderVideoContainer');
-      const audioBox = document.getElementById('finderAudioContainer');
-      const model3dBox = document.getElementById('finder3dContainer');
-      const codeBox = document.getElementById('finderCodeContainer');
-      const editor = document.getElementById('agentspaceEditor');
-
-      if (videoBox) videoBox.classList.add('hidden');
-      if (audioBox) audioBox.classList.add('hidden');
-      if (model3dBox) model3dBox.classList.add('hidden');
-      if (codeBox) codeBox.classList.remove('hidden');
-
-      if (lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mov')) {
-        if (videoBox) {
-          videoBox.classList.remove('hidden');
-          const vp = document.getElementById('finderVideoPlayer');
-          if (vp) vp.src = '/media/demo.mp4';
+    // ---- File list (shared by .space and drive mirror) ----------------------
+    function setRangerListHeader() {
+      const title = document.getElementById('rangerListTitle');
+      const newBtn = document.getElementById('rangerNewFileBtn');
+      const crumb = document.getElementById('rangerBreadcrumb');
+      if (rangerMode === 'drive') {
+        if (title) title.textContent = `${driveState.rootLabel || 'Drive'} (read-only mirror)`;
+        if (newBtn) newBtn.classList.add('hidden');
+        if (crumb) {
+          crumb.classList.remove('hidden');
+          const parts = (driveState.cwd || '/').split('/').filter(Boolean);
+          let acc = '';
+          const bits = [`<button class="hover:text-slate-200" data-crumb="/">${rangerEsc(driveState.rootLabel || '~')}</button>`];
+          parts.forEach(p => { acc += '/' + p; bits.push(`<span>/</span><button class="hover:text-slate-200" data-crumb="${rangerEsc(acc)}">${rangerEsc(p)}</button>`); });
+          crumb.innerHTML = bits.join('');
         }
-      } else if (lower.endsWith('.mp3') || lower.endsWith('.wav') || lower.endsWith('.ogg')) {
-        if (audioBox) {
-          audioBox.classList.remove('hidden');
-          const ap = document.getElementById('finderAudioPlayer');
-          if (ap) ap.src = '/media/demo.mp3';
-        }
-      } else if (lower.endsWith('.glb') || lower.endsWith('.gltf') || lower.endsWith('.obj')) {
-        if (model3dBox) model3dBox.classList.remove('hidden');
       } else {
-        if (editor && content) {
-          editor.value = content;
+        if (title) title.textContent = 'Files in VFS';
+        if (newBtn) newBtn.classList.remove('hidden');
+        if (crumb) { crumb.classList.add('hidden'); crumb.innerHTML = ''; }
+      }
+    }
+
+    function renderRangerList(items) {
+      const el = document.getElementById('spaceFileList');
+      if (!el) return;
+      rangerItems = items;
+      setRangerListHeader();
+      if (!items.length) {
+        el.innerHTML = '<div class="text-slate-500 py-2 text-center text-xs">This folder is empty.</div>';
+        rangerIndex = -1;
+        return;
+      }
+      el.innerHTML = items.map((it, i) => {
+        const sel = it.kind === 'file' && rangerView && rangerView.source === it.source && rangerView.path === it.path;
+        const bg = sel ? 'bg-purple-950/80 text-purple-200 font-bold border-l-2 border-purple-400' : 'hover:bg-slate-900 text-slate-300';
+        const size = it.kind === 'file' && it.size != null ? rangerFmtSize(it.size) : (it.kind === 'dir' ? '›' : '');
+        return `<div role="option" data-idx="${i}" class="ranger-row px-2 py-1.5 cursor-pointer flex items-center justify-between transition ${bg}">
+              <div class="flex items-center gap-1.5 truncate"><span>${rangerIcon(it)}</span><span class="truncate">${rangerEsc(it.name)}</span></div>
+              <span class="text-[9px] text-slate-500 shrink-0 font-mono">${rangerEsc(size)}</span>
+            </div>`;
+      }).join('');
+      const selIdx = items.findIndex(it => it.kind === 'file' && rangerView && rangerView.source === it.source && rangerView.path === it.path);
+      setRangerIndex(selIdx >= 0 ? selIdx : (rangerIndex >= 0 && rangerIndex < items.length ? rangerIndex : -1), false);
+    }
+
+    function setRangerIndex(i, scroll = true) {
+      const el = document.getElementById('spaceFileList');
+      if (!el) return;
+      rangerIndex = i;
+      el.querySelectorAll('.ranger-row').forEach(r => r.classList.toggle('ring-1', Number(r.dataset.idx) === i));
+      el.querySelectorAll('.ranger-row').forEach(r => r.classList.toggle('ring-purple-500/70', Number(r.dataset.idx) === i));
+      const row = el.querySelector(`.ranger-row[data-idx="${i}"]`);
+      if (row && scroll) row.scrollIntoView({ block: 'nearest' });
+    }
+
+    function markRangerSelected(path) {
+      const i = rangerItems.findIndex(it => it.path === path);
+      if (i >= 0) setRangerIndex(i);
+    }
+
+    function activateRangerItem(it) {
+      if (!it) return;
+      if (it.kind === 'up') return rangerGoUp();
+      if (it.kind === 'dir') return navigateDrive(it.path);
+      if (it.source === 'space') return openAgentSpaceFile(it.path);
+      return openDriveFile(it.path);
+    }
+
+    function rangerGoUp() {
+      if (rangerMode !== 'drive' || !driveState.cwd || driveState.cwd === '/') return;
+      const from = driveState.cwd;
+      const parent = from.replace(/\/[^\/]+\/?$/, '') || '/';
+      navigateDrive(parent, from);
+    }
+
+    (function initRangerListEvents() {
+      const el = document.getElementById('spaceFileList');
+      const crumb = document.getElementById('rangerBreadcrumb');
+      if (crumb) crumb.addEventListener('click', ev => { const b = ev.target.closest('[data-crumb]'); if (b) navigateDrive(b.dataset.crumb); });
+      if (!el) return;
+      el.addEventListener('click', ev => {
+        const row = ev.target.closest('.ranger-row'); if (!row) return;
+        const i = Number(row.dataset.idx); setRangerIndex(i, false); el.focus({ preventScroll: true });
+        activateRangerItem(rangerItems[i]);
+      });
+      el.addEventListener('keydown', ev => {
+        if (!rangerItems.length && ev.key !== 'ArrowLeft' && ev.key !== 'Backspace') return;
+        const n = rangerItems.length;
+        if (ev.key === 'ArrowDown') { ev.preventDefault(); setRangerIndex(Math.min(n - 1, rangerIndex + 1)); }
+        else if (ev.key === 'ArrowUp') { ev.preventDefault(); setRangerIndex(Math.max(0, rangerIndex - 1)); }
+        else if (ev.key === 'Home') { ev.preventDefault(); setRangerIndex(0); }
+        else if (ev.key === 'End') { ev.preventDefault(); setRangerIndex(n - 1); }
+        else if (ev.key === 'Enter' || ev.key === 'ArrowRight') { ev.preventDefault(); activateRangerItem(rangerItems[rangerIndex]); }
+        else if (ev.key === 'ArrowLeft' || ev.key === 'Backspace') { ev.preventDefault(); rangerGoUp(); }
+      });
+    })();
+
+    function showSpaceVfs() { refreshAgentSpace(); }
+
+    // ---- Hard-drive mirror: gathered fresh at login, held in memory only ------
+    async function gatherDriveMirror(trigger) {
+      const statusEl = document.getElementById('drivePlacesStatus');
+      const listEl = document.getElementById('drivePlacesList');
+      const pickBtn = document.getElementById('drivePickBtn');
+      driveState.mirror = null;
+      if (driveState.provider === 'server') driveState.provider = null;
+      if (listEl) listEl.innerHTML = '<div class="text-slate-500 py-1 text-[10px]">Scanning your drive…</div>';
+      let status = { available: false };
+      try {
+        const r = await fetch('/api/drive/status', { cache: 'no-store' });
+        if (r.ok) status = await r.json();
+      } catch (e) {}
+      if (status.available) {
+        try {
+          const r = await fetch('/api/drive/mirror', { cache: 'no-store' });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          const m = await r.json();
+          driveState.provider = 'server';
+          driveState.mirror = m;
+          driveState.rootLabel = '~';
+          renderDrivePlaces();
+          if (pickBtn) pickBtn.classList.add('hidden');
+          if (statusEl) statusEl.textContent = `Mirrored ${m.root} · ${m.dev_folder ? 'dev folder ' + m.dev_folder : 'no dev folder found'} · ${m.elapsed_ms} ms${m.truncated ? ' · capped' : ''}`;
+          // At login / session start the dev folder opens automatically.
+          if ((trigger === 'login' || trigger === 'session-start') && m.dev_folder) navigateDrive(m.dev_folder);
+          return;
+        } catch (err) {
+          if (statusEl) statusEl.textContent = `Drive scan failed: ${err.message}`;
         }
       }
+      // Remote server (e.g. Railway): it can't see this computer's disk.
+      if (driveState.provider === 'browser' || driveState.provider === 'filelist') {
+        renderDrivePlaces();
+        return;
+      }
+      if (listEl) listEl.innerHTML = '';
+      if (pickBtn) pickBtn.classList.remove('hidden');
+      if (statusEl) statusEl.textContent = status.on_railway
+        ? 'TinCan is running on Railway, so it can\'t see your disk. Pick your dev folder to mirror it for this session (read-only, nothing is uploaded or saved).'
+        : 'Your drive isn\'t visible from this server. Pick a folder to mirror it for this session (read-only).';
+    }
+
+    function renderDrivePlaces() {
+      const listEl = document.getElementById('drivePlacesList');
+      if (!listEl) return;
+      const m = driveState.mirror;
+      if (!m) { listEl.innerHTML = ''; return; }
+      const node = (n, depth) => {
+        const icon = n.kind === 'dev' ? '⭐' : '📁';
+        const label = `<span class="truncate">${rangerEsc(n.name)}${n.kind === 'dev' ? ' <span class="text-amber-400/80 text-[9px]">dev</span>' : ''}</span>`;
+        const btn = `<button data-place="${rangerEsc(n.path)}" class="flex-1 min-w-0 text-left flex items-center gap-1.5 truncate"><span>${icon}</span>${label}</button>`;
+        const kids = (n.children || []);
+        if (!kids.length) return `<div class="px-2 py-1 rounded hover:bg-slate-900 text-slate-300 flex items-center" style="padding-left:${0.5 + depth * 0.75}rem">${btn}</div>`;
+        return `<details ${n.kind === 'dev' ? 'open' : ''}><summary class="px-2 py-1 rounded hover:bg-slate-900 text-slate-300 flex items-center gap-1 cursor-pointer list-none" style="padding-left:${0.5 + depth * 0.75}rem"><span class="text-slate-600 text-[9px]">▸</span>${btn}</summary>${kids.map(k => node(k, depth + 1)).join('')}</details>`;
+      };
+      listEl.innerHTML = (m.places || []).map(p => node(p, 0)).join('') || '<div class="text-slate-500 text-[10px]">No folders found.</div>';
+    }
+
+    (function initDrivePlacesEvents() {
+      const listEl = document.getElementById('drivePlacesList');
+      if (!listEl) return;
+      listEl.addEventListener('click', ev => {
+        const b = ev.target.closest('[data-place]');
+        if (!b) return;
+        ev.preventDefault();
+        navigateDrive(b.dataset.place);
+      });
+    })();
+
+    // Browser fallback: File System Access API handle, kept in memory for this tab only.
+    async function pickBrowserFolder() {
+      const statusEl = document.getElementById('drivePlacesStatus');
+      if (window.showDirectoryPicker) {
+        try {
+          const handle = await window.showDirectoryPicker({ id: 'tincan-dev', mode: 'read' });
+          driveState.provider = 'browser';
+          driveState.rootHandle = handle;
+          driveState.fileMap = null;
+          driveState.rootLabel = handle.name;
+          await buildBrowserMirror();
+          navigateDrive('/');
+        } catch (err) {
+          if (err && err.name !== 'AbortError' && statusEl) statusEl.textContent = `Couldn't open folder: ${err.message}`;
+        }
+        return;
+      }
+      // Safari / Firefox: read-only <input webkitdirectory> snapshot.
+      const inp = document.createElement('input');
+      inp.type = 'file'; inp.webkitdirectory = true; inp.multiple = true;
+      inp.onchange = () => {
+        const map = new Map();
+        let rootName = '';
+        for (const f of inp.files) {
+          const rel = f.webkitRelativePath || f.name;
+          const parts = rel.split('/'); rootName = rootName || parts[0];
+          if (parts.some(p => RANGER_SKIP.has(p) || (p.startsWith('.') && p !== rootName))) continue;
+          map.set('/' + parts.slice(1).join('/'), f);
+        }
+        driveState.provider = 'filelist';
+        driveState.fileMap = map;
+        driveState.rootHandle = null;
+        driveState.rootLabel = rootName || 'folder';
+        driveState.mirror = { places: [{ name: driveState.rootLabel, path: '/', kind: 'dev', children: [] }] };
+        renderDrivePlaces();
+        if (statusEl) statusEl.textContent = `Mirroring ${driveState.rootLabel} for this session (${map.size} files, read-only).`;
+        navigateDrive('/');
+      };
+      inp.click();
+    }
+
+    async function buildBrowserMirror() {
+      const statusEl = document.getElementById('drivePlacesStatus');
+      let budget = 1500;
+      const walk = async (dirHandle, path, depth) => {
+        const node = { name: dirHandle.name, path, children: [] };
+        if (depth >= 3) return node;
+        const subs = [];
+        for await (const [name, h] of dirHandle.entries()) {
+          if (h.kind === 'directory' && !RANGER_SKIP.has(name) && !name.startsWith('.')) subs.push([name, h]);
+        }
+        subs.sort((a, b) => a[0].localeCompare(b[0]));
+        for (const [name, h] of subs) {
+          if (budget-- <= 0) break;
+          node.children.push(await walk(h, (path === '/' ? '' : path) + '/' + name, depth + 1));
+        }
+        return node;
+      };
+      const root = await walk(driveState.rootHandle, '/', 0);
+      root.kind = 'dev';
+      driveState.mirror = { places: [root] };
+      renderDrivePlaces();
+      const pickBtn = document.getElementById('drivePickBtn');
+      if (pickBtn) pickBtn.textContent = '📂 Mirror a different folder…';
+      if (statusEl) statusEl.textContent = `Mirroring "${driveState.rootLabel}" for this session only (read-only; not uploaded or saved).`;
+    }
+
+    async function browserDirHandle(path) {
+      let h = driveState.rootHandle;
+      for (const part of (path || '/').split('/').filter(Boolean)) h = await h.getDirectoryHandle(part);
+      return h;
+    }
+
+    async function driveList(path) {
+      if (driveState.provider === 'server') {
+        const r = await fetch(`/api/drive/ls?path=${encodeURIComponent(path)}`, { cache: 'no-store' });
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+        return r.json();
+      }
+      if (driveState.provider === 'browser') {
+        const dh = await browserDirHandle(path);
+        const dirs = [], files = [];
+        const base = path === '/' ? '' : path;
+        for await (const [name, h] of dh.entries()) {
+          if (RANGER_SKIP.has(name) || name.startsWith('.')) continue;
+          if (dirs.length + files.length >= 300) break;
+          if (h.kind === 'directory') dirs.push({ name, path: base + '/' + name });
+          else { const f = await h.getFile(); files.push({ name, path: base + '/' + name, size_bytes: f.size, mtime: f.lastModified, mime_type: f.type }); }
+        }
+        const by = (a, b) => a.name.localeCompare(b.name);
+        return { path, dirs: dirs.sort(by), files: files.sort(by) };
+      }
+      if (driveState.provider === 'filelist') {
+        const base = path === '/' ? '' : path;
+        const dirs = new Set(), files = [];
+        for (const [p, f] of driveState.fileMap) {
+          if (!p.startsWith(base + '/')) continue;
+          const rest = p.slice(base.length + 1); const i = rest.indexOf('/');
+          if (i >= 0) dirs.add(rest.slice(0, i));
+          else files.push({ name: rest, path: p, size_bytes: f.size, mtime: f.lastModified, mime_type: f.type });
+        }
+        return { path, dirs: [...dirs].sort().map(n => ({ name: n, path: base + '/' + n })), files: files.sort((a, b) => a.name.localeCompare(b.name)) };
+      }
+      throw new Error('No drive mirror yet. Pick a folder first.');
+    }
+
+    async function navigateDrive(path, selectPath) {
+      const el = document.getElementById('spaceFileList');
+      rangerMode = 'drive';
+      driveState.cwd = path || '/';
+      setRangerListHeader();
+      if (el) el.innerHTML = '<div class="text-slate-500 py-2 text-center text-xs">Reading folder…</div>';
+      try {
+        const data = await driveList(driveState.cwd);
+        if (rangerMode !== 'drive' || driveState.cwd !== (path || '/')) return;
+        const items = [];
+        if (driveState.cwd !== '/') items.push({ kind: 'up', name: '..', path: driveState.cwd.replace(/\/[^\/]+\/?$/, '') || '/' });
+        (data.dirs || []).forEach(d => items.push({ kind: 'dir', source: 'drive', name: d.name, path: d.path }));
+        (data.files || []).forEach(f => items.push({ kind: 'file', source: 'drive', name: f.name, path: f.path, size: f.size_bytes, mime: f.mime_type }));
+        rangerIndex = -1;
+        renderRangerList(items);
+        if (data.truncated && el) el.insertAdjacentHTML('beforeend', '<div class="text-[10px] text-slate-500 py-1 text-center">Showing the first 300 entries.</div>');
+        const back = selectPath ? items.findIndex(it => it.path === selectPath) : -1;
+        if (back >= 0) setRangerIndex(back);
+        else if (rangerIndex < 0 && items.length) setRangerIndex(Math.min(items.length - 1, driveState.cwd !== '/' ? 1 : 0), false);
+      } catch (err) {
+        if (el) el.innerHTML = `<div class="text-red-400 py-2 text-center text-xs">Couldn't read folder: ${rangerEsc(err.message)}</div>`;
+      }
+    }
+
+    async function openDriveFile(path) {
+      markRangerSelected(path);
+      const name = path.split('/').pop();
+      try {
+        if (driveState.provider === 'server') {
+          const r = await fetch(`/api/drive/file?path=${encodeURIComponent(path)}`, { cache: 'no-store' });
+          const rec = await r.json();
+          if (!r.ok) throw new Error(rec.error || `HTTP ${r.status}`);
+          const kind = rangerKind(path, rec.mime_type);
+          const rawUrl = `/api/drive/raw?path=${encodeURIComponent(path)}`;
+          showFileInViewer({
+            source: 'drive', path, name, size: rec.size_bytes, mtime: rec.mtime, mime: rec.mime_type,
+            text: rec.content, binary: rec.is_binary, truncated: rec.truncated, absPath: rec.abs_path,
+            mediaUrl: ['image', 'video', 'audio', 'model'].includes(kind) ? rawUrl : null,
+            downloadUrl: rawUrl + '&download=1',
+          });
+          return;
+        }
+        let file;
+        if (driveState.provider === 'browser') {
+          const parts = path.split('/').filter(Boolean); const fname = parts.pop();
+          const dh = await browserDirHandle('/' + parts.join('/'));
+          file = await (await dh.getFileHandle(fname)).getFile();
+        } else {
+          file = driveState.fileMap.get(path);
+        }
+        if (!file) throw new Error('File not found');
+        const kind = rangerKind(path, file.type);
+        const view = { source: 'drive', path, name, size: file.size, mtime: file.lastModified, mime: file.type || 'application/octet-stream', file };
+        if (['image', 'video', 'audio', 'model'].includes(kind)) {
+          view.mediaUrl = rangerObjectUrl(file);
+        } else {
+          const head = new Uint8Array(await file.slice(0, 8192).arrayBuffer());
+          view.binary = head.includes(0);
+          if (!view.binary) {
+            view.text = await file.slice(0, RANGER_TEXT_LIMIT).text();
+            view.truncated = file.size > RANGER_TEXT_LIMIT;
+          }
+        }
+        showFileInViewer(view);
+      } catch (err) {
+        showViewerError(path, err.message);
+      }
+    }
+
+    // ---- Viewer -------------------------------------------------------------
+    const RANGER_PANES = ['finderVideoContainer', 'finderAudioContainer', 'finderImageContainer', 'finder3dContainer', 'finderBinaryContainer', 'finderViewerContainer', 'finderCodeContainer'];
+    function rangerShowPane(id) { RANGER_PANES.forEach(p => { const el = document.getElementById(p); if (el) el.classList.toggle('hidden', p !== id); }); }
+
+    function showViewerError(path, msg) {
+      rangerShowPane('finderBinaryContainer');
+      const t = document.getElementById('finderBinaryText');
+      if (t) t.textContent = `Couldn't open ${path}: ${msg}`;
+    }
+
+    function showFileInViewer(view) {
+      if (!rangerView || rangerView.mediaUrl !== view.mediaUrl) {
+        // free blob URLs from the previous file (keep the new one)
+        rangerUrls = rangerUrls.filter(u => { if (u === view.mediaUrl) return true; try { URL.revokeObjectURL(u); } catch (e) {} return false; });
+      }
+      rangerView = view;
+      rangerRaw = false;
+      if (view.source !== 'space') rangerEditing = false;
+      const kind = view.binary && !view.mediaUrl ? 'binary' : rangerKind(view.path, view.mime);
+      view.kind = kind;
+      const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+      const pathEl = document.getElementById('activeFilePath');
+      const fullPath = view.absPath || (view.source === 'drive' ? `${driveState.rootLabel || ''}${view.path}` : view.path);
+      if (pathEl) { pathEl.textContent = view.path; pathEl.title = fullPath; }
+      set('viewerFileIcon', rangerIcon({ kind: 'file', path: view.path, mime: view.mime }));
+      set('activeFileMime', view.mime || 'text/plain');
+      set('viewerFileSize', rangerFmtSize(view.size));
+      set('viewerFileMtime', rangerFmtTime(view.mtime));
+      const badge = document.getElementById('viewerSourceBadge');
+      if (badge) {
+        badge.textContent = view.source === 'space' ? '.space' : 'drive · read-only';
+        badge.className = view.source === 'space'
+          ? 'px-1.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800'
+          : 'px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800';
+      }
+      const spaceActions = document.getElementById('viewerSpaceActions');
+      if (spaceActions) spaceActions.classList.toggle('hidden', view.source !== 'space');
+      const editBtn = document.getElementById('viewerEditBtn');
+      if (editBtn) editBtn.classList.toggle('hidden', view.text == null);
+      const rawBtn = document.getElementById('viewerRawToggle');
+      if (rawBtn) { rawBtn.classList.toggle('hidden', kind !== 'markdown'); rawBtn.textContent = 'Raw'; }
+      const vs = document.getElementById('viewerVsCodeLink');
+      if (vs) {
+        // Only offered where it can work: a real file on this computer, served by a local TinCan.
+        const ok = view.source === 'drive' && driveState.provider === 'server' && view.absPath;
+        vs.classList.toggle('hidden', !ok);
+        vs.href = ok ? 'vscode://file' + encodeURI(view.absPath) : '#';
+      }
+      renderViewerBody();
+    }
+
+    function renderViewerBody() {
+      const view = rangerView;
+      if (!view) return;
+      const kind = view.kind;
+      if (rangerEditing && view.source === 'space' && view.text != null) { rangerShowPane('finderCodeContainer'); return; }
+      if (kind === 'image' && view.mediaUrl) {
+        rangerShowPane('finderImageContainer');
+        const img = document.getElementById('finderImagePreview'); if (img) { img.src = view.mediaUrl; img.alt = view.name; }
+      } else if (kind === 'video' && view.mediaUrl) {
+        rangerShowPane('finderVideoContainer');
+        const v = document.getElementById('finderVideoPlayer'); if (v) v.src = view.mediaUrl;
+      } else if (kind === 'audio' && view.mediaUrl) {
+        rangerShowPane('finderAudioContainer');
+        const a = document.getElementById('finderAudioPlayer'); if (a) a.src = view.mediaUrl;
+      } else if (kind === 'model' && view.mediaUrl) {
+        rangerShowPane('finder3dContainer');
+        renderModelPreview(view.mediaUrl);
+      } else if (view.text != null) {
+        rangerShowPane('finderViewerContainer');
+        renderTextView(view);
+      } else {
+        rangerShowPane('finderBinaryContainer');
+        const t = document.getElementById('finderBinaryText');
+        if (t) t.textContent = `${view.name} · ${view.mime || 'binary'} · ${rangerFmtSize(view.size)}`;
+      }
+    }
+
+    function renderTextView(view) {
+      const box = document.getElementById('finderViewer');
+      const notice = document.getElementById('finderViewerNotice');
+      if (!box) return;
+      const notes = [];
+      if (view.truncated) notes.push(`Showing the first ${rangerFmtSize(RANGER_TEXT_LIMIT)} of ${rangerFmtSize(view.size)}. Download for the full file.`);
+      let text = view.text || '';
+      if (view.kind === 'markdown' && !rangerRaw && text.length <= RANGER_HL_LIMIT) {
+        box.innerHTML = `<div class="ranger-md p-3">${renderMarkdown(text)}</div>`;
+      } else {
+        let lines = text.split('\n');
+        if (lines.length > RANGER_LINE_LIMIT) { notes.push(`Showing the first ${RANGER_LINE_LIMIT.toLocaleString()} lines.`); lines = lines.slice(0, RANGER_LINE_LIMIT); text = lines.join('\n'); }
+        const lang = rangerLang(view.path);
+        const doHl = text.length <= RANGER_HL_LIMIT && lang !== 'text';
+        if (!doHl && lang !== 'text') notes.push('Large file: syntax colours off.');
+        const htmlLines = doHl ? highlightCode(text, lang) : lines.map(rangerEsc);
+        box.innerHTML = `<table class="ranger-code${rangerWrap ? ' wrap' : ''}"><tbody>${htmlLines.map((l, i) => `<tr><td class="ln">${i + 1}</td><td class="lc">${l || ' '}</td></tr>`).join('')}</tbody></table>`;
+      }
+      if (notice) { notice.textContent = notes.join(' '); notice.classList.toggle('hidden', !notes.length); }
+    }
+
+    function toggleViewerRaw() {
+      rangerRaw = !rangerRaw;
+      const b = document.getElementById('viewerRawToggle'); if (b) b.textContent = rangerRaw ? 'Rendered' : 'Raw';
+      renderViewerBody();
+    }
+    function toggleViewerWrap() {
+      rangerWrap = !rangerWrap;
+      const b = document.getElementById('viewerWrapToggle'); if (b) b.classList.toggle('text-purple-300', rangerWrap);
+      renderViewerBody();
+    }
+    function toggleViewerEdit(force) {
+      if (!rangerView || rangerView.source !== 'space') return;
+      rangerEditing = typeof force === 'boolean' ? force : !rangerEditing;
+      const b = document.getElementById('viewerEditBtn'); if (b) b.textContent = rangerEditing ? '👁 View' : '✎ Edit';
+      if (!rangerEditing) {
+        const ed = document.getElementById('agentspaceEditor');
+        if (ed && rangerView.text != null) rangerView.text = ed.value;
+      }
+      renderViewerBody();
+    }
+    function setViewerEditMode() {
+      // Used by flows that drop text into the editor (arena transfer, new file).
+      rangerEditing = true;
+      const b = document.getElementById('viewerEditBtn'); if (b) b.textContent = '👁 View';
+      rangerShowPane('finderCodeContainer');
+    }
+
+    async function copyViewerPath() {
+      if (!rangerView) return;
+      const p = rangerView.absPath || rangerView.path;
+      try { await navigator.clipboard.writeText(p); showQuickNotification(`Copied ${p}`); }
+      catch (e) { prompt('Copy path:', p); }
+    }
+
+    function downloadViewerFile() {
+      const v = rangerView;
+      if (!v) return;
+      let url = v.downloadUrl;
+      if (!url) {
+        let blob = null;
+        if (v.file) blob = v.file;
+        else if (v.b64) blob = b64ToBlob(v.b64, v.mime);
+        else if (v.text != null) blob = new Blob([v.source === 'space' ? (document.getElementById('agentspaceEditor') || {}).value || v.text : v.text], { type: v.mime || 'text/plain' });
+        if (!blob) return;
+        url = rangerObjectUrl(blob);
+      }
+      const a = document.createElement('a');
+      a.href = url; a.download = v.name || 'file'; document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    let rangerModelViewerLoading = null;
+    function renderModelPreview(url) {
+      const stage = document.getElementById('finder3dStage');
+      const note = document.getElementById('finder3dNote');
+      const fallback = document.getElementById('finder3dFallback');
+      if (!stage) return;
+      stage.innerHTML = '';
+      if (fallback) fallback.classList.remove('hidden');
+      if (note) note.textContent = 'Loading 3D preview…';
+      if (!rangerModelViewerLoading) {
+        rangerModelViewerLoading = new Promise((resolve, reject) => {
+          if (window.customElements && customElements.get('model-viewer')) return resolve();
+          const s = document.createElement('script');
+          s.type = 'module';
+          s.src = 'https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js';
+          s.onload = () => resolve(); s.onerror = () => reject(new Error('3D viewer could not load (offline?)'));
+          document.head.appendChild(s);
+        });
+      }
+      rangerModelViewerLoading.then(() => {
+        if (!rangerView || rangerView.mediaUrl !== url) return;
+        const mv = document.createElement('model-viewer');
+        mv.setAttribute('src', url); mv.setAttribute('camera-controls', ''); mv.setAttribute('auto-rotate', '');
+        mv.style.width = '100%'; mv.style.height = '100%'; mv.style.background = 'transparent';
+        stage.appendChild(mv);
+        if (fallback) fallback.classList.add('hidden');
+      }).catch(err => { rangerModelViewerLoading = null; if (note) note.textContent = err.message; });
+    }
+
+    // ---- Tiny syntax highlighter (no external deps) --------------------------
+    const RANGER_LANGS = {
+      py: 'py', pyw: 'py', js: 'js', mjs: 'js', cjs: 'js', jsx: 'js', ts: 'js', tsx: 'js', json: 'json', jsonc: 'js',
+      rs: 'c', go: 'c', c: 'c', h: 'c', cpp: 'c', hpp: 'c', cc: 'c', java: 'c', kt: 'c', swift: 'c', cs: 'c', css: 'css', scss: 'c',
+      sh: 'sh', bash: 'sh', zsh: 'sh', fish: 'sh', yml: 'sh', yaml: 'sh', toml: 'sh', ini: 'sh', cfg: 'sh', conf: 'sh', env: 'sh', rb: 'sh', dockerfile: 'sh', makefile: 'sh', r: 'sh',
+      sql: 'sql', lua: 'sql', html: 'html', htm: 'html', xml: 'html', svg: 'html', vue: 'html', md: 'text', txt: 'text', log: 'text', csv: 'text',
+    };
+    function rangerLang(path) {
+      const base = (path || '').split('/').pop().toLowerCase();
+      if (base === 'dockerfile' || base === 'makefile') return 'sh';
+      return RANGER_LANGS[rangerExt(path)] || 'text';
+    }
+    const RANGER_KW = new Set(('and as assert async await break case catch class const continue def default del delete do elif else enum export extends ' +
+      'false finally fn for from func function global go if impl import in interface is lambda let loop match mod mut new nil none None not null ' +
+      'or package pass pub raise return self Self static struct super switch this throw true True False try type typeof use var void where while with yield ' +
+      'select insert update delete from where join left right inner outer on group by order having limit values into create table drop alter and or not null ' +
+      'echo fi then esac done local export function').split(' '));
+    const RANGER_RE_CACHE = {};
+    function rangerRegex(lang) {
+      if (RANGER_RE_CACHE[lang]) return RANGER_RE_CACHE[lang];
+      const parts = [];
+      if (lang === 'js' || lang === 'c' || lang === 'css') parts.push('\\/\\*[\\s\\S]*?\\*\\/');
+      if (lang === 'js' || lang === 'c') parts.push('\\/\\/[^\\n]*');
+      if (lang === 'py' || lang === 'sh') parts.push('#[^\\n]*');
+      if (lang === 'sql') parts.push('--[^\\n]*');
+      if (lang === 'html') parts.push('<!--[\\s\\S]*?-->', '<\\/?[A-Za-z][\\w:-]*', '\\/?>');
+      if (lang === 'py') parts.push('"{3}[\\s\\S]*?"{3}', "'{3}[\\s\\S]*?'{3}");
+      parts.push('"(?:\\\\.|[^"\\\\\\n])*"', "'(?:\\\\.|[^'\\\\\\n])*'");
+      if (lang === 'js' || lang === 'sh') parts.push('`(?:\\\\.|[^`\\\\])*`');
+      parts.push('\\b0x[0-9A-Fa-f]+\\b', '\\b\\d[\\d_]*(?:\\.\\d+)?(?:[eE][+-]?\\d+)?\\b', '[A-Za-z_$][\\w$]*');
+      return (RANGER_RE_CACHE[lang] = new RegExp(parts.join('|'), 'g'));
+    }
+    function highlightCode(src, lang) {
+      const re = rangerRegex(lang);
+      const toks = [];
+      let last = 0, m;
+      re.lastIndex = 0;
+      while ((m = re.exec(src))) {
+        const t = m[0];
+        if (!t) { re.lastIndex++; continue; }
+        if (m.index > last) toks.push(['', src.slice(last, m.index)]);
+        const c = t[0];
+        let cls = '';
+        if (t.startsWith('/*') || t.startsWith('//') || t.startsWith('<!--') || (c === '#' && (lang === 'py' || lang === 'sh')) || (t.startsWith('--') && lang === 'sql')) cls = 'tk-c';
+        else if (c === '"' || c === "'" || c === '`') cls = (lang === 'json' && /^\s*:/.test(src.slice(m.index + t.length))) ? 'tk-k' : 'tk-s';
+        else if (c === '<' || (c === '/' && lang === 'html')) cls = 'tk-t';
+        else if (/\d/.test(c)) cls = 'tk-n';
+        else if (RANGER_KW.has(t) || (lang === 'sql' && RANGER_KW.has(t.toLowerCase()))) cls = 'tk-w';
+        else if (src[m.index + t.length] === '(') cls = 'tk-f';
+        toks.push([cls, t]);
+        last = m.index + t.length;
+      }
+      if (last < src.length) toks.push(['', src.slice(last)]);
+      const lines = [''];
+      toks.forEach(([cls, text]) => {
+        text.split('\n').forEach((piece, i) => {
+          if (i > 0) lines.push('');
+          if (piece) lines[lines.length - 1] += cls ? `<span class="${cls}">${rangerEsc(piece)}</span>` : rangerEsc(piece);
+        });
+      });
+      return lines;
+    }
+
+    // ---- Small, safe Markdown renderer ---------------------------------------
+    function rangerInlineMd(s) {
+      let out = rangerEsc(s);
+      const codes = [];
+      out = out.replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return `\u0000${codes.length - 1}\u0000`; });
+      out = out.replace(/!\[([^\]]*)\]\(([^)\s]+)[^)]*\)/g, (_, alt) => `<span class="text-slate-500">[image: ${alt}]</span>`);
+      out = out.replace(/\[([^\]]+)\]\(([^)\s]+)[^)]*\)/g, (_, t, u) => {
+        const safe = /^(https?:|mailto:|#|\.{0,2}\/|[\w.-]+(\/|$))/i.test(u) && !/^\s*javascript:/i.test(u);
+        return safe ? `<a href="${u}" target="_blank" rel="noopener noreferrer" class="text-cyan-300 underline">${t}</a>` : t;
+      });
+      out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/__([^_]+)__/g, '<strong>$1</strong>');
+      out = out.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>').replace(/~~([^~]+)~~/g, '<del>$1</del>');
+      return out.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codes[Number(i)]}</code>`);
+    }
+    function renderMarkdown(src) {
+      const lines = src.replace(/\r\n?/g, '\n').split('\n');
+      const out = [];
+      let para = [], list = null, i = 0;
+      const flush = () => { if (para.length) { out.push(`<p>${rangerInlineMd(para.join(' '))}</p>`); para = []; } };
+      const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+      while (i < lines.length) {
+        const line = lines[i];
+        let m;
+        if ((m = /^\s*(```|~~~)\s*([\w+-]*)/.exec(line))) {
+          flush(); closeList();
+          const fence = m[1], lang = RANGER_LANGS[(m[2] || '').toLowerCase()] || (m[2] ? (RANGER_LANGS[m[2]] || 'js') : 'text');
+          const body = []; i++;
+          while (i < lines.length && !lines[i].trim().startsWith(fence)) body.push(lines[i++]);
+          i++;
+          const code = body.join('\n');
+          out.push(`<pre><code>${lang === 'text' ? rangerEsc(code) : highlightCode(code, lang).join('\n')}</code></pre>`);
+          continue;
+        }
+        if ((m = /^(#{1,6})\s+(.*)$/.exec(line))) { flush(); closeList(); out.push(`<h${m[1].length}>${rangerInlineMd(m[2])}</h${m[1].length}>`); }
+        else if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) { flush(); closeList(); out.push('<hr>'); }
+        else if ((m = /^\s*>\s?(.*)$/.exec(line))) { flush(); closeList(); out.push(`<blockquote>${rangerInlineMd(m[1])}</blockquote>`); }
+        else if ((m = /^\s*([-*+]|\d+[.)])\s+(.*)$/.exec(line))) {
+          flush();
+          const want = /\d/.test(m[1]) ? 'ol' : 'ul';
+          if (list !== want) { closeList(); out.push(`<${want}>`); list = want; }
+          const task = /^\[([ xX])\]\s+(.*)$/.exec(m[2]);
+          out.push(task ? `<li>${task[1].trim() ? '☑' : '☐'} ${rangerInlineMd(task[2])}</li>` : `<li>${rangerInlineMd(m[2])}</li>`);
+        }
+        else if (/^\s*\|.*\|\s*$/.test(line)) {
+          flush(); closeList();
+          const rows = [];
+          while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) rows.push(lines[i++]);
+          const cells = r => r.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+          const body = rows.filter(r => !/^\s*\|?\s*:?-{2,}/.test(r));
+          out.push('<table>' + body.map((r, ri) => `<tr>${cells(r).map(c => ri === 0 ? `<th>${rangerInlineMd(c)}</th>` : `<td>${rangerInlineMd(c)}</td>`).join('')}</tr>`).join('') + '</table>');
+          continue;
+        }
+        else if (!line.trim()) { flush(); closeList(); }
+        else { closeList(); para.push(line.trim()); }
+        i++;
+      }
+      flush(); closeList();
+      return out.join('\n');
+    }
+
+    // ---- Resizable split between file list and viewer ------------------------
+    (function initRangerSplit() {
+      const KEY = 'tincan_ranger_list_pct';
+      const split = document.getElementById('rangerSplit');
+      const handle = document.getElementById('rangerSplitter');
+      if (!split || !handle) return;
+      const MIN_LIST = 180, MIN_VIEW = 280, DEFAULT = 38;
+      let pct = parseFloat(localStorage.getItem(KEY));
+      if (!(pct > 5 && pct < 95)) pct = DEFAULT;
+      const clamp = p => {
+        const w = split.getBoundingClientRect().width;
+        if (!w) return Math.min(80, Math.max(15, p));
+        const lo = (MIN_LIST / w) * 100, hi = 100 - ((MIN_VIEW + 12) / w) * 100;
+        return hi <= lo ? lo : Math.min(hi, Math.max(lo, p));
+      };
+      const apply = (p, save) => {
+        pct = clamp(p);
+        split.style.setProperty('--ranger-list-w', pct.toFixed(2) + '%');
+        handle.setAttribute('aria-valuenow', String(Math.round(pct)));
+        if (save) { try { localStorage.setItem(KEY, pct.toFixed(2)); } catch (e) {} }
+      };
+      apply(pct, false);
+      let dragging = false;
+      handle.addEventListener('pointerdown', ev => {
+        dragging = true; handle.setPointerCapture(ev.pointerId);
+        document.body.style.userSelect = 'none'; ev.preventDefault();
+      });
+      handle.addEventListener('pointermove', ev => {
+        if (!dragging) return;
+        const r = split.getBoundingClientRect();
+        if (r.width) apply(((ev.clientX - r.left) / r.width) * 100, false);
+      });
+      const end = ev => {
+        if (!dragging) return;
+        dragging = false; document.body.style.userSelect = '';
+        try { handle.releasePointerCapture(ev.pointerId); } catch (e) {}
+        apply(pct, true);
+      };
+      handle.addEventListener('pointerup', end);
+      handle.addEventListener('pointercancel', end);
+      handle.addEventListener('dblclick', () => apply(DEFAULT, true));
+      handle.addEventListener('keydown', ev => {
+        if (ev.key === 'ArrowLeft') { ev.preventDefault(); apply(pct - 2, true); }
+        else if (ev.key === 'ArrowRight') { ev.preventDefault(); apply(pct + 2, true); }
+      });
+      window.addEventListener('resize', () => apply(pct, false));
+      // Re-clamp when the window is shown (width was 0 while hidden).
+      if (window.ResizeObserver) new ResizeObserver(() => apply(pct, false)).observe(split);
+    })();
+
+    // Back-compat for older callers.
+    function navigateFinderPath(path) { navigateDrive(path); }
+    function previewFileInFinder(fpath, content = '') {
+      showFileInViewer({ source: 'space', path: fpath, name: (fpath || '').split('/').pop(), mime: 'text/plain', text: content || '' });
     }
 
     function searchVsCodeExtensions() {
@@ -7965,41 +8846,30 @@ aeonik/
     }
 
     // =========================================================================
-    // Arena Models & Sandbox Code Pipeline
+    // Notifications
     // =========================================================================
-    function updateArenaModelLabels() {
-      const mA = document.getElementById('arenaModelAInput')?.value.trim() || 'Brain A';
-      const mB = document.getElementById('arenaModelBInput')?.value.trim() || 'Brain B';
-      const lblA = document.getElementById('arenaLabelA');
-      const lblB = document.getElementById('arenaLabelB');
-      if (lblA) lblA.innerText = mA;
-      if (lblB) lblB.innerText = mB;
-    }
-
-    function sendArenaResultToSpace(winner) {
-      const resEl = document.getElementById(winner === 'A' ? 'arenaResultA' : 'arenaResultB');
-      const content = resEl ? resEl.innerText : '';
-      if (!content) return;
-      const editor = document.getElementById('agentspaceEditor');
-      if (editor) editor.value = content;
-      toggleWindow('win-agentspace');
-      showQuickNotification(`Transferred Brain ${winner} output to Dynamic Agent Space sandbox!`);
-    }
-
     function showQuickNotification(msg) {
       const banner = document.getElementById('adminBroadcastBanner');
       const textEl = document.getElementById('adminBroadcastText');
       if (banner && textEl) {
+        if (typeof setNotificationVariant === 'function') setNotificationVariant('info');
         textEl.innerText = msg;
+        textEl.title = msg;
         banner.classList.remove('hidden');
-        setTimeout(() => { banner.classList.add('hidden'); }, 3500);
+        clearTimeout(showQuickNotification._t);
+        showQuickNotification._t = setTimeout(() => {
+          // Don't hide an admin broadcast that arrived in the meantime.
+          if (banner.dataset.variant === 'info') banner.classList.add('hidden');
+        }, 3500);
       }
     }
 
     setTimeout(() => {
       const ownerInput = document.getElementById('spaceOwnerInput');
       if (ownerInput && myPeerId) ownerInput.value = myPeerId;
-      refreshAgentSpace();
+      refreshAgentSpace('background');
+      // Session start: gather the drive's folder structure fresh (never saved).
+      gatherDriveMirror('session-start');
     }, 2000);
 
     // =========================================================================
@@ -8204,6 +9074,11 @@ aeonik/
 </body>
 </html>
 """
+
+# Two-brain arena duel + context panel in every arena view (win-arena and win-quests).
+from .arena_duel_ui import apply_arena_duel  # noqa: E402
+
+MESH_OS_HTML_UI = apply_arena_duel(MESH_OS_HTML_UI)
 
 # Zen startup shell (calm feed + launcher), injected so the classic markup above stays untouched.
 from .zen_shell import apply_zen_shell  # noqa: E402

@@ -95,6 +95,7 @@ class TinCanMeshOSEngine:
         self.flights: List[Dict[str, Any]] = []
         self.reactions: List[Dict[str, Any]] = []
         self.arena_votes: Dict[str, int] = {}
+        self.arena_matches: List[Dict[str, Any]] = []
         self.watch_party: Dict[str, Any] = {
             "peer_id": "",
             "video_idx": 0,
@@ -438,15 +439,44 @@ class TinCanMeshOSEngine:
         winner_alias: str,
         prompt_preview: str = "",
         display_name: Optional[str] = None,
+        model_a: Optional[str] = None,
+        model_b: Optional[str] = None,
+        winner_side: Optional[str] = None,
+        match_id: Optional[str] = None,
+        cost_usd: Optional[float] = None,
+        tokens: Optional[int] = None,
     ) -> Dict[str, Any]:
-        """Increment votes for winner, award brain_arena_match XP, and record flight."""
+        """Increment votes for winner, award brain_arena_match XP, and record flight.
+
+        ``match_id``/``cost_usd``/``tokens`` come from the billed arena match
+        (account_registry.arena_matches) when the duel was paid by an account.
+
+        ``model_a``/``model_b`` are the two models that were compared and
+        ``winner_side`` is "A" or "B"; they are stored with the match record.
+        """
         with self._lock:
             self.arena_votes[winner_alias] = self.arena_votes.get(winner_alias, 0) + 1
+            match = {
+                "peer_id": peer_id,
+                "winner_alias": winner_alias,
+                "winner_side": winner_side,
+                "model_a": model_a,
+                "model_b": model_b,
+                "prompt_preview": prompt_preview,
+                "match_id": match_id,
+                "cost_usd": cost_usd,
+                "tokens": tokens,
+                "timestamp": time.time(),
+            }
+            self.arena_matches.append(match)
+            if len(self.arena_matches) > 500:
+                del self.arena_matches[:-500]
             award_res = self.award_xp(
                 peer_id=peer_id,
                 action_key="brain_arena_match",
                 display_name=display_name,
-                metadata={"winner_alias": winner_alias, "prompt_preview": prompt_preview},
+                metadata={"winner_alias": winner_alias, "prompt_preview": prompt_preview,
+                          "model_a": model_a, "model_b": model_b, "winner_side": winner_side},
             )
             flight = self.record_flight(
                 from_node=peer_id,
@@ -457,8 +487,14 @@ class TinCanMeshOSEngine:
             )
             return {
                 "winner_alias": winner_alias,
+                "winner_side": winner_side,
+                "model_a": model_a,
+                "model_b": model_b,
                 "votes": self.arena_votes[winner_alias],
                 "prompt_preview": prompt_preview,
+                "match_id": match_id,
+                "cost_usd": cost_usd,
+                "tokens": tokens,
                 "flight": flight,
                 "xp_awarded": award_res["awarded_xp"],
                 "total_xp": self.total_xp,
@@ -489,6 +525,7 @@ class TinCanMeshOSEngine:
                 "watch_party": copy.deepcopy(self.watch_party),
                 "flights": [copy.deepcopy(f) for f in self.flights],
                 "arena_votes": copy.deepcopy(self.arena_votes),
+                "arena_recent_matches": copy.deepcopy(self.arena_matches[-20:]),
                 "room": room,
                 "timestamp": now,
             }

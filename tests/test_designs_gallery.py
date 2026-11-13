@@ -11,7 +11,6 @@ from iot_federated_agent_memory.designs_gallery import (
     render_designs_gallery_html,
     IOS_MOCKUPS,
     CAR_MOCKUPS,
-    STORYBOARD_MOCKUPS,
     DESKTOP_MOCKUPS,
 )
 
@@ -22,19 +21,18 @@ def test_designs_gallery_html_structure():
     assert "TinCan 2.2 Design Systems" in html
     assert "Native iOS App" in html
     assert "Car Head-Unit UI" in html
-    assert "Zen Narrative Storyboard" in html
+    assert "Zen Narrative Storyboard" not in html
+    assert "/storyboard" not in html
     assert "Zen Desktop Windows" in html
 
     # Verify mockup counts
     assert len(IOS_MOCKUPS) == 11
     assert len(CAR_MOCKUPS) == 5
-    assert len(STORYBOARD_MOCKUPS) == 7
     assert len(DESKTOP_MOCKUPS) == 3
 
     # Check key mockups are referenced
     assert "01-onboarding.png" in html
     assert "sumi-dock-driving.png" in html
-    assert "zen_storyboard_contact_sheet.png" in html
     assert "tincan_zen_windows_contact_sheet.png" in html
 
 
@@ -62,10 +60,10 @@ def test_server_designs_routes(running_test_server):
         assert resp.status == 200
         assert "text/html" in resp.headers["Content-Type"]
 
-    # Test /storyboard
-    with urllib.request.urlopen(f"{running_test_server}/storyboard") as resp:
-        assert resp.status == 200
-        assert "text/html" in resp.headers["Content-Type"]
+    # The storyboard UI page has been removed from the app.
+    with pytest.raises(urllib.error.HTTPError) as exc:
+        urllib.request.urlopen(f"{running_test_server}/storyboard")
+    assert exc.value.code == 404
 
     # Test /fono
     with urllib.request.urlopen(f"{running_test_server}/fono") as resp:
