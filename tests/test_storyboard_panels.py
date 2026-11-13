@@ -3,7 +3,7 @@ Tests for TinCan 2.2 Zen Storyboard Panels & Manifest Refresh.
 Verifies:
 1. audio_drama_manifest.json structure, preserved timings, and Zen metadata.
 2. Existence and valid PNG dimensions of all 6 refreshed panels and zen_storyboard_contact_sheet.png.
-3. Existence and Zen token content of storyboard_viewer.html and zen_storyboard_contact_sheet.svg.
+3. Existence and Zen token content of zen_storyboard_contact_sheet.svg.
 """
 
 import os
@@ -14,7 +14,6 @@ from PIL import Image
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 PANELS_DIR = os.path.join(REPO_ROOT, "docs/panels")
 MANIFEST_PATH = os.path.join(PANELS_DIR, "audio_drama_manifest.json")
-VIEWER_PATH = os.path.join(PANELS_DIR, "storyboard_viewer.html")
 CONTACT_PNG_PATH = os.path.join(PANELS_DIR, "zen_storyboard_contact_sheet.png")
 CONTACT_SVG_PATH = os.path.join(PANELS_DIR, "zen_storyboard_contact_sheet.svg")
 
@@ -45,7 +44,8 @@ def test_manifest_structure_and_timings():
     assert "TinCan 2.2 Zen" in manifest["design_system"]
     assert "contact_sheet" in manifest and os.path.exists(manifest["contact_sheet"])
     assert "contact_sheet_svg" in manifest and os.path.exists(manifest["contact_sheet_svg"])
-    assert "viewer" in manifest and os.path.exists(manifest["viewer"])
+    # The storyboard viewer HTML was an app UI page and has been removed.
+    # The manifest may still record a historical "viewer" path; do not require the file.
 
     scenes = manifest.get("scenes", [])
     assert len(scenes) == 6
@@ -99,19 +99,3 @@ def test_contact_sheet_png_and_svg():
     assert "#ece6da" in svg_content  # Washi
     assert "#d0703f" in svg_content  # Kaki
     assert "TINCAN 2.2" in svg_content
-
-
-def test_storyboard_viewer_html():
-    assert os.path.exists(VIEWER_PATH), "Storyboard viewer HTML missing"
-    with open(VIEWER_PATH, "r", encoding="utf-8") as f:
-        html = f.read()
-
-    assert "<!DOCTYPE html>" in html
-    assert "TinCan 2.2" in html
-    assert "Shippori Mincho" in html
-    assert "Zen Kaku Gothic New" in html
-    assert "#0e0d0b" in html
-    assert "#d0703f" in html
-    assert "trailer_voiceover.wav" in html
-    assert "panel_01_zen_sanctuary" in html
-    assert "panel_06_l5_mesh_sovereign" in html

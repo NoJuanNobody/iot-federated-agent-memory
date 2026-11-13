@@ -4,8 +4,7 @@ Provides a unified, responsive showcase for all updated design mockups across:
 0. Aeonik Celadon & Ink Reskin (4-quadrant Industrial Terminal + Aeonik Fono Mobile UI)
 1. Native iOS App (9 screen mockups + composite sheets + live simulator)
 2. Car Head-Unit UI (1280x720 Sumi-Dock driving, parked, dashcam, identity mockups + live UI)
-3. Narrative Storyboard (3x2 master contact sheet + 6 scene panels + audio drama player)
-4. Mesh OS Desktop (11-window Zen contact sheet + tiled grid mockups)
+3. Mesh OS Desktop (11-window Zen contact sheet + tiled grid mockups)
 """
 
 from typing import Dict, List, Any
@@ -49,16 +48,6 @@ CAR_MOCKUPS: List[Dict[str, str]] = [
     {"id": "car-dashcam", "title": "3. Triple Dashcam Monitor", "desc": "Front (1080p60), cabin (night-vision), and rear camera telemetry with clip bookmarks.", "img": "/docs/designs/car-ui/sumi-dock-dashcam.png"},
     {"id": "car-identity", "title": "4. Driver Identity & Passkeys", "desc": "Quick driver profile switching, Ed25519 car keycard, and NFC/QR mobile pairing.", "img": "/docs/designs/car-ui/sumi-dock-identity.png"},
     {"id": "car-sheet", "title": "Car Composite Sheet", "desc": "Master 4-screen landscape overview of all aftermarket dashboard states.", "img": "/docs/designs/car-ui/EARLY_direction1_sheet.png"},
-]
-
-STORYBOARD_MOCKUPS: List[Dict[str, str]] = [
-    {"id": "sb-contact", "title": "Zen Master Contact Sheet (3x2)", "desc": "Procedural high-res contact sheet spanning all 6 narrative audio drama scenes.", "img": "/docs/panels/zen_storyboard_contact_sheet.png"},
-    {"id": "sb-01", "title": "Scene 1: Cyber Lab & Zen Sanctuary", "desc": "The transition from noisy CRT terminal to calm Japanese zen sanctuary.", "img": "/docs/panels/panel_01_zen_sanctuary.png"},
-    {"id": "sb-02", "title": "Scene 2: Kokoro Neural Voice Alert", "desc": "Local 82M voice synthesis engine whispering urgent cryptographic dispatch.", "img": "/docs/panels/panel_02_kokoro_whisper.png"},
-    {"id": "sb-03", "title": "Scene 3: Toronto Loft TOFU Contact", "desc": "Trust-On-First-Use contact verification across peer mesh nodes.", "img": "/docs/panels/panel_03_toronto_loft_tofu.png"},
-    {"id": "sb-04", "title": "Scene 4: WebRTC Capsule Flight", "desc": "Sub-80ms STUN signaling relay traversing transatlantic flight corridors.", "img": "/docs/panels/panel_04_webrtc_capsule_flight.png"},
-    {"id": "sb-05", "title": "Scene 5: AI Brain Arena Duel", "desc": "Competitive model evaluation and XP progression in the decentralized arena.", "img": "/docs/panels/panel_05_ai_brain_arena.png"},
-    {"id": "sb-06", "title": "Scene 6: L5 Mesh Sovereign", "desc": "Autonomous edge agent cluster achieving self-sovereign L5 coordination.", "img": "/docs/panels/panel_06_l5_mesh_sovereign.png"},
 ]
 
 DESKTOP_MOCKUPS: List[Dict[str, str]] = [
@@ -115,10 +104,6 @@ def render_designs_gallery_html(active_tab: str = "aeonik") -> str:
             "Open in Head-Unit",
         )
         for m in CAR_MOCKUPS
-    )
-    storyboard_cards = "\n".join(
-        _build_card_html(m, "/storyboard", "Open Player")
-        for m in STORYBOARD_MOCKUPS
     )
     desktop_cards = "\n".join(
         _build_card_html(m, "/mesh", "Open Desktop")
@@ -350,7 +335,6 @@ main.container {{
     <a href="/fono" class="nav-link">📱 Aeonik Fono</a>
     <a href="/ios" class="nav-link">📱 iOS Simulator</a>
     <a href="/car" class="nav-link">🚗 Car Head-Unit</a>
-    <a href="/storyboard" class="nav-link">🎬 Storyboard</a>
   </div>
 </header>
 
@@ -358,8 +342,7 @@ main.container {{
   <button class="tab-btn active" onclick="switchGalleryTab('aeonik')">01 · Aeonik Celadon &amp; Ink (2)</button>
   <button class="tab-btn" onclick="switchGalleryTab('ios')">02 · Native iOS App (11)</button>
   <button class="tab-btn" onclick="switchGalleryTab('car')">03 · Car Head-Unit UI (5)</button>
-  <button class="tab-btn" onclick="switchGalleryTab('storyboard')">04 · Storyboard Panels (7)</button>
-  <button class="tab-btn" onclick="switchGalleryTab('desktop')">05 · Mesh OS Windows (3)</button>
+  <button class="tab-btn" onclick="switchGalleryTab('desktop')">04 · Mesh OS Windows (3)</button>
 </div>
 
 <main class="container">
@@ -443,21 +426,7 @@ main.container {{
     </div>
   </div>
 
-  <!-- TAB 3: STORYBOARD -->
-  <div id="tab-storyboard" class="tab-section">
-    <div class="intro-panel">
-      <div class="intro-text">
-        <h2>TinCan 2.2 · Zen Narrative Storyboard</h2>
-        <p>Master 3×2 contact sheet and 6 narrative audio drama scenes rendered with synchronized frame timings and voiceover playback.</p>
-      </div>
-      <a href="/storyboard" class="btn-cta">🎬 Launch Storyboard Player</a>
-    </div>
-    <div class="grid-gallery">
-      {storyboard_cards}
-    </div>
-  </div>
-
-  <!-- TAB 4: MESH OS WINDOWS -->
+  <!-- TAB 3: MESH OS WINDOWS -->
   <div id="tab-desktop" class="tab-section">
     <div class="intro-panel">
       <div class="intro-text">
