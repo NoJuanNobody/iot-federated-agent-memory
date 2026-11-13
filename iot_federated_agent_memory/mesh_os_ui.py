@@ -2787,6 +2787,8 @@ aeonik/
                     <option value="auto">auto (detect)</option>
                     <option value="python">pyodide-wasm (Python)</option>
                     <option value="js">quickjs-wasm (JS)</option>
+                    <option value="node">node (JS, server toolchain)</option>
+                    <option value="rust">rustc (Rust)</option>
                     <option value="wasm">wasi-wasm (Bytecode)</option>
                     <option value="three-glb-viewer">three-glb-viewer (3D)</option>
                   </select>
