@@ -22,8 +22,15 @@ class S3ReadError(Exception):
 
 
 def get_s3_credentials(bucket_alias: str = "tincan-videos") -> Optional[Dict[str, str]]:
-    """Resolve S3 bucket credentials from environment variables or local Railway CLI."""
+    """Resolve S3 bucket credentials from environment variables or local Railway CLI.
+
+    Set TINCAN_S3_DISABLED=1 to cut a process off from the bucket entirely. Worktrees inherit
+    the parent checkout's Railway link, so without it a local server run reads and writes the
+    production playlist.
+    """
     global _CACHED_CREDS
+    if os.environ.get("TINCAN_S3_DISABLED", "").lower() in ("1", "true", "yes"):
+        return None
     if _CACHED_CREDS is not None:
         return _CACHED_CREDS
 

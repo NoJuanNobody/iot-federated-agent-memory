@@ -10,6 +10,7 @@ import pytest
 from iot_federated_agent_memory.s3_storage import (
     S3ReadError,
     _build_sigv4_headers,
+    get_s3_credentials,
     s3_delete_object,
     s3_get_json,
     s3_list_objects,
@@ -253,3 +254,14 @@ def test_tiktok_short_link_resolves_to_native_stream():
     assert item.video_id == "7706642712296000781"
     assert item.embed_url == "/videos/7706642712296000781.mp4"
     assert item.creator == "@murphmaxxing"
+
+
+def test_s3_disabled_flag_blocks_credentials(monkeypatch):
+    monkeypatch.setenv("TINCAN_S3_DISABLED", "1")
+    monkeypatch.setenv("AWS_ENDPOINT_URL", "https://t3.storageapi.dev")
+    monkeypatch.setenv("AWS_S3_BUCKET_NAME", "prod-bucket")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "k")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "s")
+    with patch("subprocess.check_output") as cli:
+        assert get_s3_credentials() is None
+    cli.assert_not_called()

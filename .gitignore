@@ -12,3 +12,6 @@ iot_federated_agent_memory/spaces/
 .impeccable/review/
 
 auth_secret.key
+
+# Videos downloaded at runtime (S3 is the source of truth); add intentional ones with git add -f
+iot_federated_agent_memory/assets/videos/*.mp4
