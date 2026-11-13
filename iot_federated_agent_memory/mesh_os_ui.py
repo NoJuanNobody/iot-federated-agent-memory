@@ -380,6 +380,78 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       color: var(--washi) !important;
     }
 
+    /* ==========================================================================
+       Aeonik Celadon & Ink: notification bar
+       ========================================================================== */
+    .aeonik-notice {
+      position: fixed; top: 4.25rem; left: 50%; transform: translateX(-50%); z-index: 100;
+      width: min(640px, calc(100% - 1.5rem));
+      display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+      padding: 0.4rem 0.45rem 0.4rem 0.9rem;
+      background: #ecf1e6; color: #111111;
+      border: 1px solid #111111; border-radius: 9999px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08);
+      font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; line-height: 1.4;
+    }
+    .aeonik-notice.hidden { display: none; }
+    .aeonik-notice__body { display: flex; align-items: center; gap: 0.55rem; min-width: 0; }
+    .aeonik-notice__dot { width: 6px; height: 6px; border-radius: 9999px; background: #111111; flex-shrink: 0; }
+    .aeonik-notice__label {
+      flex-shrink: 0; padding: 0.05rem 0.55rem; border-radius: 9999px; border: 1px solid #111111;
+      font-size: 10px; font-weight: 600; letter-spacing: 0.06em; background: #111111; color: #ecf1e6;
+    }
+    .aeonik-notice[data-variant="info"] .aeonik-notice__label { background: transparent; color: #111111; }
+    .aeonik-notice[data-variant="info"] .aeonik-notice__dot { background: transparent; border: 1px solid #111111; }
+    .aeonik-notice__text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #111111; }
+    .aeonik-notice__close {
+      flex-shrink: 0; width: 1.6rem; height: 1.6rem; border-radius: 9999px; border: 1px solid #111111;
+      background: transparent; color: #111111; font-size: 11px; line-height: 1; cursor: pointer; transition: background 0.15s, color 0.15s;
+    }
+    .aeonik-notice__close:hover, .aeonik-notice__close:focus-visible { background: #111111; color: #ecf1e6; outline: none; }
+
+    /* ==========================================================================
+       Aeonik Celadon & Ink scope for the rebuilt Ranger file panes and the arena
+       model pickers: remaps the legacy slate/purple/cyan utilities to paper + ink.
+       ========================================================================== */
+    .aeonik-scope { color: #111111; }
+    .aeonik-scope :is([class~="bg-slate-950"],[class~="bg-slate-900"],[class~="bg-slate-900/70"],[class~="bg-slate-900/90"]) { background: #f4f8f0 !important; }
+    .aeonik-scope :is([class~="bg-slate-800"],[class~="bg-slate-700"]) { background: #ffffff !important; }
+    .aeonik-scope :is([class~="hover:bg-slate-900"],[class~="hover:bg-slate-800"],[class~="hover:bg-slate-700"]):hover { background: rgba(17, 17, 17, 0.07) !important; }
+    .aeonik-scope :is([class~="border-slate-800"],[class~="border-slate-700"],[class~="border-emerald-900/60"],[class~="border-cyan-900/60"],[class~="border-cyan-700/60"],[class~="border-purple-800"]) { border-color: #111111 !important; }
+    .aeonik-scope :is([class~="divide-slate-800/40"]) > * + * { border-color: rgba(17, 17, 17, 0.12) !important; }
+    .aeonik-scope :is([class~="text-slate-100"],[class~="text-slate-200"],[class~="text-slate-300"],[class~="text-purple-200"],[class~="text-purple-300"],[class~="text-purple-400"],[class~="text-cyan-300"],[class~="text-cyan-400"],[class~="text-emerald-300"],[class~="text-emerald-400"]) { color: #111111 !important; }
+    .aeonik-scope :is([class~="text-slate-400"],[class~="text-slate-500"]) { color: #525252 !important; }
+    .aeonik-scope :is([class~="text-slate-600"],[class~="text-slate-600/70"]) { color: #737373 !important; }
+    .aeonik-scope :is([class~="hover:text-slate-200"],[class~="hover:text-slate-300"]):hover { color: #000000 !important; text-decoration: underline; }
+    .aeonik-scope :is([class~="bg-purple-950"],[class~="bg-purple-950/80"]) { background: #111111 !important; color: #ecf1e6 !important; }
+    .aeonik-scope :is([class~="bg-purple-950"],[class~="bg-purple-950/80"]) * { color: #ecf1e6 !important; }
+    .aeonik-scope [class~="hover:bg-purple-900"]:hover { background: #333333 !important; }
+    .aeonik-scope [class~="border-purple-400"] { border-color: #ecf1e6 !important; }
+    .aeonik-scope [class~="bg-cyan-700/80"] { background: #111111 !important; color: #ecf1e6 !important; border-radius: 9999px; }
+    .aeonik-scope button[class*="rounded"] { border-radius: 9999px; }
+    .aeonik-scope [class~="rounded-xl"], .aeonik-scope [class~="rounded-lg"] { border-radius: 16px !important; }
+    .aeonik-scope select { background: #ffffff !important; color: #111111 !important; border: 1px solid #111111 !important; border-radius: 8px !important; font-family: "JetBrains Mono", monospace !important; }
+    .aeonik-scope #rangerSplitter > div { background: rgba(17, 17, 17, 0.25) !important; }
+    .aeonik-scope #rangerSplitter:hover > div, .aeonik-scope #rangerSplitter:focus > div { background: #111111 !important; }
+    .aeonik-scope #spaceFileList:focus { box-shadow: 0 0 0 1px #111111; border-radius: 8px; }
+    .aeonik-scope .ring-purple-500\/70 { --tw-ring-color: #111111 !important; }
+    .aeonik-scope .ranger-code td.ln { color: #737373; border-right-color: rgba(17, 17, 17, 0.15); }
+    .aeonik-scope .ranger-code td.lc { color: #111111; }
+    .aeonik-scope .ranger-code tr:hover td { background: rgba(17, 17, 17, 0.05); }
+    .aeonik-scope .tk-c { color: #737373; } .aeonik-scope .tk-s { color: #2f6b3f; } .aeonik-scope .tk-n { color: #9a5b13; }
+    .aeonik-scope .tk-w { color: #5b3b8c; } .aeonik-scope .tk-f { color: #1f5f73; } .aeonik-scope .tk-k { color: #111111; font-weight: 600; } .aeonik-scope .tk-t { color: #8c2f5e; }
+    .aeonik-scope .ranger-md { color: #262626; }
+    .aeonik-scope .ranger-md h1, .aeonik-scope .ranger-md h2, .aeonik-scope .ranger-md h3, .aeonik-scope .ranger-md h4 { color: #111111; }
+    .aeonik-scope .ranger-md h1, .aeonik-scope .ranger-md hr { border-color: rgba(17, 17, 17, 0.15); }
+    .aeonik-scope .ranger-md code { background: #ffffff; border-color: rgba(17, 17, 17, 0.2); color: #111111; }
+    .aeonik-scope .ranger-md pre { background: #ffffff; border-color: #111111; }
+    .aeonik-scope .ranger-md pre code { color: #111111; }
+    .aeonik-scope .ranger-md blockquote { border-left-color: #111111; color: #525252; }
+    .aeonik-scope .ranger-md th, .aeonik-scope .ranger-md td { border-color: rgba(17, 17, 17, 0.2); }
+    .aeonik-scope .ranger-md th { background: #f4f8f0; color: #111111; }
+    .aeonik-scope .ranger-md a { color: #111111 !important; }
+    .aeonik-scope #finderImageContainer { background-image: none !important; }
+
     #zenDirtSurface {
       position: fixed;
       top: 0;
@@ -410,16 +482,14 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
   <!-- Multiplayer Peer Cursors Layer -->
   <div id="multiplayerCursorsLayer" class="fixed inset-0 pointer-events-none z-40 overflow-hidden"></div>
 
-  <!-- Notification bar (admin broadcasts + quick notices). Styled like the windows: slate panel, slate-800 border, rounded-xl, small mono text. -->
-  <div id="adminBroadcastBanner" role="status" aria-live="polite" data-variant="admin"
-       class="hidden fixed top-[3.75rem] left-1/2 -translate-x-1/2 z-[100] w-[min(640px,calc(100%-1.5rem))] bg-slate-950/95 backdrop-blur-md border border-slate-800 rounded-xl shadow-2xl shadow-black/50 font-mono text-xs text-slate-200 pl-2 pr-2 py-2 flex items-center justify-between gap-3">
-    <div class="flex items-center gap-2 min-w-0">
-      <span id="adminBroadcastAccent" class="self-stretch w-1 rounded-full bg-amber-400 shrink-0"></span>
-      <span id="adminBroadcastIcon" class="text-sm shrink-0">📣</span>
-      <span id="adminBroadcastLabel" class="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/40 text-[10px] font-semibold tracking-wide shrink-0">ADMIN</span>
-      <span id="adminBroadcastText" class="text-slate-200 truncate"></span>
+  <!-- Notification bar (admin broadcasts + quick notices). Aeonik Celadon & Ink: celadon paper, 1px ink hairline, pill shape, JetBrains Mono, ink-only accents. -->
+  <div id="adminBroadcastBanner" role="status" aria-live="polite" data-variant="admin" class="aeonik-notice hidden">
+    <div class="aeonik-notice__body">
+      <span id="adminBroadcastAccent" class="aeonik-notice__dot" aria-hidden="true"></span>
+      <span id="adminBroadcastLabel" class="aeonik-notice__label">ADMIN</span>
+      <span id="adminBroadcastText" class="aeonik-notice__text"></span>
     </div>
-    <button onclick="dismissAdminBanner()" aria-label="Dismiss" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] shrink-0 transition">✕</button>
+    <button type="button" onclick="dismissAdminBanner()" aria-label="Dismiss" class="aeonik-notice__close">&#x2715;</button>
   </div>
 
   <!-- ===================================================================== -->
@@ -1415,7 +1485,7 @@ aeonik/
           </div>
 
           <!-- Model A & Model B pickers: filled from /api/mesh/arena/models (what the AI router actually supports) -->
-          <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 pt-1">
+          <div class="aeonik-scope flex flex-col md:flex-row items-stretch md:items-center gap-2 pt-1">
             <div class="flex-1 min-w-0 bg-slate-900/70 border border-emerald-900/60 rounded-lg p-2 flex items-center gap-2">
               <label for="arenaModelAInput" class="text-[11px] font-mono text-emerald-400 font-bold shrink-0">Model A:</label>
               <select id="arenaModelAInput" onchange="onArenaModelChange()" class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-emerald-300 font-mono focus:border-emerald-500 focus:outline-none">
@@ -2666,7 +2736,7 @@ aeonik/
         <!-- =============================================================== -->
         <!-- TAB 1: RANGER 3-COLUMN FILESYSTEM & MULTI-FORMAT PREVIEWER -->
         <!-- =============================================================== -->
-        <div id="finderTab-files" class="grid grid-cols-1 md:grid-cols-12 gap-3">
+        <div id="finderTab-files" class="aeonik-scope grid grid-cols-1 md:grid-cols-12 gap-3">
           <!-- Col 1: Places & Directory Tree (3 cols) -->
           <div class="md:col-span-3 space-y-3">
             <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
@@ -3200,23 +3270,14 @@ aeonik/
       }
     }
 
-    // Switch the notification bar between the admin (amber) and info (purple) accents.
+    // Switch the notification bar between the admin (filled ink label) and info (outlined label) variants.
     function setNotificationVariant(variant) {
       const banner = document.getElementById('adminBroadcastBanner');
       if (!banner) return;
       const admin = variant !== 'info';
       banner.dataset.variant = admin ? 'admin' : 'info';
-      const accent = document.getElementById('adminBroadcastAccent');
-      const icon = document.getElementById('adminBroadcastIcon');
       const label = document.getElementById('adminBroadcastLabel');
-      if (accent) accent.className = `self-stretch w-1 rounded-full shrink-0 ${admin ? 'bg-amber-400' : 'bg-purple-400'}`;
-      if (icon) icon.textContent = admin ? '📣' : '✦';
-      if (label) {
-        label.textContent = admin ? 'ADMIN' : 'TINCAN';
-        label.className = admin
-          ? 'px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/40 text-[10px] font-semibold tracking-wide shrink-0'
-          : 'px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-300 border border-purple-500/40 text-[10px] font-semibold tracking-wide shrink-0';
-      }
+      if (label) label.textContent = admin ? 'ADMIN' : 'TINCAN';
     }
 
     function showAdminBanner(text, sender) {

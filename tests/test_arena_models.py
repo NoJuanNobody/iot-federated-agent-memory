@@ -91,4 +91,7 @@ def test_ui_arena_pickers():
     from iot_federated_agent_memory.mesh_os_ui import MESH_OS_HTML_UI as H
     assert '<select id="arenaModelAInput"' in H and '<select id="arenaModelBInput"' in H
     assert 'id="arenaSwapBtn"' in H and "tincan_arena_models" in H and "/api/mesh/arena/models" in H
-    assert "model: 'gemini-brain', prompt" not in H  # duel no longer hard-coded
+    # The duel itself is no longer hard-coded (the Aeonik terminal's `ask` command may still use a default).
+    start = H.index("async function runArenaBattle()")
+    duel = H[start:H.index("\n    }\n", start)]
+    assert "model: 'gemini-brain'" not in duel and "model: 'claude-brain'" not in duel
