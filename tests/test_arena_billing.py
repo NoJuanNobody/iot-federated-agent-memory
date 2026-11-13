@@ -123,6 +123,46 @@ def test_full_duel_bills_the_signed_in_account(env):
     assert code == 409
 
 
+def test_context_duel_bills_the_signed_in_account_never_the_shared_bucket(env, tmp_path, monkeypatch):
+    """Per-brain context rides the same per-account match flow: same billing, no peer bucket."""
+    from iot_federated_agent_memory.arena_context import ArenaContextRegistry, DriveMirrorSource
+
+    url, reg, server = env["url"], env["reg"], env["server"]
+    ctx = ArenaContextRegistry(str(tmp_path / "arena_context"), drive=DriveMirrorSource(module=None))
+    monkeypatch.setattr(server.ARENA_CONTEXT_API, "registry", ctx)
+    seen = []
+    base = server.router.dispatch_completion
+
+    def recording_dispatch(alias, messages, temperature=0.7, max_tokens=512):
+        seen.append(messages)
+        return base(alias, messages, temperature=temperature, max_tokens=max_tokens)
+
+    monkeypatch.setattr(server.router, "dispatch_completion", recording_dispatch)
+    token = _account(reg, "acct-ctx")
+    code, _body, _ = _req(f"{url}/api/arena/context/ingest", {"agent_id": "brain-a", "files": [
+        {"name": "crdt.md", "content": "Our CRDT notes: we use LWW registers for presence."}]}, token=token)
+    assert code == 200
+
+    code, body, _ = _req(f"{url}/api/mesh/arena/match", {"model_a": "gemini-brain", "model_b": "claude-brain",
+                                                         "prompt": "Explain our CRDT presence"}, token=token)
+    match_id = body["match"]["match_id"]
+    results = {}
+    for side, model, agent in (("A", "gemini-brain", "brain-a"), ("B", "claude-brain", "brain-b")):
+        code, results[side], _ = _req(f"{url}/api/chat", {
+            "model": model, "prompt": "Explain our CRDT presence", "arena": True, "match_id": match_id,
+            "arena_side": side, "agent_id": agent, "peer_id": "peer"}, token=token)
+        assert code == 200, results[side]
+
+    assert seen[0][0]["role"] == "system" and "LWW registers" in seen[0][0]["content"]
+    assert len(seen[1]) == 1  # brain-b has no files: no context message
+    assert results["A"]["arena_context"]["files"] == ["/uploads/crdt.md"]
+    assert results["A"]["billing"]["peer_id"] == "acct-ctx" == results["B"]["billing"]["peer_id"]
+    assert reg.get_account_by_peer("acct-ctx")["token_balance"] == 5000 - 200
+    assert {r["peer_id"] for r in _ledger(reg, "acct-ctx")} == {"acct-ctx"}
+    assert reg.get_account_by_peer("peer") is None
+    assert _ledger(reg, "peer") == []
+
+
 def test_402_when_account_cannot_cover_a_side(env):
     url, reg = env["url"], env["reg"]
     # Zero balance: the match itself is refused.
