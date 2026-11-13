@@ -327,7 +327,7 @@ THEME_HEAD = r"""
     }
     #win-terminal .tc-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
     #win-terminal .tc-pane-shell { border-right: 1px solid var(--tc-ink); border-bottom: 1px solid var(--tc-ink); }
-    #win-terminal .tc-pane-install { border-bottom: 1px solid var(--tc-ink); overflow-y: auto; }
+    #win-terminal .tc-pane-install { border-bottom: 1px solid var(--tc-ink); overflow-y: auto; overflow-x: hidden; }
     #win-terminal .tc-pane-tree { border-right: 1px solid var(--tc-ink); }
     #win-terminal .tc-term-out { flex: 1; overflow-y: auto; padding: 12px 16px 4px; font-size: 12.5px; line-height: 1.55; }
     #win-terminal .tc-block { position: relative; padding: 2px 0 8px; }
@@ -358,8 +358,8 @@ THEME_HEAD = r"""
       font-size: 12.5px !important; caret-color: var(--tc-ink); position: relative; z-index: 1;
     }
     #win-terminal .tc-ghost { position: absolute; left: 0; top: 0; white-space: pre; color: var(--tc-ink-3) !important; pointer-events: none; font-size: 12.5px; }
-    #win-terminal .tc-install { padding: 12px 16px; display: grid; gap: 8px; }
-    #win-terminal .tc-install-row { display: flex; gap: 8px; align-items: center; border: 1px solid var(--tc-ink); padding: 6px 6px 6px 10px; }
+    #win-terminal .tc-install { padding: 12px 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+    #win-terminal .tc-install-row { min-width: 0; display: flex; gap: 8px; align-items: center; border: 1px solid var(--tc-ink); padding: 6px 6px 6px 10px; }
     #win-terminal .tc-code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; font-size: 11.5px; scrollbar-width: none; }
     #win-terminal .tc-install-actions { display: flex; flex-wrap: wrap; gap: 6px; }
     #win-terminal .tc-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 12px 16px 6px; }
