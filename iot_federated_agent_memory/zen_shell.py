@@ -16,8 +16,13 @@ ZEN_HEAD = r"""
   <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600&family=Zen+Kaku+Gothic+New:wght@400;500&display=swap" rel="stylesheet">
   <script>
     (function () {
+      // /arena/ and /arena open the same window: drop the trailing slash before the shell reads the path.
+      if (location.pathname.length > 1 && /\/$/.test(location.pathname)) {
+        history.replaceState(null, '', location.pathname.replace(/\/+$/, '') + location.search + location.hash);
+      }
       var q = new URLSearchParams(location.search);
-      var singleRoutes = ['/tv', '/call', '/arena', '/terminal', '/billing', '/tokens', '/board', '/cyberspace'];
+      var singleRoutes = ['/tv', '/call', '/comms', '/chat', '/arena', '/terminal', '/billing', '/tokens', '/board', '/cyberspace',
+                          '/space', '/files', '/finder', '/agentspace', '/quests', '/rewards', '/network'];
       if (q.get('classic') === '1' || q.get('window') || singleRoutes.indexOf(location.pathname) !== -1) return;
       document.documentElement.classList.add('zen-boot');
     })();
