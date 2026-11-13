@@ -786,7 +786,7 @@ THEME_BODY = r"""
           const kids = children(d).filter((k) => !k.name.startsWith('.'));
           kids.forEach((k, i) => {
             const last = i === kids.length - 1;
-            lines.push(prefix + (last ? '└── ' : '├── ') + (d === '/' ? '' : d) + '/' + k.name + (k.dir ? '/' : ''));
+            lines.push(prefix + (last ? '└── ' : '├── ') + k.name + (k.dir ? '/' : ''));
             if (k.dir) { nd++; walk((d === '/' ? '' : d) + '/' + k.name, prefix + (last ? '    ' : '│   ')); } else nf++;
           });
         };

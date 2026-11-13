@@ -10,6 +10,7 @@ import subprocess
 import tarfile
 import threading
 import base64
+import mimetypes
 import uuid
 import time
 import sqlite3
@@ -2703,7 +2704,10 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             blob = base64.b64decode(rec.get("content_b64") or "")
             name = os.path.basename(rec["path"]) or "file"
             self.send_response(200)
-            self.send_header("Content-Type", rec.get("mime_type") or "application/octet-stream")
+            # The VFS tags some common formats with an ArtCraft app type (.png as Photoshop);
+            # browsers need the standard type to preview them, so standard types win.
+            guessed = mimetypes.guess_type(name)[0]
+            self.send_header("Content-Type", guessed or rec.get("mime_type") or "application/octet-stream")
             self.send_header("Content-Length", str(len(blob)))
             disposition = "attachment" if query.get("download", ["0"])[0] == "1" else "inline"
             self.send_header("Content-Disposition", f'{disposition}; filename="{name.replace(chr(34), "")}"')
