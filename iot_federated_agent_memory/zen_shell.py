@@ -149,6 +149,17 @@ ZEN_HEAD = r"""
     }
     #zenJoin:hover, #zenJoin:focus-visible { background: #111111; color: #ecf1e6; }
 
+    /* Quick launch: the tools people reach for most, always visible on the feed. */
+    #zenQuick { display: flex; align-items: center; gap: 0.4rem; }
+    #zenQuick button {
+      color: #111111; background: transparent;
+      padding: 0.42rem 0.8rem; border: 1px solid rgba(17, 17, 17, 0.28); border-radius: 9999px;
+      font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.76rem; font-weight: 500; white-space: nowrap;
+      transition: background 200ms var(--zen-ease), color 200ms var(--zen-ease), border-color 200ms var(--zen-ease);
+    }
+    #zenQuick button:hover, #zenQuick button:focus-visible { background: #111111; color: #ecf1e6; border-color: #111111; }
+    #zenQuick kbd { font: inherit; opacity: 0.6; margin-left: 0.3rem; }
+
     #zenTicks {
       right: 1.5rem; top: 50%; transform: translateY(-50%);
       display: flex; flex-direction: column; gap: 0.55rem; list-style: none; margin: 0; padding: 0;
@@ -238,6 +249,7 @@ ZEN_HEAD = r"""
       #zenCaption { left: 1.1rem; right: 5.5rem; max-width: none; bottom: calc(max(1.1rem, env(safe-area-inset-bottom)) + 3.4rem); }
       #zenActions { left: 1.1rem; right: 1.1rem; bottom: max(1.1rem, env(safe-area-inset-bottom)); justify-content: space-between; }
       #zenTicks { right: 1rem; }
+      #zenQuick .zq-extra, #zenQuick kbd { display: none; }
       #zenTools button { grid-template-columns: 1fr; gap: 0.15rem; padding: 0.55rem 0 0.55rem 1.4rem; }
       body.zen .mesh-window { left: 0.75rem !important; right: 0.75rem !important; width: auto !important; max-width: none; top: 4rem !important; }
     }
@@ -274,6 +286,12 @@ ZEN_BODY = r"""
   </div>
 
   <div id="zenActions" class="zen-chrome zen-feed-only">
+    <nav id="zenQuick" aria-label="Quick launch">
+      <button class="zen-btn" type="button" data-tool="win-terminal">Terminal</button>
+      <button class="zen-btn zq-extra" type="button" data-tool="win-agentspace">Space</button>
+      <button class="zen-btn zq-extra" type="button" data-tool="win-arena">Arena</button>
+      <button class="zen-btn" type="button" data-tool="all" aria-haspopup="dialog" aria-controls="zenLauncher">All tools<kbd>⌘K</kbd></button>
+    </nav>
     <button id="zenSound" class="zen-btn" type="button" aria-pressed="false">
       <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
         <path d="M3.5 7.5h2.8L10.5 4v12l-4.2-3.5H3.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
@@ -648,6 +666,12 @@ ZEN_BODY = r"""
       }
       $('zenMark').addEventListener('click', () => (body.classList.contains('zen-launcher') ? closeLauncher() : openLauncher()));
       $('zenLauncher').addEventListener('click', (e) => { if (e.target === $('zenLauncher')) closeLauncher(); });
+      document.querySelectorAll('#zenQuick button').forEach((b) => b.addEventListener('click', () => {
+        const id = b.dataset.tool;
+        if (id === 'all') { openLauncher(); return; }
+        const tool = TOOLS.find((t) => t.id === id);
+        if (tool) openTool(tool);
+      }));
       $('zenSearch').addEventListener('input', () => { sel = 0; renderTools(); });
 
       function refreshJoin() {
