@@ -23,6 +23,8 @@ SPACE_HEAD = r"""
     #win-agentspace .tc-space-tabs [role="tab"]:hover { background: var(--tc-paper-2) !important; color: var(--tc-ink) !important; }
     #win-agentspace .tc-space-tabs .tc-link { align-self: center; }
 
+    #win-agentspace [hidden] { display: none !important; }
+
     /* ranger */
     #win-agentspace .tc-ranger { flex: 1; min-height: 0; display: flex; flex-direction: column; outline: none; }
     #win-agentspace .tc-ranger:focus-visible { box-shadow: inset 0 0 0 1px var(--tc-ink) !important; }
@@ -79,7 +81,8 @@ SPACE_HEAD = r"""
     #win-agentspace .tc-space-pane { flex: 1; min-height: 0; overflow: auto; }
     #win-agentspace .tc-ext-search { display: flex; gap: 6px; padding: 12px 16px; }
     #win-agentspace .tc-ext-search input { flex: 1; padding: 6px 8px !important; }
-    #win-agentspace .tc-ext-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); border-top: 1px solid var(--tc-ink); }
+    #win-agentspace #tcSpaceExt { display: flex; flex-direction: column; }
+    #win-agentspace .tc-ext-cols { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); border-top: 1px solid var(--tc-ink); }
     #win-agentspace .tc-ext-cols > div:first-child { border-right: 1px solid var(--tc-ink); }
     #win-agentspace .tc-ext-list { list-style: none; margin: 0; padding: 4px 0; }
     #win-agentspace .tc-ext-list li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 4px 10px; padding: 8px 16px; border-bottom: 1px solid var(--tc-hair-2); align-items: start; }
@@ -143,11 +146,14 @@ SPACE_BODY = r"""
       if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
       return d;
     }
+    // the API returns content: null for empty files as well as binary ones
+    const textOf = (rec) => (rec.content != null ? rec.content : (rec.content_b64 ? null : ''));
+    const needSpace = (s) => { if (!s.owner) throw new Error('no space selected: pick or create one first'); };
     const vfs = {
       ls: (s) => api(`/api/space/ls?${qs(s)}`),
       read: (s, p) => api(`/api/space/file?${qs(s)}&path=${encodeURIComponent(p)}`),
-      write: (s, p, content, b64) => api('/api/space/file', { method: 'POST', body: JSON.stringify({ scope: s.scope, owner_id: s.owner, path: p, content, is_base64: !!b64, updated_by: handle() }) }),
-      del: (s, p) => api('/api/space/file', { method: 'POST', body: JSON.stringify({ scope: s.scope, owner_id: s.owner, path: p, action: 'delete', updated_by: handle() }) }),
+      write: (s, p, content, b64) => (needSpace(s), api)('/api/space/file', { method: 'POST', body: JSON.stringify({ scope: s.scope, owner_id: s.owner, path: p, content, is_base64: !!b64, updated_by: handle() }) }),
+      del: (s, p) => (needSpace(s), api)('/api/space/file', { method: 'POST', body: JSON.stringify({ scope: s.scope, owner_id: s.owner, path: p, action: 'delete', updated_by: handle() }) }),
       raw: (s, p, dl) => `/api/space/raw?${qs(s)}&path=${encodeURIComponent(p)}${dl ? '&download=1' : ''}`,
     };
 
@@ -224,7 +230,7 @@ SPACE_BODY = r"""
       const from = cwd;
       cwd = dir;
       filterText = '';
-      if (dir === dirOf(from) && !cursorMem.has(dir)) cursorMem.set(dir, baseOf(from));
+      if (dir === dirOf(from)) cursorMem.set(dir, baseOf(from));
       if (opts && opts.select) cursorMem.set(cwd, opts.select);
       tabs[tabIdx].cwd = cwd;
       editing = null; output = null;
@@ -253,7 +259,7 @@ SPACE_BODY = r"""
     async function loadRecs() {
       recs = [];
       if (isFile('/.vscode/extensions.json')) {
-        try { const r = await vfs.read(sp, '/.vscode/extensions.json'); recs = (JSON.parse(r.content || '{}').recommendations || []).filter((x) => typeof x === 'string'); } catch (e) {}
+        try { const r = await vfs.read(sp, '/.vscode/extensions.json'); recs = (JSON.parse(textOf(r) || '{}').recommendations || []).filter((x) => typeof x === 'string'); } catch (e) {}
       }
       caps = {
         format: recs.some((id) => /prettier/i.test(id)),
@@ -272,7 +278,7 @@ SPACE_BODY = r"""
     function render() {
       const { es, i, e } = here();
       const tabTitle = $('tcRgTitle');
-      tabTitle.innerHTML = `${esc(handle())}@${esc(sp.scope === 'user' ? 'space' : sp.owner)}:${esc(cwd === '/' ? '/' : cwd + '/')}<b>${e ? esc(e.name) : ''}</b>${filterText ? `  <span class="tc-dim">filter: ${esc(filterText)}</span>` : ''}`;
+      tabTitle.innerHTML = `${esc(handle())}@${esc(sp.scope === 'user' ? 'space' : (sp.owner || sp.scope))}:${esc(cwd === '/' ? '/' : cwd + '/')}<b>${e ? esc(e.name) : ''}</b>${filterText ? `  <span class="tc-dim">filter: ${esc(filterText)}</span>` : ''}`;
       $('tcRgTabs').innerHTML = tabs.length > 1 ? tabs.map((t, k) => `<span${k === tabIdx ? ' aria-current="true"' : ''}>${k + 1}</span>`).join('') : '';
       // parent column
       const par = $('tcRgParent');
@@ -358,18 +364,19 @@ SPACE_BODY = r"""
       let rec;
       try { rec = await vfs.read(sp, e.path); } catch (err) { if (token === previewToken) pv.innerHTML = head() + `<div class="pv">${esc(err.message)}</div>`; return; }
       if (token !== previewToken) return;
-      if (rec.content == null) { pv.innerHTML = head() + `<div class="pv tc-dim">binary · not previewed</div>`; return; }
+      const text = textOf(rec);
+      if (text == null) { pv.innerHTML = head() + `<div class="pv tc-dim">binary · not previewed</div>`; return; }
       const editBtn = '<button type="button" data-pv="edit" class="tc-link" style="border:0;padding:0 6px">edit E</button>';
       if ((ext === 'md' || ext === 'markdown') && caps.markdown) {
         try {
           await loadScript('https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js');
           await loadScript('https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js');
           if (token !== previewToken) return;
-          pv.innerHTML = head(editBtn) + `<div class="pv tc-md">${window.DOMPurify.sanitize(window.marked.parse(rec.content))}</div>`;
+          pv.innerHTML = head(editBtn) + `<div class="pv tc-md">${window.DOMPurify.sanitize(window.marked.parse(text))}</div>`;
           return;
         } catch (err) {}
       }
-      const lines = rec.content.split('\n');
+      const lines = text.split('\n');
       const shown = lines.slice(0, 600).map((l, k) => `<span class="ln">${k + 1}</span>${esc(l)}`).join('\n');
       pv.innerHTML = head(editBtn) + `<div class="pv"><pre>${shown}${lines.length > 600 ? `\n<span class="tc-dim">… ${lines.length - 600} more lines</span>` : ''}</pre></div>`;
     }
@@ -379,10 +386,11 @@ SPACE_BODY = r"""
     async function edit(path) {
       try {
         const rec = await vfs.read(sp, path);
-        if (rec.content == null) { flash(`${baseOf(path)} is binary`); return; }
+        const text = textOf(rec);
+        if (text == null) { flash(`${baseOf(path)} is binary`); return; }
         cd(dirOf(path), { select: baseOf(path) });
         cursorMem.set(dirOf(path), baseOf(path));
-        editing = { path, clean: rec.content, value: null };
+        editing = { path, clean: text, value: null };
         output = null;
         render();
       } catch (err) { flash(err.message); }
@@ -390,7 +398,7 @@ SPACE_BODY = r"""
     async function saveEdit() {
       if (!editing) return;
       const v = editing.value != null ? editing.value : editing.clean;
-      try { await vfs.write(sp, editing.path, v); editing.clean = v; editing.value = null; const st = $('tcRgEdState'); if (st) st.textContent = 'saved'; flash(`wrote ${editing.path}`); await reload(); }
+      try { await vfs.write(sp, editing.path, v); editing.clean = v; editing.value = null; const st = $('tcRgEdState'); if (st) st.textContent = 'saved'; flash(`wrote ${editing.path}`); const ta = $('tcRgEdit'), sel = ta ? [ta.selectionStart, ta.selectionEnd, ta.scrollTop] : null; await reload(); const t2 = $('tcRgEdit'); if (t2 && sel) { t2.setSelectionRange(sel[0], sel[1]); t2.scrollTop = sel[2]; } }
       catch (err) { flash('save failed: ' + err.message); }
     }
     function closeEdit() {
@@ -438,6 +446,8 @@ SPACE_BODY = r"""
       flash(`${buffer.mode === 'cut' ? 'moving' : 'copying'} ${n} item${n === 1 ? '' : 's'}…`);
       try {
         for (const item of buffer.items) {
+          const sameSpace = buffer.sp.scope === sp.scope && buffer.sp.owner === sp.owner;
+          if (buffer.mode === 'cut' && sameSpace && dirOf(item.path) === cwd) continue;   // moving into the folder it is already in
           const dest = freeName(cwd, baseOf(item.path), overwrite);
           if (item.dir && (cwd + '/').startsWith(item.path + '/') && buffer.sp.owner === sp.owner && buffer.sp.scope === sp.scope) { flash('cannot paste a folder into itself'); return; }
           await copyItem(buffer.sp, item, dest);
@@ -511,7 +521,7 @@ SPACE_BODY = r"""
         const base = 'https://unpkg.com/prettier@3.3.3/';
         await loadScript(base + 'standalone.js');
         for (const pl of ['babel', 'estree', 'typescript', 'postcss', 'html', 'markdown', 'yaml']) await loadScript(`${base}plugins/${pl}.js`);
-        const src = editing && editing.path === p ? (editing.value != null ? editing.value : editing.clean) : (await vfs.read(sp, p)).content;
+        const src = editing && editing.path === p ? (editing.value != null ? editing.value : editing.clean) : textOf(await vfs.read(sp, p));
         const out = await window.prettier.format(src, { parser, plugins: Object.values(window.prettierPlugins || {}) });
         if (editing && editing.path === p) { editing.value = out; render(); flash('formatted (not saved yet)'); }
         else { await vfs.write(sp, p, out); await reload(); flash(`formatted ${baseOf(p)}`); }
@@ -550,6 +560,7 @@ SPACE_BODY = r"""
       const inp = ev.target;
       if (consoleMode === 'confirm') {
         ev.preventDefault();
+        if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(ev.key)) return;
         const act = confirmAction;
         closeConsole();
         if (ev.key.toLowerCase() === 'y' && act) act();
@@ -578,7 +589,6 @@ SPACE_BODY = r"""
         const m = es.filter((x) => x.name.toLowerCase().includes(q));
         if (m.length) cursorMem.set(cwd, m[0].name);
         render();
-        if (q && m.length === 1) { closeConsole(); open(m[0]); }
       } else if (consoleMode === 'search') {
         try { searchRe = ev.target.value ? new RegExp(ev.target.value, 'i') : null; } catch (e) { searchRe = null; }
         render();
@@ -590,7 +600,7 @@ SPACE_BODY = r"""
       const mode = consoleMode;
       closeConsole();
       if (mode === 'search') { searchJump(1, true); return; }
-      if (mode === 'find') return;
+      if (mode === 'find') { const { e } = here(); if (e && e.dir) cd(e.path); return; }   // Enter opens a folder; files just stay selected
       if (v.trim()) { consoleHist.push(v); consoleHist = consoleHist.slice(-100); store.set('tc_rg_console_hist', consoleHist); }
       await command(v);
     });
@@ -657,11 +667,11 @@ SPACE_BODY = r"""
     }
 
     // ---------------------------------------------------------------- keys
-    function open(e) {
+    function open(e, viaEnter) {
       if (!e) return;
       if (e.dir) { cd(e.path); return; }
       const ext = extOf(e.name);
-      if (TEXT_EXT.test(ext) && ext !== 'svg') edit(e.path);
+      if (TEXT_EXT.test(ext) && ext !== 'svg') { if (viaEnter) edit(e.path); else flash('E or Enter edits this file'); }
       else { const media = $('tcRgPreview').querySelector('video, audio'); if (media) media.play().catch(() => {}); }
     }
     let seq = '';
@@ -671,7 +681,7 @@ SPACE_BODY = r"""
     const SEQ = {
       j: (n) => setIdx(here().i + n), k: (n) => setIdx(here().i - n), ArrowDown: (n) => setIdx(here().i + n), ArrowUp: (n) => setIdx(here().i - n),
       h: () => cwd !== '/' && cd(dirOf(cwd)), ArrowLeft: () => cwd !== '/' && cd(dirOf(cwd)),
-      l: () => open(here().e), ArrowRight: () => open(here().e), Enter: () => open(here().e),
+      l: () => open(here().e), ArrowRight: () => open(here().e), Enter: () => open(here().e, true),
       gg: (n) => setIdx(count ? n - 1 : 0), G: (n) => setIdx(count ? n - 1 : 1e9), Home: () => setIdx(0), End: () => setIdx(1e9),
       J: () => setIdx(here().i + Math.floor(pageSize() / 2)), K: () => setIdx(here().i - Math.floor(pageSize() / 2)),
       'C-d': () => setIdx(here().i + Math.floor(pageSize() / 2)), 'C-u': () => setIdx(here().i - Math.floor(pageSize() / 2)),
@@ -706,7 +716,7 @@ SPACE_BODY = r"""
       q: () => (tabs.length > 1 ? closeTab() : typeof minimizeWindow === 'function' && minimizeWindow('win-agentspace')),
       "''": () => cd(prevDir), '``': () => cd(prevDir),
       S: () => { openTerminal(); if (window.tcTerm) window.tcTerm.run(`cd ${cwd}`); },
-      '?': () => showKeys(), Escape: () => { if (output) { output = null; render(); } else if (marks.size) { marks.clear(); render(); } else if (filterText) { filterText = ''; render(); } },
+      '?': () => showKeys(), Escape: () => { if (output) { output = null; render(); } else if (marks.size) { marks.clear(); render(); } else if (filterText) { filterText = ''; render(); } else if (searchRe) { searchRe = null; render(); } },
     };
     const PREFIXES = new Set(['g', 'y', 'd', 'p', 'u', 'c', 'z', 'o', 'm', "'", '`']);
     function sortKey(key, rev) { sortBy = { key, rev: !!rev }; store.set('tc_rg_sort', sortBy); render(); }
@@ -744,6 +754,8 @@ SPACE_BODY = r"""
       if ((seq === "'" || seq === '`') && k !== "'" && k !== '`') { seq = ''; ev.preventDefault(); bookmarkGo(k); return; }
       if (SEQ[s]) {
         ev.preventDefault();
+        // Esc that dismisses something here must not also minimize the window (global handler)
+        if (s === 'Escape' && (output || marks.size || filterText || searchRe)) ev.stopPropagation();
         const n = Math.max(1, parseInt(count || '1', 10));
         seq = ''; const hadCount = !!count;
         try { SEQ[s](n, hadCount); } finally { count = ''; }
@@ -761,7 +773,7 @@ SPACE_BODY = r"""
       if (i >= 0) setIdx(i);
       $('tcSpaceFiles').focus();
     });
-    $('tcRgCur').addEventListener('dblclick', (ev) => { const li = ev.target.closest('li[data-path]'); if (li) open(here().e); });
+    $('tcRgCur').addEventListener('dblclick', (ev) => { const li = ev.target.closest('li[data-path]'); if (li) open(here().e, true); });
     $('tcRgParent').addEventListener('click', (ev) => { const li = ev.target.closest('li[data-path]'); if (li) { const p = li.dataset.path; if (isDir(p)) cd(p); else cd(dirOf(p), { select: baseOf(p) }); } });
     $('tcRgPreview').addEventListener('click', (ev) => {
       const li = ev.target.closest('li[data-path]');
