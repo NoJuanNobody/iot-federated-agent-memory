@@ -690,225 +690,61 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- ===================================================================== -->
     <!-- Window 1: Terminal & Quickstart.exe (Aeonik Celadon Industrial Layout) -->
     <!-- ===================================================================== -->
-    <div id="win-terminal" class="mesh-window w-[840px] max-w-[96vw]" data-zen-window="true" data-window-id="win-terminal" style="top: 60px; left: 32px; z-index: 20;">
-      <div class="window-header flex items-center justify-between px-6 py-4 bg-[#ecf1e6] border-b border-black">
-        <div class="flex items-baseline gap-4">
-          <span id="aeonikHeaderClock" class="text-xs font-mono font-medium text-neutral-800">14:41</span>
-          <span class="text-2xl font-bold tracking-tight text-black font-sans">Terminal</span>
-          <span id="aeonikHeaderCwd" class="text-xs font-mono text-neutral-600 hidden sm:inline">| ~/projects/aeonik</span>
-        </div>
-        <div class="window-controls flex items-center gap-3 font-mono text-sm">
-          <a href="/fono" target="_blank" class="px-2 py-0.5 border border-black rounded-full text-[10px] text-black hover:bg-black hover:text-[#ecf1e6] no-underline" title="Open Aeonik Fono Mobile Controller">📱 Fono</a>
-          <button onclick="openPopoutWindow('win-terminal')" class="text-xs text-neutral-600 hover:text-black" title="Pop out into separate monitor">↗</button>
-          <button onclick="minimizeWindow('win-terminal')" class="text-neutral-600 hover:text-black">—</button>
-          <button onclick="maximizeWindow('win-terminal')" class="text-neutral-600 hover:text-black">□</button>
-          <button onclick="toggleWindow('win-terminal')" class="text-neutral-600 hover:text-black">✕</button>
+    <div id="win-terminal" class="mesh-window tc-term w-[1000px] max-w-[96vw]" data-zen-window="true" data-window-id="win-terminal" data-tc-own-status="1" style="top: 60px; left: 32px; z-index: 20;">
+      <div class="window-header flex items-center justify-between">
+        <div class="flex items-center gap-2"><span class="window-title">Terminal</span></div>
+        <div class="window-controls flex items-center gap-1">
+          <button onclick="openPopoutWindow('win-terminal')" title="Pop out">↗</button>
+          <button onclick="minimizeWindow('win-terminal')" title="Minimize">—</button>
+          <button onclick="maximizeWindow('win-terminal')" title="Maximize">□</button>
+          <button onclick="toggleWindow('win-terminal')" title="Close">✕</button>
         </div>
       </div>
-      <div class="window-body p-0 grid grid-cols-1 md:grid-cols-2 font-mono text-xs border-b border-black max-h-[640px] overflow-y-auto bg-[#ecf1e6]">
-        <!-- Quadrant 1: SHELL -->
-        <div class="p-5 border-b md:border-b-0 md:border-r border-black flex flex-col justify-between space-y-4">
-          <div>
-            <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black flex items-center justify-between">
-              <span>SHELL</span>
-              <div class="flex items-center gap-1.5">
-                <button onclick="clearAeonikShell()" class="px-1.5 py-0.5 border border-black rounded text-[9px] hover:bg-black hover:text-[#ecf1e6]">Clear</button>
-                <span id="termShellStatusPill" class="px-2 py-0.5 border border-black rounded-full text-[9px] font-semibold uppercase">Ready</span>
-              </div>
+      <div class="window-body tc-term-body">
+        <section class="tc-pane tc-pane-shell" aria-label="Shell">
+          <header class="tc-pane-h"><span>Shell</span><span class="tc-pane-actions"><button type="button" data-tc-run="help">help</button><button type="button" data-tc-run="clear">clear</button></span></header>
+          <div id="tcTermOut" class="tc-term-out" role="log" aria-live="polite"></div>
+          <label class="tc-term-line" for="tcTermInput">
+            <span id="tcTermPrompt" class="tc-prompt">peer@tincan:~$</span>
+            <span class="tc-term-inputwrap">
+              <input id="tcTermInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Terminal command" placeholder="type help">
+              <span id="tcTermGhost" class="tc-ghost" aria-hidden="true"></span>
+            </span>
+          </label>
+        </section>
+        <section class="tc-pane tc-pane-install" aria-label="Install and system">
+          <header class="tc-pane-h"><span>Install</span><span class="tc-dim">one click</span></header>
+          <div class="tc-install">
+            <div class="tc-install-row"><code id="curlInstallCmd" class="tc-code">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code><button type="button" class="tc-btn tc-btn-solid" data-tc-copy="curlInstallCmd">copy</button></div>
+            <div class="tc-install-row"><code id="installCmd" class="tc-code">npx skills add NoJuanNobody/tincan-skills -g -y</code><button type="button" class="tc-btn" data-tc-copy="installCmd">copy</button></div>
+            <div class="tc-install-actions">
+              <a class="tc-btn" href="/install.command" download="Install-TinCan.command">download macOS .command</a>
+              <button type="button" class="tc-btn" data-tc-run="install">walk me through it</button>
             </div>
-            <div id="termShellTranscript" class="space-y-1.5 text-neutral-900 leading-relaxed text-[11px] max-h-[190px] overflow-y-auto pr-1">
-              <p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> git status</p>
-              <p class="text-neutral-700">On branch main<br>Your branch is up to date with 'origin/main'.</p>
-              <p class="text-neutral-600 pt-1">Changes not staged for commit:</p>
-              <p class="text-neutral-600 pl-2">
-                M &nbsp;src/terminal/theme.toml<br>
-                M &nbsp;src/terminal/palette.rs<br>
-                ?? assets/terminal-preview.png
-              </p>
-            </div>
-            <!-- Interactive Shell Input Prompt -->
-            <div class="pt-2 flex items-center gap-1.5 text-[11px]">
-              <span class="font-semibold text-black shrink-0">aeonik@studio:~/projects/aeonik$</span>
-              <input id="aeonikShellInput" type="text" placeholder="type command (git status, cargo build, tincan status, ask ...)" onkeydown="if(event.key==='Enter') execAeonikShellCommand()" class="flex-1 bg-transparent border-b border-black text-black text-[11px] px-1 py-0.5 focus:outline-none" />
-              <button onclick="execAeonikShellCommand()" class="px-2 py-0.5 bg-black text-[#ecf1e6] rounded text-[9px] font-bold">RUN</button>
-            </div>
+            <code id="chatCmd" hidden>curl -s -X POST https://iot-federated-agent-memory-production.up.railway.app/api/chat -H "Content-Type: application/json" -d '{"prompt":"Hello world!"}'</code>
           </div>
-          <!-- Interactive One-Click Install Bar -->
-          <div class="pt-3 border-t border-black space-y-2">
-            <div class="flex items-center justify-between">
-              <div class="text-[10px] font-bold uppercase text-black tracking-wider">⚡ One-Click Terminal Install</div>
-              <div class="flex items-center gap-1 text-[9px]">
-                <button id="tabCmdCurl" onclick="switchInstallCmdTab('curl')" class="px-2 py-0.5 bg-black text-[#ecf1e6] rounded-full border border-black font-semibold transition">curl | bash</button>
-                <button id="tabCmdNpx" onclick="switchInstallCmdTab('npx')" class="px-2 py-0.5 bg-transparent text-black rounded-full border border-black font-semibold transition">npx skills</button>
-                <button id="tabCmdChat" onclick="switchInstallCmdTab('chat')" class="px-2 py-0.5 bg-transparent text-black rounded-full border border-black font-semibold transition">AI Chat</button>
-              </div>
-            </div>
-            <div class="bg-white border border-black rounded-xl p-2 flex items-center justify-between gap-2">
-              <code id="activeInstallCmdDisplay" class="text-[10px] text-black font-semibold select-all overflow-x-auto whitespace-nowrap">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code>
-              <button id="btnOneClickCopyInstall" onclick="copyActiveInstallCmd(this)" class="px-2.5 py-1 bg-black text-[#ecf1e6] rounded-full text-[10px] font-bold shrink-0 hover:opacity-85 active:scale-95 transition">
-                📋 Copy
-              </button>
-            </div>
-            <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
-              <button onclick="simulateOneClickInstall()" class="px-2.5 py-1 bg-black text-[#ecf1e6] rounded-full text-[10px] font-semibold hover:opacity-85 active:scale-95 transition">
-                ▶ 1-Click Run in Terminal
-              </button>
-              <a href="/install.command" download="Install-TinCan.command" class="px-2.5 py-1 border border-black text-black rounded-full text-[10px] font-semibold hover:bg-black hover:text-[#ecf1e6] active:scale-95 transition no-underline">
-                ⬇ macOS .command
-              </a>
-              <button onclick="copyCommand('installCmd', this)" class="px-2 py-1 border border-black text-black rounded-full text-[10px] hover:bg-black hover:text-[#ecf1e6] active:scale-95 transition">
-                npx skills
-              </button>
-            </div>
-            <div class="hidden">
-              <code id="curlInstallCmd">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code>
-              <code id="installCmd">npx skills add NoJuanNobody/tincan-skills -g -y</code>
-              <code id="chatCmd">curl -s -X POST https://iot-federated-agent-memory-production.up.railway.app/api/chat -H "Content-Type: application/json" -d '{"prompt":"Hello world!"}'</code>
-            </div>
+          <header class="tc-pane-h tc-pane-h-sub"><span>System</span><button type="button" class="tc-link" data-tc-run="status">refresh</button></header>
+          <div class="tc-stats">
+            <div><span class="tc-k">Peers</span><span id="tcSysPeers" class="tc-v">–</span></div>
+            <div><span class="tc-k">Credits</span><span id="tcSysCredits" class="tc-v">–</span></div>
+            <div><span class="tc-k">Tier</span><span id="tcSysTier" class="tc-v">–</span></div>
+            <div><span class="tc-k">Score</span><span id="tcSysScore" class="tc-v">–</span></div>
           </div>
-        </div>
-
-        <!-- Quadrant 2: SYSTEM -->
-        <div class="p-5 flex flex-col justify-between space-y-3">
-          <div>
-            <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black flex items-center justify-between">
-              <span>SYSTEM</span>
-              <button onclick="refreshAeonikSystemTelemetry()" class="px-2 py-0.5 border border-black rounded-full text-[9px] font-semibold hover:bg-black hover:text-[#ecf1e6] transition">↻ Live Telemetry</button>
-            </div>
-            <div class="grid grid-cols-4 gap-2 pb-3 border-b border-black text-center">
-              <div class="cursor-pointer" onclick="refreshAeonikSystemTelemetry()">
-                <div class="text-[10px] text-neutral-600">CPU</div>
-                <div id="aeonikSysCpu" class="text-base font-bold text-black">12%</div>
-              </div>
-              <div class="cursor-pointer" onclick="refreshAeonikSystemTelemetry()">
-                <div class="text-[10px] text-neutral-600">MEM</div>
-                <div id="aeonikSysMem" class="text-base font-bold text-black">4.6G<span class="text-[9px] text-neutral-500 font-normal">/16G</span></div>
-              </div>
-              <div class="cursor-pointer" onclick="refreshAeonikSystemTelemetry()">
-                <div class="text-[10px] text-neutral-600">DISK</div>
-                <div id="aeonikSysDisk" class="text-base font-bold text-black">38%</div>
-              </div>
-              <div class="cursor-pointer" onclick="refreshAeonikSystemTelemetry()">
-                <div class="text-[10px] text-neutral-600">UPTIME</div>
-                <div id="aeonikSysUptime" class="text-base font-bold text-black">3d 6h</div>
-              </div>
-            </div>
-            <!-- Sparkline matching Mockup 1 -->
-            <div id="aeonikSparkline" onclick="refreshAeonikSystemTelemetry()" title="Click to sample live mesh telemetry" class="py-2.5 border-b border-black text-center tracking-tighter text-[9px] select-none text-neutral-800 font-mono cursor-pointer">
-              | |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| |
-            </div>
-            <!-- Process Table matching Mockup 1 -->
-            <div class="pt-2 text-[11px] space-y-1">
-              <div class="flex justify-between font-bold text-neutral-600 pb-1">
-                <span class="w-12 cursor-pointer hover:text-black" onclick="sortAeonikProcs('pid')">PID</span>
-                <span class="w-12 cursor-pointer hover:text-black" onclick="sortAeonikProcs('cpu')">CPU%</span>
-                <span class="w-12 cursor-pointer hover:text-black" onclick="sortAeonikProcs('mem')">MEM%</span>
-                <span class="flex-1 text-right cursor-pointer hover:text-black" onclick="sortAeonikProcs('cmd')">COMMAND</span>
-              </div>
-              <div id="aeonikProcTable" class="space-y-1">
-                <div class="flex justify-between text-neutral-800 hover:bg-black/5 px-1 rounded cursor-pointer" onclick="inspectAeonikProcess('4821', 'code')">
-                  <span class="w-12">4821</span>
-                  <span class="w-12">3.1</span>
-                  <span class="w-12">5.2</span>
-                  <span class="flex-1 text-right">code</span>
-                </div>
-                <div class="flex justify-between text-neutral-800 hover:bg-black/5 px-1 rounded cursor-pointer" onclick="inspectAeonikProcess('3970', 'zellij')">
-                  <span class="w-12">3970</span>
-                  <span class="w-12">1.8</span>
-                  <span class="w-12">2.9</span>
-                  <span class="flex-1 text-right">zellij</span>
-                </div>
-                <div class="flex justify-between text-neutral-800 hover:bg-black/5 px-1 rounded cursor-pointer" onclick="inspectAeonikProcess('5154', 'cargo')">
-                  <span class="w-12">5154</span>
-                  <span class="w-12">1.2</span>
-                  <span class="w-12">1.9</span>
-                  <span class="flex-1 text-right">cargo</span>
-                </div>
-                <div class="flex justify-between text-neutral-800 hover:bg-black/5 px-1 rounded cursor-pointer" onclick="inspectAeonikProcess('2261', 'postgres')">
-                  <span class="w-12">2261</span>
-                  <span class="w-12">0.6</span>
-                  <span class="w-12">1.4</span>
-                  <span class="flex-1 text-right">postgres</span>
-                </div>
-                <div class="flex justify-between text-neutral-800 hover:bg-black/5 px-1 rounded cursor-pointer" onclick="inspectAeonikProcess('1104', 'systemd')">
-                  <span class="w-12">1104</span>
-                  <span class="w-12">0.3</span>
-                  <span class="w-12">0.8</span>
-                  <span class="flex-1 text-right">systemd</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Quadrant 3: TREE -->
-        <div class="p-5 border-t md:border-t-0 md:border-r border-black">
-          <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black flex items-center justify-between">
-            <span>TREE ~/projects/aeonik</span>
-            <span class="text-[9px] font-normal text-neutral-600">Click file to inspect</span>
-          </div>
-          <pre class="text-[11px] text-neutral-800 leading-tight">
-aeonik/
-├── <span class="cursor-pointer hover:underline font-semibold" onclick="inspectAeonikFile('Cargo.toml')">Cargo.toml</span>
-├── <span class="cursor-pointer hover:underline font-semibold" onclick="inspectAeonikFile('README.md')">README.md</span>
-├── src/
-│   ├── terminal/
-│   │   ├── <span class="cursor-pointer hover:underline" onclick="inspectAeonikFile('src/terminal/mod.rs')">mod.rs</span>
-│   │   ├── <span class="cursor-pointer hover:underline font-semibold" onclick="inspectAeonikFile('src/terminal/theme.toml')">theme.toml</span>
-│   │   ├── <span class="cursor-pointer hover:underline font-semibold" onclick="inspectAeonikFile('src/terminal/palette.rs')">palette.rs</span>
-│   │   └── <span class="cursor-pointer hover:underline" onclick="inspectAeonikFile('src/terminal/renderer.rs')">renderer.rs</span>
-│   └── <span class="cursor-pointer hover:underline" onclick="inspectAeonikFile('src/lib.rs')">lib.rs</span>
-├── assets/
-│   └── <span class="cursor-pointer hover:underline" onclick="inspectAeonikFile('assets/terminal-preview.png')">terminal-preview.png</span>
-└── tests/
-    └── <span class="cursor-pointer hover:underline" onclick="inspectAeonikFile('tests/theme.rs')">theme.rs</span></pre>
-          <div id="aeonikTreeSummary" class="pt-3 text-[10px] text-neutral-500">8 directories, 9 files</div>
-        </div>
-
-        <!-- Quadrant 4: RECENT -->
-        <div class="p-5 border-t border-black space-y-2 text-[11px]">
-          <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black flex items-center justify-between">
-            <span>RECENT</span>
-            <div class="flex items-center gap-1">
-              <button onclick="runAeonikRecentAction('build')" class="px-2 py-0.5 bg-black text-[#ecf1e6] rounded-full text-[9px] font-semibold hover:opacity-85">▶ cargo build</button>
-              <button onclick="runAeonikRecentAction('test')" class="px-2 py-0.5 border border-black text-black rounded-full text-[9px] font-semibold hover:bg-black hover:text-[#ecf1e6]">▶ cargo test</button>
-            </div>
-          </div>
-          <div id="aeonikRecentOutput" class="space-y-2">
-            <p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> cargo build</p>
-            <p class="text-neutral-600 pl-2">
-              Compiling aeonik-terminal v0.2.0 (/projects/aeonik)<br>
-              Finished dev [unoptimized + debuginfo] target(s) in 4.23s
-            </p>
-            <p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> ls -la target/debug/</p>
-            <p class="text-neutral-600 pl-2 text-[10px]">
-              total 72K<br>
-              drwxr-xr-x 6 aeonik staff 4.0K Jan 24 14:37 .<br>
-              drwxr-xr-x 3 aeonik staff 4.0K Jan 24 14:02 ..<br>
-              -rwxr-xr-x 1 aeonik staff 56K Jan 24 14:37 aeonik-terminal
-            </p>
-            <p class="pt-1">
-              <span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> <span class="inline-block w-2.5 h-4 bg-black align-middle animate-pulse"></span>
-            </p>
-          </div>
-        </div>
+          <div id="tcSysSpark" class="tc-spark" aria-hidden="true"></div>
+          <div id="tcSysPeerTable" class="tc-table"></div>
+        </section>
+        <section class="tc-pane tc-pane-tree" aria-label="Space files">
+          <header class="tc-pane-h"><span>Tree <span id="tcTreeRoot" class="tc-dim">~/space</span></span><span class="tc-pane-actions"><button type="button" data-tc-run="touch /notes/new.md">new</button><button type="button" data-tc-run="tree">refresh</button></span></header>
+          <div id="tcTermTree" class="tc-tree"></div>
+          <div id="tcTreeSummary" class="tc-dim tc-tree-sum"></div>
+        </section>
+        <section class="tc-pane tc-pane-editor" aria-label="Editor">
+          <header class="tc-pane-h"><span>Editor <span id="tcEdPath" class="tc-dim">no file</span></span><span class="tc-pane-actions"><button type="button" id="tcEdSave">save</button><button type="button" id="tcEdRun">run</button></span></header>
+          <textarea id="tcEdText" class="tc-editor" spellcheck="false" aria-label="File contents" placeholder="Open a file from the tree, or type: edit /src/main.py"></textarea>
+          <div id="tcEdStatus" class="tc-dim tc-ed-status">ln 1, col 1</div>
+        </section>
       </div>
-
-      <!-- Bottom Status Bar matching Mockup 1 -->
-      <div class="px-6 py-2.5 bg-[#ecf1e6] flex items-center justify-between font-mono text-xs text-neutral-800 border-t border-black">
-        <div class="flex items-center gap-3">
-          <span id="aeonikGitBranch">⚲ main ↑1 ↓0</span>
-          <span>|</span>
-          <span id="aeonikStatusCwd">~/projects/aeonik</span>
-        </div>
-        <div class="flex items-center gap-4 text-neutral-600">
-          <span>zsh</span>
-          <span>|</span>
-          <span>120×34</span>
-          <span>|</span>
-          <span>UTF-8</span>
-        </div>
-      </div>
+      <div class="tc-status"><span id="tcStatusBranch">⎇ space</span><span class="tc-sep"></span><span id="tcStatusCwd">~/space</span><span class="tc-grow"></span><span>tincan-sh</span><span class="tc-sep"></span><span id="tcStatusRelay">relay …</span><span class="tc-sep"></span><span>UTF-8</span></div>
     </div>
 
     <!-- ===================================================================== -->
@@ -1208,54 +1044,36 @@ aeonik/
     <!-- ===================================================================== -->
     <!-- Window 4B: Encrypted Mesh Chat & Comms.app (Separated from Video) -->
     <!-- ===================================================================== -->
-    <div id="win-comms" class="mesh-window w-[480px]" data-zen-window="true" data-window-id="win-comms" style="top: 720px; left: 620px; z-index: 23;">
-      <div class="window-header flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-cyan-900/50">
-        <div class="flex items-center gap-2">
-          <span class="text-base">💬</span>
-          <span class="text-xs font-bold text-cyan-300 font-mono">Encrypted Mesh Chat &amp; Comms.app</span>
-          <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
-        </div>
-        <div class="window-controls flex items-center gap-1.5 font-mono text-xs">
-          <button onclick="openPopoutWindow('win-comms')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Pop out into separate monitor">↗ Pop Out</button>
-          <button onclick="minimizeWindow('win-comms')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">—</button>
-          <button onclick="maximizeWindow('win-comms')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">□</button>
-          <button onclick="toggleWindow('win-comms')" class="px-1.5 py-0.5 rounded bg-red-950/80 hover:bg-red-800 text-red-300 text-[11px]">✕</button>
+    <div id="win-comms" class="mesh-window tc-comms w-[780px] max-w-[96vw]" data-zen-window="true" data-window-id="win-comms" style="top: 720px; left: 620px; z-index: 23;">
+      <div class="window-header flex items-center justify-between">
+        <div class="flex items-center gap-2"><span class="window-title">Comms</span></div>
+        <div class="window-controls flex items-center gap-1">
+          <button onclick="openPopoutWindow('win-comms')" title="Pop out">↗</button>
+          <button onclick="minimizeWindow('win-comms')" title="Minimize">—</button>
+          <button onclick="maximizeWindow('win-comms')" title="Maximize">□</button>
+          <button onclick="toggleWindow('win-comms')" title="Close">✕</button>
         </div>
       </div>
-      <div class="window-body p-4 space-y-3 max-h-[620px] overflow-y-auto">
-        <div class="flex items-center justify-between">
-          <div>
-            <h2 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-              <span>🔒</span> Zero-Account Blind Relay Chat
-            </h2>
-            <p class="text-[11px] text-slate-400">Ed25519 sealed blind messaging across federated peers</p>
-          </div>
-          <span id="chatCounterBadge" class="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-800">0 messages</span>
-        </div>
-
-        <!-- Chat Filter / Recipient Bar -->
-        <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2 flex items-center gap-2 text-xs font-mono">
-          <span class="text-slate-400 text-[11px]">Channel:</span>
-          <select id="chatChannelSelect" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-cyan-300 text-xs focus:outline-none">
-            <option value="room">🌐 Room Broadcast (main)</option>
-            <option value="direct">👤 Direct Sealed P2P</option>
-          </select>
-          <input id="chatDirectPeerInput" type="text" placeholder="Peer ID (for direct sealed msg)" class="hidden flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
-        </div>
-
-        <!-- Message stream -->
-        <div id="chatMessagesList" class="h-64 overflow-y-auto p-3 bg-slate-950/90 border border-slate-800 rounded-lg space-y-2 text-xs font-mono">
-          <div class="text-slate-500 text-[11px] italic">No messages yet. Send a broadcast to all active room peers below.</div>
-        </div>
-
-        <!-- Message input -->
-        <div class="flex gap-1.5">
-          <input id="chatInput" type="text" placeholder="Type a message to room peers..." class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" onkeydown="if(event.key==='Enter') sendChatMessage()">
-          <button onclick="sendChatMessage()" class="px-4 py-2 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:brightness-110 text-white rounded-lg text-xs font-bold font-mono transition active:scale-95 shrink-0 flex items-center gap-1 shadow">
-            <span>Send</span>
-            <span>↵</span>
-          </button>
-        </div>
+      <div class="window-body tc-comms-body">
+        <aside class="tc-comms-side" aria-label="Channels">
+          <header class="tc-pane-h"><span>Channels</span></header>
+          <ul id="tcChanList" class="tc-chan-list"></ul>
+          <header class="tc-pane-h"><span>Direct</span></header>
+          <ul id="tcDmList" class="tc-chan-list"></ul>
+          <form id="tcDmNew" class="tc-dm-new" autocomplete="off"><input id="chatDirectPeerInput" type="text" placeholder="peer id" aria-label="Start a direct chat with peer id"><button type="submit" class="tc-btn">+</button></form>
+          <header class="tc-pane-h"><span>Online</span><span id="tcOnlineCount" class="tc-dim">0</span></header>
+          <ul id="tcOnlineList" class="tc-chan-list tc-online"></ul>
+        </aside>
+        <section class="tc-comms-main" aria-label="Messages">
+          <header class="tc-pane-h"><span id="tcChanTitle"># main</span><span id="tcChanTopic" class="tc-dim tc-grow">everyone in the room</span><span id="chatCounterBadge" class="tc-dim">0 messages</span></header>
+          <div id="chatMessagesList" class="tc-chatlog" role="log" aria-live="polite"></div>
+          <form id="tcChatForm" class="tc-chat-input" autocomplete="off" onsubmit="event.preventDefault(); sendChatMessage();">
+            <label id="tcChatPrompt" for="chatInput" class="tc-prompt">#main ›</label>
+            <input id="chatInput" type="text" placeholder="message #main" aria-label="Message">
+            <button type="submit" class="tc-btn tc-btn-solid">send ↵</button>
+          </form>
+          <select id="chatChannelSelect" hidden><option value="room">room</option><option value="direct">direct</option></select>
+        </section>
       </div>
     </div>
 
@@ -4417,33 +4235,6 @@ aeonik/
     setTimeout(refreshBillingWindow, 1500);
 
     // Copy Command Helper & One-Click Terminal Installer Controls
-    let activeInstallCmdId = 'curlInstallCmd';
-    function switchInstallCmdTab(tab) {
-      const mapping = {
-        curl: { id: 'curlInstallCmd', btn: 'tabCmdCurl' },
-        npx: { id: 'installCmd', btn: 'tabCmdNpx' },
-        chat: { id: 'chatCmd', btn: 'tabCmdChat' }
-      };
-      const entry = mapping[tab] || mapping.curl;
-      activeInstallCmdId = entry.id;
-      const srcEl = document.getElementById(entry.id);
-      const dispEl = document.getElementById('activeInstallCmdDisplay');
-      if (srcEl && dispEl) dispEl.innerText = srcEl.innerText;
-      ['tabCmdCurl', 'tabCmdNpx', 'tabCmdChat'].forEach(btnId => {
-        const b = document.getElementById(btnId);
-        if (!b) return;
-        if (btnId === entry.btn) {
-          b.className = 'px-2 py-0.5 bg-black text-[#ecf1e6] rounded-full border border-black font-semibold transition';
-        } else {
-          b.className = 'px-2 py-0.5 bg-transparent text-black rounded-full border border-black font-semibold transition';
-        }
-      });
-    }
-
-    function copyActiveInstallCmd(btnEl) {
-      copyCommand(activeInstallCmdId, btnEl);
-    }
-
     function copyCommand(id, btnEl) {
       const el = document.getElementById(id);
       if (!el) return;
@@ -4452,48 +4243,11 @@ aeonik/
     }
 
     let _installSimRunning = false;
+    // The quickstart modal's "run it" opens the real shell and walks through the install.
     function simulateOneClickInstall() {
-      const win = document.getElementById('win-terminal');
-      if (win && win.classList.contains('hidden')) {
-        win.classList.remove('hidden');
-      }
-      const transcript = document.getElementById('termShellTranscript');
-      const statusPill = document.getElementById('termShellStatusPill');
-      const cmdEl = document.getElementById('curlInstallCmd');
-      const cmdText = cmdEl ? cmdEl.innerText : 'curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash';
-      copyToClipboard(cmdText);
-      if (!transcript || _installSimRunning) return;
-      _installSimRunning = true;
-      if (statusPill) {
-        statusPill.innerText = 'Installing...';
-        statusPill.className = 'px-2 py-0.5 bg-black text-[#ecf1e6] border border-black rounded-full text-[9px] font-semibold uppercase';
-      }
-      const steps = [
-        '<p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> ' + cmdText + '</p>',
-        '<p class="text-neutral-700">[*] Installing TinCan 2.2 Mesh OS &amp; Peer Connector...</p>',
-        '<p class="text-neutral-700">[+] Verified Ed25519/X25519 cryptography &amp; linked ~/.local/bin/tincan</p>',
-        '<p class="text-neutral-700">[+] Installed 6 agent skills: tincan, tincan-mesh-os, connect-peer...</p>',
-        '<p class="font-bold text-black">✓ TinCan 2.2 Installation Complete! (Command also copied to your clipboard)</p>',
-        '<p class="pt-1"><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> <span class="inline-block w-2.5 h-4 bg-black align-middle animate-pulse"></span></p>'
-      ];
-      transcript.innerHTML = steps[0];
-      let idx = 1;
-      const timer = setInterval(() => {
-        if (idx < steps.length) {
-          transcript.innerHTML += steps[idx];
-          idx++;
-        } else {
-          clearInterval(timer);
-          _installSimRunning = false;
-          if (statusPill) {
-            statusPill.innerText = 'Installed ✓';
-            statusPill.className = 'px-2 py-0.5 bg-black text-[#ecf1e6] border border-black rounded-full text-[9px] font-semibold uppercase';
-          }
-          if (typeof awardLocalXp === 'function') {
-            awardLocalXp(50, 'Executed One-Click Terminal Installer');
-          }
-        }
-      }, 320);
+      const w = document.getElementById('win-terminal');
+      if (w && (w.style.display === 'none' || w.classList.contains('hidden'))) toggleWindow('win-terminal');
+      if (window.tcTerm) { window.tcTerm.run('install'); window.tcTerm.focus(); }
     }
 
     // =========================================================================
@@ -5292,6 +5046,7 @@ aeonik/
           lastSignalSeq = data.latest_seq;
         }
         if (data.peers) {
+          if (window.tcComms) window.tcComms.peers(data.peers);
           const grid = document.getElementById('roomPeersGrid');
           grid.innerHTML = data.peers.map(p => `
             <div class="p-2 bg-slate-800/60 rounded border border-slate-700 flex justify-between items-center text-xs font-mono">
@@ -5334,7 +5089,8 @@ aeonik/
               const txt = (sig.payload && (sig.payload.text || sig.payload.message)) || (typeof sig.payload === 'string' ? sig.payload : '');
               const sender = (sig.payload && sig.payload.sender) || sig.from || 'Peer';
               if (txt && sig.from !== myPeerId) {
-                appendChatMessage(sender, txt, false, sig.timestamp ? sig.timestamp * 1000 : null);
+                const ch = (sig.payload && sig.payload.channel) || 'main';
+                appendChatMessage(sender, txt, false, sig.timestamp ? sig.timestamp * 1000 : null, ch === 'dm' ? 'dm:' + sig.from : ch, sig.from);
                 playXpChime();
               }
             }
@@ -5388,29 +5144,15 @@ aeonik/
         .replace(/'/g, '&#039;');
     }
 
-    function appendChatMessage(sender, text, isMe = false, timestamp = null) {
+    // Comms is channel-aware: room channels ride the room signal with payload.channel,
+    // direct messages go to one peer. tcComms (terminal_theme.py) owns rendering.
+    function appendChatMessage(sender, text, isMe = false, timestamp = null, channel = 'main', fromPeer = null) {
+      if (window.tcComms) { window.tcComms.receive({ sender, text, isMe, timestamp, channel, fromPeer }); return; }
       const list = document.getElementById('chatMessagesList');
       if (!list) return;
-
-      if (chatMsgCount === 0) {
-        list.innerHTML = '';
-      }
-      chatMsgCount++;
-      const counter = document.getElementById('chatCounterBadge');
-      if (counter) counter.innerText = `${chatMsgCount} message${chatMsgCount === 1 ? '' : 's'}`;
-
-      const timeStr = timestamp ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const row = document.createElement('div');
-      row.className = `p-2 rounded text-xs font-mono border transition-all ${isMe ? 'bg-cyan-950/40 border-cyan-800/60 ml-4' : 'bg-slate-900/90 border-slate-800 mr-4'}`;
-      row.innerHTML = `
-        <div class="flex items-center justify-between text-[10px] text-slate-400 mb-0.5">
-          <span class="font-bold ${isMe ? 'text-cyan-300' : 'text-emerald-400'}">${escapeHtml(sender)}${isMe ? ' (you)' : ''}</span>
-          <span class="text-[9px] text-slate-500">${timeStr}</span>
-        </div>
-        <div class="text-slate-100 break-words leading-relaxed">${escapeHtml(text)}</div>
-      `;
+      row.textContent = `${sender}: ${text}`;
       list.appendChild(row);
-      list.scrollTop = list.scrollHeight;
     }
 
     async function sendChatMessage() {
@@ -5422,9 +5164,11 @@ aeonik/
       input.value = '';
       const room = document.getElementById('roomInput').value.trim() || 'main';
       const senderLabel = getVerifiedDisplayName();
+      const channel = window.tcComms ? window.tcComms.current() : 'main';
+      const dmPeer = channel.startsWith('dm:') ? channel.slice(3) : null;
 
-      appendChatMessage(senderLabel, text, true, Date.now());
-      playXpChime();
+      appendChatMessage(senderLabel, text, true, Date.now(), channel, myPeerId);
+      if (window.tcComms && channel === 'ai') { window.tcComms.askAi(text); return; }
 
       try {
         await fetch('/api/webrtc/signal', {
@@ -5432,12 +5176,13 @@ aeonik/
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             from: myPeerId,
-            to: '*',
+            to: dmPeer || '*',
             type: 'chat',
             room: room,
             payload: {
               text: text,
               sender: senderLabel,
+              channel: dmPeer ? 'dm' : channel,
               timestamp: Date.now()
             }
           })
@@ -8008,204 +7753,6 @@ aeonik/
       refreshAgentSpace();
     }, 2000);
 
-    // =========================================================================
-    // Aeonik 4-Quadrant Interactive Terminal Engine (SHELL, SYSTEM, TREE, RECENT)
-    // =========================================================================
-    const AEONIK_FILES = {
-      'Cargo.toml': '[package]\nname = "aeonik-terminal"\nversion = "0.2.0"\nedition = "2024"\n\n[dependencies]\ntokio = { version = "1.40", features = ["full"] }\nratatui = "0.28"\ncrossterm = "0.28"',
-      'README.md': '# Aeonik Celadon & Ink Terminal\nMinimalist 4-quadrant developer workspace for TinCan 2.2.\n- Canvas: #ecf1e6 (Celadon)\n- Hairline: 1px solid #111111 (Sumi Ink)',
-      'src/terminal/mod.rs': 'pub mod theme;\npub mod palette;\npub mod renderer;\n\npub use renderer::TerminalGrid;',
-      'src/terminal/theme.toml': '[palette]\ncanvas = "#ecf1e6"\nink = "#111111"\nmuted = "#555555"\nborder_px = 1\nradius_px = 24',
-      'src/terminal/palette.rs': 'pub const CELADON_BG: &str = "#ecf1e6";\npub const INK_FG: &str = "#111111";\npub const HAIRLINE_WIDTH: u8 = 1;',
-      'src/terminal/renderer.rs': 'pub struct TerminalGrid {\n    pub cols: u16,\n    pub rows: u16,\n}\nimpl TerminalGrid {\n    pub fn render_quadrants(&self) -> bool { true }\n}',
-      'src/lib.rs': 'pub mod terminal;\npub fn version() -> &\'static str { "0.2.0-aeonik" }',
-      'assets/terminal-preview.png': '[Binary PNG Asset · 2048x2048 · /docs/designs/aeonik-terminal.png]',
-      'tests/theme.rs': '#[test]\nfn test_celadon_palette() {\n    assert_eq!(aeonik_terminal::terminal::palette::CELADON_BG, "#ecf1e6");\n}'
-    };
-
-    let aeonikProcs = [
-      { pid: 4821, cpu: 3.1, mem: 5.2, cmd: 'code' },
-      { pid: 3970, cpu: 1.8, mem: 2.9, cmd: 'zellij' },
-      { pid: 5154, cpu: 1.2, mem: 1.9, cmd: 'cargo' },
-      { pid: 2261, cpu: 0.6, mem: 1.4, cmd: 'postgres' },
-      { pid: 1104, cpu: 0.3, mem: 0.8, cmd: 'systemd' }
-    ];
-
-    function clearAeonikShell() {
-      const tr = document.getElementById('termShellTranscript');
-      if (tr) tr.innerHTML = '';
-    }
-
-    async function execAeonikShellCommand(presetCmd) {
-      const inp = document.getElementById('aeonikShellInput');
-      const tr = document.getElementById('termShellTranscript');
-      const pill = document.getElementById('termShellStatusPill');
-      const cmd = (presetCmd || (inp ? inp.value : '') || '').trim();
-      if (!cmd || !tr) return;
-      if (!presetCmd && inp) inp.value = '';
-
-      if (cmd === 'clear') {
-        clearAeonikShell();
-        return;
-      }
-
-      const cmdLine = document.createElement('p');
-      cmdLine.className = 'pt-1';
-      cmdLine.innerHTML = '<span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> ' + cmd.replace(/</g, '&lt;');
-      tr.appendChild(cmdLine);
-
-      const outLine = document.createElement('p');
-      outLine.className = 'text-neutral-700 pl-2';
-      tr.appendChild(outLine);
-
-      if (pill) pill.innerText = 'Running';
-
-      if (cmd === 'git status') {
-        outLine.innerHTML = "On branch main<br>Your branch is up to date with 'origin/main'.<br>M &nbsp;src/terminal/theme.toml<br>M &nbsp;src/terminal/palette.rs";
-      } else if (cmd === 'ls' || cmd === 'ls -la') {
-        outLine.innerHTML = 'Cargo.toml &nbsp;README.md &nbsp;src/ &nbsp;assets/ &nbsp;tests/';
-      } else if (cmd.startsWith('cat ')) {
-        const fname = cmd.slice(4).trim();
-        inspectAeonikFile(fname);
-        outLine.innerText = 'Opened ' + fname + ' in RECENT pane.';
-      } else if (cmd === 'cargo build' || cmd === 'cargo test') {
-        runAeonikRecentAction(cmd === 'cargo test' ? 'test' : 'build');
-        outLine.innerText = 'Triggered ' + cmd + ' in RECENT pane.';
-      } else if (cmd === 'tincan status' || cmd === 'status') {
-        try {
-          const r = await fetch('/api/mesh/state');
-          const d = await r.json();
-          const pCount = Object.keys(d.peers || {}).length;
-          outLine.innerHTML = 'Mesh Room: <b>' + (d.room || 'main') + '</b> · Active Peers: <b>' + pCount + '</b> · Relay: ONLINE';
-        } catch (e) {
-          outLine.innerText = 'Mesh Relay: Local Mode';
-        }
-      } else if (cmd.startsWith('py ') || cmd.startsWith('exec ')) {
-        const code = cmd.replace(/^(py|exec)\s+/, '');
-        outLine.innerText = 'Executing in sandbox...';
-        try {
-          const r = await fetch('/api/space/exec', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ scope: 'user', owner_id: myPeerId || 'aeonik', runtime: 'python', code_override: code })
-          });
-          const d = await r.json();
-          outLine.innerText = d.stdout || d.stderr || JSON.stringify(d);
-        } catch (e) {
-          outLine.innerText = 'Exec error: ' + e.message;
-        }
-      } else {
-        const prompt = cmd.replace(/^(ask|tincan chat)\s+/i, '');
-        outLine.innerText = 'Querying TinCan AI Gateway...';
-        try {
-          const r = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'gemini-brain', prompt: prompt, peer_id: myPeerId || 'aeonik-terminal' })
-          });
-          const d = await r.json();
-          outLine.innerText = d.content || d.response || JSON.stringify(d);
-        } catch (e) {
-          outLine.innerText = 'Command completed: ' + cmd;
-        }
-      }
-
-      if (pill) pill.innerText = 'Ready';
-      tr.scrollTop = tr.scrollHeight;
-    }
-
-    function renderAeonikProcs() {
-      const box = document.getElementById('aeonikProcTable');
-      if (!box) return;
-      box.innerHTML = aeonikProcs.map(p =>
-        '<div class="flex justify-between text-neutral-800 hover:bg-black/5 px-1 rounded cursor-pointer" onclick="inspectAeonikProcess(\'' + p.pid + '\', \'' + p.cmd + '\')">' +
-        '<span class="w-12">' + p.pid + '</span>' +
-        '<span class="w-12">' + p.cpu.toFixed(1) + '</span>' +
-        '<span class="w-12">' + p.mem.toFixed(1) + '</span>' +
-        '<span class="flex-1 text-right">' + p.cmd + '</span></div>'
-      ).join('');
-    }
-
-    function sortAeonikProcs(field) {
-      if (field === 'cmd') {
-        aeonikProcs.sort((a, b) => a.cmd.localeCompare(b.cmd));
-      } else {
-        aeonikProcs.sort((a, b) => b[field] - a[field]);
-      }
-      renderAeonikProcs();
-    }
-
-    function inspectAeonikProcess(pid, cmd) {
-      const rec = document.getElementById('aeonikRecentOutput');
-      if (!rec) return;
-      rec.innerHTML =
-        '<p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> ps -p ' + pid + ' -o pid,pcpu,pmem,comm</p>' +
-        '<p class="text-neutral-700 pl-2">Process <b>' + cmd + '</b> (PID ' + pid + ') · Status: S+ (Active foreground daemon)</p>' +
-        '<p class="pt-1"><button onclick="refreshAeonikSystemTelemetry()" class="px-2 py-0.5 border border-black rounded text-[10px]">↻ Sample Process Telemetry</button></p>';
-    }
-
-    async function refreshAeonikSystemTelemetry() {
-      const cpu = Math.floor(8 + Math.random() * 18);
-      const mem = (4.2 + Math.random() * 1.1).toFixed(1);
-      const cpuEl = document.getElementById('aeonikSysCpu');
-      const memEl = document.getElementById('aeonikSysMem');
-      const sparkEl = document.getElementById('aeonikSparkline');
-      if (cpuEl) cpuEl.innerText = cpu + '%';
-      if (memEl) memEl.innerHTML = mem + 'G<span class="text-[9px] text-neutral-500 font-normal">/16G</span>';
-      if (sparkEl) {
-        const bars = Array.from({ length: 70 }, () => (Math.random() > 0.18 ? '|' : ' ')).join('');
-        sparkEl.innerText = '| ' + bars + ' |';
-      }
-      aeonikProcs.forEach(p => {
-        p.cpu = Math.max(0.1, Math.round((p.cpu + (Math.random() - 0.48) * 0.6) * 10) / 10);
-      });
-      renderAeonikProcs();
-    }
-
-    function inspectAeonikFile(relPath) {
-      const rec = document.getElementById('aeonikRecentOutput');
-      if (!rec) return;
-      const content = AEONIK_FILES[relPath] || ('// File: ' + relPath);
-      rec.innerHTML =
-        '<div class="flex items-center justify-between"><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$ cat ' + relPath + '</span>' +
-        '<button onclick="saveAeonikFile(\'' + relPath + '\')" class="px-2 py-0.5 bg-black text-[#ecf1e6] rounded text-[9px] font-bold">💾 Save to Space</button></div>' +
-        '<textarea id="aeonikInlineFileEditor" rows="6" class="w-full mt-1 p-2 bg-white border border-black rounded text-[10px] font-mono text-black">' +
-        content.replace(/</g, '&lt;') + '</textarea>';
-    }
-
-    async function saveAeonikFile(relPath) {
-      const ed = document.getElementById('aeonikInlineFileEditor');
-      if (!ed) return;
-      const val = ed.value;
-      AEONIK_FILES[relPath] = val;
-      try {
-        await fetch('/api/space/file', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scope: 'user', owner_id: myPeerId || 'aeonik', path: '/' + relPath, content: val })
-        });
-        showQuickNotification('Saved ' + relPath + ' to workspace VFS');
-      } catch (e) {
-        showQuickNotification('Saved ' + relPath + ' locally');
-      }
-    }
-
-    function runAeonikRecentAction(kind) {
-      const rec = document.getElementById('aeonikRecentOutput');
-      if (!rec) return;
-      if (kind === 'test') {
-        rec.innerHTML =
-          '<p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> cargo test</p>' +
-          '<p class="text-neutral-700 pl-2">running 4 tests<br>test terminal::palette::test_celadon_palette ... ok<br>test terminal::renderer::test_quadrants ... ok<br>test terminal::theme::test_border_hairline ... ok<br>test result: <b>ok</b>. 4 passed; 0 failed; finished in 0.38s</p>';
-      } else {
-        const dur = (1.1 + Math.random() * 2.5).toFixed(2);
-        rec.innerHTML =
-          '<p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> cargo build</p>' +
-          '<p class="text-neutral-600 pl-2">Compiling aeonik-terminal v0.2.0 (/projects/aeonik)<br>Finished dev [unoptimized + debuginfo] target(s) in ' + dur + 's</p>' +
-          '<p><span class="font-semibold text-black">aeonik@studio:~/projects/aeonik$</span> ls -la target/debug/</p>' +
-          '<p class="text-neutral-600 pl-2 text-[10px]">total 72K<br>-rwxr-xr-x 1 aeonik staff 56K aeonik-terminal</p>';
-      }
-    }
   </script>
 </body>
 </html>
@@ -8215,3 +7762,9 @@ aeonik/
 from .zen_shell import apply_zen_shell  # noqa: E402
 
 MESH_OS_HTML_UI = apply_zen_shell(MESH_OS_HTML_UI)
+
+# Terminal theme: every window in the Terminal window's ink-on-celadon language, plus the
+# shell (win-terminal) and chat room (win-comms) engines.
+from .terminal_theme import apply_terminal_theme  # noqa: E402
+
+MESH_OS_HTML_UI = apply_terminal_theme(MESH_OS_HTML_UI)

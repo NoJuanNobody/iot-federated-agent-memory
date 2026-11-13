@@ -151,6 +151,10 @@ ZEN_HEAD = r"""
       text-shadow: 0 1px 14px rgba(0, 0, 0, 0.7);
     }
     #zenCaption .zen-title { font-family: var(--zen-mincho); font-weight: 500; font-size: 1.12rem; line-height: 1.35; text-wrap: balance; }
+    #zenCaption .zen-credits { margin-top: 0.55rem; font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-size: 0.72rem; letter-spacing: 0.02em; color: var(--zen-washi); display: flex; gap: 0.6rem; align-items: center; }
+    #zenCaption .zen-credits .zc-bar { flex: 0 0 72px; height: 2px; background: rgba(17, 17, 17, 0.18); position: relative; }
+    #zenCaption .zen-credits .zc-bar i { position: absolute; inset: 0 auto 0 0; width: 0; background: #111; transition: width 400ms linear; }
+    #zenCaption .zen-credits button { font: inherit; text-decoration: underline; text-underline-offset: 3px; background: none; border: 0; color: inherit; cursor: pointer; padding: 0; }
     #zenCaption .zen-meta { margin-top: 0.4rem; font-family: var(--zen-gothic); font-size: 0.78rem; color: var(--zen-washi-2); letter-spacing: 0.03em; }
 
     #zenActions {
@@ -296,6 +300,7 @@ ZEN_BODY = r"""
   <div id="zenCaption" class="zen-chrome zen-feed-only" aria-live="polite">
     <p class="zen-title" id="zenTitle"></p>
     <p class="zen-meta" id="zenMeta"></p>
+    <p class="zen-credits" id="zenCredits" hidden></p>
   </div>
 
   <div id="zenActions" class="zen-chrome zen-feed-only">
@@ -493,7 +498,7 @@ ZEN_BODY = r"""
         $('zenTitle').textContent = c.title || '';
         const meta = [
           c.creator,
-          isAd ? (isAdmin() ? '🛡️ Intelligence Gathering · Ad View Required' : 'Sponsored') : ''
+          isAd ? (isAdmin() ? 'Ad view required' : 'Sponsored · earns AI credits') : ''
         ].filter(Boolean).join(' · ');
         $('zenMeta').textContent = meta;
         document.querySelectorAll('#zenTicks button').forEach((b, j) => {
@@ -506,8 +511,29 @@ ZEN_BODY = r"""
             b.style.pointerEvents = '';
           }
         });
+        adCredits.clip(c);
         playQuietly();
       }
+
+
+      // ---- Passive ad credits ------------------------------------------------------
+      // Scrolling the feed is the earning loop: sponsored clips credit AI tokens on their own
+      // (window.tcAdCredits, terminal_theme.py). This only draws the caption line.
+      function renderCredits(st) {
+        const el = $('zenCredits');
+        if (!el) return;
+        const parts = [];
+        if (st.balance !== null) parts.push(`<span>${Number(st.balance).toLocaleString()} credits</span>`);
+        if (st.earning !== null) parts.push(`<span class="zc-bar" aria-hidden="true"><i style="width:${st.earning.toFixed(0)}%"></i></span><span>earning</span>`);
+        else if (st.today) parts.push(`<span>+${st.today.toLocaleString()} today</span>`);
+        if (st.hint === 'register') parts.push('<button type="button" id="zenCreditJoin">Sign in to earn credits from ads</button>');
+        else if (st.hint === 'cap') parts.push('<span>Daily ad credits reached</span>');
+        el.innerHTML = parts.join('');
+        el.hidden = !parts.length;
+        const join = $('zenCreditJoin');
+        if (join) join.addEventListener('click', () => $('zenJoin').click());
+      }
+      const adCredits = window.tcAdCredits ? window.tcAdCredits.track(video, renderCredits) : { clip() {} };
 
       function canSkipZenClip() {
         const c = clips[index];
@@ -614,7 +640,21 @@ ZEN_BODY = r"""
         const vids = (d && d.videos) || [];
         clips = vids.filter((v) => v.embed_url || v.cite_url);
         if (!clips.length) clips = FALLBACK;
-      }).catch(() => { clips = FALLBACK; }).then(() => {
+      }).catch(() => { clips = FALLBACK; }).then(() => (
+        // Sponsor creatives slot into the scroll every few clips so passive watching earns.
+        fetch('/api/sponsor/list').then((r) => r.json()).then((d) => {
+          const seen = new Set(clips.map((c) => c.embed_url || c.cite_url));
+          const slots = ((d && d.all_sponsors) || []).filter((s) => s.video_url && !seen.has(s.video_url));
+          slots.forEach((s, k) => {
+            const at = Math.min(clips.length, (k + 1) * 4 - 1);
+            clips.splice(at, 0, {
+              embed_url: s.video_url, title: s.name, creator: s.badge || 'Sponsor', category: 'ad',
+              sponsor_id: s.id, cite_url: s.url, duration_seconds: s.duration_seconds,
+            });
+            seen.add(s.video_url);
+          });
+        }).catch(() => {})
+      )).then(() => {
         renderTicks();
         show(0);
       });
