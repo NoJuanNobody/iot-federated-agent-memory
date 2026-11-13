@@ -21,8 +21,12 @@ def test_apply_is_idempotent_and_tolerates_fragments():
 
 def test_terminal_is_a_working_shell_not_a_mockup():
     html = MESH_OS_HTML_UI
-    for el in ('id="tcTermInput"', 'id="tcTermOut"', 'id="tcTermTree"', 'id="tcEdText"', 'id="curlInstallCmd"'):
+    for el in ('id="tcTermInput"', 'id="tcTermOut"', 'id="curlInstallCmd"'):
         assert el in html
+    # the tree and editor panes were removed on purpose; `edit` hands off to the Space window
+    assert 'id="tcTermTree"' not in html
+    assert 'id="tcEdText"' not in html
+    assert "window.tcSpace.open" in html
     # one-click install is still there
     assert 'href="/install.command"' in html
     # commands are backed by the relay's API and the visitor's Space VFS
@@ -51,3 +55,40 @@ def test_ads_credit_passively_in_the_feed_and_watch_party():
     assert "window.tcAdCredits.track(vid," in html
     # it goes through the server-clocked view token flow, never a client-side award
     assert "/api/ads/view/start" in html and "/api/ads/view/complete" in html
+
+
+def _head(html):
+    return html[: html.index("</head>")]
+
+
+def test_popout_mode_detection_script_is_in_head():
+    head = _head(MESH_OS_HTML_UI)
+    assert "tc-popout" in head
+    assert "window" in head and "classList.add('tc-popout')" in head.replace('"', "'")
+    for route in ("/tv", "/call", "/arena", "/terminal", "/billing", "/tokens", "/board", "/cyberspace"):
+        assert route in head
+
+
+def test_popout_css_hides_the_old_desktop():
+    html = MESH_OS_HTML_UI
+    assert "tc-popout" in html
+    for sel in ("#meshOsHud", "#meshOsDock", "#zenStage", "#zenLauncher", "#meshTopologyCanvas"):
+        assert sel in html
+    assert "html.tc-popout #meshOsHud" in html
+
+
+def test_header_meta_buttons_present():
+    html = MESH_OS_HTML_UI
+    for kind in ("account", "peers", "chat"):
+        assert f"data-tc-meta=\"{kind}\"" in html or f"'{kind}'" in html and "data-tc-meta" in html
+    assert "openPopoutWindow" in html
+    assert "window.close()" in html
+
+
+def test_popout_overrides_fullscreen_class_and_account_chip_forces_modal():
+    html = MESH_OS_HTML_UI
+    # mesh_os_ui's .popout-fullscreen sets height: calc(100vh - 64px); pop-outs must fill the viewport
+    assert "html.tc-popout .mesh-window.popout-fullscreen" in html
+    assert "max-height: 100dvh !important" in html
+    # the zen shell blocks openAccountModal unless armed; the account chip must still open it
+    assert "accountSetupModal" in html and "m.classList.remove('hidden')" in html
