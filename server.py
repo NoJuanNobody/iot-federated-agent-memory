@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import io
 import json
+import re
 from http.cookies import SimpleCookie
 import os
 import secrets
@@ -51,6 +52,8 @@ from iot_federated_agent_memory.thread_api import (
     set_account_registry as set_thread_account_registry,
 )
 from iot_federated_agent_memory.sponsor_ads import SponsorAdManager
+from iot_federated_agent_memory.arena_context import ArenaContextRegistry, ContextStoreError
+from iot_federated_agent_memory.arena_context_api import ArenaContextAPI
 from iot_federated_agent_memory import drive_mirror
 from iot_federated_agent_memory.cyberspace_board import CyberspaceBoardEngine
 from iot_federated_agent_memory.crdt_mesh import CRDTMeshGossipSync, CRDTDeltaMessage
@@ -624,6 +627,8 @@ class FallbackAgentSpaceManager:
         return f"{scope}:{owner_id}"
 
     def get_space(self, scope: str = "user", owner_id: str = "default_user", **kwargs) -> FallbackSingleFileSpaceVFS:
+        scope = re.sub(r"[^a-z0-9_\-]", "_", str(scope or "").lower().strip()) or "user"
+        owner_id = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", str(owner_id or "").strip()).lstrip(".") or "default_user"
         key = self._space_key(scope, owner_id)
         if key not in self._spaces:
             folder = os.path.join(self.base_dir, f"{scope}s")
@@ -774,6 +779,9 @@ def _get_space_manager():
 
 space_manager = _get_space_manager()
 
+# Brain Arena: one context store per (account, brain), see arena_context.py.
+arena_context = ArenaContextRegistry()
+
 # Register seed peers for live dashboard (IP addresses redacted, peripherals OFF by default)
 relay.register_peer("peer-primary-mac", "Mac Studio (M1 Chip)", "redacted", 50004, has_video=False, has_audio=False, has_screen=False)
 relay.register_peer("peer-secondary-node", "Collaborator Node", "redacted", 50006, has_video=False, has_audio=False, has_screen=False)
@@ -781,6 +789,10 @@ relay.register_peer("peer-secondary-node", "Collaborator Node", "redacted", 5000
 # Moderator registry for space/mesh bans & reported digital artifacts
 banned_peers: Dict[str, Dict[str, Any]] = {}
 reported_artifacts: List[Dict[str, Any]] = []
+
+ARENA_CONTEXT_API = ArenaContextAPI(
+    arena_context, lambda: account_registry, banned_peers=banned_peers, space_manager_getter=_get_space_manager,
+)
 
 HTML_UI = MESH_OS_HTML_UI
 
@@ -1055,6 +1067,15 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             return
         prompt = data.get("prompt") or ""
         messages = data.get("messages") or [{"role": "user", "content": prompt or "Hello from the Brain Arena"}]
+        arena_ctx = None
+        if data.get("agent_id"):
+            # This brain's own files (its .space + linked drive files) go in
+            # before the side is authorized, so they count toward its cost.
+            try:
+                messages, arena_ctx = ARENA_CONTEXT_API.inject_context(account, data, model_alias, messages)
+            except ContextStoreError as ce:
+                self._send_json({"error": ce.message, "code": ce.code}, ce.status)
+                return
         prompt_text = " ".join(str(m.get("content", "")) for m in messages if isinstance(m, dict))
         max_tokens = max(1, min(int(data.get("max_tokens", 512)), self.ARENA_MAX_TOKENS))
         side = str(data.get("arena_side") or data.get("side") or "").upper()
@@ -1087,6 +1108,8 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             self._arena_error(ae)
             return
         completion["arena"] = {"match_id": match_id, "side": side}
+        if arena_ctx is not None:
+            completion["arena_context"] = arena_ctx
         self._send_json(completion, 200)
 
     def _handle_passkey_post(self, path: str) -> None:
@@ -1130,6 +1153,8 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
+        if ARENA_CONTEXT_API.handle_post(self, parsed):
+            return
         if parsed.path == "/api/tincan/send":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
@@ -2536,6 +2561,8 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urlparse(self.path)
+        if ARENA_CONTEXT_API.handle_get(self, parsed):
+            return
         clean_path = parsed.path.rstrip("/") if parsed.path != "/" else "/"
         if clean_path in SINGLE_WINDOW_ROUTES:
             # Single-window routes: the shell reads location.pathname and opens that window.
@@ -2585,7 +2612,8 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 else:
                     self._send_html(f"<!DOCTYPE html><html><body><h1>TinCan iOS Simulator</h1><p>Screen: {screen}</p></body></html>", 200)
             return
-        elif parsed.path in ("/", "/health", "/call", "/tv", "/os", "/mesh", "/board", "/cyberspace", "/terminal"):
+        elif parsed.path in ("/", "/health", "/call", "/tv", "/os", "/mesh", "/board", "/cyberspace", "/terminal",
+                             "/arena", "/quests", "/rewards"):
             raw, gz, etag = _get_html_Entry(HTML_UI)
             if self.headers.get("If-None-Match") == etag:
                 self.send_response(304)

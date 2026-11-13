@@ -97,6 +97,8 @@ def test_ui_arena_pickers():
     assert '<select id="arenaModelAInput"' in H and '<select id="arenaModelBInput"' in H
     assert 'id="arenaSwapBtn"' in H and "tincan_arena_models" in H and "/api/mesh/arena/models" in H
     # The duel itself is no longer hard-coded (the Aeonik terminal's `ask` command may still use a default).
-    start = H.index("async function runArenaBattle()")
-    duel = H[start:H.index("\n    }\n", start)]
+    # The duel lives in the shared arena script (arena_duel_ui.py), used by every arena view.
+    start = H.index("window.arenaDuelRun = async function")
+    duel = H[start:H.index("\n  };\n", start)]
+    assert "model: models[side]" in duel and "/api/mesh/arena/match" in duel
     assert "model: 'gemini-brain'" not in duel and "model: 'claude-brain'" not in duel

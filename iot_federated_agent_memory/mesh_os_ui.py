@@ -1053,6 +1053,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <div id="win-arena" class="mesh-window w-[560px]" data-zen-window="true" data-window-id="win-arena" style="top: 720px; left: 24px; z-index: 22;">
       <!--TC_TITLEBAR {"id": "win-arena", "icon": "🧠", "title": "AI Brain Router & Arena"}-->
       <div class="window-body p-4 space-y-4 max-h-[620px] overflow-y-auto">
+        <!-- Two-brain duel with per-brain context (arena_duel_ui.py) -->
+        <!--ARENA_DUEL:arenaWin-->
+
         <div class="flex flex-wrap justify-between items-center gap-2">
           <div>
             <h2 class="text-sm font-bold text-white flex items-center gap-2">
@@ -1368,87 +1371,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- Middle Section: Side-by-Side AI Brain Arena -->
-        <div id="arenaBattleBox" class="bg-slate-950/90 border border-indigo-900/60 rounded-xl p-4 space-y-3">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5">
-                <span>⚔️</span> Side-by-Side AI Brain Arena Duel
-              </h3>
-              <p class="text-[11px] text-slate-400">Pick two chat models the router supports, send the same prompt to both, and vote for the better answer (+150 XP). Duels are billed to your signed-in account.</p>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-[11px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800 px-2 py-0.5 rounded">
-                Dynamic OpenRouter Arbiter
-              </span>
-            </div>
-          </div>
-
-          <!-- Model A & Model B pickers: filled from /api/mesh/arena/models (what the AI router actually supports) -->
-          <div class="aeonik-scope flex flex-col md:flex-row items-stretch md:items-center gap-2 pt-1">
-            <div class="flex-1 min-w-0 bg-slate-900/70 border border-emerald-900/60 rounded-lg p-2 flex items-center gap-2">
-              <label for="arenaModelAInput" class="text-[11px] font-mono text-emerald-400 font-bold shrink-0">Model A:</label>
-              <select id="arenaModelAInput" onchange="onArenaModelChange()" class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-emerald-300 font-mono focus:border-emerald-500 focus:outline-none">
-                <option value="gemini-brain">gemini-brain</option>
-              </select>
-            </div>
-            <button id="arenaSwapBtn" onclick="swapArenaModels()" title="Swap left and right models" aria-label="Swap models" class="self-center px-2 py-1 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 rounded-lg font-mono text-xs transition active:scale-95">⇄</button>
-            <div class="flex-1 min-w-0 bg-slate-900/70 border border-cyan-900/60 rounded-lg p-2 flex items-center gap-2">
-              <label for="arenaModelBInput" class="text-[11px] font-mono text-cyan-400 font-bold shrink-0">Model B:</label>
-              <select id="arenaModelBInput" onchange="onArenaModelChange()" class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-cyan-300 font-mono focus:border-cyan-500 focus:outline-none">
-                <option value="claude-brain">claude-brain</option>
-              </select>
-            </div>
-          </div>
-          <div id="arenaModelsNote" class="text-[10px] font-mono text-slate-500 -mt-1"></div>
-
-          <div class="flex gap-2">
-            <input id="arenaPromptInput" type="text" value="Explain zero-knowledge proofs and federated CRDT meshes in two concise sentences." class="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-xs text-white font-mono placeholder:text-slate-600">
-            <button onclick="runArenaBattle()" class="px-4 py-1.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:brightness-110 text-white font-semibold rounded text-xs transition active:scale-95 shrink-0 flex items-center gap-1.5">
-              <span>⚔️</span> <span>Battle 2 Brains</span>
-            </button>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-            <!-- Brain A -->
-            <div class="p-3 bg-slate-900/90 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
-              <div class="flex justify-between items-center pb-1.5 border-b border-slate-800">
-                <span class="font-bold text-xs text-emerald-300 font-mono">Brain A</span>
-                <span id="arenaLabelA" class="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">gemini-brain</span>
-              </div>
-              <div id="arenaResultA" class="text-xs font-mono text-slate-200 min-h-[90px] max-h-[160px] overflow-y-auto whitespace-pre-wrap bg-black/40 p-2.5 rounded">
-                Click "Battle 2 Brains" above to dispatch simultaneous prompts...
-              </div>
-              <div class="space-y-1.5 pt-1">
-                <button id="arenaVoteBtnA" onclick="voteArenaWinner('A')" class="w-full py-1.5 bg-emerald-700/80 hover:bg-emerald-600 text-white font-semibold rounded text-xs transition active:scale-95 font-mono">
-                  🏆 Vote Brain A (+150 XP)
-                </button>
-                <button onclick="sendArenaResultToSpace('A')" class="w-full py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-mono flex items-center justify-center gap-1 border border-slate-700 transition active:scale-95" title="Copy code/output to Dynamic Agent Space and execute in sandbox">
-                  🚀 Use in Agent Space &amp; Sandbox
-                </button>
-              </div>
-            </div>
-
-            <!-- Brain B -->
-            <div class="p-3 bg-slate-900/90 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
-              <div class="flex justify-between items-center pb-1.5 border-b border-slate-800">
-                <span class="font-bold text-xs text-cyan-300 font-mono">Brain B</span>
-                <span id="arenaLabelB" class="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">claude-brain</span>
-              </div>
-              <div id="arenaResultB" class="text-xs font-mono text-slate-200 min-h-[90px] max-h-[160px] overflow-y-auto whitespace-pre-wrap bg-black/40 p-2.5 rounded">
-                Click "Battle 2 Brains" above to dispatch simultaneous prompts...
-              </div>
-              <div class="space-y-1.5 pt-1">
-                <button id="arenaVoteBtnB" onclick="voteArenaWinner('B')" class="w-full py-1.5 bg-cyan-700/80 hover:bg-cyan-600 text-white font-semibold rounded text-xs transition active:scale-95 font-mono">
-                  🏆 Vote Brain B (+150 XP)
-                </button>
-                <button onclick="sendArenaResultToSpace('B')" class="w-full py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-mono flex items-center justify-center gap-1 border border-slate-700 transition active:scale-95" title="Copy code/output to Dynamic Agent Space and execute in sandbox">
-                  🚀 Use in Agent Space &amp; Sandbox
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- Middle Section: Brain Arena duel (shared with win-arena, see arena_duel_ui.py) -->
+        <!--ARENA_DUEL:arena-->
 
         <!-- Bottom Section: Live Operator Leaderboard -->
         <div>
@@ -4673,170 +4597,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     // =========================================================================
-    // AI Brain Arena Battle Engine & Peer Voting
+    // AI Brain Arena: pickers, duel, voting and per-brain context live in arena_duel_ui.py
     // =========================================================================
-    const ARENA_MODELS_KEY = 'tincan_arena_models';
-    let arenaModelList = [];
-    let arenaLastDuel = null;   // models actually used for the answers on screen
-    const arenaEsc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    window.addEventListener('load', () => { loadArenaModels(); });
-
-    function arenaPick() {
-      const a = document.getElementById('arenaModelAInput');
-      const b = document.getElementById('arenaModelBInput');
-      return { a: (a && a.value) || 'gemini-brain', b: (b && b.value) || 'claude-brain' };
-    }
-
-    async function loadArenaModels() {
-      const selA = document.getElementById('arenaModelAInput');
-      const selB = document.getElementById('arenaModelBInput');
-      const note = document.getElementById('arenaModelsNote');
-      if (!selA || !selB) return;
-      try {
-        const r = await fetch('/api/mesh/arena/models');
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const data = await r.json();
-        arenaModelList = data.models || [];
-        const groups = { configured: 'Configured brains', catalog: 'Router catalog' };
-        const html = Object.entries(groups).map(([kind, label]) => {
-          const opts = arenaModelList.filter(m => m.kind === kind)
-            .map(m => `<option value="${arenaEsc(m.id)}" title="${arenaEsc(m.secondary || m.id)}">${arenaEsc(m.name || m.id)}${m.secondary && m.secondary !== m.name ? ' \u00b7 ' + arenaEsc(m.secondary) : ''}</option>`).join('');
-          return opts ? `<optgroup label="${label}">${opts}</optgroup>` : '';
-        }).join('');
-        selA.innerHTML = html; selB.innerHTML = html;
-        let saved = null;
-        try { saved = JSON.parse(localStorage.getItem(ARENA_MODELS_KEY) || 'null'); } catch (e) {}
-        const ids = new Set(arenaModelList.map(m => m.id));
-        const def = data.default || { a: 'gemini-brain', b: 'claude-brain' };
-        selA.value = saved && ids.has(saved.a) ? saved.a : def.a;
-        selB.value = saved && ids.has(saved.b) ? saved.b : def.b;
-        if (note) note.textContent = `${arenaModelList.length} models from the AI router. Sign in to duel: each side is billed to your own account at the model's real cost.`;
-      } catch (err) {
-        if (note) note.textContent = `Couldn't load the model list (${err.message}); using the default brains.`;
-      }
-      updateArenaModelLabels();
-    }
-
-    function onArenaModelChange() {
-      const p = arenaPick();
-      try { localStorage.setItem(ARENA_MODELS_KEY, JSON.stringify(p)); } catch (e) {}
-      updateArenaModelLabels();
-    }
-
-    function swapArenaModels() {
-      const selA = document.getElementById('arenaModelAInput');
-      const selB = document.getElementById('arenaModelBInput');
-      if (!selA || !selB) return;
-      const t = selA.value; selA.value = selB.value; selB.value = t;
-      onArenaModelChange();
-    }
-
-    async function runArenaBattle() {
-      initAudio();
-      const prompt = document.getElementById('arenaPromptInput').value.trim();
-      const resA = document.getElementById('arenaResultA');
-      const resB = document.getElementById('arenaResultB');
-      const { a, b } = arenaPick();
-      arenaLastDuel = null;
-
-      resA.innerText = `Routing prompt to ${a}...`;
-      resB.innerText = `Routing prompt to ${b}...`;
-
-      spawnPacketFlight(myPeerId, a, 'ai_prompt', a);
-      spawnPacketFlight(myPeerId, b, 'ai_prompt', b);
-
-      // Duels bill the signed-in account (server-side session cookie), never the shared bucket.
-      // 1) open a match for this account and the two models, 2) run each side against it.
-      let match;
-      try {
-        const mr = await fetch('/api/mesh/arena/match', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model_a: a, model_b: b, prompt })
-        });
-        const md = await mr.json();
-        if (mr.status === 401) {
-          resA.innerText = resB.innerText = 'Sign in to duel. Brain Arena duels are billed to your own account.';
-          showQuickNotification('Sign in to duel: duels bill your own account.');
-          if (typeof openAccountModal === 'function') openAccountModal(false);
-          return;
-        }
-        if (mr.status === 402) {
-          resA.innerText = resB.innerText = (md.error || 'Not enough tokens for this duel.') + ' Top up or watch a sponsor ad to continue.';
-          return;
-        }
-        if (!mr.ok) throw new Error(md.error || `HTTP ${mr.status}`);
-        match = md.match;
-      } catch (err) {
-        resA.innerText = resB.innerText = 'Battle error: ' + err.message;
-        return;
-      }
-
-      const ask = (model, side) => fetch('/api/chat', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, prompt, arena: true, match_id: match.match_id, arena_side: side })
-      }).then(async r => ({ status: r.status, body: await r.json() }));
-
-      const render = (el, res) => {
-        const d = res.body || {};
-        if (res.status === 402) return el.innerText = (d.error || 'Not enough tokens for this side.') + ' Top up to continue.';
-        const text = d.choices?.[0]?.message?.content || d.text || d.error || JSON.stringify(d, null, 2);
-        const bill = d.billing ? `\n\n— billed to you: ${d.billing.tokens_billed} tokens · $${Number(d.billing.cost_usd || 0).toFixed(6)}` : '';
-        el.innerText = text + bill;
-      };
-
-      try {
-        // Sequential on purpose: side B is checked against the balance left after side A.
-        const respA = await ask(a, 'A');
-        render(resA, respA);
-        const respB = await ask(b, 'B');
-        render(resB, respB);
-        if (respA.status === 200 && respB.status === 200) {
-          arenaLastDuel = { a, b, prompt, match_id: match.match_id };
-          const total = (respB.body.billing && respB.body.billing.match_total_cost_usd) || 0;
-          showQuickNotification(`Duel billed to your account: $${Number(total).toFixed(6)} (${match.match_id.slice(0, 14)}…)`);
-        }
-      } catch (err) {
-        resA.innerText = 'Battle error: ' + err.message;
-        resB.innerText = 'Battle error: ' + err.message;
-      }
-    }
-
-    async function voteArenaWinner(side) {
-      initAudio();
-      const duel = arenaLastDuel;
-      if (!duel || !duel.match_id) {
-        showQuickNotification('Run a duel first: votes are recorded against a billed match.');
-        return;
-      }
-      const winnerSide = side === 'B' ? 'B' : 'A';
-      const winnerModel = winnerSide === 'A' ? duel.a : duel.b;
-      playXpChime();
-      spawnPacketFlight(myPeerId, winnerModel, 'ai_prompt', `Vote: ${winnerModel}`);
-      try {
-        const res = await fetch('/api/mesh/arena/vote', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({
-            match_id: duel.match_id,
-            winner_side: winnerSide,
-            prompt_preview: (duel.prompt || '').substring(0, 40),
-            display_name: myPeerId,
-            room: currentRoom
-          })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-        showQuickNotification(`🏆 Vote recorded for ${winnerModel} (${duel.a} vs ${duel.b}). +150 XP.`);
-        pollMeshState();
-      } catch (err) {
-        showQuickNotification('Vote error: ' + err.message);
-      }
-    }
 
     async function triggerQuestAction(actionKey) {
       initAudio();
@@ -8939,28 +8701,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     // =========================================================================
-    // Arena Models & Sandbox Code Pipeline
+    // Notifications
     // =========================================================================
-    function updateArenaModelLabels() {
-      const mA = document.getElementById('arenaModelAInput')?.value.trim() || 'Brain A';
-      const mB = document.getElementById('arenaModelBInput')?.value.trim() || 'Brain B';
-      const lblA = document.getElementById('arenaLabelA');
-      const lblB = document.getElementById('arenaLabelB');
-      if (lblA) lblA.innerText = mA;
-      if (lblB) lblB.innerText = mB;
-    }
-
-    function sendArenaResultToSpace(winner) {
-      const resEl = document.getElementById(winner === 'A' ? 'arenaResultA' : 'arenaResultB');
-      const content = resEl ? resEl.innerText : '';
-      if (!content) return;
-      const editor = document.getElementById('agentspaceEditor');
-      if (editor) editor.value = content;
-      if (typeof setViewerEditMode === 'function') setViewerEditMode();
-      toggleWindow('win-agentspace');
-      showQuickNotification(`Transferred Brain ${winner} output to Dynamic Agent Space sandbox!`);
-    }
-
     function showQuickNotification(msg) {
       const banner = document.getElementById('adminBroadcastBanner');
       const textEl = document.getElementById('adminBroadcastText');
@@ -9313,6 +9055,11 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 </body>
 </html>
 """
+
+# Two-brain arena duel + context panel in every arena view (win-arena and win-quests).
+from .arena_duel_ui import apply_arena_duel  # noqa: E402
+
+MESH_OS_HTML_UI = apply_arena_duel(MESH_OS_HTML_UI)
 
 # Zen startup shell (calm feed + launcher), injected so the classic markup above stays untouched.
 from .zen_shell import apply_zen_shell  # noqa: E402

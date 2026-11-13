@@ -259,7 +259,7 @@ def test_mesh_os_ui_elements():
     # Window and Dock buttons
     assert 'id="win-agentspace"' in MESH_OS_HTML_UI
     assert 'id="dockBtn-win-agentspace"' in MESH_OS_HTML_UI
-    assert "AgentSpace &amp; Wasm Studio.app" in MESH_OS_HTML_UI
+    assert "Space · Ranger VFS &amp; Wasm Studio" in MESH_OS_HTML_UI
     # Rodin 3D Generator elements
     assert "Hyper3D Rodin 3D" in MESH_OS_HTML_UI
     assert 'id="generateRodinBtn"' in MESH_OS_HTML_UI
