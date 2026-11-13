@@ -194,10 +194,23 @@ ZEN_HEAD = r"""
     #zenLauncher kbd { font-family: var(--zen-gothic); font-size: 0.72rem; color: #4a4a4a; border: 1px solid var(--zen-line); border-radius: 5px; padding: 0.1rem 0.4rem; }
     #zenTools { list-style: none; margin: 0; padding: 0; overflow-y: auto; }
     #zenTools button {
-      position: relative; width: 100%; text-align: left; display: grid; grid-template-columns: minmax(0, 19rem) minmax(0, 1fr); align-items: baseline; gap: 1.5rem;
+      position: relative; width: 100%; text-align: left; display: grid; grid-template-columns: minmax(0, 19rem) minmax(0, 1fr) auto; align-items: baseline; gap: 1.5rem;
       padding: 0.5rem 0 0.5rem 1.5rem; color: var(--zen-washi-2);
       transition: color 260ms var(--zen-ease);
     }
+    #zenTools button.zl-cmd { grid-template-columns: minmax(0, 1fr) auto; gap: 1rem; }
+    #zenTools .zl-act { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.68rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #4a4a4a; border: 1px solid var(--zen-line); border-radius: 999px; padding: 0.1rem 0.55rem; white-space: nowrap; justify-self: end; }
+    #zenTools button[aria-selected="true"] .zl-act { background: #111111; color: #ecf1e6; }
+    #zenTools .zl-cmd .zl-name { font-size: clamp(1.05rem, 1.7vw, 1.35rem); }
+    #zenHint { margin: 0 0 1rem; font-family: var(--zen-gothic); font-size: 0.82rem; color: #4a4a4a; letter-spacing: 0.02em; }
+    #zenHint:empty, #zenHint[hidden] { display: none; }
+    #zenStatus { margin: 0.6rem 0 0; min-height: 1.1rem; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.74rem; color: #4a4a4a; }
+    #zenOut {
+      margin: 1rem 0 0; padding: 0.7rem 0.9rem; max-height: 34vh; overflow: auto; white-space: pre-wrap; word-break: break-word;
+      font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.78rem; line-height: 1.45; color: var(--zen-washi);
+      border: 1px solid var(--zen-line); border-radius: 8px; background: rgba(255, 255, 255, 0.55);
+    }
+    #zenOut[hidden] { display: none; }
     #zenTools button::before {
       content: ""; position: absolute; left: 0.2rem; top: 50%; width: 7px; height: 7px; margin-top: -3px;
       border-radius: 50%; background: var(--zen-kaki); opacity: 0; transform: scale(0.4);
@@ -305,14 +318,17 @@ ZEN_BODY = r"""
 
   <ol id="zenTicks" class="zen-chrome zen-feed-only" aria-label="Clips"></ol>
 
-  <div id="zenLauncher" role="dialog" aria-modal="true" aria-label="Tools">
+  <div id="zenLauncher" role="dialog" aria-modal="true" aria-label="Command bar">
     <div class="zl-inner">
       <label for="zenSearch">
-        <input id="zenSearch" type="text" placeholder="Find a tool" autocomplete="off" spellcheck="false" aria-controls="zenTools" aria-autocomplete="list">
+        <input id="zenSearch" type="text" placeholder="Search, @message, > run…" autocomplete="off" spellcheck="false" aria-controls="zenTools" aria-autocomplete="list">
         <kbd>esc</kbd>
       </label>
-      <ul id="zenTools" role="listbox" aria-label="Tools"></ul>
-      <p class="zl-foot">↑ ↓ to move · enter to open · esc to return to the feed</p>
+      <p id="zenHint">Search tools · @ message someone · > run a command · / commands</p>
+      <ul id="zenTools" role="listbox" aria-label="Results"></ul>
+      <pre id="zenOut" hidden tabindex="0" aria-label="Output"></pre>
+      <p id="zenStatus" role="status" aria-live="polite"></p>
+      <p class="zl-foot">↑ ↓ to move · enter to run · esc to return to the feed</p>
     </div>
   </div>
 
@@ -616,17 +632,248 @@ ZEN_BODY = r"""
       // ---- Launcher ---------------------------------------------------------------
       let filtered = [];
       let sel = 0;
+      let busy = false;
+      const SLASH = [
+        { cmd: '/terminal', tool: 'win-terminal', desc: 'Quickstart and commands' },
+        { cmd: '/space', tool: 'win-agentspace', desc: 'Files, code runs and the notes editor' },
+        { cmd: '/arena', tool: 'win-arena', desc: 'AI models, routing and duels' },
+        { cmd: '/board', tool: 'win-board', desc: 'Topics, threads and the knowledge graph' },
+        { cmd: '/talk', tool: 'chat', desc: 'Room chat, voice and video calls' },
+        { cmd: '/tokens', tool: 'win-billing', desc: 'Balance, store and sponsors' },
+        { cmd: '/quests', tool: 'win-quests', desc: 'Quests, XP and rankings' },
+        { cmd: '/help', help: true, desc: 'Show what the prefixes do' },
+      ];
+      const HELP_TEXT = 'Search tools      type a name, enter opens it\n' +
+        '@name message     tag someone in the room chat\n' +
+        '> command         run a command in your space ($ works too)\n' +
+        '/command          /terminal /space /arena /board /talk /tokens /quests /help\n' +
+        'Tab completes an @name, esc returns to the feed';
+
+      // ---- Command bar adapters (one small seam per outside system) ----------------
+      const peerId = () => (typeof myPeerId !== 'undefined' && myPeerId) || 'zen';
+      const roomName = () => ((($('roomInput') || {}).value || '').trim() || 'main');
+      const spaceScope = () => (typeof termScope === 'function' ? termScope() : 'user');
+      const spaceOwner = () => (typeof termOwner === 'function' ? termOwner() : peerId());
+      async function postJson(url, payload) {
+        const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || d.error) throw new Error(d.error || ('HTTP ' + r.status));
+        return d;
+      }
+      async function spaceExec(body) {
+        return postJson('/api/space/exec', Object.assign({ scope: spaceScope(), owner_id: spaceOwner() }, body));
+      }
+      // Shell adapter: the shared TinCanShell interpreter when the page has it, else a small
+      // headless interpreter over the same /api/space/* endpoints the Terminal uses.
+      async function runShell(line) {
+        if (window.TinCanShell && typeof window.TinCanShell.run === 'function') return window.TinCanShell.run(line);
+        return legacyShell(line);
+      }
+      async function legacyShell(line) {
+        const [verb, ...rest] = line.split(/\s+/);
+        const arg = rest.join(' ');
+        const fmt = (d) => ((d.stdout || '') + (d.stderr ? '\n' + d.stderr : '')) || ('exit ' + d.exit_code);
+        try {
+          if (verb === 'help') return { ok: true, text: 'ls [dir]    list files in your space\nrun [file]  run a file in the sandbox (default /src/main.py)\npy <code>   run Python in the sandbox\nruns        list recent runs\nstatus      mesh room status\nask <q>     ask the AI gateway\nclear       clear this output' };
+          if (verb === 'ls') {
+            const r = await fetch('/api/space/ls?scope=' + encodeURIComponent(spaceScope()) + '&owner_id=' + encodeURIComponent(spaceOwner()), { cache: 'no-store' });
+            const s = await r.json();
+            if (!r.ok || s.error) throw new Error(s.error || ('HTTP ' + r.status));
+            const dir = arg ? ('/' + arg.replace(/^\/+|\/+$/g, '') + '/') : '/';
+            const names = new Set();
+            (s.files || []).forEach((f) => {
+              if (!String(f.path).startsWith(dir)) return;
+              const tail = String(f.path).slice(dir.length);
+              names.add(tail.includes('/') ? tail.split('/')[0] + '/' : tail);
+            });
+            return { ok: true, text: names.size ? Array.from(names).sort().join('  ') : 'ls: ' + dir + ': no files' };
+          }
+          if (verb === 'run') return { ok: true, text: fmt(await spaceExec({ entrypoint: arg ? (arg.startsWith('/') ? arg : '/' + arg) : '/src/main.py', runtime: 'auto' })) };
+          if (verb === 'py' || verb === 'exec') return { ok: true, text: fmt(await spaceExec({ runtime: 'python', code_override: arg })) };
+          if (verb === 'runs') {
+            const r = await fetch('/api/space/ls?scope=' + encodeURIComponent(spaceScope()) + '&owner_id=' + encodeURIComponent(spaceOwner()), { cache: 'no-store' });
+            const s = await r.json();
+            return { ok: true, text: (s.recent_runs || []).map((x) => (x.runtime + '  exit ' + x.exit_code + '  ' + x.duration_ms + 'ms  ' + (x.entrypoint || '(inline)'))).join('\n') || 'No runs yet.' };
+          }
+          if (verb === 'status') {
+            const d = await (await fetch('/api/mesh/state')).json();
+            return { ok: true, text: 'room ' + (d.room || 'main') + ' · ' + Object.keys(d.peers || {}).length + ' peers · relay online' };
+          }
+          if (verb === 'ask' && arg) return { ok: true, text: await askAI(arg) };
+          return { ok: false, text: verb + ': command not found. Type help.' };
+        } catch (e) {
+          return { ok: false, text: verb + ': ' + e.message };
+        }
+      }
+      async function askAI(prompt) {
+        const d = await postJson('/api/chat', { model: 'gemini-brain', prompt: prompt, peer_id: peerId() });
+        return d.content || d.response || JSON.stringify(d);
+      }
+      // Room chat: reuse the Talk window's send path so the message also lands in this user's own log.
+      async function sendRoom(text) {
+        const input = $('chatInput');
+        if (input && typeof sendChatMessage === 'function') {
+          input.value = text;
+          await sendChatMessage();
+          return;
+        }
+        const name = (typeof getVerifiedDisplayName === 'function' ? getVerifiedDisplayName() : peerId());
+        await postJson('/api/webrtc/signal', { from: peerId(), to: '*', type: 'chat', room: roomName(), payload: { text: text, sender: name, timestamp: Date.now() } });
+      }
+
+      // ---- People (@): the board roster, loaded when the bar opens ------------------
+      let people = [];
+      let peopleAt = 0;
+      async function loadPeople() {
+        if (Date.now() - peopleAt < 30000) return;
+        peopleAt = Date.now();
+        try {
+          const r = await fetch('/api/board/roster');
+          if (!r.ok) return;
+          const d = await r.json();
+          people = (d.users || []).map((u) => ({
+            handle: String(u.username || '').replace(/^@+/, ''),
+            name: u.full_name || '',
+            role: u.role || 'Peer',
+            verified: !!u.verified,
+          })).filter((u) => u.handle);
+          if (body.classList.contains('zen-launcher') && $('zenSearch').value.trim().startsWith('@')) renderTools();
+        } catch (e) { peopleAt = 0; }
+      }
+
+      // ---- Output pane + status ------------------------------------------------------
+      let outLines = [];
+      function showOut(lines) {
+        const pre = $('zenOut');
+        if (lines === null) { outLines = []; pre.hidden = true; pre.textContent = ''; return; }
+        outLines = lines.slice(-200);
+        pre.textContent = outLines.join('\n');
+        pre.hidden = !outLines.length;
+        pre.scrollTop = pre.scrollHeight;
+      }
+      const appendOut = (text) => showOut(outLines.concat(String(text).split('\n')));
+      function setStatus(msg) { $('zenStatus').textContent = msg || ''; }
+
+      // ---- Result building -----------------------------------------------------------
+      const subseq = (text, q) => { let i = 0; for (const c of text) { if (c === q[i]) i++; if (i === q.length) return true; } return !q.length; };
+      function toolItem(t) {
+        return { act: 'Open', name: t.name, desc: t.desc, run: () => openTool(t) };
+      }
+      function cmdItem(act, name, desc, run, extra) {
+        return Object.assign({ act: act, name: name, desc: desc, cmd: true, run: run }, extra || {});
+      }
+      function gated(what, fn) {
+        return async () => {
+          if (!requireIdentity(what)) return;
+          if (busy) return;
+          busy = true;
+          try { await fn(); } catch (e) { setStatus('Failed: ' + e.message); } finally { busy = false; }
+        };
+      }
+      async function doSend(text, label) {
+        setStatus('Sending…');
+        await sendRoom(text);
+        $('zenSearch').value = '';
+        sel = 0;
+        setStatus('');
+        showOut(null);
+        loadPeople();
+        renderTools();
+        setStatus('Sent' + (label ? ' to ' + label : '') + ' · #' + roomName());
+      }
+      async function doAsk(prompt) {
+        showOut(['> ask ' + prompt, 'Asking the AI gateway…']);
+        try {
+          const text = await askAI(prompt);
+          showOut(['> ask ' + prompt].concat(text.split('\n')));
+        } catch (e) {
+          showOut(['> ask ' + prompt, 'Error: ' + e.message]);
+        }
+      }
+      function doBoard(q) {
+        const tool = TOOLS.find((t) => t.id === 'win-board');
+        openTool(tool);
+        setTimeout(() => {
+          const inp = $('boardSearchInput');
+          if (!inp) return;
+          inp.value = q;
+          if (typeof searchCyberspaceBoard === 'function') searchCyberspaceBoard();
+        }, 120);
+      }
+      async function doShell(line) {
+        const pre = $('zenOut');
+        if (line === 'clear') { showOut(null); $('zenSearch').value = ''; renderTools(); return; }
+        appendOut('$ ' + line);
+        setStatus('Running…');
+        const res = await runShell(line);
+        const text = String((res && res.text) != null ? res.text : '').replace(/\s+$/, '');
+        appendOut(text || '(no output)');
+        setStatus(res && res.ok ? 'Done' : 'Exited with an error');
+        $('zenSearch').value = '';
+        sel = 0;
+        renderTools();
+        pre.scrollTop = pre.scrollHeight;
+        $('zenSearch').focus();
+      }
+
+      function buildItems(raw) {
+        const q = raw.trim();
+        const ql = q.toLowerCase();
+        const first = q.charAt(0);
+        if (first === '>' || first === '$') {
+          const line = q.slice(1).trim();
+          if (!line) return [cmdItem('Run', 'Type a command', 'ls · run · py print(1) · help', () => {}, { idle: true })];
+          return [cmdItem('Run', line, 'Run in your space', gated('run commands', () => doShell(line)))];
+        }
+        if (first === '/') {
+          const word = ql.split(/\s+/)[0];
+          return SLASH.filter((c) => c.cmd.startsWith(word)).map((c) => cmdItem(c.help ? 'Help' : 'Open', c.cmd, c.desc, () => {
+            if (c.help) { showOut(HELP_TEXT.split('\n')); $('zenSearch').value = ''; sel = 0; renderTools(); return; }
+            openTool(TOOLS.find((t) => t.id === c.tool));
+          }, { complete: c.cmd }));
+        }
+        if (first === '@') {
+          const m = q.match(/^@(\S*)(?:\s+([\s\S]*))?$/);
+          const typed = (m ? m[1] : '').toLowerCase();
+          const msg = m && m[2] ? m[2].trim() : '';
+          const matches = people.filter((u) => u.handle.toLowerCase().startsWith(typed) || u.name.toLowerCase().includes(typed) && typed.length > 1);
+          const exact = people.find((u) => u.handle.toLowerCase() === typed);
+          if (!msg) {
+            const list = matches.slice(0, 8).map((u) => cmdItem('Tag', '@' + u.handle, (u.verified ? 'verified · ' : '') + (u.name ? u.name + ' · ' : '') + u.role,
+              () => { $('zenSearch').value = '@' + u.handle + ' '; sel = 0; renderTools(); $('zenSearch').focus(); }, { complete: '@' + u.handle + ' ' }));
+            if (!list.length) list.push(cmdItem('Tag', '@' + typed, typed ? 'Not on the roster yet. Keep typing a message to tag them anyway.' : 'Nobody on the roster yet.', () => {}, { idle: true }));
+            return list;
+          }
+          const target = exact || (matches.length === 1 ? matches[0] : null);
+          const handle = target ? target.handle : (m ? m[1] : '');
+          const text = '@' + handle + ' ' + msg;
+          return [cmdItem('Send', 'Tag @' + handle + ' in the room', msg, gated('send messages in the room chat', () => doSend(text, '@' + handle)))];
+        }
+        const items = TOOLS.filter((t) => (!t.admin || isAdmin()) &&
+          (!ql || t.name.toLowerCase().includes(ql) || t.desc.toLowerCase().includes(ql) || (ql.length >= 4 && subseq(t.name.toLowerCase(), ql)))).map(toolItem);
+        if (q) {
+          items.push(cmdItem('Send', 'Send to room', q, gated('send messages in the room chat', () => doSend(q, ''))));
+          items.push(cmdItem('Ask AI', 'Ask AI', q, gated('use the AI gateway', () => doAsk(q))));
+          items.push(cmdItem('Board', 'Search the board', q, () => { if (requireIdentity('open the board')) doBoard(q); }));
+        }
+        return items;
+      }
+      function runSelected() {
+        const it = filtered[sel];
+        if (!it || it.idle) return;
+        it.run();
+      }
       function renderTools() {
-        const q = $('zenSearch').value.trim().toLowerCase();
-        filtered = TOOLS.filter((t) => (!t.admin || isAdmin()) &&
-          (!q || t.name.toLowerCase().includes(q) || t.desc.toLowerCase().includes(q)));
+        const raw = $('zenSearch').value;
+        $('zenHint').hidden = !!raw.trim();
+        filtered = buildItems(raw);
         sel = Math.min(sel, Math.max(0, filtered.length - 1));
         const ul = $('zenTools');
         ul.innerHTML = '';
         if (!filtered.length) {
           const li = document.createElement('li');
           li.className = 'zl-empty';
-          li.textContent = 'Nothing by that name.';
+          li.textContent = raw.trim().charAt(0) === '/' ? 'No such command. Try /help.' : 'Nothing by that name.';
           ul.appendChild(li);
           return;
         }
@@ -634,12 +881,15 @@ ZEN_BODY = r"""
           const li = document.createElement('li');
           const b = document.createElement('button');
           b.type = 'button';
+          b.className = t.cmd ? 'zl-cmd' : '';
           b.setAttribute('role', 'option');
           b.setAttribute('aria-selected', i === sel ? 'true' : 'false');
-          b.innerHTML = '<span class="zl-name"></span><span class="zl-desc"></span>';
-          b.firstChild.textContent = t.name;
-          b.lastChild.textContent = t.desc;
-          b.addEventListener('click', () => openTool(t));
+          b.innerHTML = '<span class="zl-name"></span><span class="zl-desc"></span><span class="zl-act"></span>';
+          b.children[0].textContent = t.name;
+          b.children[1].textContent = t.desc;
+          b.children[2].textContent = t.act;
+          if (t.cmd) { b.children[1].style.gridColumn = '1'; b.children[2].style.gridRow = '1 / span 2'; b.children[2].style.gridColumn = '2'; }
+          b.addEventListener('click', () => { sel = i; runSelected(); });
           b.addEventListener('mousemove', () => { if (sel !== i) { sel = i; mark(); } });
           li.appendChild(b);
           ul.appendChild(li);
@@ -672,7 +922,7 @@ ZEN_BODY = r"""
         const tool = TOOLS.find((t) => t.id === id);
         if (tool) openTool(tool);
       }));
-      $('zenSearch').addEventListener('input', () => { sel = 0; renderTools(); });
+      $('zenSearch').addEventListener('input', () => { sel = 0; setStatus(''); renderTools(); });
 
       function refreshJoin() {
         const u = (localStorage.getItem('tincan_username') || '').trim().replace(/^@+/, '');
@@ -708,7 +958,8 @@ ZEN_BODY = r"""
           if (e.key === 'Escape') { e.preventDefault(); closeLauncher(); }
           else if (e.key === 'ArrowDown') { e.preventDefault(); if (filtered.length) { sel = (sel + 1) % filtered.length; mark(); } }
           else if (e.key === 'ArrowUp') { e.preventDefault(); if (filtered.length) { sel = (sel - 1 + filtered.length) % filtered.length; mark(); } }
-          else if (e.key === 'Enter') { e.preventDefault(); if (filtered[sel]) openTool(filtered[sel]); }
+          else if (e.key === 'Enter') { e.preventDefault(); runSelected(); }
+          else if (e.key === 'Tab' && filtered[sel] && filtered[sel].complete) { e.preventDefault(); $('zenSearch').value = filtered[sel].complete; sel = 0; renderTools(); }
           return;
         }
         if (typing(document.activeElement)) return;
