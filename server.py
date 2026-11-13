@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import io
 import json
+from http.cookies import SimpleCookie
 import os
 import secrets
 import subprocess
@@ -28,6 +29,7 @@ from iot_federated_agent_memory.mesh_os_engine import TinCanMeshOSEngine
 from iot_federated_agent_memory.mesh_os_ui import MESH_OS_HTML_UI
 from iot_federated_agent_memory.account_registry import (
     EMAIL_EXISTS_MESSAGE,
+    ArenaBillingError,
     EmailAlreadyRegisteredError,
     PeerAccountRegistry,
 )
@@ -49,6 +51,7 @@ from iot_federated_agent_memory.thread_api import (
     set_account_registry as set_thread_account_registry,
 )
 from iot_federated_agent_memory.sponsor_ads import SponsorAdManager
+from iot_federated_agent_memory import drive_mirror
 from iot_federated_agent_memory.cyberspace_board import CyberspaceBoardEngine
 from iot_federated_agent_memory.crdt_mesh import CRDTMeshGossipSync, CRDTDeltaMessage
 from iot_federated_agent_memory.edge_telemetry import (
@@ -866,7 +869,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         except Exception:
             self._send_empty(404)
 
-    def _send_json(self, data, code=200):
+    def _send_json(self, data, code=200, headers=None):
         raw = json.dumps(data, separators=(",", ":")).encode("utf-8")
         use_gzip = self._accepts_gzip() and len(raw) >= 512
         body = gzip.compress(raw, compresslevel=5) if use_gzip else raw
@@ -879,8 +882,78 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        for hk, hv in (headers or []):
+            self.send_header(hk, hv)
         self.end_headers()
         self._write_body(body)
+
+    def _send_private_json(self, data, code=200):
+        """JSON for local-only endpoints: no CORS header and never cached."""
+        raw = json.dumps(data, separators=(",", ":")).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self._write_body(raw)
+
+    def _drive_mirror_allowed(self) -> bool:
+        return drive_mirror.request_allowed(
+            self.client_address[0] if self.client_address else "",
+            self.headers.get("Host") or "",
+            self.headers.get("X-Forwarded-For") or "",
+        )
+
+    def _handle_drive_get(self, parsed) -> None:
+        """Read-only hard-drive mirror for the Ranger VFS (local server only)."""
+        if parsed.path == "/api/drive/status":
+            allowed = self._drive_mirror_allowed()
+            self._send_private_json({
+                "available": allowed,
+                "on_railway": drive_mirror.running_on_railway(),
+                "fallback": None if allowed else "browser-folder-picker",
+            }, 200)
+            return
+        if not self._drive_mirror_allowed():
+            self._send_private_json({
+                "error": "Drive mirror is only available when TinCan runs on this computer.",
+                "available": False,
+                "fallback": "browser-folder-picker",
+            }, 403)
+            return
+        query = parse_qs(parsed.query)
+        root = drive_mirror.mirror_root()
+        rel = query.get("path", ["/"])[0]
+        try:
+            if parsed.path == "/api/drive/mirror":
+                depth = max(1, min(int(query.get("depth", [drive_mirror.DEFAULT_MAX_DEPTH])[0]), 5))
+                self._send_private_json(drive_mirror.gather_mirror(root, max_depth=depth), 200)
+            elif parsed.path == "/api/drive/ls":
+                self._send_private_json(drive_mirror.list_dir(root, rel), 200)
+            elif parsed.path == "/api/drive/file":
+                self._send_private_json(drive_mirror.read_text_preview(root, rel), 200)
+            elif parsed.path == "/api/drive/raw":
+                abs_path, size, mime = drive_mirror.open_raw(root, rel)
+                self.send_response(200)
+                self.send_header("Content-Type", mime)
+                self.send_header("Content-Length", str(size))
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("X-Content-Type-Options", "nosniff")
+                if query.get("download", ["0"])[0] == "1":
+                    fname = os.path.basename(abs_path).replace('"', "")
+                    self.send_header("Content-Disposition", f'attachment; filename="{fname}"')
+                self.end_headers()
+                if self.command != "HEAD":
+                    for chunk in drive_mirror.iter_file_chunks(abs_path):
+                        self.wfile.write(chunk)
+            else:
+                self._send_private_json({"error": "Not found"}, 404)
+        except drive_mirror.MirrorAccessError as exc:
+            self._send_private_json({"error": str(exc)}, 403)
+        except (FileNotFoundError, NotADirectoryError):
+            self._send_private_json({"error": f"Not found: {rel}"}, 404)
+        except Exception as exc:  # pragma: no cover - defensive
+            self._send_private_json({"error": str(exc)}, 500)
 
     def do_HEAD(self):
         self.do_GET()
@@ -896,6 +969,117 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
     def _client_key(self) -> str:
         fwd = (self.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
         return fwd or (self.client_address[0] if self.client_address else "unknown")
+
+    # ------------------------------------------------------------------
+    # Server-side sign-in session (HttpOnly cookie, or Bearer for the CLI)
+    # ------------------------------------------------------------------
+    SESSION_COOKIE = "tincan_session"
+
+    def _session_token(self) -> str:
+        auth = self.headers.get("Authorization") or ""
+        if auth.lower().startswith("bearer "):
+            return auth[7:].strip()
+        cookie_header = self.headers.get("Cookie") or ""
+        if cookie_header:
+            try:
+                jar = SimpleCookie()
+                jar.load(cookie_header)
+                if self.SESSION_COOKIE in jar:
+                    return jar[self.SESSION_COOKIE].value
+            except Exception:
+                return ""
+        return ""
+
+    def _session_account(self):
+        """The signed-in account for this request, resolved on the server.
+
+        Never derived from a client-sent peer_id.
+        """
+        token = self._session_token()
+        return account_registry.resolve_session(token) if token else None
+
+    def _session_cookie_headers(self, account_peer_id: str):
+        token = account_registry.create_session(account_peer_id)
+        proto = (self.headers.get("X-Forwarded-Proto") or "").split(",")[0].strip().lower()
+        secure = "; Secure" if proto == "https" else ""
+        max_age = int(account_registry.SESSION_TTL_SECONDS)
+        return [("Set-Cookie", f"{self.SESSION_COOKIE}={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age={max_age}{secure}")]
+
+    ARENA_MAX_TOKENS = 1024
+
+    def _arena_error(self, err: "ArenaBillingError") -> None:
+        self._send_json({"error": err.message, "code": err.code, **err.extra}, err.status)
+
+    def _arena_account_or_401(self):
+        account = self._session_account()
+        if not account:
+            self._send_json({
+                "error": "Sign in to duel. Brain Arena duels are billed to your own account.",
+                "code": "sign_in_required",
+            }, 401)
+            return None
+        if account["peer_id"] in banned_peers:
+            self._send_json({"error": f"Banned: {banned_peers[account['peer_id']].get('reason', 'Policy violation')}", "banned": True}, 403)
+            return None
+        return account
+
+    def _handle_arena_match(self, data) -> None:
+        account = self._arena_account_or_401()
+        if not account:
+            return
+        model_a, model_b = data.get("model_a"), data.get("model_b")
+        for m in (model_a, model_b):
+            if not router.is_arena_model_allowed(m):
+                self._send_json({"error": f"Model not allowed in the Brain Arena: {m}"}, 400)
+                return
+        try:
+            match = account_registry.create_arena_match(
+                account["peer_id"], model_a, model_b, prompt_preview=str(data.get("prompt") or "")[:80])
+        except ArenaBillingError as ae:
+            self._arena_error(ae)
+            return
+        self._send_json({"status": "match_created", "match": match,
+                         "token_balance": account["token_balance"]}, 201)
+
+    def _handle_arena_chat(self, data, model_alias) -> None:
+        account = self._arena_account_or_401()
+        if not account:
+            return
+        prompt = data.get("prompt") or ""
+        messages = data.get("messages") or [{"role": "user", "content": prompt or "Hello from the Brain Arena"}]
+        prompt_text = " ".join(str(m.get("content", "")) for m in messages if isinstance(m, dict))
+        max_tokens = max(1, min(int(data.get("max_tokens", 512)), self.ARENA_MAX_TOKENS))
+        side = str(data.get("arena_side") or data.get("side") or "").upper()
+        match_id = str(data.get("match_id") or "")
+        required = account_registry.estimate_side_tokens(prompt_text, max_tokens)
+        try:
+            account_registry.authorize_arena_side(account["peer_id"], match_id, side, model_alias, required)
+        except ArenaBillingError as ae:
+            self._arena_error(ae)
+            return
+        completion = router.dispatch_completion(
+            alias=model_alias,
+            messages=messages,
+            temperature=float(data.get("temperature", 0.7)),
+            max_tokens=max_tokens,
+        )
+        mesh_os.record_flight(account["peer_id"], model_alias, kind="ai_prompt", label=model_alias)
+        usage = completion.get("usage", {}) or {}
+        p_toks = int(usage.get("prompt_tokens", 0))
+        c_toks = int(usage.get("completion_tokens", 0))
+        t_toks = int(usage.get("total_tokens", p_toks + c_toks))
+        cost = float(completion.get("cost_usd") or usage.get("cost") or 0.0)
+        try:
+            completion["billing"] = account_registry.bill_tokens(
+                peer_id=account["peer_id"], prompt_tokens=p_toks, completion_tokens=c_toks,
+                total_tokens=t_toks, cost_usd=cost, model=model_alias,
+                arena_match_id=match_id, arena_side=side,
+            )
+        except ArenaBillingError as ae:
+            self._arena_error(ae)
+            return
+        completion["arena"] = {"match_id": match_id, "side": side}
+        self._send_json(completion, 200)
 
     def _handle_passkey_post(self, path: str) -> None:
         content_length = int(self.headers.get("Content-Length", 0) or 0)
@@ -915,14 +1099,16 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json(out, 200)
             elif path == "/api/passkey/register/verify":
                 account = passkey_auth.finish_registration(peer_id, str(data.get("challenge_id") or ""), data.get("credential"))
-                self._send_json({"status": "passkey_registered", "account": account}, 200)
+                self._send_json({"status": "passkey_registered", "account": account, "signed_in": True}, 200,
+                                headers=self._session_cookie_headers(account["peer_id"]))
             elif path == "/api/passkey/login/options":
                 rp_id, origins = resolve_relying_party(host)
                 out = passkey_auth.begin_authentication(peer_id, rp_id, origins, email=str(data.get("email") or ""))
                 self._send_json(out, 200)
             elif path == "/api/passkey/login/verify":
                 account = passkey_auth.finish_authentication(peer_id, str(data.get("challenge_id") or ""), data.get("credential"))
-                self._send_json({"status": "signed_in", "account": account}, 200)
+                self._send_json({"status": "signed_in", "account": account}, 200,
+                                headers=self._session_cookie_headers(account["peer_id"]))
             elif path == "/api/account/recovery/request":
                 out = passkey_auth.request_recovery_code(str(data.get("email") or ""), client_key=self._client_key())
                 self._send_json(out, 200)
@@ -961,6 +1147,13 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     self._send_json({"error": f"Banned: {banned_peers[peer_id].get('reason', 'Policy violation')}", "banned": True}, 403)
                     return
                 model_alias = data.get("model", "gemini-brain")
+                if data.get("arena") and not router.is_arena_model_allowed(model_alias):
+                    self._send_json({"error": f"Model not allowed in the Brain Arena: {model_alias}"}, 400)
+                    return
+                if data.get("arena"):
+                    # Duel sides are billed to the signed-in account only. Never the shared bucket.
+                    self._handle_arena_chat(data, model_alias)
+                    return
                 prompt = data.get("prompt")
                 messages = data.get("messages")
                 if not messages:
@@ -1367,18 +1560,75 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"status": "awarded", "award": award, "flight": flight}, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/mesh/arena/match":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                self._handle_arena_match(data if isinstance(data, dict) else {})
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/account/logout":
+            content_length = int(self.headers.get("Content-Length", 0))
+            if content_length:
+                self.rfile.read(content_length)
+            token = self._session_token()
+            revoked = account_registry.revoke_session(token) if token else False
+            self._send_json({"status": "signed_out", "revoked": revoked}, 200, headers=[
+                ("Set-Cookie", f"{self.SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"),
+            ])
         elif parsed.path == "/api/mesh/arena/vote":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
             try:
                 data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                if data.get("match_id"):
+                    # A billed duel: the match record (not the client) says who played and what it cost.
+                    account = self._arena_account_or_401()
+                    if not account:
+                        return
+                    try:
+                        match = account_registry.record_arena_vote(
+                            account["peer_id"], str(data.get("match_id")), str(data.get("winner_side") or ""))
+                    except ArenaBillingError as ae:
+                        self._arena_error(ae)
+                        return
+                    res = mesh_os.vote_arena(
+                        peer_id=account["peer_id"],
+                        winner_alias=match["winner_alias"],
+                        prompt_preview=match["prompt_preview"][:40],
+                        display_name=account.get("username") or account.get("full_name"),
+                        model_a=match["model_a"],
+                        model_b=match["model_b"],
+                        winner_side=match["winner_side"],
+                        match_id=match["match_id"],
+                        cost_usd=match["total_cost_usd"],
+                        tokens=match["total_tokens"],
+                    )
+                    self._send_json({"status": "voted", **res, "match": match}, 200)
+                    return
                 peer_id = data.get("peer_id") or "peer"
                 winner_alias = data.get("winner_alias") or "gemini-brain"
+                model_a = data.get("model_a")
+                model_b = data.get("model_b")
+                winner_side = (data.get("winner_side") or "").upper() or None
+                if model_a or model_b:
+                    for m in (model_a, model_b):
+                        if not router.is_arena_model_allowed(m):
+                            self._send_json({"error": f"Model not allowed in the Brain Arena: {m}"}, 400)
+                            return
+                    if winner_side not in ("A", "B"):
+                        self._send_json({"error": "winner_side must be 'A' or 'B'"}, 400)
+                        return
+                    winner_alias = model_a if winner_side == "A" else model_b
                 res = mesh_os.vote_arena(
                     peer_id=peer_id,
                     winner_alias=winner_alias,
                     prompt_preview=data.get("prompt_preview", ""),
                     display_name=data.get("display_name"),
+                    model_a=model_a,
+                    model_b=model_b,
+                    winner_side=winner_side,
                 )
                 self._send_json({"status": "voted", **res}, 200)
             except Exception as e:
@@ -1485,10 +1735,14 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     "account": account,
                     "has_passkey": passkey_auth.has_passkey(account["peer_id"]),
                 }
+                extra_headers = None
                 if is_new and not body["has_passkey"]:
-                    # Brand-new account: allow this browser to attach its first passkey.
+                    # Brand-new account: allow this browser to attach its first passkey,
+                    # and sign this browser in to the account it just created.
                     body["enroll_token"] = passkey_auth.issue_enrollment_grant(account["peer_id"], purpose="signup")
-                self._send_json(body, 201)
+                    extra_headers = self._session_cookie_headers(account["peer_id"])
+                    body["signed_in"] = True
+                self._send_json(body, 201, headers=extra_headers)
             except EmailAlreadyRegisteredError:
                 self._send_json({"error": EMAIL_EXISTS_MESSAGE, "code": "email_exists"}, 409)
             except ValueError as ve:
@@ -2645,6 +2899,18 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 "version": "2.2.0",
                 "relay_url": "https://iot-federated-agent-memory-production.up.railway.app",
             })
+        elif parsed.path == "/api/account/session":
+            account = self._session_account()
+            if not account:
+                self._send_json({"signed_in": False}, 200)
+            else:
+                self._send_json({"signed_in": True, "peer_id": account["peer_id"],
+                                 "username": account.get("username"),
+                                 "token_balance": account.get("token_balance"),
+                                 "credit_balance_usd": account.get("credit_balance_usd")}, 200)
+        elif parsed.path == "/api/mesh/arena/models":
+            models = router.get_arena_models()
+            self._send_json({"models": models, "count": len(models), "default": router.arena_default_pair()}, 200)
         elif parsed.path in ("/api/models/available", "/api/models/openrouter"):
             models = router.get_available_models() if hasattr(router, "get_available_models") else []
             self._send_json({"models": models, "count": len(models)}, 200)
@@ -2657,6 +2923,8 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         elif parsed.path == "/api/3d/balance":
             billing = _get_hyper3d_billing(router)
             self._send_json(billing, 200)
+        elif parsed.path.startswith("/api/drive/"):
+            self._handle_drive_get(parsed)
         elif parsed.path == "/api/space/ls":
             query = parse_qs(parsed.query)
             scope = query.get("scope", ["user"])[0]

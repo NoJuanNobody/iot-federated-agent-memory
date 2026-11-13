@@ -13,6 +13,28 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
   <title>TinCan Mesh OS 2.1 — Multi-Window, Multiplayer &amp; AI Mesh Gateway</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    /* Ranger VFS: resizable split + read-only viewer */
+    @media (min-width: 768px) {
+      #rangerListPane { width: var(--ranger-list-w, 38%); min-width: 180px; }
+    }
+    .ranger-code { border-collapse: collapse; width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; line-height: 1.55; }
+    .ranger-code td.ln { width: 1%; padding: 0 0.6rem 0 0.5rem; text-align: right; color: #475569; user-select: none; vertical-align: top; border-right: 1px solid #1e293b; white-space: nowrap; }
+    .ranger-code td.lc { padding: 0 0.75rem; color: #e2e8f0; white-space: pre; }
+    .ranger-code.wrap td.lc { white-space: pre-wrap; word-break: break-word; }
+    .ranger-code tr:hover td { background: rgba(30, 41, 59, 0.5); }
+    .tk-c { color: #64748b; font-style: italic; } .tk-s { color: #86efac; } .tk-n { color: #fbbf24; }
+    .tk-w { color: #c4b5fd; } .tk-f { color: #67e8f9; } .tk-k { color: #93c5fd; } .tk-t { color: #f9a8d4; }
+    .ranger-md { color: #cbd5e1; font-size: 12px; line-height: 1.6; }
+    .ranger-md h1, .ranger-md h2, .ranger-md h3, .ranger-md h4 { color: #f1f5f9; font-weight: 700; margin: 0.9em 0 0.4em; }
+    .ranger-md h1 { font-size: 1.35em; border-bottom: 1px solid #1e293b; padding-bottom: 0.2em; } .ranger-md h2 { font-size: 1.18em; } .ranger-md h3 { font-size: 1.05em; }
+    .ranger-md p, .ranger-md ul, .ranger-md ol, .ranger-md blockquote, .ranger-md pre, .ranger-md table { margin: 0.5em 0; }
+    .ranger-md ul { list-style: disc; padding-left: 1.4em; } .ranger-md ol { list-style: decimal; padding-left: 1.4em; }
+    .ranger-md code { background: #0f172a; border: 1px solid #1e293b; border-radius: 4px; padding: 0 0.3em; font-size: 0.92em; color: #c4b5fd; }
+    .ranger-md pre { background: #020617; border: 1px solid #1e293b; border-radius: 8px; padding: 0.6em 0.8em; overflow-x: auto; }
+    .ranger-md pre code { background: none; border: 0; padding: 0; color: #e2e8f0; }
+    .ranger-md blockquote { border-left: 3px solid #7c3aed; padding-left: 0.8em; color: #94a3b8; }
+    .ranger-md hr { border: 0; border-top: 1px solid #1e293b; margin: 1em 0; }
+    .ranger-md table { border-collapse: collapse; } .ranger-md th, .ranger-md td { border: 1px solid #1e293b; padding: 0.25em 0.6em; } .ranger-md th { background: #0f172a; color: #e2e8f0; }
     :root {
     --sumi: #0e0d0b;
     --sumi-2: #17150f;
@@ -358,6 +380,78 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       color: var(--washi) !important;
     }
 
+    /* ==========================================================================
+       Aeonik Celadon & Ink: notification bar
+       ========================================================================== */
+    .aeonik-notice {
+      position: fixed; top: 4.25rem; left: 50%; transform: translateX(-50%); z-index: 100;
+      width: min(640px, calc(100% - 1.5rem));
+      display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+      padding: 0.4rem 0.45rem 0.4rem 0.9rem;
+      background: #ecf1e6; color: #111111;
+      border: 1px solid #111111; border-radius: 9999px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08);
+      font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; line-height: 1.4;
+    }
+    .aeonik-notice.hidden { display: none; }
+    .aeonik-notice__body { display: flex; align-items: center; gap: 0.55rem; min-width: 0; }
+    .aeonik-notice__dot { width: 6px; height: 6px; border-radius: 9999px; background: #111111; flex-shrink: 0; }
+    .aeonik-notice__label {
+      flex-shrink: 0; padding: 0.05rem 0.55rem; border-radius: 9999px; border: 1px solid #111111;
+      font-size: 10px; font-weight: 600; letter-spacing: 0.06em; background: #111111; color: #ecf1e6;
+    }
+    .aeonik-notice[data-variant="info"] .aeonik-notice__label { background: transparent; color: #111111; }
+    .aeonik-notice[data-variant="info"] .aeonik-notice__dot { background: transparent; border: 1px solid #111111; }
+    .aeonik-notice__text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #111111; }
+    .aeonik-notice__close {
+      flex-shrink: 0; width: 1.6rem; height: 1.6rem; border-radius: 9999px; border: 1px solid #111111;
+      background: transparent; color: #111111; font-size: 11px; line-height: 1; cursor: pointer; transition: background 0.15s, color 0.15s;
+    }
+    .aeonik-notice__close:hover, .aeonik-notice__close:focus-visible { background: #111111; color: #ecf1e6; outline: none; }
+
+    /* ==========================================================================
+       Aeonik Celadon & Ink scope for the rebuilt Ranger file panes and the arena
+       model pickers: remaps the legacy slate/purple/cyan utilities to paper + ink.
+       ========================================================================== */
+    .aeonik-scope { color: #111111; }
+    .aeonik-scope :is([class~="bg-slate-950"],[class~="bg-slate-900"],[class~="bg-slate-900/70"],[class~="bg-slate-900/90"]) { background: #f4f8f0 !important; }
+    .aeonik-scope :is([class~="bg-slate-800"],[class~="bg-slate-700"]) { background: #ffffff !important; }
+    .aeonik-scope :is([class~="hover:bg-slate-900"],[class~="hover:bg-slate-800"],[class~="hover:bg-slate-700"]):hover { background: rgba(17, 17, 17, 0.07) !important; }
+    .aeonik-scope :is([class~="border-slate-800"],[class~="border-slate-700"],[class~="border-emerald-900/60"],[class~="border-cyan-900/60"],[class~="border-cyan-700/60"],[class~="border-purple-800"]) { border-color: #111111 !important; }
+    .aeonik-scope :is([class~="divide-slate-800/40"]) > * + * { border-color: rgba(17, 17, 17, 0.12) !important; }
+    .aeonik-scope :is([class~="text-slate-100"],[class~="text-slate-200"],[class~="text-slate-300"],[class~="text-purple-200"],[class~="text-purple-300"],[class~="text-purple-400"],[class~="text-cyan-300"],[class~="text-cyan-400"],[class~="text-emerald-300"],[class~="text-emerald-400"]) { color: #111111 !important; }
+    .aeonik-scope :is([class~="text-slate-400"],[class~="text-slate-500"]) { color: #525252 !important; }
+    .aeonik-scope :is([class~="text-slate-600"],[class~="text-slate-600/70"]) { color: #737373 !important; }
+    .aeonik-scope :is([class~="hover:text-slate-200"],[class~="hover:text-slate-300"]):hover { color: #000000 !important; text-decoration: underline; }
+    .aeonik-scope :is([class~="bg-purple-950"],[class~="bg-purple-950/80"]) { background: #111111 !important; color: #ecf1e6 !important; }
+    .aeonik-scope :is([class~="bg-purple-950"],[class~="bg-purple-950/80"]) * { color: #ecf1e6 !important; }
+    .aeonik-scope [class~="hover:bg-purple-900"]:hover { background: #333333 !important; }
+    .aeonik-scope [class~="border-purple-400"] { border-color: #ecf1e6 !important; }
+    .aeonik-scope [class~="bg-cyan-700/80"] { background: #111111 !important; color: #ecf1e6 !important; border-radius: 9999px; }
+    .aeonik-scope button[class*="rounded"] { border-radius: 9999px; }
+    .aeonik-scope [class~="rounded-xl"], .aeonik-scope [class~="rounded-lg"] { border-radius: 16px !important; }
+    .aeonik-scope select { background: #ffffff !important; color: #111111 !important; border: 1px solid #111111 !important; border-radius: 8px !important; font-family: "JetBrains Mono", monospace !important; }
+    .aeonik-scope #rangerSplitter > div { background: rgba(17, 17, 17, 0.25) !important; }
+    .aeonik-scope #rangerSplitter:hover > div, .aeonik-scope #rangerSplitter:focus > div { background: #111111 !important; }
+    .aeonik-scope #spaceFileList:focus { box-shadow: 0 0 0 1px #111111; border-radius: 8px; }
+    .aeonik-scope .ring-purple-500\/70 { --tw-ring-color: #111111 !important; }
+    .aeonik-scope .ranger-code td.ln { color: #737373; border-right-color: rgba(17, 17, 17, 0.15); }
+    .aeonik-scope .ranger-code td.lc { color: #111111; }
+    .aeonik-scope .ranger-code tr:hover td { background: rgba(17, 17, 17, 0.05); }
+    .aeonik-scope .tk-c { color: #737373; } .aeonik-scope .tk-s { color: #2f6b3f; } .aeonik-scope .tk-n { color: #9a5b13; }
+    .aeonik-scope .tk-w { color: #5b3b8c; } .aeonik-scope .tk-f { color: #1f5f73; } .aeonik-scope .tk-k { color: #111111; font-weight: 600; } .aeonik-scope .tk-t { color: #8c2f5e; }
+    .aeonik-scope .ranger-md { color: #262626; }
+    .aeonik-scope .ranger-md h1, .aeonik-scope .ranger-md h2, .aeonik-scope .ranger-md h3, .aeonik-scope .ranger-md h4 { color: #111111; }
+    .aeonik-scope .ranger-md h1, .aeonik-scope .ranger-md hr { border-color: rgba(17, 17, 17, 0.15); }
+    .aeonik-scope .ranger-md code { background: #ffffff; border-color: rgba(17, 17, 17, 0.2); color: #111111; }
+    .aeonik-scope .ranger-md pre { background: #ffffff; border-color: #111111; }
+    .aeonik-scope .ranger-md pre code { color: #111111; }
+    .aeonik-scope .ranger-md blockquote { border-left-color: #111111; color: #525252; }
+    .aeonik-scope .ranger-md th, .aeonik-scope .ranger-md td { border-color: rgba(17, 17, 17, 0.2); }
+    .aeonik-scope .ranger-md th { background: #f4f8f0; color: #111111; }
+    .aeonik-scope .ranger-md a { color: #111111 !important; }
+    .aeonik-scope #finderImageContainer { background-image: none !important; }
+
     #zenDirtSurface {
       position: fixed;
       top: 0;
@@ -388,14 +482,14 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
   <!-- Multiplayer Peer Cursors Layer -->
   <div id="multiplayerCursorsLayer" class="fixed inset-0 pointer-events-none z-40 overflow-hidden"></div>
 
-  <!-- High-Priority Admin Moderator Broadcast Banner -->
-  <div id="adminBroadcastBanner" class="hidden fixed top-0 left-0 right-0 z-[100] bg-gradient-to-r from-amber-600 via-red-600 to-amber-600 text-white font-mono text-xs py-2 px-4 shadow-2xl flex items-center justify-between border-b-2 border-yellow-300 animate-pulse">
-    <div class="flex items-center gap-2 max-w-5xl mx-auto">
-      <span class="text-base">🚨</span>
-      <span class="font-bold tracking-wider">[ADMIN MODERATOR ANNOUNCEMENT]:</span>
-      <span id="adminBroadcastText" class="font-semibold text-amber-100"></span>
+  <!-- Notification bar (admin broadcasts + quick notices). Aeonik Celadon & Ink: celadon paper, 1px ink hairline, pill shape, JetBrains Mono, ink-only accents. -->
+  <div id="adminBroadcastBanner" role="status" aria-live="polite" data-variant="admin" class="aeonik-notice hidden">
+    <div class="aeonik-notice__body">
+      <span id="adminBroadcastAccent" class="aeonik-notice__dot" aria-hidden="true"></span>
+      <span id="adminBroadcastLabel" class="aeonik-notice__label">ADMIN</span>
+      <span id="adminBroadcastText" class="aeonik-notice__text"></span>
     </div>
-    <button onclick="dismissAdminBanner()" class="px-2 py-0.5 rounded bg-black/40 hover:bg-black/70 text-white text-[11px] font-bold border border-white/30">✕ Dismiss</button>
+    <button type="button" onclick="dismissAdminBanner()" aria-label="Dismiss" class="aeonik-notice__close">&#x2715;</button>
   </div>
 
   <!-- ===================================================================== -->
@@ -1381,46 +1475,32 @@ aeonik/
               <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5">
                 <span>⚔️</span> Side-by-Side AI Brain Arena Duel
               </h3>
-              <p class="text-[11px] text-slate-400">Dispatch dual completions to any OpenRouter or Ronin model and vote for the best response (+150 XP).</p>
+              <p class="text-[11px] text-slate-400">Pick two chat models the router supports, send the same prompt to both, and vote for the better answer (+150 XP). Duels are billed to your signed-in account.</p>
             </div>
             <div class="flex items-center gap-2">
               <span class="text-[11px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800 px-2 py-0.5 rounded">
-                Dynamic OpenRouter &amp; Ronin Arbiter
+                Dynamic OpenRouter Arbiter
               </span>
             </div>
           </div>
 
-          <!-- Dynamic Model A & Model B Pickers -->
-          <datalist id="arenaModelsDatalist">
-            <option value="google/gemini-2.5-flash">Google Gemini 2.5 Flash</option>
-            <option value="google/gemini-2.5-pro">Google Gemini 2.5 Pro</option>
-            <option value="anthropic/claude-3.7-sonnet">Anthropic Claude 3.7 Sonnet</option>
-            <option value="anthropic/claude-3.5-sonnet">Anthropic Claude 3.5 Sonnet</option>
-            <option value="openai/gpt-4o">OpenAI GPT-4o</option>
-            <option value="openai/o3-mini">OpenAI o3-mini</option>
-            <option value="deepseek/deepseek-r1">DeepSeek R1</option>
-            <option value="deepseek/deepseek-chat">DeepSeek V3</option>
-            <option value="meta-llama/llama-3.3-70b-instruct">Meta Llama 3.3 70B</option>
-            <option value="qwen/qwen-2.5-72b-instruct">Qwen 2.5 72B</option>
-            <option value="mistralai/mistral-large-2411">Mistral Large</option>
-            <option value="x-ai/grok-2-1212">xAI Grok 2</option>
-            <option value="ronin/hyper3d-rodin-v2">Ronin / Hyper3D Rodin v2 (3D Mesh &amp; PBR)</option>
-            <option value="ronin/regular">Ronin Regular 3D Mesh</option>
-            <option value="ronin/sketch">Ronin Fast Sketch 3D</option>
-            <option value="ronin/detail">Ronin Detail 3D Mesh</option>
-            <option value="ronin/smooth">Ronin Smooth 3D Quad-Mesh</option>
-          </datalist>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-            <div class="bg-slate-900/70 border border-emerald-900/60 rounded-lg p-2 flex items-center gap-2">
-              <span class="text-[11px] font-mono text-emerald-400 font-bold shrink-0">Model A:</span>
-              <input list="arenaModelsDatalist" id="arenaModelAInput" value="google/gemini-2.5-flash" oninput="updateArenaModelLabels()" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-xs text-emerald-300 font-mono focus:border-emerald-500 focus:outline-none" placeholder="Any OpenRouter or Ronin model ID...">
+          <!-- Model A & Model B pickers: filled from /api/mesh/arena/models (what the AI router actually supports) -->
+          <div class="aeonik-scope flex flex-col md:flex-row items-stretch md:items-center gap-2 pt-1">
+            <div class="flex-1 min-w-0 bg-slate-900/70 border border-emerald-900/60 rounded-lg p-2 flex items-center gap-2">
+              <label for="arenaModelAInput" class="text-[11px] font-mono text-emerald-400 font-bold shrink-0">Model A:</label>
+              <select id="arenaModelAInput" onchange="onArenaModelChange()" class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-emerald-300 font-mono focus:border-emerald-500 focus:outline-none">
+                <option value="gemini-brain">gemini-brain</option>
+              </select>
             </div>
-            <div class="bg-slate-900/70 border border-cyan-900/60 rounded-lg p-2 flex items-center gap-2">
-              <span class="text-[11px] font-mono text-cyan-400 font-bold shrink-0">Model B:</span>
-              <input list="arenaModelsDatalist" id="arenaModelBInput" value="anthropic/claude-3.7-sonnet" oninput="updateArenaModelLabels()" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-xs text-cyan-300 font-mono focus:border-cyan-500 focus:outline-none" placeholder="Any OpenRouter or Ronin model ID...">
+            <button id="arenaSwapBtn" onclick="swapArenaModels()" title="Swap left and right models" aria-label="Swap models" class="self-center px-2 py-1 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 rounded-lg font-mono text-xs transition active:scale-95">⇄</button>
+            <div class="flex-1 min-w-0 bg-slate-900/70 border border-cyan-900/60 rounded-lg p-2 flex items-center gap-2">
+              <label for="arenaModelBInput" class="text-[11px] font-mono text-cyan-400 font-bold shrink-0">Model B:</label>
+              <select id="arenaModelBInput" onchange="onArenaModelChange()" class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-cyan-300 font-mono focus:border-cyan-500 focus:outline-none">
+                <option value="claude-brain">claude-brain</option>
+              </select>
             </div>
           </div>
+          <div id="arenaModelsNote" class="text-[10px] font-mono text-slate-500 -mt-1"></div>
 
           <div class="flex gap-2">
             <input id="arenaPromptInput" type="text" value="Explain zero-knowledge proofs and federated CRDT meshes in two concise sentences." class="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-xs text-white font-mono placeholder:text-slate-600">
@@ -1434,7 +1514,7 @@ aeonik/
             <div class="p-3 bg-slate-900/90 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
               <div class="flex justify-between items-center pb-1.5 border-b border-slate-800">
                 <span class="font-bold text-xs text-emerald-300 font-mono">Brain A</span>
-                <span id="arenaLabelA" class="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">google/gemini-2.5-flash</span>
+                <span id="arenaLabelA" class="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">gemini-brain</span>
               </div>
               <div id="arenaResultA" class="text-xs font-mono text-slate-200 min-h-[90px] max-h-[160px] overflow-y-auto whitespace-pre-wrap bg-black/40 p-2.5 rounded">
                 Click "Battle 2 Brains" above to dispatch simultaneous prompts...
@@ -1453,7 +1533,7 @@ aeonik/
             <div class="p-3 bg-slate-900/90 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
               <div class="flex justify-between items-center pb-1.5 border-b border-slate-800">
                 <span class="font-bold text-xs text-cyan-300 font-mono">Brain B</span>
-                <span id="arenaLabelB" class="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">anthropic/claude-3.7-sonnet</span>
+                <span id="arenaLabelB" class="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">claude-brain</span>
               </div>
               <div id="arenaResultB" class="text-xs font-mono text-slate-200 min-h-[90px] max-h-[160px] overflow-y-auto whitespace-pre-wrap bg-black/40 p-2.5 rounded">
                 Click "Battle 2 Brains" above to dispatch simultaneous prompts...
@@ -2656,32 +2736,25 @@ aeonik/
         <!-- =============================================================== -->
         <!-- TAB 1: RANGER 3-COLUMN FILESYSTEM & MULTI-FORMAT PREVIEWER -->
         <!-- =============================================================== -->
-        <div id="finderTab-files" class="grid grid-cols-1 md:grid-cols-12 gap-3">
+        <div id="finderTab-files" class="aeonik-scope grid grid-cols-1 md:grid-cols-12 gap-3">
           <!-- Col 1: Places & Directory Tree (3 cols) -->
           <div class="md:col-span-3 space-y-3">
             <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
               <div class="flex items-center justify-between">
-                <span class="font-mono font-bold text-slate-300 text-xs">Places / Nav</span>
-                <span class="text-[10px] text-slate-500 font-mono">UNIX</span>
+                <span class="font-mono font-bold text-slate-300 text-xs">Places · This Computer</span>
+                <button onclick="gatherDriveMirror('manual')" class="text-[10px] text-slate-500 hover:text-slate-200 font-mono" title="Re-scan the drive now">↻ rescan</button>
               </div>
-              <div class="space-y-1 font-mono text-xs">
-                <button onclick="navigateFinderPath('/src')" class="w-full text-left px-2 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-200 flex items-center gap-1.5 transition">
-                  <span>📂</span> <span>/src (Code)</span>
-                </button>
-                <button onclick="navigateFinderPath('/media/videos')" class="w-full text-left px-2 py-1.5 rounded hover:bg-slate-900 text-slate-300 flex items-center gap-1.5 transition">
-                  <span>🎬</span> <span>/media/videos</span>
-                </button>
-                <button onclick="navigateFinderPath('/media/audio')" class="w-full text-left px-2 py-1.5 rounded hover:bg-slate-900 text-slate-300 flex items-center gap-1.5 transition">
-                  <span>🎵</span> <span>/media/audio</span>
-                </button>
-                <button onclick="navigateFinderPath('/models3d')" class="w-full text-left px-2 py-1.5 rounded hover:bg-slate-900 text-slate-300 flex items-center gap-1.5 transition">
-                  <span>🧊</span> <span>/models3d (GLB)</span>
-                </button>
-                <button onclick="navigateFinderPath('/docs')" class="w-full text-left px-2 py-1.5 rounded hover:bg-slate-900 text-slate-300 flex items-center gap-1.5 transition">
-                  <span>📄</span> <span>/docs (Markdown)</span>
-                </button>
-                <button onclick="navigateFinderPath('/artcraft')" class="w-full text-left px-2 py-1.5 rounded hover:bg-slate-900 text-slate-300 flex items-center gap-1.5 transition">
-                  <span>🎨</span> <span>/artcraft (Assets)</span>
+              <!-- Mirrors the real drive. Gathered fresh at login / session start, held in memory only, never saved. -->
+              <div id="drivePlacesList" class="space-y-0.5 font-mono text-xs max-h-[260px] overflow-y-auto">
+                <div class="text-slate-500 py-1 text-[10px]">Scanning your drive…</div>
+              </div>
+              <div id="drivePlacesStatus" class="text-[10px] font-mono text-slate-500 leading-snug"></div>
+              <button id="drivePickBtn" onclick="pickBrowserFolder()" class="hidden w-full text-left px-2 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-200 font-mono text-xs transition">
+                📂 Mirror a folder from this computer…
+              </button>
+              <div class="border-t border-slate-800 pt-1.5">
+                <button onclick="showSpaceVfs()" class="w-full text-left px-2 py-1.5 rounded hover:bg-slate-900 text-slate-300 font-mono text-xs flex items-center gap-1.5 transition" title="Files you uploaded or imported into your TinCan .space">
+                  <span>🥫</span> <span>TinCan .space (uploads &amp; imports)</span>
                 </button>
               </div>
             </div>
@@ -2717,40 +2790,69 @@ aeonik/
             </div>
           </div>
 
-          <!-- Col 2: Ranger Files List (4 cols) -->
-          <div class="md:col-span-4 space-y-3">
+          <!-- Col 2 + Col 3: files list | draggable divider | viewer (resizable split, stacks on small screens) -->
+          <div id="rangerSplit" class="md:col-span-9 flex flex-col md:flex-row gap-3 md:gap-0 min-w-0">
+          <!-- Col 2: Ranger Files List -->
+          <div id="rangerListPane" class="space-y-3 min-w-0 md:shrink-0">
             <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-              <div class="flex items-center justify-between">
-                <span class="font-mono font-bold text-slate-300 text-xs">Files in VFS</span>
-                <button onclick="promptCreateFile()" class="text-[10px] px-2 py-0.5 rounded bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-800 font-mono">
+              <div class="flex items-center justify-between gap-2">
+                <span id="rangerListTitle" class="font-mono font-bold text-slate-300 text-xs truncate">Files in VFS</span>
+                <button id="rangerNewFileBtn" onclick="promptCreateFile()" class="text-[10px] px-2 py-0.5 rounded bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-800 font-mono shrink-0">
                   + New File
                 </button>
               </div>
-              <div id="spaceFileList" class="space-y-1 max-h-[380px] overflow-y-auto font-mono text-[11px] text-slate-300 divide-y divide-slate-800/40">
+              <div id="rangerBreadcrumb" class="hidden flex flex-wrap items-center gap-0.5 font-mono text-[10px] text-slate-500"></div>
+              <div id="spaceFileList" tabindex="0" role="listbox" aria-label="Files" class="space-y-1 max-h-[380px] overflow-y-auto font-mono text-[11px] text-slate-300 divide-y divide-slate-800/40 focus:outline-none focus:ring-1 focus:ring-purple-700/60 rounded">
                 <div class="text-slate-500 py-2 text-center text-xs">Loading .space VFS...</div>
               </div>
+              <div class="pt-1 text-center font-mono text-[10px] text-slate-600/70 select-none pointer-events-none" aria-hidden="true">↑ ↓ ← → arrow keys to navigate</div>
             </div>
           </div>
 
-          <!-- Col 3: Multi-Format Previewer & Sandboxed Code Editor (5 cols) -->
-          <div class="md:col-span-5 space-y-3">
+          <!-- Draggable vertical divider (md+ only) -->
+          <div id="rangerSplitter" role="separator" aria-orientation="vertical" aria-label="Resize file list" tabindex="0"
+               class="hidden md:flex w-3 shrink-0 cursor-col-resize items-stretch justify-center group select-none" style="touch-action: none;">
+            <div class="w-px my-2 bg-slate-800 group-hover:bg-purple-500/70 group-focus:bg-purple-500/70 transition"></div>
+          </div>
+
+          <!-- Col 3: File viewer & sandboxed code editor -->
+          <div id="rangerViewerPane" class="space-y-3 min-w-0 md:flex-1">
             <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-              <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-                <div class="flex items-center gap-2">
-                  <span class="font-mono text-purple-400 font-bold text-xs" id="activeFilePath">/src/main.py</span>
-                  <span id="activeFileMime" class="text-[9px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono">text/plain</span>
+              <!-- File header: name/path, size, type, modified, source -->
+              <div class="border-b border-slate-800 pb-2 space-y-1.5">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-1.5 min-w-0">
+                      <span id="viewerFileIcon">📄</span>
+                      <span class="font-mono text-purple-400 font-bold text-xs truncate" id="activeFilePath" title="">/src/main.py</span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-1.5 mt-1 font-mono text-[9px]">
+                      <span id="viewerSourceBadge" class="px-1.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800">.space</span>
+                      <span id="activeFileMime" class="px-1.5 py-0.5 rounded bg-slate-900 text-slate-400">text/plain</span>
+                      <span id="viewerFileSize" class="text-slate-500"></span>
+                      <span id="viewerFileMtime" class="text-slate-600"></span>
+                    </div>
+                  </div>
+                  <div id="viewerSpaceActions" class="flex items-center gap-1.5 shrink-0">
+                    <button id="viewerEditBtn" onclick="toggleViewerEdit()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-xs rounded border border-slate-700 transition active:scale-95">✎ Edit</button>
+                    <button onclick="saveAgentSpaceFile()" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs rounded transition active:scale-95">
+                      💾 Save
+                    </button>
+                    <button onclick="deleteAgentSpaceFile()" class="px-2 py-1 bg-red-950 hover:bg-red-900 text-red-300 font-mono text-xs rounded border border-red-800 transition active:scale-95" title="Delete from .space">
+                      ✕
+                    </button>
+                  </div>
                 </div>
-                <div class="flex items-center gap-1.5">
-                  <button onclick="saveAgentSpaceFile()" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs rounded transition active:scale-95">
-                    💾 Save
-                  </button>
-                  <button onclick="deleteAgentSpaceFile()" class="px-2 py-1 bg-red-950 hover:bg-red-900 text-red-300 font-mono text-xs rounded border border-red-800 transition active:scale-95">
-                    ✕
-                  </button>
+                <div class="flex flex-wrap items-center gap-1 font-mono text-[10px]">
+                  <button onclick="copyViewerPath()" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">⧉ Copy path</button>
+                  <button onclick="downloadViewerFile()" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">⬇ Download</button>
+                  <button id="viewerRawToggle" onclick="toggleViewerRaw()" class="hidden px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">Raw</button>
+                  <button id="viewerWrapToggle" onclick="toggleViewerWrap()" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">Wrap</button>
+                  <a id="viewerVsCodeLink" href="#" class="hidden px-2 py-0.5 rounded text-slate-500 hover:text-slate-300" title="Opens the real file in VS Code on this computer (needs VS Code installed)">Open in VS Code ↗</a>
                 </div>
               </div>
 
-              <!-- Multimedia Preview Containers (Switched by extension) -->
+              <!-- Multimedia Preview Containers (Switched by file type) -->
               <div id="finderMediaPreviewBox" class="space-y-2">
                 <!-- Video Player Preview (for .mp4, .webm) -->
                 <div id="finderVideoContainer" class="hidden relative bg-black rounded-lg overflow-hidden border border-slate-800 aspect-video flex items-center justify-center">
@@ -2763,22 +2865,42 @@ aeonik/
                   <audio id="finderAudioPlayer" controls class="w-full"></audio>
                 </div>
 
-                <!-- 3D GLB Model Wireframe/Render Preview -->
-                <div id="finder3dContainer" class="hidden relative bg-slate-900 rounded-lg overflow-hidden border border-cyan-700/60 aspect-video flex flex-col items-center justify-center text-center p-3 font-mono">
-                  <span class="text-3xl mb-1">🧊</span>
-                  <div class="text-xs font-bold text-cyan-300">3D Mesh Asset (.glb/.gltf)</div>
-                  <p class="text-[10px] text-slate-400 mt-1">Single-file SQLite VFS 3D Asset ready for three.js or Rodin engine</p>
-                  <button onclick="launchArtCraftWasmApp('cadcraft')" class="mt-2 px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] rounded transition">
+                <!-- Image Preview -->
+                <div id="finderImageContainer" class="hidden bg-slate-900 rounded-lg border border-slate-800 p-2 flex items-center justify-center" style="background-image: linear-gradient(45deg,#0f172a 25%,transparent 25%),linear-gradient(-45deg,#0f172a 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#0f172a 75%),linear-gradient(-45deg,transparent 75%,#0f172a 75%); background-size: 16px 16px;">
+                  <img id="finderImagePreview" alt="" class="max-w-full max-h-[420px] object-contain">
+                </div>
+
+                <!-- 3D GLB Model Preview (model-viewer loaded on demand) -->
+                <div id="finder3dContainer" class="hidden relative bg-slate-900 rounded-lg overflow-hidden border border-cyan-700/60 aspect-video flex flex-col items-center justify-center text-center font-mono">
+                  <div id="finder3dStage" class="absolute inset-0"></div>
+                  <div id="finder3dFallback" class="relative p-3">
+                    <span class="text-3xl mb-1">🧊</span>
+                    <div class="text-xs font-bold text-cyan-300">3D Mesh Asset (.glb/.gltf)</div>
+                    <p id="finder3dNote" class="text-[10px] text-slate-400 mt-1">Loading 3D preview…</p>
+                  </div>
+                  <button onclick="launchArtCraftWasmApp('cadcraft')" class="absolute bottom-2 right-2 px-2 py-0.5 bg-cyan-700/80 hover:bg-cyan-600 text-white text-[10px] rounded transition">
                     Open in CadCraft Web ↗
                   </button>
                 </div>
 
-                <!-- Text/Code Editor -->
+                <!-- Binary / too-large notice -->
+                <div id="finderBinaryContainer" class="hidden p-4 bg-slate-900 rounded-lg border border-slate-800 text-center font-mono space-y-1">
+                  <div class="text-2xl">📦</div>
+                  <div id="finderBinaryText" class="text-xs text-slate-300">Binary file</div>
+                  <div class="text-[10px] text-slate-500">No inline preview for this type. Use ⬇ Download.</div>
+                </div>
+
+                <!-- Read-only viewer: highlighted code with line numbers, or rendered Markdown -->
+                <div id="finderViewerContainer" class="hidden">
+                  <div id="finderViewerNotice" class="hidden mb-1 px-2 py-1 rounded bg-amber-950/40 border border-amber-800/50 text-amber-300 font-mono text-[10px]"></div>
+                  <div id="finderViewer" class="ranger-viewer max-h-[460px] overflow-auto bg-slate-900/90 border border-slate-800 rounded-lg text-xs select-text"></div>
+                </div>
+
+                <!-- Text/Code Editor (edit mode for .space files) -->
                 <div id="finderCodeContainer">
                   <textarea id="agentspaceEditor" rows="8" class="w-full bg-slate-900/90 border border-slate-700 rounded-lg p-2.5 text-slate-100 font-mono text-xs focus:border-purple-500 focus:outline-none select-text" placeholder="Write Python, JS, or Wasm bytecode..."></textarea>
                 </div>
               </div>
-              
               <!-- Playground Run Bar -->
               <div class="flex flex-wrap items-center justify-between gap-2 pt-1 font-mono text-xs">
                 <div class="flex items-center gap-1.5">
@@ -2811,6 +2933,7 @@ aeonik/
               </div>
             </div>
           </div>
+          </div><!-- /#rangerSplit -->
         </div>
 
         <!-- =============================================================== -->
@@ -3147,11 +3270,23 @@ aeonik/
       }
     }
 
+    // Switch the notification bar between the admin (filled ink label) and info (outlined label) variants.
+    function setNotificationVariant(variant) {
+      const banner = document.getElementById('adminBroadcastBanner');
+      if (!banner) return;
+      const admin = variant !== 'info';
+      banner.dataset.variant = admin ? 'admin' : 'info';
+      const label = document.getElementById('adminBroadcastLabel');
+      if (label) label.textContent = admin ? 'ADMIN' : 'TINCAN';
+    }
+
     function showAdminBanner(text, sender) {
       const banner = document.getElementById('adminBroadcastBanner');
       const textEl = document.getElementById('adminBroadcastText');
       if (banner && textEl) {
+        setNotificationVariant('admin');
         textEl.innerText = `${text} (by ${sender || 'Admin'})`;
+        textEl.title = textEl.innerText;
         banner.classList.remove('hidden');
       }
     }
@@ -3882,6 +4017,8 @@ aeonik/
       const modal = document.getElementById('accountSetupModal');
       if (modal) modal.classList.add('hidden');
       try { refreshBillingWindow(); } catch (e) {}
+      // Login: re-gather the drive mirror fresh so spaces reflect the disk right now.
+      try { gatherDriveMirror('login'); } catch (e) {}
     }
 
     async function createPasskeyWithToken(enrollToken) {
@@ -4791,61 +4928,166 @@ aeonik/
     // =========================================================================
     // AI Brain Arena Battle Engine & Peer Voting
     // =========================================================================
+    const ARENA_MODELS_KEY = 'tincan_arena_models';
+    let arenaModelList = [];
+    let arenaLastDuel = null;   // models actually used for the answers on screen
+    const arenaEsc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    window.addEventListener('load', () => { loadArenaModels(); });
+
+    function arenaPick() {
+      const a = document.getElementById('arenaModelAInput');
+      const b = document.getElementById('arenaModelBInput');
+      return { a: (a && a.value) || 'gemini-brain', b: (b && b.value) || 'claude-brain' };
+    }
+
+    async function loadArenaModels() {
+      const selA = document.getElementById('arenaModelAInput');
+      const selB = document.getElementById('arenaModelBInput');
+      const note = document.getElementById('arenaModelsNote');
+      if (!selA || !selB) return;
+      try {
+        const r = await fetch('/api/mesh/arena/models');
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        arenaModelList = data.models || [];
+        const groups = { configured: 'Configured brains', catalog: 'Router catalog' };
+        const html = Object.entries(groups).map(([kind, label]) => {
+          const opts = arenaModelList.filter(m => m.kind === kind)
+            .map(m => `<option value="${arenaEsc(m.id)}">${arenaEsc(kind === 'configured' ? m.name : m.id)}</option>`).join('');
+          return opts ? `<optgroup label="${label}">${opts}</optgroup>` : '';
+        }).join('');
+        selA.innerHTML = html; selB.innerHTML = html;
+        let saved = null;
+        try { saved = JSON.parse(localStorage.getItem(ARENA_MODELS_KEY) || 'null'); } catch (e) {}
+        const ids = new Set(arenaModelList.map(m => m.id));
+        const def = data.default || { a: 'gemini-brain', b: 'claude-brain' };
+        selA.value = saved && ids.has(saved.a) ? saved.a : def.a;
+        selB.value = saved && ids.has(saved.b) ? saved.b : def.b;
+        if (note) note.textContent = `${arenaModelList.length} models from the AI router. Sign in to duel: each side is billed to your own account at the model's real cost.`;
+      } catch (err) {
+        if (note) note.textContent = `Couldn't load the model list (${err.message}); using the default brains.`;
+      }
+      updateArenaModelLabels();
+    }
+
+    function onArenaModelChange() {
+      const p = arenaPick();
+      try { localStorage.setItem(ARENA_MODELS_KEY, JSON.stringify(p)); } catch (e) {}
+      updateArenaModelLabels();
+    }
+
+    function swapArenaModels() {
+      const selA = document.getElementById('arenaModelAInput');
+      const selB = document.getElementById('arenaModelBInput');
+      if (!selA || !selB) return;
+      const t = selA.value; selA.value = selB.value; selB.value = t;
+      onArenaModelChange();
+    }
+
     async function runArenaBattle() {
       initAudio();
       const prompt = document.getElementById('arenaPromptInput').value.trim();
       const resA = document.getElementById('arenaResultA');
       const resB = document.getElementById('arenaResultB');
+      const { a, b } = arenaPick();
+      arenaLastDuel = null;
 
-      resA.innerText = 'Routing prompt to Gemini 2.5 Flash...';
-      resB.innerText = 'Routing prompt to Claude 3.7 Sonnet...';
+      resA.innerText = `Routing prompt to ${a}...`;
+      resB.innerText = `Routing prompt to ${b}...`;
 
-      spawnPacketFlight(myPeerId, 'gemini-brain', 'ai_prompt', 'gemini-brain');
-      spawnPacketFlight(myPeerId, 'claude-brain', 'ai_prompt', 'claude-brain');
+      spawnPacketFlight(myPeerId, a, 'ai_prompt', a);
+      spawnPacketFlight(myPeerId, b, 'ai_prompt', b);
+
+      // Duels bill the signed-in account (server-side session cookie), never the shared bucket.
+      // 1) open a match for this account and the two models, 2) run each side against it.
+      let match;
+      try {
+        const mr = await fetch('/api/mesh/arena/match', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model_a: a, model_b: b, prompt })
+        });
+        const md = await mr.json();
+        if (mr.status === 401) {
+          resA.innerText = resB.innerText = 'Sign in to duel. Brain Arena duels are billed to your own account.';
+          showQuickNotification('Sign in to duel: duels bill your own account.');
+          if (typeof openAccountModal === 'function') openAccountModal(false);
+          return;
+        }
+        if (mr.status === 402) {
+          resA.innerText = resB.innerText = (md.error || 'Not enough tokens for this duel.') + ' Top up or watch a sponsor ad to continue.';
+          return;
+        }
+        if (!mr.ok) throw new Error(md.error || `HTTP ${mr.status}`);
+        match = md.match;
+      } catch (err) {
+        resA.innerText = resB.innerText = 'Battle error: ' + err.message;
+        return;
+      }
+
+      const ask = (model, side) => fetch('/api/chat', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, prompt, arena: true, match_id: match.match_id, arena_side: side })
+      }).then(async r => ({ status: r.status, body: await r.json() }));
+
+      const render = (el, res) => {
+        const d = res.body || {};
+        if (res.status === 402) return el.innerText = (d.error || 'Not enough tokens for this side.') + ' Top up to continue.';
+        const text = d.choices?.[0]?.message?.content || d.text || d.error || JSON.stringify(d, null, 2);
+        const bill = d.billing ? `\n\n— billed to you: ${d.billing.tokens_billed} tokens · $${Number(d.billing.cost_usd || 0).toFixed(6)}` : '';
+        el.innerText = text + bill;
+      };
 
       try {
-        const [respA, respB] = await Promise.all([
-          fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'gemini-brain', prompt })
-          }).then(r => r.json()),
-          fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'claude-brain', prompt })
-          }).then(r => r.json())
-        ]);
-
-        resA.innerText = respA.choices?.[0]?.message?.content || respA.text || JSON.stringify(respA, null, 2);
-        resB.innerText = respB.choices?.[0]?.message?.content || respB.text || JSON.stringify(respB, null, 2);
+        // Sequential on purpose: side B is checked against the balance left after side A.
+        const respA = await ask(a, 'A');
+        render(resA, respA);
+        const respB = await ask(b, 'B');
+        render(resB, respB);
+        if (respA.status === 200 && respB.status === 200) {
+          arenaLastDuel = { a, b, prompt, match_id: match.match_id };
+          const total = (respB.body.billing && respB.body.billing.match_total_cost_usd) || 0;
+          showQuickNotification(`Duel billed to your account: $${Number(total).toFixed(6)} (${match.match_id.slice(0, 14)}…)`);
+        }
       } catch (err) {
         resA.innerText = 'Battle error: ' + err.message;
         resB.innerText = 'Battle error: ' + err.message;
       }
     }
 
-    async function voteArenaWinner(winnerAlias) {
+    async function voteArenaWinner(side) {
       initAudio();
+      const duel = arenaLastDuel;
+      if (!duel || !duel.match_id) {
+        showQuickNotification('Run a duel first: votes are recorded against a billed match.');
+        return;
+      }
+      const winnerSide = side === 'B' ? 'B' : 'A';
+      const winnerModel = winnerSide === 'A' ? duel.a : duel.b;
       playXpChime();
-      spawnPacketFlight(myPeerId, winnerAlias, 'ai_prompt', `Vote: ${winnerAlias}`);
+      spawnPacketFlight(myPeerId, winnerModel, 'ai_prompt', `Vote: ${winnerModel}`);
       try {
         const res = await fetch('/api/mesh/arena/vote', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
           body: JSON.stringify({
-            peer_id: myPeerId,
-            winner_alias: winnerAlias,
-            prompt_preview: document.getElementById('arenaPromptInput').value.substring(0, 40),
+            match_id: duel.match_id,
+            winner_side: winnerSide,
+            prompt_preview: (duel.prompt || '').substring(0, 40),
             display_name: myPeerId,
             room: currentRoom
           })
         });
         const data = await res.json();
-        alert(`🏆 Vote recorded for ${winnerAlias}! +150 XP awarded to your squad.`);
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        showQuickNotification(`🏆 Vote recorded for ${winnerModel} (${duel.a} vs ${duel.b}). +150 XP.`);
         pollMeshState();
       } catch (err) {
-        alert('Vote error: ' + err.message);
+        showQuickNotification('Vote error: ' + err.message);
       }
     }
 
@@ -7314,6 +7556,8 @@ aeonik/
     </div>
   </div>
 
+  <!-- AgentSpace / Ranger VFS scripts (this code used to sit outside any script tag, so it never ran) -->
+  <script>
     // -------------------------------------------------------------------------
     // AgentSpace & Wasm Studio (Single-File SQLite VFS + Rodin 3D + 15 ArtCraft Apps)
     // -------------------------------------------------------------------------
@@ -7338,13 +7582,18 @@ aeonik/
       refreshAgentSpace();
     }
 
-    async function refreshAgentSpace() {
+    async function refreshAgentSpace(opts) {
+      const background = opts === 'background';
+      if (!background) rangerMode = 'space';
       const ownerInput = document.getElementById('spaceOwnerInput');
       currentSpaceOwner = (ownerInput && ownerInput.value.trim()) || (myPeerId || 'default');
       const fileListEl = document.getElementById('spaceFileList');
       const badgeEl = document.getElementById('spaceFileCountBadge');
       if (!fileListEl) return;
-      fileListEl.innerHTML = '<div class="text-slate-500 py-2 text-center text-xs">Fetching .space VFS...</div>';
+      if (rangerMode === 'space') {
+        setRangerListHeader();
+        fileListEl.innerHTML = '<div class="text-slate-500 py-2 text-center text-xs">Fetching .space VFS...</div>';
+      }
 
       try {
         const resp = await fetch(`/api/space/ls?scope=${currentSpaceScope}&owner_id=${encodeURIComponent(currentSpaceOwner)}`);
@@ -7352,57 +7601,52 @@ aeonik/
         const data = await resp.json();
         const files = data.files || [];
         if (badgeEl) badgeEl.textContent = `${files.length} Files`;
+        if (rangerMode !== 'space') return; // the drive mirror is showing; keep it
 
         if (files.length === 0) {
+          rangerItems = [];
           fileListEl.innerHTML = '<div class="text-slate-500 py-2 text-center text-xs">No files in space yet. Click + New File or Generate 3D.</div>';
           return;
         }
-
-        fileListEl.innerHTML = files.map(f => {
-          const isSelected = f.path === currentSpaceFile;
-          const bg = isSelected ? 'bg-purple-950/80 text-purple-200 font-bold border-l-2 border-purple-400' : 'hover:bg-slate-900 text-slate-300';
-          const icon = f.path.endsWith('.glb') ? '🧊' : (f.path.endsWith('.py') ? '🐍' : (f.path.endsWith('.js') ? '⚡' : '📄'));
-          return `
-            <div onclick="openAgentSpaceFile('${f.path}')" class="px-2 py-1.5 cursor-pointer flex items-center justify-between transition ${bg}">
-              <div class="flex items-center gap-1.5 truncate">
-                <span>${icon}</span>
-                <span class="truncate">${f.path}</span>
-              </div>
-              <span class="text-[9px] text-slate-500 shrink-0 font-mono">${f.size_bytes}b</span>
-            </div>
-          `;
-        }).join('');
+        renderRangerList(files.map(f => ({ kind: 'file', source: 'space', path: f.path, name: f.path, size: f.size_bytes, mime: f.mime_type })));
 
         if (!document.getElementById('agentspaceEditor').value && files.length > 0) {
           openAgentSpaceFile(files[0].path);
         }
       } catch (err) {
-        fileListEl.innerHTML = `<div class="text-red-400 py-2 text-center text-xs">Error loading space: ${err.message}</div>`;
+        if (rangerMode === 'space') fileListEl.innerHTML = `<div class="text-red-400 py-2 text-center text-xs">Error loading space: ${rangerEsc(err.message)}</div>`;
       }
     }
 
     async function openAgentSpaceFile(path) {
       currentSpaceFile = path;
       const pathEl = document.getElementById('activeFilePath');
-      const mimeEl = document.getElementById('activeFileMime');
       const editor = document.getElementById('agentspaceEditor');
       if (pathEl) pathEl.textContent = path;
       if (editor) editor.value = 'Loading...';
+      markRangerSelected(path);
 
       try {
         const resp = await fetch(`/api/space/file?scope=${currentSpaceScope}&owner_id=${encodeURIComponent(currentSpaceOwner)}&path=${encodeURIComponent(path)}`);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const rec = await resp.json();
-        if (mimeEl) mimeEl.textContent = rec.mime_type || 'text/plain';
+        const isText = rec.content !== null && rec.content !== undefined;
         if (editor) {
-          if (rec.content !== null && rec.content !== undefined) {
-            editor.value = rec.content;
-          } else {
-            editor.value = `[Binary Asset: ${rec.size_bytes} bytes | SHA256: ${rec.sha256}]\n(Base64 payload available in .space)`;
-          }
+          editor.value = isText ? rec.content : `[Binary Asset: ${rec.size_bytes} bytes | SHA256: ${rec.sha256}]\n(Base64 payload available in .space)`;
         }
+        let mediaUrl = null;
+        if (!isText && rec.content_b64 && (rec.size_bytes || 0) <= 48 * 1024 * 1024) {
+          mediaUrl = rangerObjectUrl(b64ToBlob(rec.content_b64, rec.mime_type));
+        }
+        showFileInViewer({
+          source: 'space', path: rec.path || path, name: (rec.path || path).split('/').pop(),
+          size: rec.size_bytes, mtime: rec.updated_at, mime: rec.mime_type || 'text/plain',
+          text: isText ? rec.content : null, binary: !isText, mediaUrl,
+          b64: isText ? null : rec.content_b64,
+        });
       } catch (err) {
         if (editor) editor.value = `Error loading file: ${err.message}`;
+        showViewerError(path, err.message);
       }
     }
 
@@ -7464,6 +7708,8 @@ aeonik/
       currentSpaceFile = name;
       const editor = document.getElementById('agentspaceEditor');
       if (editor) editor.value = '# New file in AgentSpace VFS\n';
+      rangerMode = 'space';
+      setViewerEditMode();
       saveAgentSpaceFile();
     }
 
@@ -7910,44 +8156,764 @@ aeonik/
       });
     }
 
-    function navigateFinderPath(path) {
-      const activePathEl = document.getElementById('activeFilePath');
-      if (activePathEl) activePathEl.innerText = path;
-      previewFileInFinder(path);
+    // ---- Ranger state (memory only; the drive mirror is never saved) ----------
+    let rangerMode = 'space';          // 'space' (.space VFS) | 'drive' (hard-drive mirror)
+    let rangerItems = [];              // rows currently shown in #spaceFileList
+    let rangerIndex = -1;              // keyboard selection
+    let rangerView = null;             // file currently in the viewer
+    let rangerRaw = false;             // Markdown raw toggle
+    let rangerWrap = false;
+    let rangerEditing = false;
+    let rangerUrls = [];
+    const driveState = { provider: null, mirror: null, cwd: '/', rootHandle: null, fileMap: null, rootLabel: '' };
+    const RANGER_SKIP = new Set(['node_modules', '.git', '__pycache__', '.venv', 'venv', '.next', 'dist', 'build', 'target', '.cache', '.DS_Store']);
+    const RANGER_TEXT_LIMIT = 512 * 1024;
+    const RANGER_HL_LIMIT = 200 * 1024;
+    const RANGER_LINE_LIMIT = 20000;
+
+    function rangerEsc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    function rangerFmtSize(n) {
+      if (n == null || isNaN(n)) return '';
+      if (n < 1024) return `${n} B`;
+      if (n < 1048576) return `${(n / 1024).toFixed(1)} KB`;
+      if (n < 1073741824) return `${(n / 1048576).toFixed(1)} MB`;
+      return `${(n / 1073741824).toFixed(2)} GB`;
+    }
+    function rangerFmtTime(t) {
+      if (!t) return '';
+      const ms = typeof t === 'number' ? (t > 1e12 ? t : t * 1000) : Date.parse(t);
+      return isNaN(ms) ? '' : 'modified ' + new Date(ms).toLocaleString();
+    }
+    function rangerExt(p) { const m = /\.([^.\/]+)$/.exec(p || ''); return m ? m[1].toLowerCase() : ''; }
+    function rangerKind(path, mime) {
+      const e = rangerExt(path);
+      if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif'].includes(e)) return 'image';
+      if (['mp4', 'webm', 'mov', 'm4v', 'ogv'].includes(e)) return 'video';
+      if (['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac', 'opus'].includes(e)) return 'audio';
+      if (['glb', 'gltf'].includes(e)) return 'model';
+      if (['md', 'markdown', 'mdx'].includes(e)) return 'markdown';
+      if (mime && /^image\//.test(mime) && !/^image\/vnd\./.test(mime)) return 'image';
+      if (mime && /^video\//.test(mime)) return 'video';
+      if (mime && /^audio\//.test(mime)) return 'audio';
+      return 'text';
+    }
+    function rangerIcon(item) {
+      if (item.kind === 'up') return '↰';
+      if (item.kind === 'dir') return '📁';
+      const k = rangerKind(item.path, item.mime);
+      return { image: '🖼', video: '🎬', audio: '🎵', model: '🧊', markdown: '📝' }[k] ||
+        ({ py: '🐍', js: '⚡', ts: '⚡', rs: '🦀', json: '🔧', sh: '💲' }[rangerExt(item.path)] || '📄');
+    }
+    function rangerObjectUrl(blob) { const u = URL.createObjectURL(blob); rangerUrls.push(u); return u; }
+    function rangerReleaseUrls() { rangerUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} }); rangerUrls = []; }
+    function b64ToBlob(b64, mime) {
+      const bin = atob(b64); const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      return new Blob([arr], { type: mime || 'application/octet-stream' });
     }
 
-    function previewFileInFinder(fpath, content = '') {
-      const lower = (fpath || '').toLowerCase();
-      const videoBox = document.getElementById('finderVideoContainer');
-      const audioBox = document.getElementById('finderAudioContainer');
-      const model3dBox = document.getElementById('finder3dContainer');
-      const codeBox = document.getElementById('finderCodeContainer');
-      const editor = document.getElementById('agentspaceEditor');
-
-      if (videoBox) videoBox.classList.add('hidden');
-      if (audioBox) audioBox.classList.add('hidden');
-      if (model3dBox) model3dBox.classList.add('hidden');
-      if (codeBox) codeBox.classList.remove('hidden');
-
-      if (lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mov')) {
-        if (videoBox) {
-          videoBox.classList.remove('hidden');
-          const vp = document.getElementById('finderVideoPlayer');
-          if (vp) vp.src = '/media/demo.mp4';
+    // ---- File list (shared by .space and drive mirror) ----------------------
+    function setRangerListHeader() {
+      const title = document.getElementById('rangerListTitle');
+      const newBtn = document.getElementById('rangerNewFileBtn');
+      const crumb = document.getElementById('rangerBreadcrumb');
+      if (rangerMode === 'drive') {
+        if (title) title.textContent = `${driveState.rootLabel || 'Drive'} (read-only mirror)`;
+        if (newBtn) newBtn.classList.add('hidden');
+        if (crumb) {
+          crumb.classList.remove('hidden');
+          const parts = (driveState.cwd || '/').split('/').filter(Boolean);
+          let acc = '';
+          const bits = [`<button class="hover:text-slate-200" data-crumb="/">${rangerEsc(driveState.rootLabel || '~')}</button>`];
+          parts.forEach(p => { acc += '/' + p; bits.push(`<span>/</span><button class="hover:text-slate-200" data-crumb="${rangerEsc(acc)}">${rangerEsc(p)}</button>`); });
+          crumb.innerHTML = bits.join('');
         }
-      } else if (lower.endsWith('.mp3') || lower.endsWith('.wav') || lower.endsWith('.ogg')) {
-        if (audioBox) {
-          audioBox.classList.remove('hidden');
-          const ap = document.getElementById('finderAudioPlayer');
-          if (ap) ap.src = '/media/demo.mp3';
-        }
-      } else if (lower.endsWith('.glb') || lower.endsWith('.gltf') || lower.endsWith('.obj')) {
-        if (model3dBox) model3dBox.classList.remove('hidden');
       } else {
-        if (editor && content) {
-          editor.value = content;
+        if (title) title.textContent = 'Files in VFS';
+        if (newBtn) newBtn.classList.remove('hidden');
+        if (crumb) { crumb.classList.add('hidden'); crumb.innerHTML = ''; }
+      }
+    }
+
+    function renderRangerList(items) {
+      const el = document.getElementById('spaceFileList');
+      if (!el) return;
+      rangerItems = items;
+      setRangerListHeader();
+      if (!items.length) {
+        el.innerHTML = '<div class="text-slate-500 py-2 text-center text-xs">This folder is empty.</div>';
+        rangerIndex = -1;
+        return;
+      }
+      el.innerHTML = items.map((it, i) => {
+        const sel = it.kind === 'file' && rangerView && rangerView.source === it.source && rangerView.path === it.path;
+        const bg = sel ? 'bg-purple-950/80 text-purple-200 font-bold border-l-2 border-purple-400' : 'hover:bg-slate-900 text-slate-300';
+        const size = it.kind === 'file' && it.size != null ? rangerFmtSize(it.size) : (it.kind === 'dir' ? '›' : '');
+        return `<div role="option" data-idx="${i}" class="ranger-row px-2 py-1.5 cursor-pointer flex items-center justify-between transition ${bg}">
+              <div class="flex items-center gap-1.5 truncate"><span>${rangerIcon(it)}</span><span class="truncate">${rangerEsc(it.name)}</span></div>
+              <span class="text-[9px] text-slate-500 shrink-0 font-mono">${rangerEsc(size)}</span>
+            </div>`;
+      }).join('');
+      const selIdx = items.findIndex(it => it.kind === 'file' && rangerView && rangerView.source === it.source && rangerView.path === it.path);
+      setRangerIndex(selIdx >= 0 ? selIdx : (rangerIndex >= 0 && rangerIndex < items.length ? rangerIndex : -1), false);
+    }
+
+    function setRangerIndex(i, scroll = true) {
+      const el = document.getElementById('spaceFileList');
+      if (!el) return;
+      rangerIndex = i;
+      el.querySelectorAll('.ranger-row').forEach(r => r.classList.toggle('ring-1', Number(r.dataset.idx) === i));
+      el.querySelectorAll('.ranger-row').forEach(r => r.classList.toggle('ring-purple-500/70', Number(r.dataset.idx) === i));
+      const row = el.querySelector(`.ranger-row[data-idx="${i}"]`);
+      if (row && scroll) row.scrollIntoView({ block: 'nearest' });
+    }
+
+    function markRangerSelected(path) {
+      const i = rangerItems.findIndex(it => it.path === path);
+      if (i >= 0) setRangerIndex(i);
+    }
+
+    function activateRangerItem(it) {
+      if (!it) return;
+      if (it.kind === 'up') return rangerGoUp();
+      if (it.kind === 'dir') return navigateDrive(it.path);
+      if (it.source === 'space') return openAgentSpaceFile(it.path);
+      return openDriveFile(it.path);
+    }
+
+    function rangerGoUp() {
+      if (rangerMode !== 'drive' || !driveState.cwd || driveState.cwd === '/') return;
+      const from = driveState.cwd;
+      const parent = from.replace(/\/[^\/]+\/?$/, '') || '/';
+      navigateDrive(parent, from);
+    }
+
+    (function initRangerListEvents() {
+      const el = document.getElementById('spaceFileList');
+      const crumb = document.getElementById('rangerBreadcrumb');
+      if (crumb) crumb.addEventListener('click', ev => { const b = ev.target.closest('[data-crumb]'); if (b) navigateDrive(b.dataset.crumb); });
+      if (!el) return;
+      el.addEventListener('click', ev => {
+        const row = ev.target.closest('.ranger-row'); if (!row) return;
+        const i = Number(row.dataset.idx); setRangerIndex(i, false); el.focus({ preventScroll: true });
+        activateRangerItem(rangerItems[i]);
+      });
+      el.addEventListener('keydown', ev => {
+        if (!rangerItems.length && ev.key !== 'ArrowLeft' && ev.key !== 'Backspace') return;
+        const n = rangerItems.length;
+        if (ev.key === 'ArrowDown') { ev.preventDefault(); setRangerIndex(Math.min(n - 1, rangerIndex + 1)); }
+        else if (ev.key === 'ArrowUp') { ev.preventDefault(); setRangerIndex(Math.max(0, rangerIndex - 1)); }
+        else if (ev.key === 'Home') { ev.preventDefault(); setRangerIndex(0); }
+        else if (ev.key === 'End') { ev.preventDefault(); setRangerIndex(n - 1); }
+        else if (ev.key === 'Enter' || ev.key === 'ArrowRight') { ev.preventDefault(); activateRangerItem(rangerItems[rangerIndex]); }
+        else if (ev.key === 'ArrowLeft' || ev.key === 'Backspace') { ev.preventDefault(); rangerGoUp(); }
+      });
+    })();
+
+    function showSpaceVfs() { refreshAgentSpace(); }
+
+    // ---- Hard-drive mirror: gathered fresh at login, held in memory only ------
+    async function gatherDriveMirror(trigger) {
+      const statusEl = document.getElementById('drivePlacesStatus');
+      const listEl = document.getElementById('drivePlacesList');
+      const pickBtn = document.getElementById('drivePickBtn');
+      driveState.mirror = null;
+      if (driveState.provider === 'server') driveState.provider = null;
+      if (listEl) listEl.innerHTML = '<div class="text-slate-500 py-1 text-[10px]">Scanning your drive…</div>';
+      let status = { available: false };
+      try {
+        const r = await fetch('/api/drive/status', { cache: 'no-store' });
+        if (r.ok) status = await r.json();
+      } catch (e) {}
+      if (status.available) {
+        try {
+          const r = await fetch('/api/drive/mirror', { cache: 'no-store' });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          const m = await r.json();
+          driveState.provider = 'server';
+          driveState.mirror = m;
+          driveState.rootLabel = '~';
+          renderDrivePlaces();
+          if (pickBtn) pickBtn.classList.add('hidden');
+          if (statusEl) statusEl.textContent = `Mirrored ${m.root} · ${m.dev_folder ? 'dev folder ' + m.dev_folder : 'no dev folder found'} · ${m.elapsed_ms} ms${m.truncated ? ' · capped' : ''}`;
+          // At login / session start the dev folder opens automatically.
+          if ((trigger === 'login' || trigger === 'session-start') && m.dev_folder) navigateDrive(m.dev_folder);
+          return;
+        } catch (err) {
+          if (statusEl) statusEl.textContent = `Drive scan failed: ${err.message}`;
         }
       }
+      // Remote server (e.g. Railway): it can't see this computer's disk.
+      if (driveState.provider === 'browser' || driveState.provider === 'filelist') {
+        renderDrivePlaces();
+        return;
+      }
+      if (listEl) listEl.innerHTML = '';
+      if (pickBtn) pickBtn.classList.remove('hidden');
+      if (statusEl) statusEl.textContent = status.on_railway
+        ? 'TinCan is running on Railway, so it can\'t see your disk. Pick your dev folder to mirror it for this session (read-only, nothing is uploaded or saved).'
+        : 'Your drive isn\'t visible from this server. Pick a folder to mirror it for this session (read-only).';
+    }
+
+    function renderDrivePlaces() {
+      const listEl = document.getElementById('drivePlacesList');
+      if (!listEl) return;
+      const m = driveState.mirror;
+      if (!m) { listEl.innerHTML = ''; return; }
+      const node = (n, depth) => {
+        const icon = n.kind === 'dev' ? '⭐' : '📁';
+        const label = `<span class="truncate">${rangerEsc(n.name)}${n.kind === 'dev' ? ' <span class="text-amber-400/80 text-[9px]">dev</span>' : ''}</span>`;
+        const btn = `<button data-place="${rangerEsc(n.path)}" class="flex-1 min-w-0 text-left flex items-center gap-1.5 truncate"><span>${icon}</span>${label}</button>`;
+        const kids = (n.children || []);
+        if (!kids.length) return `<div class="px-2 py-1 rounded hover:bg-slate-900 text-slate-300 flex items-center" style="padding-left:${0.5 + depth * 0.75}rem">${btn}</div>`;
+        return `<details ${n.kind === 'dev' ? 'open' : ''}><summary class="px-2 py-1 rounded hover:bg-slate-900 text-slate-300 flex items-center gap-1 cursor-pointer list-none" style="padding-left:${0.5 + depth * 0.75}rem"><span class="text-slate-600 text-[9px]">▸</span>${btn}</summary>${kids.map(k => node(k, depth + 1)).join('')}</details>`;
+      };
+      listEl.innerHTML = (m.places || []).map(p => node(p, 0)).join('') || '<div class="text-slate-500 text-[10px]">No folders found.</div>';
+    }
+
+    (function initDrivePlacesEvents() {
+      const listEl = document.getElementById('drivePlacesList');
+      if (!listEl) return;
+      listEl.addEventListener('click', ev => {
+        const b = ev.target.closest('[data-place]');
+        if (!b) return;
+        ev.preventDefault();
+        navigateDrive(b.dataset.place);
+      });
+    })();
+
+    // Browser fallback: File System Access API handle, kept in memory for this tab only.
+    async function pickBrowserFolder() {
+      const statusEl = document.getElementById('drivePlacesStatus');
+      if (window.showDirectoryPicker) {
+        try {
+          const handle = await window.showDirectoryPicker({ id: 'tincan-dev', mode: 'read' });
+          driveState.provider = 'browser';
+          driveState.rootHandle = handle;
+          driveState.fileMap = null;
+          driveState.rootLabel = handle.name;
+          await buildBrowserMirror();
+          navigateDrive('/');
+        } catch (err) {
+          if (err && err.name !== 'AbortError' && statusEl) statusEl.textContent = `Couldn't open folder: ${err.message}`;
+        }
+        return;
+      }
+      // Safari / Firefox: read-only <input webkitdirectory> snapshot.
+      const inp = document.createElement('input');
+      inp.type = 'file'; inp.webkitdirectory = true; inp.multiple = true;
+      inp.onchange = () => {
+        const map = new Map();
+        let rootName = '';
+        for (const f of inp.files) {
+          const rel = f.webkitRelativePath || f.name;
+          const parts = rel.split('/'); rootName = rootName || parts[0];
+          if (parts.some(p => RANGER_SKIP.has(p) || (p.startsWith('.') && p !== rootName))) continue;
+          map.set('/' + parts.slice(1).join('/'), f);
+        }
+        driveState.provider = 'filelist';
+        driveState.fileMap = map;
+        driveState.rootHandle = null;
+        driveState.rootLabel = rootName || 'folder';
+        driveState.mirror = { places: [{ name: driveState.rootLabel, path: '/', kind: 'dev', children: [] }] };
+        renderDrivePlaces();
+        if (statusEl) statusEl.textContent = `Mirroring ${driveState.rootLabel} for this session (${map.size} files, read-only).`;
+        navigateDrive('/');
+      };
+      inp.click();
+    }
+
+    async function buildBrowserMirror() {
+      const statusEl = document.getElementById('drivePlacesStatus');
+      let budget = 1500;
+      const walk = async (dirHandle, path, depth) => {
+        const node = { name: dirHandle.name, path, children: [] };
+        if (depth >= 3) return node;
+        const subs = [];
+        for await (const [name, h] of dirHandle.entries()) {
+          if (h.kind === 'directory' && !RANGER_SKIP.has(name) && !name.startsWith('.')) subs.push([name, h]);
+        }
+        subs.sort((a, b) => a[0].localeCompare(b[0]));
+        for (const [name, h] of subs) {
+          if (budget-- <= 0) break;
+          node.children.push(await walk(h, (path === '/' ? '' : path) + '/' + name, depth + 1));
+        }
+        return node;
+      };
+      const root = await walk(driveState.rootHandle, '/', 0);
+      root.kind = 'dev';
+      driveState.mirror = { places: [root] };
+      renderDrivePlaces();
+      const pickBtn = document.getElementById('drivePickBtn');
+      if (pickBtn) pickBtn.textContent = '📂 Mirror a different folder…';
+      if (statusEl) statusEl.textContent = `Mirroring "${driveState.rootLabel}" for this session only (read-only; not uploaded or saved).`;
+    }
+
+    async function browserDirHandle(path) {
+      let h = driveState.rootHandle;
+      for (const part of (path || '/').split('/').filter(Boolean)) h = await h.getDirectoryHandle(part);
+      return h;
+    }
+
+    async function driveList(path) {
+      if (driveState.provider === 'server') {
+        const r = await fetch(`/api/drive/ls?path=${encodeURIComponent(path)}`, { cache: 'no-store' });
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+        return r.json();
+      }
+      if (driveState.provider === 'browser') {
+        const dh = await browserDirHandle(path);
+        const dirs = [], files = [];
+        const base = path === '/' ? '' : path;
+        for await (const [name, h] of dh.entries()) {
+          if (RANGER_SKIP.has(name) || name.startsWith('.')) continue;
+          if (dirs.length + files.length >= 300) break;
+          if (h.kind === 'directory') dirs.push({ name, path: base + '/' + name });
+          else { const f = await h.getFile(); files.push({ name, path: base + '/' + name, size_bytes: f.size, mtime: f.lastModified, mime_type: f.type }); }
+        }
+        const by = (a, b) => a.name.localeCompare(b.name);
+        return { path, dirs: dirs.sort(by), files: files.sort(by) };
+      }
+      if (driveState.provider === 'filelist') {
+        const base = path === '/' ? '' : path;
+        const dirs = new Set(), files = [];
+        for (const [p, f] of driveState.fileMap) {
+          if (!p.startsWith(base + '/')) continue;
+          const rest = p.slice(base.length + 1); const i = rest.indexOf('/');
+          if (i >= 0) dirs.add(rest.slice(0, i));
+          else files.push({ name: rest, path: p, size_bytes: f.size, mtime: f.lastModified, mime_type: f.type });
+        }
+        return { path, dirs: [...dirs].sort().map(n => ({ name: n, path: base + '/' + n })), files: files.sort((a, b) => a.name.localeCompare(b.name)) };
+      }
+      throw new Error('No drive mirror yet. Pick a folder first.');
+    }
+
+    async function navigateDrive(path, selectPath) {
+      const el = document.getElementById('spaceFileList');
+      rangerMode = 'drive';
+      driveState.cwd = path || '/';
+      setRangerListHeader();
+      if (el) el.innerHTML = '<div class="text-slate-500 py-2 text-center text-xs">Reading folder…</div>';
+      try {
+        const data = await driveList(driveState.cwd);
+        if (rangerMode !== 'drive' || driveState.cwd !== (path || '/')) return;
+        const items = [];
+        if (driveState.cwd !== '/') items.push({ kind: 'up', name: '..', path: driveState.cwd.replace(/\/[^\/]+\/?$/, '') || '/' });
+        (data.dirs || []).forEach(d => items.push({ kind: 'dir', source: 'drive', name: d.name, path: d.path }));
+        (data.files || []).forEach(f => items.push({ kind: 'file', source: 'drive', name: f.name, path: f.path, size: f.size_bytes, mime: f.mime_type }));
+        rangerIndex = -1;
+        renderRangerList(items);
+        if (data.truncated && el) el.insertAdjacentHTML('beforeend', '<div class="text-[10px] text-slate-500 py-1 text-center">Showing the first 300 entries.</div>');
+        const back = selectPath ? items.findIndex(it => it.path === selectPath) : -1;
+        if (back >= 0) setRangerIndex(back);
+        else if (rangerIndex < 0 && items.length) setRangerIndex(Math.min(items.length - 1, driveState.cwd !== '/' ? 1 : 0), false);
+      } catch (err) {
+        if (el) el.innerHTML = `<div class="text-red-400 py-2 text-center text-xs">Couldn't read folder: ${rangerEsc(err.message)}</div>`;
+      }
+    }
+
+    async function openDriveFile(path) {
+      markRangerSelected(path);
+      const name = path.split('/').pop();
+      try {
+        if (driveState.provider === 'server') {
+          const r = await fetch(`/api/drive/file?path=${encodeURIComponent(path)}`, { cache: 'no-store' });
+          const rec = await r.json();
+          if (!r.ok) throw new Error(rec.error || `HTTP ${r.status}`);
+          const kind = rangerKind(path, rec.mime_type);
+          const rawUrl = `/api/drive/raw?path=${encodeURIComponent(path)}`;
+          showFileInViewer({
+            source: 'drive', path, name, size: rec.size_bytes, mtime: rec.mtime, mime: rec.mime_type,
+            text: rec.content, binary: rec.is_binary, truncated: rec.truncated, absPath: rec.abs_path,
+            mediaUrl: ['image', 'video', 'audio', 'model'].includes(kind) ? rawUrl : null,
+            downloadUrl: rawUrl + '&download=1',
+          });
+          return;
+        }
+        let file;
+        if (driveState.provider === 'browser') {
+          const parts = path.split('/').filter(Boolean); const fname = parts.pop();
+          const dh = await browserDirHandle('/' + parts.join('/'));
+          file = await (await dh.getFileHandle(fname)).getFile();
+        } else {
+          file = driveState.fileMap.get(path);
+        }
+        if (!file) throw new Error('File not found');
+        const kind = rangerKind(path, file.type);
+        const view = { source: 'drive', path, name, size: file.size, mtime: file.lastModified, mime: file.type || 'application/octet-stream', file };
+        if (['image', 'video', 'audio', 'model'].includes(kind)) {
+          view.mediaUrl = rangerObjectUrl(file);
+        } else {
+          const head = new Uint8Array(await file.slice(0, 8192).arrayBuffer());
+          view.binary = head.includes(0);
+          if (!view.binary) {
+            view.text = await file.slice(0, RANGER_TEXT_LIMIT).text();
+            view.truncated = file.size > RANGER_TEXT_LIMIT;
+          }
+        }
+        showFileInViewer(view);
+      } catch (err) {
+        showViewerError(path, err.message);
+      }
+    }
+
+    // ---- Viewer -------------------------------------------------------------
+    const RANGER_PANES = ['finderVideoContainer', 'finderAudioContainer', 'finderImageContainer', 'finder3dContainer', 'finderBinaryContainer', 'finderViewerContainer', 'finderCodeContainer'];
+    function rangerShowPane(id) { RANGER_PANES.forEach(p => { const el = document.getElementById(p); if (el) el.classList.toggle('hidden', p !== id); }); }
+
+    function showViewerError(path, msg) {
+      rangerShowPane('finderBinaryContainer');
+      const t = document.getElementById('finderBinaryText');
+      if (t) t.textContent = `Couldn't open ${path}: ${msg}`;
+    }
+
+    function showFileInViewer(view) {
+      if (!rangerView || rangerView.mediaUrl !== view.mediaUrl) {
+        // free blob URLs from the previous file (keep the new one)
+        rangerUrls = rangerUrls.filter(u => { if (u === view.mediaUrl) return true; try { URL.revokeObjectURL(u); } catch (e) {} return false; });
+      }
+      rangerView = view;
+      rangerRaw = false;
+      if (view.source !== 'space') rangerEditing = false;
+      const kind = view.binary && !view.mediaUrl ? 'binary' : rangerKind(view.path, view.mime);
+      view.kind = kind;
+      const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+      const pathEl = document.getElementById('activeFilePath');
+      const fullPath = view.absPath || (view.source === 'drive' ? `${driveState.rootLabel || ''}${view.path}` : view.path);
+      if (pathEl) { pathEl.textContent = view.path; pathEl.title = fullPath; }
+      set('viewerFileIcon', rangerIcon({ kind: 'file', path: view.path, mime: view.mime }));
+      set('activeFileMime', view.mime || 'text/plain');
+      set('viewerFileSize', rangerFmtSize(view.size));
+      set('viewerFileMtime', rangerFmtTime(view.mtime));
+      const badge = document.getElementById('viewerSourceBadge');
+      if (badge) {
+        badge.textContent = view.source === 'space' ? '.space' : 'drive · read-only';
+        badge.className = view.source === 'space'
+          ? 'px-1.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800'
+          : 'px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800';
+      }
+      const spaceActions = document.getElementById('viewerSpaceActions');
+      if (spaceActions) spaceActions.classList.toggle('hidden', view.source !== 'space');
+      const editBtn = document.getElementById('viewerEditBtn');
+      if (editBtn) editBtn.classList.toggle('hidden', view.text == null);
+      const rawBtn = document.getElementById('viewerRawToggle');
+      if (rawBtn) { rawBtn.classList.toggle('hidden', kind !== 'markdown'); rawBtn.textContent = 'Raw'; }
+      const vs = document.getElementById('viewerVsCodeLink');
+      if (vs) {
+        // Only offered where it can work: a real file on this computer, served by a local TinCan.
+        const ok = view.source === 'drive' && driveState.provider === 'server' && view.absPath;
+        vs.classList.toggle('hidden', !ok);
+        vs.href = ok ? 'vscode://file' + encodeURI(view.absPath) : '#';
+      }
+      renderViewerBody();
+    }
+
+    function renderViewerBody() {
+      const view = rangerView;
+      if (!view) return;
+      const kind = view.kind;
+      if (rangerEditing && view.source === 'space' && view.text != null) { rangerShowPane('finderCodeContainer'); return; }
+      if (kind === 'image' && view.mediaUrl) {
+        rangerShowPane('finderImageContainer');
+        const img = document.getElementById('finderImagePreview'); if (img) { img.src = view.mediaUrl; img.alt = view.name; }
+      } else if (kind === 'video' && view.mediaUrl) {
+        rangerShowPane('finderVideoContainer');
+        const v = document.getElementById('finderVideoPlayer'); if (v) v.src = view.mediaUrl;
+      } else if (kind === 'audio' && view.mediaUrl) {
+        rangerShowPane('finderAudioContainer');
+        const a = document.getElementById('finderAudioPlayer'); if (a) a.src = view.mediaUrl;
+      } else if (kind === 'model' && view.mediaUrl) {
+        rangerShowPane('finder3dContainer');
+        renderModelPreview(view.mediaUrl);
+      } else if (view.text != null) {
+        rangerShowPane('finderViewerContainer');
+        renderTextView(view);
+      } else {
+        rangerShowPane('finderBinaryContainer');
+        const t = document.getElementById('finderBinaryText');
+        if (t) t.textContent = `${view.name} · ${view.mime || 'binary'} · ${rangerFmtSize(view.size)}`;
+      }
+    }
+
+    function renderTextView(view) {
+      const box = document.getElementById('finderViewer');
+      const notice = document.getElementById('finderViewerNotice');
+      if (!box) return;
+      const notes = [];
+      if (view.truncated) notes.push(`Showing the first ${rangerFmtSize(RANGER_TEXT_LIMIT)} of ${rangerFmtSize(view.size)}. Download for the full file.`);
+      let text = view.text || '';
+      if (view.kind === 'markdown' && !rangerRaw && text.length <= RANGER_HL_LIMIT) {
+        box.innerHTML = `<div class="ranger-md p-3">${renderMarkdown(text)}</div>`;
+      } else {
+        let lines = text.split('\n');
+        if (lines.length > RANGER_LINE_LIMIT) { notes.push(`Showing the first ${RANGER_LINE_LIMIT.toLocaleString()} lines.`); lines = lines.slice(0, RANGER_LINE_LIMIT); text = lines.join('\n'); }
+        const lang = rangerLang(view.path);
+        const doHl = text.length <= RANGER_HL_LIMIT && lang !== 'text';
+        if (!doHl && lang !== 'text') notes.push('Large file: syntax colours off.');
+        const htmlLines = doHl ? highlightCode(text, lang) : lines.map(rangerEsc);
+        box.innerHTML = `<table class="ranger-code${rangerWrap ? ' wrap' : ''}"><tbody>${htmlLines.map((l, i) => `<tr><td class="ln">${i + 1}</td><td class="lc">${l || ' '}</td></tr>`).join('')}</tbody></table>`;
+      }
+      if (notice) { notice.textContent = notes.join(' '); notice.classList.toggle('hidden', !notes.length); }
+    }
+
+    function toggleViewerRaw() {
+      rangerRaw = !rangerRaw;
+      const b = document.getElementById('viewerRawToggle'); if (b) b.textContent = rangerRaw ? 'Rendered' : 'Raw';
+      renderViewerBody();
+    }
+    function toggleViewerWrap() {
+      rangerWrap = !rangerWrap;
+      const b = document.getElementById('viewerWrapToggle'); if (b) b.classList.toggle('text-purple-300', rangerWrap);
+      renderViewerBody();
+    }
+    function toggleViewerEdit(force) {
+      if (!rangerView || rangerView.source !== 'space') return;
+      rangerEditing = typeof force === 'boolean' ? force : !rangerEditing;
+      const b = document.getElementById('viewerEditBtn'); if (b) b.textContent = rangerEditing ? '👁 View' : '✎ Edit';
+      if (!rangerEditing) {
+        const ed = document.getElementById('agentspaceEditor');
+        if (ed && rangerView.text != null) rangerView.text = ed.value;
+      }
+      renderViewerBody();
+    }
+    function setViewerEditMode() {
+      // Used by flows that drop text into the editor (arena transfer, new file).
+      rangerEditing = true;
+      const b = document.getElementById('viewerEditBtn'); if (b) b.textContent = '👁 View';
+      rangerShowPane('finderCodeContainer');
+    }
+
+    async function copyViewerPath() {
+      if (!rangerView) return;
+      const p = rangerView.absPath || rangerView.path;
+      try { await navigator.clipboard.writeText(p); showQuickNotification(`Copied ${p}`); }
+      catch (e) { prompt('Copy path:', p); }
+    }
+
+    function downloadViewerFile() {
+      const v = rangerView;
+      if (!v) return;
+      let url = v.downloadUrl;
+      if (!url) {
+        let blob = null;
+        if (v.file) blob = v.file;
+        else if (v.b64) blob = b64ToBlob(v.b64, v.mime);
+        else if (v.text != null) blob = new Blob([v.source === 'space' ? (document.getElementById('agentspaceEditor') || {}).value || v.text : v.text], { type: v.mime || 'text/plain' });
+        if (!blob) return;
+        url = rangerObjectUrl(blob);
+      }
+      const a = document.createElement('a');
+      a.href = url; a.download = v.name || 'file'; document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    let rangerModelViewerLoading = null;
+    function renderModelPreview(url) {
+      const stage = document.getElementById('finder3dStage');
+      const note = document.getElementById('finder3dNote');
+      const fallback = document.getElementById('finder3dFallback');
+      if (!stage) return;
+      stage.innerHTML = '';
+      if (fallback) fallback.classList.remove('hidden');
+      if (note) note.textContent = 'Loading 3D preview…';
+      if (!rangerModelViewerLoading) {
+        rangerModelViewerLoading = new Promise((resolve, reject) => {
+          if (window.customElements && customElements.get('model-viewer')) return resolve();
+          const s = document.createElement('script');
+          s.type = 'module';
+          s.src = 'https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js';
+          s.onload = () => resolve(); s.onerror = () => reject(new Error('3D viewer could not load (offline?)'));
+          document.head.appendChild(s);
+        });
+      }
+      rangerModelViewerLoading.then(() => {
+        if (!rangerView || rangerView.mediaUrl !== url) return;
+        const mv = document.createElement('model-viewer');
+        mv.setAttribute('src', url); mv.setAttribute('camera-controls', ''); mv.setAttribute('auto-rotate', '');
+        mv.style.width = '100%'; mv.style.height = '100%'; mv.style.background = 'transparent';
+        stage.appendChild(mv);
+        if (fallback) fallback.classList.add('hidden');
+      }).catch(err => { rangerModelViewerLoading = null; if (note) note.textContent = err.message; });
+    }
+
+    // ---- Tiny syntax highlighter (no external deps) --------------------------
+    const RANGER_LANGS = {
+      py: 'py', pyw: 'py', js: 'js', mjs: 'js', cjs: 'js', jsx: 'js', ts: 'js', tsx: 'js', json: 'json', jsonc: 'js',
+      rs: 'c', go: 'c', c: 'c', h: 'c', cpp: 'c', hpp: 'c', cc: 'c', java: 'c', kt: 'c', swift: 'c', cs: 'c', css: 'css', scss: 'c',
+      sh: 'sh', bash: 'sh', zsh: 'sh', fish: 'sh', yml: 'sh', yaml: 'sh', toml: 'sh', ini: 'sh', cfg: 'sh', conf: 'sh', env: 'sh', rb: 'sh', dockerfile: 'sh', makefile: 'sh', r: 'sh',
+      sql: 'sql', lua: 'sql', html: 'html', htm: 'html', xml: 'html', svg: 'html', vue: 'html', md: 'text', txt: 'text', log: 'text', csv: 'text',
+    };
+    function rangerLang(path) {
+      const base = (path || '').split('/').pop().toLowerCase();
+      if (base === 'dockerfile' || base === 'makefile') return 'sh';
+      return RANGER_LANGS[rangerExt(path)] || 'text';
+    }
+    const RANGER_KW = new Set(('and as assert async await break case catch class const continue def default del delete do elif else enum export extends ' +
+      'false finally fn for from func function global go if impl import in interface is lambda let loop match mod mut new nil none None not null ' +
+      'or package pass pub raise return self Self static struct super switch this throw true True False try type typeof use var void where while with yield ' +
+      'select insert update delete from where join left right inner outer on group by order having limit values into create table drop alter and or not null ' +
+      'echo fi then esac done local export function').split(' '));
+    const RANGER_RE_CACHE = {};
+    function rangerRegex(lang) {
+      if (RANGER_RE_CACHE[lang]) return RANGER_RE_CACHE[lang];
+      const parts = [];
+      if (lang === 'js' || lang === 'c' || lang === 'css') parts.push('\\/\\*[\\s\\S]*?\\*\\/');
+      if (lang === 'js' || lang === 'c') parts.push('\\/\\/[^\\n]*');
+      if (lang === 'py' || lang === 'sh') parts.push('#[^\\n]*');
+      if (lang === 'sql') parts.push('--[^\\n]*');
+      if (lang === 'html') parts.push('<!--[\\s\\S]*?-->', '<\\/?[A-Za-z][\\w:-]*', '\\/?>');
+      if (lang === 'py') parts.push('"{3}[\\s\\S]*?"{3}', "'{3}[\\s\\S]*?'{3}");
+      parts.push('"(?:\\\\.|[^"\\\\\\n])*"', "'(?:\\\\.|[^'\\\\\\n])*'");
+      if (lang === 'js' || lang === 'sh') parts.push('`(?:\\\\.|[^`\\\\])*`');
+      parts.push('\\b0x[0-9A-Fa-f]+\\b', '\\b\\d[\\d_]*(?:\\.\\d+)?(?:[eE][+-]?\\d+)?\\b', '[A-Za-z_$][\\w$]*');
+      return (RANGER_RE_CACHE[lang] = new RegExp(parts.join('|'), 'g'));
+    }
+    function highlightCode(src, lang) {
+      const re = rangerRegex(lang);
+      const toks = [];
+      let last = 0, m;
+      re.lastIndex = 0;
+      while ((m = re.exec(src))) {
+        const t = m[0];
+        if (!t) { re.lastIndex++; continue; }
+        if (m.index > last) toks.push(['', src.slice(last, m.index)]);
+        const c = t[0];
+        let cls = '';
+        if (t.startsWith('/*') || t.startsWith('//') || t.startsWith('<!--') || (c === '#' && (lang === 'py' || lang === 'sh')) || (t.startsWith('--') && lang === 'sql')) cls = 'tk-c';
+        else if (c === '"' || c === "'" || c === '`') cls = (lang === 'json' && /^\s*:/.test(src.slice(m.index + t.length))) ? 'tk-k' : 'tk-s';
+        else if (c === '<' || (c === '/' && lang === 'html')) cls = 'tk-t';
+        else if (/\d/.test(c)) cls = 'tk-n';
+        else if (RANGER_KW.has(t) || (lang === 'sql' && RANGER_KW.has(t.toLowerCase()))) cls = 'tk-w';
+        else if (src[m.index + t.length] === '(') cls = 'tk-f';
+        toks.push([cls, t]);
+        last = m.index + t.length;
+      }
+      if (last < src.length) toks.push(['', src.slice(last)]);
+      const lines = [''];
+      toks.forEach(([cls, text]) => {
+        text.split('\n').forEach((piece, i) => {
+          if (i > 0) lines.push('');
+          if (piece) lines[lines.length - 1] += cls ? `<span class="${cls}">${rangerEsc(piece)}</span>` : rangerEsc(piece);
+        });
+      });
+      return lines;
+    }
+
+    // ---- Small, safe Markdown renderer ---------------------------------------
+    function rangerInlineMd(s) {
+      let out = rangerEsc(s);
+      const codes = [];
+      out = out.replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return `\u0000${codes.length - 1}\u0000`; });
+      out = out.replace(/!\[([^\]]*)\]\(([^)\s]+)[^)]*\)/g, (_, alt) => `<span class="text-slate-500">[image: ${alt}]</span>`);
+      out = out.replace(/\[([^\]]+)\]\(([^)\s]+)[^)]*\)/g, (_, t, u) => {
+        const safe = /^(https?:|mailto:|#|\.{0,2}\/|[\w.-]+(\/|$))/i.test(u) && !/^\s*javascript:/i.test(u);
+        return safe ? `<a href="${u}" target="_blank" rel="noopener noreferrer" class="text-cyan-300 underline">${t}</a>` : t;
+      });
+      out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/__([^_]+)__/g, '<strong>$1</strong>');
+      out = out.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>').replace(/~~([^~]+)~~/g, '<del>$1</del>');
+      return out.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codes[Number(i)]}</code>`);
+    }
+    function renderMarkdown(src) {
+      const lines = src.replace(/\r\n?/g, '\n').split('\n');
+      const out = [];
+      let para = [], list = null, i = 0;
+      const flush = () => { if (para.length) { out.push(`<p>${rangerInlineMd(para.join(' '))}</p>`); para = []; } };
+      const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+      while (i < lines.length) {
+        const line = lines[i];
+        let m;
+        if ((m = /^\s*(```|~~~)\s*([\w+-]*)/.exec(line))) {
+          flush(); closeList();
+          const fence = m[1], lang = RANGER_LANGS[(m[2] || '').toLowerCase()] || (m[2] ? (RANGER_LANGS[m[2]] || 'js') : 'text');
+          const body = []; i++;
+          while (i < lines.length && !lines[i].trim().startsWith(fence)) body.push(lines[i++]);
+          i++;
+          const code = body.join('\n');
+          out.push(`<pre><code>${lang === 'text' ? rangerEsc(code) : highlightCode(code, lang).join('\n')}</code></pre>`);
+          continue;
+        }
+        if ((m = /^(#{1,6})\s+(.*)$/.exec(line))) { flush(); closeList(); out.push(`<h${m[1].length}>${rangerInlineMd(m[2])}</h${m[1].length}>`); }
+        else if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) { flush(); closeList(); out.push('<hr>'); }
+        else if ((m = /^\s*>\s?(.*)$/.exec(line))) { flush(); closeList(); out.push(`<blockquote>${rangerInlineMd(m[1])}</blockquote>`); }
+        else if ((m = /^\s*([-*+]|\d+[.)])\s+(.*)$/.exec(line))) {
+          flush();
+          const want = /\d/.test(m[1]) ? 'ol' : 'ul';
+          if (list !== want) { closeList(); out.push(`<${want}>`); list = want; }
+          const task = /^\[([ xX])\]\s+(.*)$/.exec(m[2]);
+          out.push(task ? `<li>${task[1].trim() ? '☑' : '☐'} ${rangerInlineMd(task[2])}</li>` : `<li>${rangerInlineMd(m[2])}</li>`);
+        }
+        else if (/^\s*\|.*\|\s*$/.test(line)) {
+          flush(); closeList();
+          const rows = [];
+          while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) rows.push(lines[i++]);
+          const cells = r => r.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+          const body = rows.filter(r => !/^\s*\|?\s*:?-{2,}/.test(r));
+          out.push('<table>' + body.map((r, ri) => `<tr>${cells(r).map(c => ri === 0 ? `<th>${rangerInlineMd(c)}</th>` : `<td>${rangerInlineMd(c)}</td>`).join('')}</tr>`).join('') + '</table>');
+          continue;
+        }
+        else if (!line.trim()) { flush(); closeList(); }
+        else { closeList(); para.push(line.trim()); }
+        i++;
+      }
+      flush(); closeList();
+      return out.join('\n');
+    }
+
+    // ---- Resizable split between file list and viewer ------------------------
+    (function initRangerSplit() {
+      const KEY = 'tincan_ranger_list_pct';
+      const split = document.getElementById('rangerSplit');
+      const handle = document.getElementById('rangerSplitter');
+      if (!split || !handle) return;
+      const MIN_LIST = 180, MIN_VIEW = 280, DEFAULT = 38;
+      let pct = parseFloat(localStorage.getItem(KEY));
+      if (!(pct > 5 && pct < 95)) pct = DEFAULT;
+      const clamp = p => {
+        const w = split.getBoundingClientRect().width;
+        if (!w) return Math.min(80, Math.max(15, p));
+        const lo = (MIN_LIST / w) * 100, hi = 100 - ((MIN_VIEW + 12) / w) * 100;
+        return hi <= lo ? lo : Math.min(hi, Math.max(lo, p));
+      };
+      const apply = (p, save) => {
+        pct = clamp(p);
+        split.style.setProperty('--ranger-list-w', pct.toFixed(2) + '%');
+        handle.setAttribute('aria-valuenow', String(Math.round(pct)));
+        if (save) { try { localStorage.setItem(KEY, pct.toFixed(2)); } catch (e) {} }
+      };
+      apply(pct, false);
+      let dragging = false;
+      handle.addEventListener('pointerdown', ev => {
+        dragging = true; handle.setPointerCapture(ev.pointerId);
+        document.body.style.userSelect = 'none'; ev.preventDefault();
+      });
+      handle.addEventListener('pointermove', ev => {
+        if (!dragging) return;
+        const r = split.getBoundingClientRect();
+        if (r.width) apply(((ev.clientX - r.left) / r.width) * 100, false);
+      });
+      const end = ev => {
+        if (!dragging) return;
+        dragging = false; document.body.style.userSelect = '';
+        try { handle.releasePointerCapture(ev.pointerId); } catch (e) {}
+        apply(pct, true);
+      };
+      handle.addEventListener('pointerup', end);
+      handle.addEventListener('pointercancel', end);
+      handle.addEventListener('dblclick', () => apply(DEFAULT, true));
+      handle.addEventListener('keydown', ev => {
+        if (ev.key === 'ArrowLeft') { ev.preventDefault(); apply(pct - 2, true); }
+        else if (ev.key === 'ArrowRight') { ev.preventDefault(); apply(pct + 2, true); }
+      });
+      window.addEventListener('resize', () => apply(pct, false));
+      // Re-clamp when the window is shown (width was 0 while hidden).
+      if (window.ResizeObserver) new ResizeObserver(() => apply(pct, false)).observe(split);
+    })();
+
+    // Back-compat for older callers.
+    function navigateFinderPath(path) { navigateDrive(path); }
+    function previewFileInFinder(fpath, content = '') {
+      showFileInViewer({ source: 'space', path: fpath, name: (fpath || '').split('/').pop(), mime: 'text/plain', text: content || '' });
     }
 
     function searchVsCodeExtensions() {
@@ -7982,6 +8948,7 @@ aeonik/
       if (!content) return;
       const editor = document.getElementById('agentspaceEditor');
       if (editor) editor.value = content;
+      if (typeof setViewerEditMode === 'function') setViewerEditMode();
       toggleWindow('win-agentspace');
       showQuickNotification(`Transferred Brain ${winner} output to Dynamic Agent Space sandbox!`);
     }
@@ -7990,16 +8957,24 @@ aeonik/
       const banner = document.getElementById('adminBroadcastBanner');
       const textEl = document.getElementById('adminBroadcastText');
       if (banner && textEl) {
+        if (typeof setNotificationVariant === 'function') setNotificationVariant('info');
         textEl.innerText = msg;
+        textEl.title = msg;
         banner.classList.remove('hidden');
-        setTimeout(() => { banner.classList.add('hidden'); }, 3500);
+        clearTimeout(showQuickNotification._t);
+        showQuickNotification._t = setTimeout(() => {
+          // Don't hide an admin broadcast that arrived in the meantime.
+          if (banner.dataset.variant === 'info') banner.classList.add('hidden');
+        }, 3500);
       }
     }
 
     setTimeout(() => {
       const ownerInput = document.getElementById('spaceOwnerInput');
       if (ownerInput && myPeerId) ownerInput.value = myPeerId;
-      refreshAgentSpace();
+      refreshAgentSpace('background');
+      // Session start: gather the drive's folder structure fresh (never saved).
+      gatherDriveMirror('session-start');
     }, 2000);
 
     // =========================================================================
