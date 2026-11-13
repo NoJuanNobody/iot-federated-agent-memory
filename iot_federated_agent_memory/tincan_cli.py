@@ -391,6 +391,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     s_revert.add_argument("version_id", help="Version ID")
     _space_target_args(s_revert)
 
+    # brew (TinCan Homebrew Tap & Terminal Package Manager Bridge)
+    p_brew = subparsers.add_parser("brew", help="Install, tap, search, or inspect Homebrew formulas & TinCan Tap packages")
+    p_brew.add_argument("brew_args", nargs="*", help="Homebrew arguments (e.g. install tincan context-palace, list, search, info, tap, doctor)")
+    p_brew.add_argument("--cask", action="store_true", help="Treat package as a macOS Cask")
+    p_brew.add_argument("--native", action="store_true", help="Also invoke local /opt/homebrew/bin/brew on this Mac")
+    p_brew.add_argument("--formula-rb", default=None, help="Print the Ruby Homebrew Formula (.rb) for tincan or context-palace")
+    p_brew.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
     args = parser.parse_args(argv)
 
     # Privacy & Consent Guard: Automatic background `curl | bash` upgrades are disabled.
@@ -400,6 +408,30 @@ def main(argv: Optional[List[str]] = None) -> int:
         # Default bare command: launch the interactive screensaver / live mesh TUI
         from .tui import main as tui_main
         return tui_main(["--screensaver", "--relay", args.relay])
+
+    if args.command == "brew":
+        from .tincan_brew import generate_homebrew_formula, handle_brew_command
+
+        if getattr(args, "formula_rb", None):
+            print(generate_homebrew_formula(args.formula_rb, relay_url=args.relay), end="")
+            return 0
+        raw_parts = list(getattr(args, "brew_args", None) or ["help"])
+        if getattr(args, "cask", False) and "--cask" not in raw_parts:
+            raw_parts.insert(1 if raw_parts else 0, "--cask")
+        cmd_str = "brew " + " ".join(raw_parts)
+        res = handle_brew_command(
+            cmd_str,
+            peer_id=args.alias or "operator",
+            config_dir=args.dir,
+            relay_url=args.relay,
+            queue_hitl=not getattr(args, "native", False),
+            execute_native=bool(getattr(args, "native", False)),
+        )
+        if getattr(args, "json", False):
+            print(json.dumps(res, indent=2))
+        else:
+            print(res.get("output", ""))
+        return 0 if res.get("status") == "ok" else 1
 
     if args.command == "upgrade":
         import subprocess

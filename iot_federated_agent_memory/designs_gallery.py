@@ -357,6 +357,7 @@ main.container {{
       <button class="btn-cta" style="padding: 6px 14px; font-size: 0.75rem;" onclick="copyGalleryInstall(this)">📋 Copy Command</button>
     </div>
     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <a href="/Formula/tincan.rb" target="_blank" class="btn-cta outline" style="font-size: 0.78rem;">🍺 brew Formula</a>
       <a href="/install.command" download="Install-TinCan.command" class="btn-cta outline" style="font-size: 0.78rem;">⬇ macOS .command</a>
       <a href="/mesh" class="btn-cta" style="font-size: 0.78rem;">▶ Open Terminal</a>
     </div>

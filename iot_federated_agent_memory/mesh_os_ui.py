@@ -776,8 +776,19 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       <!-- Step 1: One-Click Automated Installer -->
       <div class="space-y-1.5">
         <div class="text-[11px] font-bold text-black flex items-center justify-between">
-          <span>1. One-Line Terminal Installer (macOS / Linux)</span>
+          <span>1. One-Line Terminal Installer (Homebrew or curl | bash)</span>
           <a href="/install.command" download="Install-TinCan.command" class="px-2.5 py-0.5 bg-black text-[#ecf1e6] rounded-full text-[10px] hover:opacity-80 transition">⬇ Download .command Launcher</a>
+        </div>
+        <div class="relative bg-white border border-black rounded-xl p-2.5 flex items-center justify-between gap-2">
+          <code class="text-black font-semibold text-xs overflow-x-auto select-all">brew install https://iot-federated-agent-memory-production.up.railway.app/Formula/tincan.rb</code>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button onclick="copyToClipboard('brew install https://iot-federated-agent-memory-production.up.railway.app/Formula/tincan.rb', this)" class="px-3 py-1 bg-black hover:bg-neutral-800 text-[#ecf1e6] rounded-full text-[11px] font-bold active:scale-95 transition">
+              🍺 Copy brew
+            </button>
+            <button onclick="closeTerminalQuickStart(); switchInstallCmdTab('brew'); execAeonikShellCommand('brew install tincan context-palace');" class="px-3 py-1 border border-black hover:bg-black hover:text-[#ecf1e6] text-black rounded-full text-[11px] font-bold active:scale-95 transition">
+              ▶ Run brew
+            </button>
+          </div>
         </div>
         <div class="relative bg-white border border-black rounded-xl p-2.5 flex items-center justify-between gap-2">
           <code class="text-black font-semibold text-xs overflow-x-auto select-all">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code>
@@ -853,7 +864,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             <!-- Interactive Shell Input Prompt -->
             <div class="pt-2 flex items-center gap-1.5 text-[11px]">
               <span id="termPromptLabel" class="font-semibold text-black shrink-0">you@tincan:~/space$</span>
-              <input id="aeonikShellInput" type="text" placeholder="ls, cat /src/main.py, run, py print(1), ask …" onkeydown="if(event.key==='Enter') execAeonikShellCommand()" class="flex-1 bg-transparent border-b border-black text-black text-[11px] px-1 py-0.5 focus:outline-none" />
+              <input id="aeonikShellInput" type="text" placeholder="brew install tincan, ls, cat /src/main.py, run, py print(1), ask …" onkeydown="if(event.key==='Enter') execAeonikShellCommand()" class="flex-1 bg-transparent border-b border-black text-black text-[11px] px-1 py-0.5 focus:outline-none" />
               <button onclick="execAeonikShellCommand()" class="px-2 py-0.5 bg-black text-[#ecf1e6] rounded text-[9px] font-bold">RUN</button>
             </div>
           </div>
@@ -862,6 +873,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             <div class="flex items-center justify-between">
               <div class="text-[10px] font-bold uppercase text-black tracking-wider">⚡ One-Click Terminal Install</div>
               <div class="flex items-center gap-1 text-[9px]">
+                <button id="tabCmdBrew" onclick="switchInstallCmdTab('brew')" class="px-2 py-0.5 bg-transparent text-black rounded-full border border-black font-semibold transition">🍺 brew</button>
                 <button id="tabCmdCurl" onclick="switchInstallCmdTab('curl')" class="px-2 py-0.5 bg-black text-[#ecf1e6] rounded-full border border-black font-semibold transition">curl | bash</button>
                 <button id="tabCmdNpx" onclick="switchInstallCmdTab('npx')" class="px-2 py-0.5 bg-transparent text-black rounded-full border border-black font-semibold transition">npx skills</button>
                 <button id="tabCmdChat" onclick="switchInstallCmdTab('chat')" class="px-2 py-0.5 bg-transparent text-black rounded-full border border-black font-semibold transition">AI Chat</button>
@@ -877,6 +889,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
               <button onclick="simulateOneClickInstall()" class="px-2.5 py-1 bg-black text-[#ecf1e6] rounded-full text-[10px] font-semibold hover:opacity-85 active:scale-95 transition">
                 Copy install command
               </button>
+              <button onclick="switchInstallCmdTab('brew'); execAeonikShellCommand('brew install tincan context-palace');" class="px-2.5 py-1 border border-black text-black rounded-full text-[10px] font-semibold hover:bg-black hover:text-[#ecf1e6] active:scale-95 transition">
+                🍺 brew install
+              </button>
               <a href="/install.command" download="Install-TinCan.command" class="px-2.5 py-1 border border-black text-black rounded-full text-[10px] font-semibold hover:bg-black hover:text-[#ecf1e6] active:scale-95 transition no-underline">
                 ⬇ macOS .command
               </a>
@@ -885,6 +900,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
               </button>
             </div>
             <div class="hidden">
+              <code id="brewInstallCmd">brew install https://iot-federated-agent-memory-production.up.railway.app/Formula/tincan.rb</code>
               <code id="curlInstallCmd">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code>
               <code id="installCmd">npx skills add NoJuanNobody/tincan-skills -g -y</code>
               <code id="chatCmd">curl -s -X POST https://iot-federated-agent-memory-production.up.railway.app/api/chat -H "Content-Type: application/json" -d '{"prompt":"Hello world!"}'</code>
@@ -4257,6 +4273,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     let activeInstallCmdId = 'curlInstallCmd';
     function switchInstallCmdTab(tab) {
       const mapping = {
+        brew: { id: 'brewInstallCmd', btn: 'tabCmdBrew' },
         curl: { id: 'curlInstallCmd', btn: 'tabCmdCurl' },
         npx: { id: 'installCmd', btn: 'tabCmdNpx' },
         chat: { id: 'chatCmd', btn: 'tabCmdChat' }
@@ -4266,7 +4283,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       const srcEl = document.getElementById(entry.id);
       const dispEl = document.getElementById('activeInstallCmdDisplay');
       if (srcEl && dispEl) dispEl.innerText = srcEl.innerText;
-      ['tabCmdCurl', 'tabCmdNpx', 'tabCmdChat'].forEach(btnId => {
+      ['tabCmdBrew', 'tabCmdCurl', 'tabCmdNpx', 'tabCmdChat'].forEach(btnId => {
         const b = document.getElementById(btnId);
         if (!b) return;
         if (btnId === entry.btn) {
@@ -4293,6 +4310,12 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       // command and say so, instead of printing a pretend install log.
       const win = document.getElementById('win-terminal');
       if (win && win.classList.contains('hidden')) win.classList.remove('hidden');
+      if (activeInstallCmdId === 'brewInstallCmd') {
+        const brewEl = document.getElementById('brewInstallCmd');
+        if (brewEl) copyToClipboard(brewEl.innerText);
+        execAeonikShellCommand('brew install tincan context-palace');
+        return;
+      }
       const transcript = document.getElementById('termShellTranscript');
       const cmdEl = document.getElementById(typeof activeInstallCmdId !== 'undefined' ? activeInstallCmdId : 'curlInstallCmd') || document.getElementById('curlInstallCmd');
       const cmdText = cmdEl ? cmdEl.innerText : '';
@@ -8982,6 +9005,19 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           const r = await fetch('/api/mesh/state');
           const d = await r.json();
           out.textContent = `room ${d.room || 'main'} · ${Object.keys(d.peers || {}).length} peers · relay online`;
+        } else if (verb === 'brew' || cmd.startsWith('tincan brew')) {
+          const cleanBrewCmd = cmd.replace(/^tincan\s+/i, '');
+          out.textContent = '==> Contacting TinCan Homebrew Tap & Cellar...';
+          const r = await fetch('/api/terminal/brew', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ command: cleanBrewCmd, peer_id: myPeerId || 'aeonik' })
+          });
+          const d = await r.json();
+          out.textContent = d.output || (Array.isArray(d.lines) ? d.lines.join('\n') : JSON.stringify(d));
+          if (typeof awardLocalXp === 'function' && cleanBrewCmd.includes('install')) {
+            awardLocalXp(35, 'Installed package via TinCan Homebrew');
+          }
         } else {
           const prompt = cmd.replace(/^(ask|tincan chat)\s+/i, '');
           out.textContent = 'Asking the AI gateway…';

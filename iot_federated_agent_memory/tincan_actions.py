@@ -93,6 +93,16 @@ def execute_action(action_id_or_seq: str, config_dir: Optional[str] = None) -> D
         sender_label = target.get("sender_alias") or target.get("sender") or "peer"
         tts_res = speak_text(f"Message from {sender_label}: {cmd_text}", background=True)
         result_output = f"Approved & spoken via {tts_res.get('engine', 'TTS')}: {cmd_text}"
+    elif act_type == "brew" or cmd_text.lower().startswith("brew "):
+        from .tincan_brew import handle_brew_command
+        brew_res = handle_brew_command(
+            cmd_text,
+            peer_id=target.get("sender_alias") or "operator",
+            config_dir=config_dir,
+            queue_hitl=False,
+            execute_native=False,
+        )
+        result_output = f"Approved & executed via TinCan Homebrew Bridge:\n{brew_res.get('output', cmd_text)}"
     elif "open gemini" in cmd_text.lower():
         if sys.platform == "darwin":
             subprocess.run(["open", "https://gemini.google.com"])

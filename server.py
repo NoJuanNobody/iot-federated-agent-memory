@@ -2303,6 +2303,19 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json(out, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/terminal/brew":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                from iot_federated_agent_memory.tincan_brew import handle_brew_command
+
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                cmd = (data.get("command") or data.get("cmd") or "brew help").strip()
+                peer_id = (data.get("peer_id") or data.get("owner_id") or "aeonik").strip()
+                out = handle_brew_command(cmd, peer_id=peer_id, queue_hitl=True, execute_native=False)
+                self._send_json(out, 200)
+            except Exception as e:
+                self._send_json({"status": "error", "error": str(e), "output": f"Error: {e}", "lines": [f"Error: {e}"]}, 500)
         elif parsed.path == "/api/space/agent":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
@@ -3083,6 +3096,30 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 "ingested_nodes": mqtt_adapter.ingestor.buffer[-25:],
                 "receipts": [r.to_dict() for r in mqtt_adapter.receipts[-10:]],
             }, 200)
+        elif parsed.path == "/api/terminal/brew":
+            from iot_federated_agent_memory.tincan_brew import BREW_CATALOG, load_cellar_state
+
+            state = load_cellar_state()
+            self._send_json(
+                {
+                    "status": "ok",
+                    "taps": state.get("taps", []),
+                    "installed": state.get("installed", {}),
+                    "catalog": BREW_CATALOG,
+                },
+                200,
+            )
+        elif parsed.path in ("/Formula/tincan.rb", "/Formula/context-palace.rb", "/tincan.rb"):
+            from iot_federated_agent_memory.tincan_brew import generate_homebrew_formula
+
+            fname = "context-palace" if "context-palace" in parsed.path else "tincan"
+            rb_code = generate_homebrew_formula(fname).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/x-ruby; charset=utf-8")
+            self.send_header("Content-Length", str(len(rb_code)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self._write_body(rb_code)
         elif parsed.path in ("/install.sh", "/install_peer.sh", "/install.command"):
             install_script_path = os.path.join(os.path.dirname(__file__), "install_peer.sh")
             if os.path.exists(install_script_path):
