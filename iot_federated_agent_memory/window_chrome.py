@@ -118,7 +118,7 @@ def _is_ink_bg(prefix: str, util: str, color: str, shade: Optional[int], alpha: 
     if prefix or util != "bg":
         return False
     if color == "black":
-        return alpha is None or alpha >= 70
+        return alpha is None
     if color in ACCENTS and shade is not None and 400 <= shade <= 800:
         return alpha is None or alpha >= 70
     return False
@@ -168,9 +168,8 @@ def _map_token(prefix: str, util: str, color: str, shade: Optional[int], alpha: 
                 return f"{p}bg-black/5"
             return f"{p}bg-white"
         if color == "black":
-            if alpha is not None and alpha < 70:
-                return f"{p}bg-white"
-            return f"{p}bg-[{INK}]"
+            # Solid black is ink (buttons, video letterbox); translucent black panes become paper.
+            return f"{p}bg-[{INK}]" if alpha is None else f"{p}bg-white"
         if hover:
             if (accent and 400 <= s <= 800 and (alpha is None or alpha >= 70)) or (ink_ctx and (alpha is None or alpha >= 70)):
                 return f"{p}bg-[#333333]"
@@ -235,6 +234,12 @@ def _compile_segment(seg: str) -> str:
     has_gradient = bool(_GRADIENT_RE.search(seg))
     if not found and not has_gradient:
         return seg
+    if has_gradient and "bg-clip-text" in seg:
+        # Gradient-filled wordmarks become plain ink text.
+        seg = _GRADIENT_RE.sub("", seg)
+        seg = re.sub(r"(?<![\w\-:])(?:from|via|to)-[a-z]+(?:-\d{2,3})?(?:/\d{1,3})?(?![\w\-])", "", seg)
+        seg = seg.replace("bg-clip-text", "").replace("text-transparent", f"text-[{INK}]")
+        return re.sub(r"[ \t]{2,}", " ", seg)
     ink_ctx = _context_has_ink(found, seg)
     gradient_ink = False
     if has_gradient:
@@ -438,6 +443,14 @@ CELADON_HEAD = r"""
     #accountSetupModal h2, #accountSetupModal h3 { font-family: var(--tc-font) !important; color: var(--tc-ink) !important; font-weight: 600 !important; }
     #accountSetupModal :is(input, select, textarea) { background: var(--tc-paper) !important; color: var(--tc-ink) !important; border: var(--tc-hair) !important; border-radius: var(--tc-r-sm) !important; }
     #zenGateBack { color: var(--tc-muted) !important; text-decoration-color: rgba(17, 17, 17, 0.3) !important; }
+
+    /* Feed chrome belongs to the zen landing only, not to the classic desktop or single-window routes */
+    body:not(.zen) #zenStage, body:not(.zen) .zen-chrome, body:not(.zen) #zenLauncher { display: none !important; }
+    /* Single-window routes and pop-outs: the window is the page */
+    body.tc-single #meshOsHud, body.tc-single #meshOsDock { display: none !important; }
+    body.tc-single .mesh-window.popout-fullscreen { top: 8px !important; height: calc(100vh - 16px) !important; min-height: calc(100vh - 16px) !important; max-height: calc(100vh - 16px) !important; }
+    body.tc-single .mesh-window.popout-fullscreen .window-body { height: calc(100vh - 62px) !important; max-height: calc(100vh - 62px) !important; }
+    #meshOsHud { background: rgba(236, 241, 230, 0.94) !important; border-bottom: var(--tc-hair) !important; backdrop-filter: blur(8px); }
   </style>
 """
 

@@ -3546,6 +3546,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             const maxBtn = w.querySelector('button[onclick*="maximizeWindow"]');
             if (maxBtn) maxBtn.style.display = 'none';
 
+            document.body.classList.add('tc-single');
+
             // If this is the TV watch party, ensure video starts playing
             if (id === 'win-tv') {
               const vid = document.getElementById('relayNativeVideo');
@@ -3591,9 +3593,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       );
     }
 
+    // Handles are stored without the leading @; tolerate older values saved as "@name".
+    function cleanHandle(u) { return String(u == null ? '' : u).trim().replace(/^@+/, ''); }
+    function formatHandle(u) { const h = cleanHandle(u); return h ? '@' + h : ''; }
+
     function getVerifiedDisplayName() {
       const fn = (localStorage.getItem('tincan_fullname') || '').trim();
-      const un = (localStorage.getItem('tincan_username') || '').trim();
+      const un = cleanHandle(localStorage.getItem('tincan_username'));
       if (fn && un) return `${fn} (@${un})`;
       if (un) return `@${un}`;
       if (fn) return fn;
@@ -3760,13 +3766,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       const username = (account.username || (account.full_name || '').split(' ')[0] || '').trim();
       localStorage.setItem('tincan_registration_epoch', REGISTRATION_EPOCH);
       localStorage.setItem('tincan_fullname', account.full_name || username);
-      localStorage.setItem('tincan_username', username);
+      localStorage.setItem('tincan_username', cleanHandle(username));
       localStorage.setItem('tincan_email', account.email || '');
       localStorage.setItem('tincan_phone', account.phone_number || '');
       localStorage.setItem('tincan_role', account.role || 'Mesh Operator');
       localStorage.setItem('tincan_consent_pii', 'true');
       const hudName = document.getElementById('hudAccountName');
-      if (hudName && username) hudName.innerText = '@' + username;
+      if (hudName && username) hudName.innerText = formatHandle(username);
       const localLbl = document.getElementById('localPeerLabel');
       if (localLbl) localLbl.innerText = getVerifiedDisplayName();
       const modal = document.getElementById('accountSetupModal');
@@ -3963,13 +3969,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           }
           localStorage.setItem('tincan_registration_epoch', REGISTRATION_EPOCH);
           localStorage.setItem('tincan_fullname', fullName);
-          localStorage.setItem('tincan_username', username);
+          localStorage.setItem('tincan_username', cleanHandle(username));
           localStorage.setItem('tincan_email', email);
           localStorage.setItem('tincan_phone', phone);
           localStorage.setItem('tincan_role', role);
           localStorage.setItem('tincan_consent_pii', 'true');
           const hudName = document.getElementById('hudAccountName');
-          if (hudName) hudName.innerText = '@' + username;
+          if (hudName) hudName.innerText = formatHandle(username);
           const localLbl = document.getElementById('localPeerLabel');
           if (localLbl) localLbl.innerText = getVerifiedDisplayName();
 
@@ -4032,7 +4038,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       }
 
       if (savedUser) {
-        if (hudName) hudName.innerText = '@' + savedUser;
+        if (hudName) hudName.innerText = formatHandle(savedUser);
         const localLbl = document.getElementById('localPeerLabel');
         if (localLbl) localLbl.innerText = getVerifiedDisplayName();
         // Re-sync localStorage identity to server in case container restarted
@@ -6682,13 +6688,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         }
         localStorage.setItem('tincan_registration_epoch', REGISTRATION_EPOCH);
         localStorage.setItem('tincan_fullname', fullName);
-        localStorage.setItem('tincan_username', username);
+        localStorage.setItem('tincan_username', cleanHandle(username));
         localStorage.setItem('tincan_email', email);
         localStorage.setItem('tincan_phone', phone);
         localStorage.setItem('tincan_role', role);
         localStorage.setItem('tincan_consent_pii', 'true');
         const hudName = document.getElementById('hudAccountName');
-        if (hudName) hudName.innerText = '@' + username;
+        if (hudName) hudName.innerText = formatHandle(username);
 
         playXpChime();
         spawnPacketFlight(myPeerId, '@verifier-agent', 'verified', '✅ Attested');
