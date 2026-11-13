@@ -1475,7 +1475,7 @@ aeonik/
               <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5">
                 <span>⚔️</span> Side-by-Side AI Brain Arena Duel
               </h3>
-              <p class="text-[11px] text-slate-400">Pick two chat models the router supports, send the same prompt to both, and vote for the better answer (+150 XP).</p>
+              <p class="text-[11px] text-slate-400">Pick two chat models the router supports, send the same prompt to both, and vote for the better answer (+150 XP). Duels are billed to your signed-in account.</p>
             </div>
             <div class="flex items-center gap-2">
               <span class="text-[11px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800 px-2 py-0.5 rounded">
@@ -4963,7 +4963,7 @@ aeonik/
         const def = data.default || { a: 'gemini-brain', b: 'claude-brain' };
         selA.value = saved && ids.has(saved.a) ? saved.a : def.a;
         selB.value = saved && ids.has(saved.b) ? saved.b : def.b;
-        if (note) note.textContent = `${arenaModelList.length} models from the AI router. Billing is per answer, same as chat.`;
+        if (note) note.textContent = `${arenaModelList.length} models from the AI router. Sign in to duel: each side is billed to your own account at the model's real cost.`;
       } catch (err) {
         if (note) note.textContent = `Couldn't load the model list (${err.message}); using the default brains.`;
       }
@@ -4998,18 +4998,60 @@ aeonik/
       spawnPacketFlight(myPeerId, a, 'ai_prompt', a);
       spawnPacketFlight(myPeerId, b, 'ai_prompt', b);
 
-      const ask = (model) => fetch('/api/chat', {
+      // Duels bill the signed-in account (server-side session cookie), never the shared bucket.
+      // 1) open a match for this account and the two models, 2) run each side against it.
+      let match;
+      try {
+        const mr = await fetch('/api/mesh/arena/match', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model_a: a, model_b: b, prompt })
+        });
+        const md = await mr.json();
+        if (mr.status === 401) {
+          resA.innerText = resB.innerText = 'Sign in to duel. Brain Arena duels are billed to your own account.';
+          showQuickNotification('Sign in to duel: duels bill your own account.');
+          if (typeof openAccountModal === 'function') openAccountModal(false);
+          return;
+        }
+        if (mr.status === 402) {
+          resA.innerText = resB.innerText = (md.error || 'Not enough tokens for this duel.') + ' Top up or watch a sponsor ad to continue.';
+          return;
+        }
+        if (!mr.ok) throw new Error(md.error || `HTTP ${mr.status}`);
+        match = md.match;
+      } catch (err) {
+        resA.innerText = resB.innerText = 'Battle error: ' + err.message;
+        return;
+      }
+
+      const ask = (model, side) => fetch('/api/chat', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        // No peer_id here on purpose: billing stays exactly as before (same /api/chat call per side).
-        body: JSON.stringify({ model, prompt, arena: true })
-      }).then(r => r.json());
+        body: JSON.stringify({ model, prompt, arena: true, match_id: match.match_id, arena_side: side })
+      }).then(async r => ({ status: r.status, body: await r.json() }));
+
+      const render = (el, res) => {
+        const d = res.body || {};
+        if (res.status === 402) return el.innerText = (d.error || 'Not enough tokens for this side.') + ' Top up to continue.';
+        const text = d.choices?.[0]?.message?.content || d.text || d.error || JSON.stringify(d, null, 2);
+        const bill = d.billing ? `\n\n— billed to you: ${d.billing.tokens_billed} tokens · $${Number(d.billing.cost_usd || 0).toFixed(6)}` : '';
+        el.innerText = text + bill;
+      };
 
       try {
-        const [respA, respB] = await Promise.all([ask(a), ask(b)]);
-        resA.innerText = respA.choices?.[0]?.message?.content || respA.text || respA.error || JSON.stringify(respA, null, 2);
-        resB.innerText = respB.choices?.[0]?.message?.content || respB.text || respB.error || JSON.stringify(respB, null, 2);
-        if (!respA.error && !respB.error) arenaLastDuel = { a, b, prompt };
+        // Sequential on purpose: side B is checked against the balance left after side A.
+        const respA = await ask(a, 'A');
+        render(resA, respA);
+        const respB = await ask(b, 'B');
+        render(resB, respB);
+        if (respA.status === 200 && respB.status === 200) {
+          arenaLastDuel = { a, b, prompt, match_id: match.match_id };
+          const total = (respB.body.billing && respB.body.billing.match_total_cost_usd) || 0;
+          showQuickNotification(`Duel billed to your account: $${Number(total).toFixed(6)} (${match.match_id.slice(0, 14)}…)`);
+        }
       } catch (err) {
         resA.innerText = 'Battle error: ' + err.message;
         resB.innerText = 'Battle error: ' + err.message;
@@ -5018,7 +5060,11 @@ aeonik/
 
     async function voteArenaWinner(side) {
       initAudio();
-      const duel = arenaLastDuel || { ...arenaPick(), prompt: document.getElementById('arenaPromptInput').value };
+      const duel = arenaLastDuel;
+      if (!duel || !duel.match_id) {
+        showQuickNotification('Run a duel first: votes are recorded against a billed match.');
+        return;
+      }
       const winnerSide = side === 'B' ? 'B' : 'A';
       const winnerModel = winnerSide === 'A' ? duel.a : duel.b;
       playXpChime();
@@ -5027,12 +5073,10 @@ aeonik/
         const res = await fetch('/api/mesh/arena/vote', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
           body: JSON.stringify({
-            peer_id: myPeerId,
-            winner_alias: winnerModel,
+            match_id: duel.match_id,
             winner_side: winnerSide,
-            model_a: duel.a,
-            model_b: duel.b,
             prompt_preview: (duel.prompt || '').substring(0, 40),
             display_name: myPeerId,
             room: currentRoom

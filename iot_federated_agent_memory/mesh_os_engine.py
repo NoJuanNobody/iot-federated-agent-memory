@@ -442,8 +442,14 @@ class TinCanMeshOSEngine:
         model_a: Optional[str] = None,
         model_b: Optional[str] = None,
         winner_side: Optional[str] = None,
+        match_id: Optional[str] = None,
+        cost_usd: Optional[float] = None,
+        tokens: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Increment votes for winner, award brain_arena_match XP, and record flight.
+
+        ``match_id``/``cost_usd``/``tokens`` come from the billed arena match
+        (account_registry.arena_matches) when the duel was paid by an account.
 
         ``model_a``/``model_b`` are the two models that were compared and
         ``winner_side`` is "A" or "B"; they are stored with the match record.
@@ -457,6 +463,9 @@ class TinCanMeshOSEngine:
                 "model_a": model_a,
                 "model_b": model_b,
                 "prompt_preview": prompt_preview,
+                "match_id": match_id,
+                "cost_usd": cost_usd,
+                "tokens": tokens,
                 "timestamp": time.time(),
             }
             self.arena_matches.append(match)
@@ -483,6 +492,9 @@ class TinCanMeshOSEngine:
                 "model_b": model_b,
                 "votes": self.arena_votes[winner_alias],
                 "prompt_preview": prompt_preview,
+                "match_id": match_id,
+                "cost_usd": cost_usd,
+                "tokens": tokens,
                 "flight": flight,
                 "xp_awarded": award_res["awarded_xp"],
                 "total_xp": self.total_xp,

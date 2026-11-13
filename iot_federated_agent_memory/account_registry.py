@@ -5,10 +5,14 @@ Facilitates user onboarding for connected mesh peers and handles token billing,
 credit balances, and usage ledger transactions.
 """
 
+import hashlib
+import json
 import os
 import re
+import secrets
 import sqlite3
 import time
+import uuid
 from typing import Dict, List, Optional
 
 
@@ -28,9 +32,25 @@ class EmailAlreadyRegisteredError(ValueError):
         super().__init__(message)
 
 
+class ArenaBillingError(ValueError):
+    """A Brain Arena duel could not be billed to the signed-in account.
+
+    ``status`` is the HTTP status the server should answer with and ``code`` a
+    stable machine-readable reason.
+    """
+
+    def __init__(self, code: str, message: str, status: int = 400, **extra):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.status = status
+        self.extra = extra
+
+
 class PeerAccountRegistry:
     DEFAULT_INITIAL_TOKENS = 10
     DEFAULT_INITIAL_CREDIT_USD = 0.10
+    SESSION_TTL_SECONDS = 30 * 24 * 3600
 
     def __init__(self, db_path: Optional[str] = None):
         if db_path is None:
@@ -135,6 +155,53 @@ class PeerAccountRegistry:
                 )
                 """
             )
+            # Server-side sign-in sessions (token is only ever stored hashed).
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS account_sessions (
+                    session_hash TEXT PRIMARY KEY,
+                    account_peer_id TEXT NOT NULL,
+                    created_at REAL NOT NULL,
+                    expires_at REAL NOT NULL,
+                    last_seen_at REAL NOT NULL,
+                    revoked INTEGER NOT NULL DEFAULT 0
+                )
+                """
+            )
+            # Brain Arena matches: who paid, which two models, and what each side cost.
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS arena_matches (
+                    match_id TEXT PRIMARY KEY,
+                    account_peer_id TEXT NOT NULL,
+                    model_a TEXT NOT NULL,
+                    model_b TEXT NOT NULL,
+                    prompt_preview TEXT NOT NULL DEFAULT '',
+                    created_at REAL NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'open',
+                    tokens_a INTEGER,
+                    cost_a_usd REAL,
+                    tokens_b INTEGER,
+                    cost_b_usd REAL,
+                    total_tokens INTEGER NOT NULL DEFAULT 0,
+                    total_cost_usd REAL NOT NULL DEFAULT 0,
+                    winner_side TEXT,
+                    winner_alias TEXT,
+                    voted_at REAL,
+                    FOREIGN KEY(account_peer_id) REFERENCES accounts(peer_id)
+                )
+                """
+            )
+            # token_ledger tags: kind ('chat' | 'arena'), the arena match and side.
+            ledger_cols = {r[1] for r in cursor.execute("PRAGMA table_info(token_ledger)").fetchall()}
+            for col, ddl in (
+                ("kind", "ALTER TABLE token_ledger ADD COLUMN kind TEXT NOT NULL DEFAULT 'chat'"),
+                ("match_id", "ALTER TABLE token_ledger ADD COLUMN match_id TEXT NOT NULL DEFAULT ''"),
+                ("arena_side", "ALTER TABLE token_ledger ADD COLUMN arena_side TEXT NOT NULL DEFAULT ''"),
+            ):
+                if col not in ledger_cols:
+                    cursor.execute(ddl)
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_token_ledger_match ON token_ledger(match_id)")
             conn.commit()
 
     @staticmethod
@@ -372,8 +439,22 @@ class PeerAccountRegistry:
         cost_usd: float,
         model: str,
         allow_overage: bool = True,
+        arena_match_id: Optional[str] = None,
+        arena_side: Optional[str] = None,
     ) -> Dict:
-        """Bill a peer account for AI model token consumption."""
+        """Bill a peer account for AI model token consumption.
+
+        With ``arena_match_id``/``arena_side`` this is one side of a Brain Arena
+        duel: it is charged to that match's (signed-in) account only, never
+        auto-provisioned, tagged ``kind='arena'`` in token_ledger with both
+        models and the match id, and the side's cost is stored on the match.
+        """
+        if arena_match_id:
+            return self.bill_arena_side(
+                account_peer_id=peer_id, match_id=arena_match_id, side=arena_side or "",
+                model=model, prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
+                total_tokens=total_tokens, cost_usd=cost_usd,
+            )
         peer_id = self.resolve_account_peer_id(peer_id)
         account = self.get_account_by_peer(peer_id)
         if not account:
@@ -437,6 +518,226 @@ class PeerAccountRegistry:
             "total_billed_usd": new_total_billed,
         }
 
+    # ------------------------------------------------------------------
+    # Sign-in sessions
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _session_hash(token: str) -> str:
+        return hashlib.sha256(("tincan-session:" + token).encode("utf-8")).hexdigest()
+
+    def create_session(self, account_peer_id: str, ttl_seconds: Optional[int] = None) -> str:
+        """Issue a session token for an account that just proved who it is.
+
+        Only a hash of the token is stored. The caller hands the raw token to
+        the browser in an HttpOnly cookie.
+        """
+        account_peer_id = self.resolve_account_peer_id(account_peer_id)
+        if not self.get_account_by_peer(account_peer_id):
+            raise ValueError("Unknown account")
+        token = secrets.token_urlsafe(32)
+        now = time.time()
+        ttl = int(ttl_seconds or self.SESSION_TTL_SECONDS)
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                "INSERT INTO account_sessions (session_hash, account_peer_id, created_at, expires_at, last_seen_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (self._session_hash(token), account_peer_id, now, now + ttl, now),
+            )
+            conn.commit()
+        return token
+
+    def resolve_session(self, token: str) -> Optional[Dict]:
+        """Return the signed-in account for a session token, or None."""
+        if not token or not isinstance(token, str) or len(token) > 256:
+            return None
+        now = time.time()
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT account_peer_id, expires_at, revoked FROM account_sessions WHERE session_hash = ?",
+                (self._session_hash(token),),
+            ).fetchone()
+            if not row or row[2] or row[1] < now:
+                return None
+            conn.execute(
+                "UPDATE account_sessions SET last_seen_at = ? WHERE session_hash = ?",
+                (now, self._session_hash(token)),
+            )
+            conn.commit()
+        return self.get_account_by_peer(row[0])
+
+    def revoke_session(self, token: str) -> bool:
+        if not token:
+            return False
+        with sqlite3.connect(self.db_path) as conn:
+            cur = conn.execute(
+                "UPDATE account_sessions SET revoked = 1 WHERE session_hash = ?", (self._session_hash(token),)
+            )
+            conn.commit()
+            return cur.rowcount > 0
+
+    # ------------------------------------------------------------------
+    # Brain Arena: per-account duel billing
+    # ------------------------------------------------------------------
+    @staticmethod
+    def estimate_side_tokens(prompt: str, max_tokens: int) -> int:
+        """Worst-case tokens one duel side can use: the prompt (~4 chars per
+        token, rounded up) plus the completion cap."""
+        prompt_tokens = (len(prompt or "") + 3) // 4 + 8  # + chat-template overhead
+        return int(prompt_tokens + max(0, int(max_tokens)))
+
+    def create_arena_match(self, account_peer_id: str, model_a: str, model_b: str, prompt_preview: str = "") -> Dict:
+        account_peer_id = self.resolve_account_peer_id(account_peer_id)
+        account = self.get_account_by_peer(account_peer_id)
+        if not account:
+            raise ArenaBillingError("sign_in_required", "Sign in to start a Brain Arena duel.", 401)
+        if int(account.get("token_balance") or 0) <= 0:
+            raise ArenaBillingError(
+                "insufficient_tokens", "Insufficient tokens: balance is 0. Top up to duel.", 402,
+                token_balance=0,
+            )
+        match_id = "arena_" + uuid.uuid4().hex
+        now = time.time()
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                "INSERT INTO arena_matches (match_id, account_peer_id, model_a, model_b, prompt_preview, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (match_id, account_peer_id, model_a, model_b, (prompt_preview or "")[:80], now),
+            )
+            conn.commit()
+        return self.get_arena_match(match_id)
+
+    def get_arena_match(self, match_id: str) -> Optional[Dict]:
+        if not match_id:
+            return None
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute("SELECT * FROM arena_matches WHERE match_id = ?", (match_id,)).fetchone()
+            return dict(row) if row else None
+
+    def authorize_arena_side(self, account_peer_id: str, match_id: str, side: str, model: str,
+                             required_tokens: int) -> Dict:
+        """Check, before any model is called, that this side of this match may
+        be dispatched and that the account can cover its worst-case cost."""
+        account_peer_id = self.resolve_account_peer_id(account_peer_id)
+        side = (side or "").upper()
+        if side not in ("A", "B"):
+            raise ArenaBillingError("bad_side", "arena_side must be 'A' or 'B'.", 400)
+        match = self.get_arena_match(match_id)
+        if not match:
+            raise ArenaBillingError("match_not_found", "Unknown arena match.", 404)
+        if match["account_peer_id"] != account_peer_id:
+            raise ArenaBillingError("match_forbidden", "This arena match belongs to another account.", 403)
+        expected = match["model_a"] if side == "A" else match["model_b"]
+        if model != expected:
+            raise ArenaBillingError("model_mismatch", f"Side {side} of this match is {expected}, not {model}.", 400)
+        if match[f"tokens_{side.lower()}"] is not None:
+            raise ArenaBillingError("side_already_billed", f"Side {side} of this match already ran.", 409)
+        account = self.get_account_by_peer(account_peer_id) or {}
+        balance = int(account.get("token_balance") or 0)
+        if balance < int(required_tokens):
+            raise ArenaBillingError(
+                "insufficient_tokens",
+                f"Insufficient tokens for side {side}: needs up to {int(required_tokens)}, balance is {balance}.",
+                402, side=side, required_tokens=int(required_tokens), token_balance=balance,
+            )
+        return match
+
+    def bill_arena_side(self, account_peer_id: str, match_id: str, side: str, model: str,
+                        prompt_tokens: int, completion_tokens: int, total_tokens: int,
+                        cost_usd: float) -> Dict:
+        """Charge one duel side to the signed-in account, tag the ledger row as
+        an arena match, and store the side's cost on the match. One transaction."""
+        account_peer_id = self.resolve_account_peer_id(account_peer_id)
+        side = side.upper()
+        col = side.lower()
+        now = time.time()
+        total_tokens = max(0, int(total_tokens))
+        cost_usd = max(0.0, float(cost_usd or 0.0))
+        with sqlite3.connect(self.db_path, isolation_level=None) as conn:
+            conn.row_factory = sqlite3.Row
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                match = conn.execute("SELECT * FROM arena_matches WHERE match_id = ?", (match_id,)).fetchone()
+                if not match or match["account_peer_id"] != account_peer_id:
+                    raise ArenaBillingError("match_not_found", "Unknown arena match.", 404)
+                if match[f"tokens_{col}"] is not None:
+                    raise ArenaBillingError("side_already_billed", f"Side {side} of this match already ran.", 409)
+                acct = conn.execute("SELECT * FROM accounts WHERE peer_id = ?", (account_peer_id,)).fetchone()
+                if not acct:
+                    raise ArenaBillingError("sign_in_required", "Account not found.", 401)
+                new_balance = max(0, int(acct["token_balance"]) - total_tokens)
+                new_credit = max(0.0, round(float(acct["credit_balance_usd"]) - cost_usd, 6))
+                new_used = int(acct["total_tokens_used"]) + total_tokens
+                new_billed = round(float(acct["total_billed_usd"]) + cost_usd, 6)
+                conn.execute(
+                    "UPDATE accounts SET token_balance = ?, credit_balance_usd = ?, total_tokens_used = ?, "
+                    "total_billed_usd = ? WHERE peer_id = ?",
+                    (new_balance, new_credit, new_used, new_billed, account_peer_id),
+                )
+                note = json.dumps({
+                    "arena_match": match_id, "side": side,
+                    "model_a": match["model_a"], "model_b": match["model_b"],
+                }, separators=(",", ":"))
+                conn.execute(
+                    "INSERT INTO token_ledger (peer_id, prompt_tokens, completion_tokens, total_tokens, cost_usd, "
+                    "model, timestamp, note, kind, match_id, arena_side) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'arena', ?, ?)",
+                    (account_peer_id, int(prompt_tokens), int(completion_tokens), total_tokens, cost_usd,
+                     model, now, note, match_id, side),
+                )
+                other = "b" if col == "a" else "a"
+                done = match[f"tokens_{other}"] is not None
+                conn.execute(
+                    f"UPDATE arena_matches SET tokens_{col} = ?, cost_{col}_usd = ?, "
+                    "total_tokens = total_tokens + ?, total_cost_usd = round(total_cost_usd + ?, 6), status = ? "
+                    "WHERE match_id = ?",
+                    (total_tokens, cost_usd, total_tokens, cost_usd, "complete" if done else "open", match_id),
+                )
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
+        updated = self.get_arena_match(match_id)
+        return {
+            "peer_id": account_peer_id,
+            "kind": "arena",
+            "match_id": match_id,
+            "side": side,
+            "model": model,
+            "prompt_tokens": int(prompt_tokens),
+            "completion_tokens": int(completion_tokens),
+            "tokens_billed": total_tokens,
+            "cost_usd": cost_usd,
+            "remaining_token_balance": new_balance,
+            "remaining_credit_usd": new_credit,
+            "total_tokens_consumed": new_used,
+            "total_billed_usd": new_billed,
+            "match_total_tokens": updated["total_tokens"],
+            "match_total_cost_usd": updated["total_cost_usd"],
+        }
+
+    def record_arena_vote(self, account_peer_id: str, match_id: str, winner_side: str) -> Dict:
+        account_peer_id = self.resolve_account_peer_id(account_peer_id)
+        winner_side = (winner_side or "").upper()
+        if winner_side not in ("A", "B"):
+            raise ArenaBillingError("bad_side", "winner_side must be 'A' or 'B'.", 400)
+        match = self.get_arena_match(match_id)
+        if not match:
+            raise ArenaBillingError("match_not_found", "Unknown arena match.", 404)
+        if match["account_peer_id"] != account_peer_id:
+            raise ArenaBillingError("match_forbidden", "This arena match belongs to another account.", 403)
+        if match["status"] != "complete":
+            raise ArenaBillingError("match_incomplete", "Both sides must finish before voting.", 409)
+        if match["winner_side"]:
+            raise ArenaBillingError("already_voted", "This match already has a vote.", 409)
+        winner_alias = match["model_a"] if winner_side == "A" else match["model_b"]
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                "UPDATE arena_matches SET winner_side = ?, winner_alias = ?, voted_at = ? WHERE match_id = ?",
+                (winner_side, winner_alias, time.time(), match_id),
+            )
+            conn.commit()
+        return self.get_arena_match(match_id)
+
     def get_billing_summary(self, peer_id: str, limit: int = 10) -> Dict:
         """Retrieve token billing balance and recent ledger invoices for a peer."""
         peer_id = self.resolve_account_peer_id(peer_id)
@@ -449,7 +750,8 @@ class PeerAccountRegistry:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT prompt_tokens, completion_tokens, total_tokens, cost_usd, model, timestamp
+                SELECT prompt_tokens, completion_tokens, total_tokens, cost_usd, model, timestamp,
+                       kind, match_id, arena_side
                 FROM token_ledger
                 WHERE peer_id = ?
                 ORDER BY timestamp DESC
