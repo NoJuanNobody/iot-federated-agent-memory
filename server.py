@@ -2686,6 +2686,30 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": str(fe)}, 404)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/space/raw":
+            # The file's bytes with its own type, so previews (video, audio, images, 3D) and
+            # downloads use the real file instead of a JSON/base64 round trip.
+            query = parse_qs(parsed.query)
+            scope = query.get("scope", ["user"])[0]
+            owner_id = query.get("owner_id", query.get("peer_id", query.get("topic_id", ["default_user"])))[0]
+            path = query.get("path", [""])[0]
+            sm = _get_space_manager()
+            sp = sm.get_or_create_space(scope, owner_id)
+            try:
+                rec = sp.read_file(path, as_text=False)
+            except FileNotFoundError as fe:
+                self._send_json({"error": str(fe)}, 404)
+                return
+            blob = base64.b64decode(rec.get("content_b64") or "")
+            name = os.path.basename(rec["path"]) or "file"
+            self.send_response(200)
+            self.send_header("Content-Type", rec.get("mime_type") or "application/octet-stream")
+            self.send_header("Content-Length", str(len(blob)))
+            disposition = "attachment" if query.get("download", ["0"])[0] == "1" else "inline"
+            self.send_header("Content-Disposition", f'{disposition}; filename="{name.replace(chr(34), "")}"')
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(blob)
         elif parsed.path == "/api/space/export":
             query = parse_qs(parsed.query)
             scope = query.get("scope", ["user"])[0]

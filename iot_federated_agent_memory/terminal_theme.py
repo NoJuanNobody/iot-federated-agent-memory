@@ -12,6 +12,15 @@ window markup keeps working. It also carries the two engines that need real beha
 
 THEME_HEAD = r"""
   <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <script>
+    // A popped-out window (or a single-window route) shows only that window, full-bleed:
+    // none of the desktop around it (old HUD, dock, feed, launcher mark).
+    (function () {
+      var q = new URLSearchParams(location.search);
+      var single = ['/tv', '/call', '/arena', '/terminal', '/billing', '/tokens', '/board', '/cyberspace'];
+      if (q.get('window') || single.indexOf(location.pathname) !== -1) document.documentElement.classList.add('tc-popout');
+    })();
+  </script>
   <script id="tcAdCreditsScript">
     // Passive ad credits, shared by the feed and the Watch Party player. When a sponsored
     // clip starts, the server issues a one-time view token; once the clip has actually played
@@ -155,6 +164,31 @@ THEME_HEAD = r"""
       padding: 8px 14px; transition: opacity 200ms ease, transform 200ms ease;
     }
     #tcCreditToast.tc-show { opacity: 1; transform: translate(-50%, 0); }
+
+    /* ---------- pop-out: the window is the whole page ---------- */
+    html.tc-popout body { background: var(--tc-paper) !important; overflow: hidden !important; }
+    html.tc-popout #meshOsHud, html.tc-popout #meshOsDock, html.tc-popout #meshTopologyCanvas,
+    html.tc-popout #multiplayerCursorsLayer, html.tc-popout #zenStage, html.tc-popout .zen-chrome,
+    html.tc-popout #zenLauncher, html.tc-popout #zenDirtSurface { display: none !important; }
+    html.tc-popout #desktopWorkspace { padding: 0 !important; min-height: 0 !important; }
+    html.tc-popout .mesh-window:not(.hidden):not(.minimized) {
+      position: fixed !important; inset: 0 !important; width: auto !important; max-width: none !important;
+      height: 100dvh !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; transform: none !important;
+    }
+    html.tc-popout .mesh-window .window-body { flex: 1 1 auto; min-height: 0; max-height: none !important; }
+    html.tc-popout #win-terminal .tc-term-body, html.tc-popout #win-comms .tc-comms-body, html.tc-popout #win-agentspace .tc-space-body { height: auto !important; }
+    html.tc-popout .mesh-window > .window-header { cursor: default; }
+    html.tc-popout .mesh-window > .window-header .window-controls button:not(.tc-close) { display: none !important; }
+
+    /* ---------- header meta: account · peers · chat, beside the clock ---------- */
+    .mesh-window > .window-header .tc-kicker { display: flex; gap: 0; align-items: baseline; }
+    .mesh-window > .window-header .tc-meta { display: inline-flex; align-items: baseline; }
+    .mesh-window > .window-header .tc-meta button {
+      border: 0 !important; background: none !important; padding: 0 !important; margin: 0 !important; cursor: pointer;
+      font-size: 12px !important; color: var(--tc-ink-2) !important; text-decoration: underline; text-decoration-color: var(--tc-hair); text-underline-offset: 3px;
+    }
+    .mesh-window > .window-header .tc-meta button:hover { color: var(--tc-ink) !important; text-decoration-color: var(--tc-ink); }
+    .mesh-window > .window-header .tc-meta > span::before { content: "·"; padding: 0 8px; color: var(--tc-ink-3); }
 
     /* ---------- window frame ---------- */
     .mesh-window, .mesh-window[data-zen-window="true"] {
@@ -321,14 +355,13 @@ THEME_HEAD = r"""
     /* ---------- Terminal ---------- */
     #win-terminal .tc-term-body {
       display: grid !important; padding: 0 !important; overflow: hidden !important;
-      grid-template-columns: minmax(0, 1.22fr) minmax(0, 1fr);
-      grid-template-rows: minmax(250px, 1fr) minmax(220px, 0.9fr);
-      height: min(640px, calc(100dvh - 210px)); max-height: none !important;
+      grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+      height: min(560px, calc(100dvh - 210px)); max-height: none !important;
     }
     #win-terminal .tc-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-    #win-terminal .tc-pane-shell { border-right: 1px solid var(--tc-ink); border-bottom: 1px solid var(--tc-ink); }
-    #win-terminal .tc-pane-install { border-bottom: 1px solid var(--tc-ink); overflow-y: auto; overflow-x: hidden; }
-    #win-terminal .tc-pane-tree { border-right: 1px solid var(--tc-ink); }
+    #win-terminal .tc-pane-shell { border-right: 1px solid var(--tc-ink); }
+    #win-terminal .tc-pane-install { overflow-y: auto; overflow-x: hidden; }
     #win-terminal .tc-term-out { flex: 1; overflow-y: auto; padding: 12px 16px 4px; font-size: 12.5px; line-height: 1.55; }
     #win-terminal .tc-block { position: relative; padding: 2px 0 8px; }
     #win-terminal .tc-block-cmd { display: flex; gap: 8px; align-items: baseline; }
@@ -370,19 +403,6 @@ THEME_HEAD = r"""
     #win-terminal .tc-spark i { display: block; flex: 1; background: var(--tc-ink) !important; min-height: 2px; max-width: 2px; }
     #win-terminal .tc-table { padding: 4px 16px 12px; font-size: 12px; display: grid; grid-template-columns: auto auto 1fr; gap: 3px 16px; }
     #win-terminal .tc-table .tc-th { text-transform: uppercase; font-size: 11px; padding-bottom: 3px; }
-    #win-terminal .tc-tree { flex: 1; overflow: auto; padding: 10px 16px 4px; font-size: 12.5px; line-height: 1.55; white-space: pre; }
-    #win-terminal .tc-tree button {
-      border: 0 !important; padding: 0 !important; font-size: 12.5px !important; font-weight: 400 !important; background: none !important; text-align: left;
-    }
-    #win-terminal .tc-tree button:hover { text-decoration: underline; color: var(--tc-ink) !important; background: none !important; }
-    #win-terminal .tc-tree button[aria-current="true"] { font-weight: 700 !important; }
-    #win-terminal .tc-tree-sum { padding: 4px 16px 12px; font-size: 11px; }
-    #win-terminal .tc-editor {
-      flex: 1; resize: none; border: 0 !important; padding: 12px 16px !important; font-size: 12.5px !important; line-height: 1.55;
-      tab-size: 2; white-space: pre; overflow: auto;
-    }
-    #win-terminal .tc-ed-status { padding: 6px 16px 10px; font-size: 11px; border-top: 1px solid var(--tc-hair); }
-    #win-terminal.tc-ed-dirty #tcEdSave { background: var(--tc-ink) !important; color: var(--tc-paper) !important; }
 
     /* ---------- Comms ---------- */
     #win-comms .tc-comms-body {
@@ -427,10 +447,8 @@ THEME_HEAD = r"""
     #win-comms .tc-chat-input input { flex: 1; min-width: 0; border: 0 !important; padding: 4px 0 !important; font-size: 12.5px !important; }
 
     @media (max-width: 760px) {
-      #win-terminal .tc-term-body { grid-template-columns: 1fr; grid-template-rows: minmax(260px, 1fr) auto auto auto; overflow-y: auto !important; }
-      #win-terminal .tc-pane-shell, #win-terminal .tc-pane-tree { border-right: 0; }
-      #win-terminal .tc-pane-tree, #win-terminal .tc-pane-editor { min-height: 220px; }
-      #win-terminal .tc-pane-tree { border-bottom: 1px solid var(--tc-ink); }
+      #win-terminal .tc-term-body { grid-template-columns: 1fr; grid-template-rows: minmax(300px, 1fr) auto; overflow-y: auto !important; }
+      #win-terminal .tc-pane-shell { border-right: 0; border-bottom: 1px solid var(--tc-ink); }
       #win-comms .tc-comms-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
       #win-comms .tc-comms-side { border-right: 0; border-bottom: 1px solid var(--tc-ink); max-height: 132px; }
       #win-comms .tc-msg { grid-template-columns: 40px 9ch minmax(0, 1fr); gap: 0 8px; padding: 2px 12px; }
@@ -476,6 +494,31 @@ THEME_BODY = r"""
     const EMOJI = /(?:\p{Extended_Pictographic}|\p{Regional_Indicator})(?:️|‍(?:\p{Extended_Pictographic}))*️?|️|⃣/gu;
     const CONTROL_GLYPH = [[/pop|↗/i, '↗'], [/^—|minim/i, '—'], [/□|⤢|max/i, '□'], [/✕|×|close/i, '×']];
 
+    const POPOUT = document.documentElement.classList.contains('tc-popout');
+
+    // account · peers · chat in every window header; in a pop-out they open other pop-outs
+    function openOther(winId) {
+      if (POPOUT && typeof openPopoutWindow === 'function') { openPopoutWindow(winId); return; }
+      if (winId === 'win-comms' && typeof focusChatWindow === 'function') { focusChatWindow(); return; }
+      const w = $(winId);
+      if (!w) return;
+      if ((w.style.display === 'none' || w.classList.contains('hidden')) && typeof toggleWindow === 'function') toggleWindow(winId);
+      else if (typeof bringToFront === 'function') bringToFront(w);
+    }
+    function renderMeta() {
+      let label = 'join';
+      try { if (typeof isIdentityVerified === 'function' && isIdentityVerified()) label = '@' + handle(); } catch (e) {}
+      document.querySelectorAll('.tc-meta-account').forEach((b) => { b.textContent = label; b.title = label === 'join' ? 'Create your TinCan identity' : 'Your account'; });
+    }
+    document.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-tc-meta]');
+      if (!b) return;
+      const what = b.dataset.tcMeta;
+      if (what === 'account') { if (typeof openAccountModal === 'function') openAccountModal(false); }
+      else if (what === 'peers') openOther('win-network');
+      else if (what === 'chat') openOther('win-comms');
+    });
+
     function setPath(winId, path) {
       const w = $(winId);
       const el = w && w.querySelector('.tc-path');
@@ -494,7 +537,11 @@ THEME_BODY = r"""
       const path = preset ? preset[1] : '~/' + title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       const box = document.createElement('div');
       box.className = 'tc-head-left';
-      box.innerHTML = '<span class="tc-kicker"><span class="tc-clock"></span></span><span class="tc-title"></span>';
+      box.innerHTML = '<span class="tc-kicker"><span class="tc-clock"></span><span class="tc-meta">' +
+        '<span><button type="button" data-tc-meta="account" class="tc-meta-account">join</button></span>' +
+        (w.id === 'win-network' ? '' : '<span><button type="button" data-tc-meta="peers" class="tc-meta-peers">peers</button></span>') +
+        (w.id === 'win-comms' ? '' : '<span><button type="button" data-tc-meta="chat">chat</button></span>') +
+        '</span></span><span class="tc-title"></span>';
       box.querySelector('.tc-title').textContent = title;
       if (left) left.replaceWith(box); else head.prepend(box);
       const p = document.createElement('div');
@@ -504,6 +551,8 @@ THEME_BODY = r"""
       head.querySelectorAll('.window-controls button').forEach((b) => {
         const t = (b.textContent || '').trim() + ' ' + (b.title || '');
         for (const [re, g] of CONTROL_GLYPH) { if (re.test(t)) { b.textContent = g; if (!b.getAttribute('aria-label')) b.setAttribute('aria-label', b.title || g); break; } }
+        // in a pop-out the only control is close, and it closes the pop-out itself
+        if (b.textContent === '×' && POPOUT) { b.classList.add('tc-close'); b.removeAttribute('onclick'); b.addEventListener('click', () => window.close()); }
       });
     }
 
@@ -595,6 +644,8 @@ THEME_BODY = r"""
         const streams = (d.active_webrtc_streams || []).length;
         const label = d.status === 'online' ? `relay online · ${streams} stream${streams === 1 ? '' : 's'}` : 'relay offline';
         document.querySelectorAll('.tc-status-relay, #tcStatusRelay').forEach((e) => { e.textContent = label; });
+        document.querySelectorAll('.tc-meta-peers').forEach((e) => { e.textContent = `${streams} peer${streams === 1 ? '' : 's'}`; });
+        renderMeta();
         if (window.tcTerm) window.tcTerm.system(d);
       }).catch(() => {
         document.querySelectorAll('.tc-status-relay, #tcStatusRelay').forEach((e) => { e.textContent = 'relay unreachable'; });
@@ -618,7 +669,6 @@ THEME_BODY = r"""
       let tabCount = 0, lastTab = '';
       let search = null;         // { q, idx } during Ctrl+R
       let inflight = null;       // AbortController for the running command
-      let edPath = null, edClean = '';
       const sparkVals = [];
 
       // ---------- filesystem helpers ----------
@@ -666,7 +716,6 @@ THEME_BODY = r"""
       async function loadFiles() {
         const d = await api(`/api/space/ls?scope=${space.scope}&owner_id=${encodeURIComponent(space.owner)}`);
         files = (d.files || []).slice().sort((a, b) => a.path.localeCompare(b.path));
-        renderTree();
         return files;
       }
       async function readFile(p) {
@@ -719,67 +768,24 @@ THEME_BODY = r"""
         try { navigator.clipboard.writeText(text); } catch (e) {}
       }
 
-      function renderTree() {
-        const box = $('tcTermTree');
-        if (!box) return;
-        const lines = [];
+      function treeText(dir) {
+        const lines = [tilde(dir) + '/'];
         let nd = 0, nf = 0;
-        const walk = (dir, prefix) => {
-          const kids = children(dir);
+        const walk = (d, prefix) => {
+          const kids = children(d).filter((k) => !k.name.startsWith('.'));
           kids.forEach((k, i) => {
             const last = i === kids.length - 1;
-            const p = (dir === '/' ? '' : dir) + '/' + k.name;
-            const label = k.dir ? k.name + '/' : k.name;
-            lines.push(`${esc(prefix + (last ? '└── ' : '├── '))}<button type="button" data-tc-open="${esc(p)}"${p === edPath ? ' aria-current="true"' : ''}>${esc(label)}</button>`);
-            if (k.dir) { nd++; walk(p, prefix + (last ? '    ' : '│   ')); } else nf++;
+            lines.push(prefix + (last ? '└── ' : '├── ') + (d === '/' ? '' : d) + '/' + k.name + (k.dir ? '/' : ''));
+            if (k.dir) { nd++; walk((d === '/' ? '' : d) + '/' + k.name, prefix + (last ? '    ' : '│   ')); } else nf++;
           });
         };
-        lines.push(`<button type="button" data-tc-open="/">space/</button>`);
-        walk('/', '');
-        box.innerHTML = lines.join('\n');
-        const sum = $('tcTreeSummary'); if (sum) sum.textContent = `${nd} director${nd === 1 ? 'y' : 'ies'}, ${nf} file${nf === 1 ? '' : 's'}`;
+        walk(dir, '');
+        lines.push('', `${nd} director${nd === 1 ? 'y' : 'ies'}, ${nf} file${nf === 1 ? '' : 's'}`);
+        return lines.join('\n');
       }
-
-      // ---------- editor ----------
-      const ed = $('tcEdText'), edStatus = $('tcEdStatus'), win = $('win-terminal');
-      const langOf = (p) => ({ py: 'python', js: 'javascript', ts: 'typescript', md: 'markdown', json: 'json', html: 'html', css: 'css', txt: 'text', sh: 'shell', rs: 'rust' }[(p.split('.').pop() || '').toLowerCase()] || 'text');
-      function edUpdate() {
-        if (!ed) return;
-        const before = ed.value.slice(0, ed.selectionStart);
-        const ln = before.split('\n').length, col = before.length - before.lastIndexOf('\n');
-        const dirty = edPath && ed.value !== edClean;
-        win.classList.toggle('tc-ed-dirty', !!dirty);
-        edStatus.textContent = edPath ? `ln ${ln}, col ${col} · ${langOf(edPath)} · ${dirty ? 'modified' : 'saved'}` : `ln ${ln}, col ${col}`;
-      }
-      async function openInEditor(p, quiet) {
-        const r = await readFile(p);
-        if (r.binary) throw new Error(`${p} is binary (${r.d.mime_type || 'unknown type'})`);
-        edPath = p; edClean = r.text;
-        ed.value = r.text;
-        $('tcEdPath').textContent = p;
-        renderTree();
-        edUpdate();
-        if (!quiet) ed.focus();
-      }
-      async function saveEditor() {
-        if (!edPath) { const b = block('save'); b.err('No file open. Open one from the tree or run: edit /notes/todo.md'); return; }
-        const b = block(`save ${edPath}`);
-        const stop = b.spin('writing');
-        try { await writeFile(edPath, ed.value); edClean = ed.value; stop(); b.text(`wrote ${edPath} (${new Blob([ed.value]).size} bytes)`, 'tc-ok'); edUpdate(); loadFiles(); }
-        catch (e) { stop(); b.err(e.message); }
-      }
-      if (ed) {
-        ed.addEventListener('input', edUpdate);
-        ed.addEventListener('click', edUpdate);
-        ed.addEventListener('keyup', edUpdate);
-        ed.addEventListener('keydown', (e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveEditor(); }
-          else if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); if (edPath) run(`run ${edPath}`); }
-          else if (e.key === 'Tab') { e.preventDefault(); const s = ed.selectionStart; ed.setRangeText('  ', s, ed.selectionEnd, 'end'); edUpdate(); }
-          else if (e.key === 'Escape') input.focus();
-        });
-        $('tcEdSave').addEventListener('click', saveEditor);
-        $('tcEdRun').addEventListener('click', () => (edPath ? run(`run ${edPath}`) : run('run')));
+      // Files are browsed and edited in the Space window; the shell hands paths over to it.
+      function openInSpace(p, edit) {
+        if (window.tcSpace) window.tcSpace.open(p, { edit });
       }
 
       // ---------- commands ----------
@@ -802,9 +808,9 @@ THEME_BODY = r"""
         pwd: { desc: 'print the working directory in your Space' },
         ls: { args: '[path]', desc: 'list files in your Space' },
         cd: { args: '<dir>', desc: 'change directory' },
-        tree: { args: '[path]', desc: 'refresh and print the file tree' },
+        tree: { args: '[path]', desc: 'print the file tree' },
         cat: { args: '<file>', desc: 'print a file' },
-        edit: { args: '<file>', desc: 'open a file in the editor (creates it if missing)' },
+        edit: { args: '<file>', desc: 'open a file in Space to edit it (creates it if missing)' },
         touch: { args: '<file>', desc: 'create an empty file' },
         mkdir: { args: '<dir>', desc: 'create a directory' },
         rm: { args: '<file>', desc: 'delete a file' },
@@ -961,8 +967,7 @@ THEME_BODY = r"""
           }
           case 'tree': {
             await loadFiles();
-            const box = $('tcTermTree');
-            b.text(box ? box.innerText : files.map((f) => f.path).join('\n'));
+            b.text(treeText(norm(a1 || '.')));
             return;
           }
           case 'cat': {
@@ -976,9 +981,8 @@ THEME_BODY = r"""
             if (!a1) { b.err('usage: edit <file>'); return; }
             const p = norm(a1);
             if (!files.length) await loadFiles();
-            if (!isFile(p)) { await writeFile(p, ''); await loadFiles(); b.text(`created ${p}`, 'tc-dim'); }
-            await openInEditor(p);
-            b.text(`editing ${p}  (⌘S save · ⌘↵ run · esc back to shell)`, 'tc-dim');
+            openInSpace(p, true);
+            b.text(`opened ${p} in Space  (⌘S save · ⌘↵ run · esc back to the file list)`, 'tc-dim');
             return;
           }
           case 'touch': {
@@ -988,7 +992,6 @@ THEME_BODY = r"""
             if (!isFile(p)) await writeFile(p, '');
             await loadFiles();
             b.text(`created ${p}`, 'tc-ok');
-            if (a1 === '/notes/new.md' || line === 'touch /notes/new.md') await openInEditor(p);
             return;
           }
           case 'mkdir': {
@@ -1005,7 +1008,6 @@ THEME_BODY = r"""
             if (!files.length) await loadFiles();
             if (!isFile(p)) { b.err(`rm: ${a1}: no such file`); return; }
             await deleteFile(p);
-            if (edPath === p) { edPath = null; ed.value = ''; $('tcEdPath').textContent = 'no file'; edUpdate(); }
             await loadFiles();
             b.text(`removed ${p}`, 'tc-ok');
             return;
@@ -1018,13 +1020,11 @@ THEME_BODY = r"""
             if (m[2] === '>>') { try { const r = await readFile(p); if (!r.binary) content = r.text + content; } catch (e) {} }
             await writeFile(p, content);
             await loadFiles();
-            if (edPath === p) await openInEditor(p, true);
             b.text(`wrote ${p}`, 'tc-ok');
             return;
           }
           case 'run': case 'python': case 'node': {
-            const p = a1 ? norm(a1) : (edPath || '/src/main.py');
-            if (edPath === p && ed.value !== edClean) { await writeFile(p, ed.value); edClean = ed.value; edUpdate(); }
+            const p = a1 ? norm(a1) : '/src/main.py';
             const stop = b.spin(`running ${p}`);
             const d = await post('/api/space/exec', { scope: space.scope, owner_id: space.owner, entrypoint: p, runtime: 'auto', args: argv.slice(2) });
             stop();
@@ -1164,7 +1164,7 @@ THEME_BODY = r"""
           const p = openBtn.dataset.tcOpen;
           if (!files.length) await loadFiles();
           if (isDir(p)) { cwd = p; setPrompt(); run('ls'); }
-          else { try { await openInEditor(p); } catch (err) { const b = block(`edit ${p}`); b.err(err.message); } }
+          else openInSpace(p, false);
           return;
         }
         const runBtn = e.target.closest('[data-tc-run]');
@@ -1210,10 +1210,10 @@ THEME_BODY = r"""
       setPrompt();
       const welcome = block('');
       welcome.el.querySelector('.tc-block-cmd').remove();
-      welcome.text(`TinCan shell · ${origin.replace(/^https?:\/\//, '')}`);
-      welcome.text('Your Space is mounted at ~/space. Commands run against this relay.', 'tc-dim');
+      welcome.text('TinCan shell. Type help to see what it can do.');
+      welcome.text('Run tincan commands here. Files you make show up in Space, under ~/space.', 'tc-dim');
       welcome.html(chip('help') + chip('install') + chip('whoami') + chip('ls') + chip('ask what can tincan do?', 'ask …'));
-      loadFiles().then(() => { if (isFile('/src/main.py')) openInEditor('/src/main.py', true).catch(() => {}); }).catch(() => {});
+      loadFiles().catch(() => {});
       return { run, system, focus: () => input.focus(), clear: () => { out.innerHTML = ''; } };
     }
 
