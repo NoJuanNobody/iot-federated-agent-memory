@@ -410,14 +410,16 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
   <!-- Multiplayer Peer Cursors Layer -->
   <div id="multiplayerCursorsLayer" class="fixed inset-0 pointer-events-none z-40 overflow-hidden"></div>
 
-  <!-- High-Priority Admin Moderator Broadcast Banner -->
-  <div id="adminBroadcastBanner" class="hidden fixed top-0 left-0 right-0 z-[100] bg-gradient-to-r from-amber-600 via-red-600 to-amber-600 text-white font-mono text-xs py-2 px-4 shadow-2xl flex items-center justify-between border-b-2 border-yellow-300 animate-pulse">
-    <div class="flex items-center gap-2 max-w-5xl mx-auto">
-      <span class="text-base">🚨</span>
-      <span class="font-bold tracking-wider">[ADMIN MODERATOR ANNOUNCEMENT]:</span>
-      <span id="adminBroadcastText" class="font-semibold text-amber-100"></span>
+  <!-- Notification bar (admin broadcasts + quick notices). Styled like the windows: slate panel, slate-800 border, rounded-xl, small mono text. -->
+  <div id="adminBroadcastBanner" role="status" aria-live="polite" data-variant="admin"
+       class="hidden fixed top-[3.75rem] left-1/2 -translate-x-1/2 z-[100] w-[min(640px,calc(100%-1.5rem))] bg-slate-950/95 backdrop-blur-md border border-slate-800 rounded-xl shadow-2xl shadow-black/50 font-mono text-xs text-slate-200 pl-2 pr-2 py-2 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-2 min-w-0">
+      <span id="adminBroadcastAccent" class="self-stretch w-1 rounded-full bg-amber-400 shrink-0"></span>
+      <span id="adminBroadcastIcon" class="text-sm shrink-0">📣</span>
+      <span id="adminBroadcastLabel" class="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/40 text-[10px] font-semibold tracking-wide shrink-0">ADMIN</span>
+      <span id="adminBroadcastText" class="text-slate-200 truncate"></span>
     </div>
-    <button onclick="dismissAdminBanner()" class="px-2 py-0.5 rounded bg-black/40 hover:bg-black/70 text-white text-[11px] font-bold border border-white/30">✕ Dismiss</button>
+    <button onclick="dismissAdminBanner()" aria-label="Dismiss" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] shrink-0 transition">✕</button>
   </div>
 
   <!-- ===================================================================== -->
@@ -1407,7 +1409,7 @@ aeonik/
             </div>
             <div class="flex items-center gap-2">
               <span class="text-[11px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800 px-2 py-0.5 rounded">
-                Dynamic OpenRouter &amp; Ronin Arbiter
+                Dynamic OpenRouter Arbiter
               </span>
             </div>
           </div>
@@ -3198,11 +3200,32 @@ aeonik/
       }
     }
 
+    // Switch the notification bar between the admin (amber) and info (purple) accents.
+    function setNotificationVariant(variant) {
+      const banner = document.getElementById('adminBroadcastBanner');
+      if (!banner) return;
+      const admin = variant !== 'info';
+      banner.dataset.variant = admin ? 'admin' : 'info';
+      const accent = document.getElementById('adminBroadcastAccent');
+      const icon = document.getElementById('adminBroadcastIcon');
+      const label = document.getElementById('adminBroadcastLabel');
+      if (accent) accent.className = `self-stretch w-1 rounded-full shrink-0 ${admin ? 'bg-amber-400' : 'bg-purple-400'}`;
+      if (icon) icon.textContent = admin ? '📣' : '✦';
+      if (label) {
+        label.textContent = admin ? 'ADMIN' : 'TINCAN';
+        label.className = admin
+          ? 'px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/40 text-[10px] font-semibold tracking-wide shrink-0'
+          : 'px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-300 border border-purple-500/40 text-[10px] font-semibold tracking-wide shrink-0';
+      }
+    }
+
     function showAdminBanner(text, sender) {
       const banner = document.getElementById('adminBroadcastBanner');
       const textEl = document.getElementById('adminBroadcastText');
       if (banner && textEl) {
+        setNotificationVariant('admin');
         textEl.innerText = `${text} (by ${sender || 'Admin'})`;
+        textEl.title = textEl.innerText;
         banner.classList.remove('hidden');
       }
     }
@@ -8829,9 +8852,15 @@ aeonik/
       const banner = document.getElementById('adminBroadcastBanner');
       const textEl = document.getElementById('adminBroadcastText');
       if (banner && textEl) {
+        if (typeof setNotificationVariant === 'function') setNotificationVariant('info');
         textEl.innerText = msg;
+        textEl.title = msg;
         banner.classList.remove('hidden');
-        setTimeout(() => { banner.classList.add('hidden'); }, 3500);
+        clearTimeout(showQuickNotification._t);
+        showQuickNotification._t = setTimeout(() => {
+          // Don't hide an admin broadcast that arrived in the meantime.
+          if (banner.dataset.variant === 'info') banner.classList.add('hidden');
+        }, 3500);
       }
     }
 
