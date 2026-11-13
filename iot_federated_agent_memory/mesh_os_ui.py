@@ -380,7 +380,11 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       flex: 1; min-width: 10rem; border: 0 !important; box-shadow: none !important; background: transparent !important; padding: 0.15rem 0 !important;
       font-size: 12px; color: #111111 !important; outline: none !important; }
     .ubar-kbd { font-size: 10px; color: #525252; border: 1px solid rgba(17,17,17,0.25); border-radius: 6px; padding: 0 0.35rem; }
-    .mesh-window select.ubar-sort { border-radius: 9999px !important; padding: 0 0.75rem; font-size: 11px; }
+    .ubar-sortwrap { display: inline-flex; align-items: center; gap: 0.3rem; margin-left: auto; padding-left: 0.6rem; border-left: 1px solid rgba(17,17,17,0.2); white-space: nowrap; }
+    .ubar-sort-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #4a4a4a; }
+    .mesh-window select.ubar-sort, select.ubar-sort { border: 0 !important; background: transparent !important; box-shadow: none !important; color: #111111; padding: 0.1rem 0.2rem; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .mesh-window select.ubar-sort:focus-visible { outline: 1px solid #111111; outline-offset: 2px; }
+    .ubar-trend-empty { color: #4a4a4a; font-size: 11px; }
     .ubar-suggest { position: absolute; z-index: 60; left: 0; right: 0; top: 2.75rem; max-height: 320px; overflow-y: auto; padding: 0.35rem;
                     background: #f4f8f0; border: 1px solid #111111; border-radius: 16px; box-shadow: 0 16px 40px rgba(0,0,0,0.08); }
     .ubar-suggest.hidden { display: none; }
@@ -1061,26 +1065,32 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-2 text-xs font-mono">
-          <div class="p-2.5 bg-slate-950/80 border border-slate-800 rounded-lg">
-            <div class="text-slate-400 text-[10px]">OpenRouter Remaining Balance</div>
-            <div id="orRemaining" class="text-base font-bold text-emerald-400 mt-0.5">--</div>
-            <div id="orCreditsTotal" class="text-[10px] text-slate-500">of -- credits</div>
+        <!-- Shown instead of four "--" tiles when the server has no OpenRouter billing connection -->
+        <div id="orDashEmpty" class="tc-empty hidden" role="status">
+          <strong>OpenRouter billing is not connected on this server.</strong>
+          <span id="orDashEmptyReason">Balance, lifetime spend and key usage appear here once an OpenRouter key is configured for the relay.</span>
+          Calls, tokens and cost routed through TinCan are still counted above.
+        </div>
+        <div id="orStatGrid" class="grid grid-cols-2 gap-2 text-xs">
+          <div class="tc-stat p-2.5 border rounded-lg">
+            <div class="tc-stat__label">Remaining balance</div>
+            <div id="orRemaining" class="tc-stat__value">--</div>
+            <div id="orCreditsTotal" class="tc-stat__sub">of -- credits</div>
           </div>
-          <div class="p-2.5 bg-slate-950/80 border border-slate-800 rounded-lg">
-            <div class="text-slate-400 text-[10px]">Total Lifetime Spend</div>
-            <div id="orTotalUsage" class="text-base font-bold text-amber-400 mt-0.5">--</div>
-            <div class="text-[10px] text-slate-500">Account aggregate</div>
+          <div class="tc-stat p-2.5 border rounded-lg">
+            <div class="tc-stat__label">Lifetime spend</div>
+            <div id="orTotalUsage" class="tc-stat__value">--</div>
+            <div class="tc-stat__sub">Account aggregate</div>
           </div>
-          <div class="p-2.5 bg-slate-950/80 border border-slate-800 rounded-lg">
-            <div class="text-slate-400 text-[10px]">Active Key Usage</div>
-            <div id="orKeyUsage" class="text-base font-bold text-cyan-400 mt-0.5">--</div>
-            <div id="orKeyToday" class="text-[10px] text-slate-500">Today: --</div>
+          <div class="tc-stat p-2.5 border rounded-lg">
+            <div class="tc-stat__label">Active key usage</div>
+            <div id="orKeyUsage" class="tc-stat__value">--</div>
+            <div id="orKeyToday" class="tc-stat__sub">Today: --</div>
           </div>
-          <div class="p-2.5 bg-slate-950/80 border border-slate-800 rounded-lg">
-            <div class="text-slate-400 text-[10px]">Key Budget Cap</div>
-            <div id="orKeyLimitRem" class="text-base font-bold text-indigo-400 mt-0.5">--</div>
-            <div id="orKeyLabel" class="text-[10px] text-slate-500 truncate">Key: --</div>
+          <div class="tc-stat p-2.5 border rounded-lg">
+            <div class="tc-stat__label">Key budget cap</div>
+            <div id="orKeyLimitRem" class="tc-stat__value">--</div>
+            <div id="orKeyLabel" class="tc-stat__sub truncate">Key: --</div>
           </div>
         </div>
 
@@ -1103,22 +1113,22 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
               Active: gemini-brain → google/gemini-2.5-flash
             </span>
           </div>
-          <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
-            <div>
-              <label class="block text-slate-400 mb-1 text-[11px]">Target Alias</label>
-              <select id="aliasSelect" onchange="syncSelectedAliasModel(true)" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono">
+          <div class="tc-swap-grid grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 text-xs items-end">
+            <div class="min-w-0">
+              <label for="aliasSelect" class="block text-slate-400 mb-1 text-[11px]">Target alias</label>
+              <select id="aliasSelect" onchange="syncSelectedAliasModel(true); this.title = this.options[this.selectedIndex]?.text || ''" class="tc-truncate w-full min-w-0 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono">
                 <option value="gemini-brain">gemini-brain → google/gemini-2.5-flash</option>
                 <option value="claude-brain">claude-brain → anthropic/claude-sonnet-5.5</option>
                 <option value="grok-brain">grok-brain → x-ai/grok-4.7</option>
                 <option value="openai-brain">openai-brain → openai/gpt-4o</option>
               </select>
             </div>
-            <div class="sm:col-span-2">
-              <label class="block text-slate-400 mb-1 text-[11px]">OpenRouter Model ID</label>
+            <div class="min-w-0">
+              <label for="modelInput" class="block text-slate-400 mb-1 text-[11px]">OpenRouter model ID</label>
               <input type="text" id="modelInput" placeholder="e.g. meta-llama/llama-3.3-70b-instruct" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono placeholder:text-slate-600">
             </div>
             <div class="flex items-end">
-              <button onclick="updateModel()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded px-2.5 py-1.5 transition active:scale-95 text-xs">
+              <button onclick="updateModel()" class="tc-btn w-full whitespace-nowrap bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded px-2.5 py-1.5 transition active:scale-95 text-xs">
                 Update Model
               </button>
             </div>
@@ -2093,14 +2103,17 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                        aria-label="Search the board"
                        placeholder="Search or type #topic, @agent, /topic, is:verified"
                        oninput="onBoardSearchInput(event)" onkeydown="onBoardSearchKeydown(event)" onblur="setTimeout(closeBoardSuggest, 150)" />
+                <label class="ubar-sortwrap" onclick="event.stopPropagation()" title="Sort results (or type /sort new)">
+                  <span class="ubar-sort-label">sort</span>
+                  <select id="boardSortSelect" onchange="onBoardSortChange()" class="ubar-sort" aria-label="Sort">
+                    <option value="hot">Hot</option>
+                    <option value="new">Newest</option>
+                    <option value="top">Top</option>
+                    <option value="discussed">Most discussed</option>
+                  </select>
+                </label>
                 <kbd class="ubar-kbd" title="Cmd/Ctrl+K focuses search">&#x2318;K</kbd>
               </div>
-              <select id="boardSortSelect" onchange="loadCyberspaceBoard()" class="ubar-sort" aria-label="Sort">
-                <option value="hot">Hot</option>
-                <option value="new">Newest</option>
-                <option value="top">Top</option>
-                <option value="discussed">Most discussed</option>
-              </select>
             </div>
             <div id="boardSuggestList" role="listbox" class="ubar-suggest hidden"></div>
             <div class="ubar-meta">
@@ -2493,8 +2506,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           <div class="md:col-span-3 space-y-3">
             <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
               <div class="flex items-center justify-between">
-                <span class="font-mono font-bold text-slate-300 text-xs">Places · This Computer</span>
-                <button onclick="gatherDriveMirror('manual')" class="text-[10px] text-slate-500 hover:text-slate-200 font-mono" title="Re-scan the drive now">↻ rescan</button>
+                <span class="font-mono font-bold text-slate-300 text-xs tc-truncate min-w-0" title="Places · This Computer">Places · This Computer</span>
+                <button onclick="gatherDriveMirror('manual')" class="tc-ctl shrink-0 whitespace-nowrap text-[10px] font-mono" title="Re-scan the drive now">↻&#xFE0E; rescan</button>
               </div>
               <!-- Mirrors the real drive. Gathered fresh at login / session start, held in memory only, never saved. -->
               <div id="drivePlacesList" class="space-y-0.5 font-mono text-xs max-h-[260px] overflow-y-auto">
@@ -2518,7 +2531,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                   <span class="text-cyan-400">🧊</span>
                   <span class="font-bold text-cyan-300 font-mono text-xs">Hyper3D Rodin 3D</span>
                 </div>
-                <span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-mono">GEN-3D</span>
+                <span class="tc-chip shrink-0 font-mono">GEN-3D</span>
               </div>
               <input id="rodinPromptInput" type="text" placeholder="e.g. Cyberpunk hovercar mesh" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-white font-mono text-xs focus:border-cyan-500 focus:outline-none">
               <div class="grid grid-cols-2 gap-2 text-xs font-mono">
@@ -2547,8 +2560,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           <!-- Col 2: Ranger Files List -->
           <div id="rangerListPane" class="space-y-3 min-w-0 md:shrink-0">
             <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-              <div class="flex items-center justify-between gap-2">
-                <span id="rangerListTitle" class="font-mono font-bold text-slate-300 text-xs truncate">Files in VFS</span>
+              <div class="flex items-center justify-between gap-2 min-w-0">
+                <span id="rangerListTitle" class="font-mono font-bold text-slate-300 text-xs tc-truncate min-w-0 flex-1" title="Files in VFS">Files in VFS</span>
                 <button id="rangerNewFileBtn" onclick="promptCreateFile()" class="text-[10px] px-2 py-0.5 rounded bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-800 font-mono shrink-0">
                   + New File
                 </button>
@@ -4687,7 +4700,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         const groups = { configured: 'Configured brains', catalog: 'Router catalog' };
         const html = Object.entries(groups).map(([kind, label]) => {
           const opts = arenaModelList.filter(m => m.kind === kind)
-            .map(m => `<option value="${arenaEsc(m.id)}">${arenaEsc(kind === 'configured' ? m.name : m.id)}</option>`).join('');
+            .map(m => `<option value="${arenaEsc(m.id)}" title="${arenaEsc(m.secondary || m.id)}">${arenaEsc(m.name || m.id)}${m.secondary && m.secondary !== m.name ? ' \u00b7 ' + arenaEsc(m.secondary) : ''}</option>`).join('');
           return opts ? `<optgroup label="${label}">${opts}</optgroup>` : '';
         }).join('');
         selA.innerHTML = html; selB.innerHTML = html;
@@ -5474,6 +5487,14 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         const data = await res.json();
         const or = data.openrouter || {};
 
+        const orGrid = document.getElementById('orStatGrid');
+        const orEmpty = document.getElementById('orDashEmpty');
+        if (orGrid && orEmpty) {
+          orGrid.classList.toggle('hidden', !or.connected);
+          orEmpty.classList.toggle('hidden', !!or.connected);
+          const why = document.getElementById('orDashEmptyReason');
+          if (why && !or.connected && or.error) why.textContent = `OpenRouter did not answer: ${String(or.error).slice(0, 140)}.`;
+        }
         if (or.connected) {
           document.getElementById('orRemaining').innerText = `$${Number(or.account_remaining_balance_usd).toFixed(4)}`;
           document.getElementById('orCreditsTotal').innerText = `of $${Number(or.account_total_credits_usd).toFixed(2)} total credits`;
@@ -5492,7 +5513,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         const prevSelected = sel ? sel.value : 'gemini-brain';
         if (sel && Object.keys(latestProvidersMap).length > 0) {
           sel.innerHTML = Object.entries(latestProvidersMap).map(([alias, info]) =>
-            `<option value="${alias}">${alias} → ${info.model}</option>`
+            `<option value="${alias}" title="${alias} → ${info.model}">${alias} → ${info.model}</option>`
           ).join('');
           if (latestProvidersMap[prevSelected]) {
             sel.value = prevSelected;
@@ -5506,18 +5527,20 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           const isSelected = sel && sel.value === alias;
           const card = document.createElement('div');
           card.onclick = () => selectProviderCardForSwap(alias);
-          card.className = `cursor-pointer p-3 bg-slate-800/60 rounded-lg border ${isSelected ? 'border-indigo-500 ring-1 ring-indigo-500/40' : 'border-slate-700/80 hover:border-slate-600'} space-y-1.5 font-mono text-xs transition`;
+          card.className = `tc-provider-card cursor-pointer p-3 rounded-lg border ${isSelected ? 'is-selected' : ''} space-y-2 text-xs transition`;
+          card.title = `Click to swap ${alias}`;
+          const esc = (v) => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
           card.innerHTML = `
-            <div class="flex justify-between items-center">
-              <span class="font-bold text-white">${alias}</span>
-              <span class="text-[10px] bg-indigo-950 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-800">${info.display_name}</span>
+            <div class="flex justify-between items-center gap-2 min-w-0">
+              <span class="font-semibold font-mono truncate">${esc(alias)}</span>
+              <span class="tc-chip shrink-0">${esc(info.display_name)}</span>
             </div>
-            <div class="text-emerald-300 truncate text-[11px] font-semibold"><span class="text-slate-500 font-normal">Model:</span> ${info.model}</div>
-            <div class="grid grid-cols-3 gap-1 pt-1 text-slate-300 border-t border-slate-700/50 text-[10px]">
-              <div><span class="text-slate-500">In/1M:</span> <span class="text-amber-300">$${Number(info.input_cost_per_1m_usd || 0).toFixed(2)}</span></div>
-              <div><span class="text-slate-500">Out/1M:</span> <span class="text-amber-300">$${Number(info.output_cost_per_1m_usd || 0).toFixed(2)}</span></div>
-              <div><span class="text-slate-500">Calls:</span> <span class="text-cyan-300">${info.total_calls ?? info.call_count ?? 0}</span></div>
-            </div>
+            <div class="tc-truncate font-mono text-[11px]" title="${esc(info.model)}"><span class="tc-stat__label">Model</span> ${esc(info.model)}</div>
+            <dl class="tc-provider-stats">
+              <div><dt>In / 1M</dt><dd>$${Number(info.input_cost_per_1m_usd || 0).toFixed(2)}</dd></div>
+              <div><dt>Out / 1M</dt><dd>$${Number(info.output_cost_per_1m_usd || 0).toFixed(2)}</dd></div>
+              <div><dt>Calls</dt><dd>${Number(info.total_calls ?? info.call_count ?? 0)}</dd></div>
+            </dl>
           `;
           container.appendChild(card);
         }
@@ -6234,7 +6257,37 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     const BOARD_SLASH_COMMANDS = [
       { token: '/search ', name: '/search', label: 'Search posts, people and agents (hybrid BM25 + GraphRAG)' },
       { token: '/topic ', name: '/topic', label: 'Jump to a topic: /topic graphrag' },
+      { token: '/sort ', name: '/sort', label: 'Sort results: /sort hot, new, top or discussed' },
     ];
+    const BOARD_SORTS = [
+      { token: 'sort:hot', name: 'sort:hot', label: 'Hot: activity weighted by age' },
+      { token: 'sort:new', name: 'sort:new', label: 'Newest first' },
+      { token: 'sort:top', name: 'sort:top', label: 'Most upvoted' },
+      { token: 'sort:discussed', name: 'sort:discussed', label: 'Most replies' },
+    ];
+
+    function setBoardSort(value) {
+      const sel = document.getElementById('boardSortSelect');
+      if (!sel || ![...sel.options].some(o => o.value === value)) return false;
+      sel.value = value;
+      onBoardSortChange();
+      return true;
+    }
+
+    function onBoardSortChange() {
+      if (boardChips.length || (document.getElementById('boardSearchInput')?.value || '').trim()) searchCyberspaceBoard();
+      else loadCyberspaceBoard();
+    }
+
+    // "/sort new" or a "sort:top" token in the bar sets the sort and is removed from the query.
+    function consumeBoardSortToken(inp) {
+      const m = inp.value.match(/^\/sort\s+(\w+)\s*$/i) || inp.value.match(/(?:^|\s)sort:(\w+)(?=\s|$)/i);
+      if (!m) return false;
+      const v = m[1].toLowerCase() === 'newest' ? 'new' : m[1].toLowerCase();
+      if (!setBoardSort(v)) return false;
+      inp.value = inp.value.replace(m[0], ' ').replace(/\s+/g, ' ').trim();
+      return true;
+    }
     const BOARD_FILTERS = [{ token: 'is:verified', name: 'is:verified', label: 'Only posts by verified citizens' }];
 
     function boardChipKind(tok) { return tok.startsWith('#') ? 'topic' : tok.startsWith('@') ? 'mention' : 'filter'; }
@@ -6265,7 +6318,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     function buildBoardQuery() {
-      const text = (document.getElementById('boardSearchInput')?.value || '').trim();
+      // sort: tokens and /sort set the sort control; they are not search terms.
+      const text = (document.getElementById('boardSearchInput')?.value || '')
+        .replace(/(?:^|\s)sort:\w+(?=\s|$)/gi, ' ').replace(/^\s*\/sort\b\s*\w*/i, '').trim();
       // A slash command must lead the query.
       const m = text.match(/^\/(search|topic)\b\s*/i);
       const cmd = m ? m[0].trim() + ' ' : '';
@@ -6335,6 +6390,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       const { start, end } = boardCurrentToken(inp);
       const before = inp.value.slice(0, start);
       const after = inp.value.slice(end);
+      if (it.token.startsWith('sort:')) {
+        inp.value = (before + after).replace(/^\/sort\s*/i, '').replace(/\s+/g, ' ').trim();
+        closeBoardSuggest();
+        setBoardSort(it.token.slice(5));
+        inp.focus();
+        return;
+      }
       if (it.token.startsWith('/')) {
         inp.value = it.token + (before + after).trim();
         inp.setSelectionRange(inp.value.length, inp.value.length);
@@ -6363,6 +6425,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           return;
         }
       }
+      const sortCmd = inp.value.match(/^\/sort\s+(\S*)$/i);
+      if (sortCmd || (tok.length >= 2 && ('sort:'.startsWith(tok.toLowerCase()) || tok.toLowerCase().startsWith('sort:')))) {
+        const want = (sortCmd ? sortCmd[1] : tok.slice(5)).toLowerCase();
+        const { tok: cur } = boardCurrentToken(inp);
+        renderBoardSuggest([{ title: 'Sort', items: BOARD_SORTS.filter(o => o.token.slice(5).startsWith(want) || cur.toLowerCase() === '/sort') }]);
+        return;
+      }
       if (start === 0 && tok.startsWith('/')) {
         renderBoardSuggest([{ title: 'Commands', items: BOARD_SLASH_COMMANDS.filter(c => c.name.startsWith(tok.toLowerCase())) }]);
         return;
@@ -6388,7 +6457,11 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       if (ev.key === 'ArrowUp' && open) { ev.preventDefault(); boardSuggestIndex = (boardSuggestIndex - 1 + boardSuggestItems.length) % boardSuggestItems.length; highlightBoardSuggestion(); return; }
       if ((ev.key === 'Enter' || ev.key === 'Tab') && open && boardSuggestIndex >= 0) { ev.preventDefault(); applyBoardSuggestion(boardSuggestIndex); return; }
       if (ev.key === 'Escape') { if (open) { ev.preventDefault(); closeBoardSuggest(); } else if (inp.value) { inp.value = ''; } return; }
-      if (ev.key === 'Enter') { ev.preventDefault(); closeBoardSuggest(); searchCyberspaceBoard(); return; }
+      if (ev.key === 'Enter') {
+        ev.preventDefault(); closeBoardSuggest();
+        if (consumeBoardSortToken(inp) && !inp.value && !boardChips.length) return;
+        searchCyberspaceBoard(); return;
+      }
       if (ev.key === 'Backspace' && !inp.value && boardChips.length) { ev.preventDefault(); removeBoardChip(boardChips.length - 1); }
     }
 
@@ -6457,7 +6530,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         if (!res.ok) return;
         const data = await res.json();
         const items = data.items || [];
-        if (!items.length) { box.innerHTML = ''; return; }
+        if (!items.length) {
+          box.innerHTML = '<span class="ubar-trend-label">Trending</span><span class="ubar-trend-empty">No tagged topics yet. Start one with #tags and it will show up here.</span>';
+          return;
+        }
         const label = data.window === 'all' ? 'Top topics' : `Trending ${escapeHtml(data.window)}`;
         box.innerHTML = `<span class="ubar-trend-label">${label}</span>` + items.map(it =>
           `<button type="button" class="ubar-trend" onclick="addBoardChip('${escapeHtml(it.tag)}')" title="${Number(it.topics)} new topic(s), ${Number(it.posts)} repl${it.posts === 1 ? 'y' : 'ies'}">${escapeHtml(it.tag)}<span>${Number(it.activity)}</span></button>`
@@ -8170,8 +8246,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         const sel = it.kind === 'file' && rangerView && rangerView.source === it.source && rangerView.path === it.path;
         const bg = sel ? 'bg-purple-950/80 text-purple-200 font-bold border-l-2 border-purple-400' : 'hover:bg-slate-900 text-slate-300';
         const size = it.kind === 'file' && it.size != null ? rangerFmtSize(it.size) : (it.kind === 'dir' ? '›' : '');
-        return `<div role="option" data-idx="${i}" class="ranger-row px-2 py-1.5 cursor-pointer flex items-center justify-between transition ${bg}">
-              <div class="flex items-center gap-1.5 truncate"><span>${rangerIcon(it)}</span><span class="truncate">${rangerEsc(it.name)}</span></div>
+        return `<div role="option" data-idx="${i}" title="${rangerEsc(it.path || it.name)}" class="ranger-row px-2 py-1.5 cursor-pointer flex items-center justify-between gap-2 transition ${bg}">
+              <div class="flex items-center gap-1.5 min-w-0 flex-1"><span class="shrink-0">${rangerIcon(it)}</span><span class="tc-truncate min-w-0">${rangerEsc(it.name)}</span></div>
               <span class="text-[9px] text-slate-500 shrink-0 font-mono">${rangerEsc(size)}</span>
             </div>`;
       }).join('');
@@ -8802,9 +8878,20 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       };
       apply(pct, false);
       let dragging = false;
+      // While dragging, freeze the window's height so rewrapping text in the
+      // narrower pane cannot shrink or grow it, and stop text selection.
+      let frozen = null;
       handle.addEventListener('pointerdown', ev => {
         dragging = true; handle.setPointerCapture(ev.pointerId);
-        document.body.style.userSelect = 'none'; ev.preventDefault();
+        document.body.style.userSelect = 'none'; document.body.classList.add('tc-dragging'); ev.preventDefault();
+        const win = split.closest('.mesh-window');
+        const body = split.closest('.window-body');
+        frozen = [];
+        [[win, 'height'], [body, 'height'], [split, 'minHeight']].forEach(([el, prop]) => {
+          if (!el) return;
+          frozen.push([el, prop, el.style[prop]]);
+          el.style[prop] = el.getBoundingClientRect().height + 'px';
+        });
       });
       handle.addEventListener('pointermove', ev => {
         if (!dragging) return;
@@ -8813,7 +8900,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       });
       const end = ev => {
         if (!dragging) return;
-        dragging = false; document.body.style.userSelect = '';
+        dragging = false; document.body.style.userSelect = ''; document.body.classList.remove('tc-dragging');
+        (frozen || []).forEach(([el, prop, prev]) => { el.style[prop] = prev; });
+        frozen = null;
         try { handle.releasePointerCapture(ev.pointerId); } catch (e) {}
         apply(pct, true);
       };
@@ -9034,7 +9123,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       const dirs = new Set();
       files.forEach(f => { const parts = String(f.path).split('/').filter(Boolean); for (let i = 1; i < parts.length; i++) dirs.add(parts.slice(0, i).join('/')); });
       set('aeonikTreeSummary', `${dirs.size} director${dirs.size === 1 ? 'y' : 'ies'}, ${files.length} file${files.length === 1 ? '' : 's'}`);
-      const newest = files.reduce((m, f) => (String(f.updated_at || '') > m ? String(f.updated_at) : m), '');
+      // updated_at is unix seconds (or an ISO string from older rows); show the newest as a local date.
+      const toMs = v => { const n = Number(v); if (Number.isFinite(n) && n > 0) return n < 1e12 ? n * 1000 : n; const t = Date.parse(v); return Number.isFinite(t) ? t : 0; };
+      const newestMs = files.reduce((m, f) => Math.max(m, toMs(f.updated_at)), 0);
+      const newest = newestMs ? new Date(newestMs).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
       set('termSpaceNote', files.length ? `${s.space_file ? String(s.space_file).split('/').pop() : termOwner() + '.space'} · ${files.length} files · updated ${newest || '–'}` : 'Your space is empty. Save a file here or add one in Space.');
       const tree = document.getElementById('termTree');
       if (tree) tree.innerHTML = files.length ? termRenderTreeNode(termBuildTree(files), '') : '<div class="tc-empty">No files in your space yet. Open <strong>Space</strong> to add files or import a folder.</div>';

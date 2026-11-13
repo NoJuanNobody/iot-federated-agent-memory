@@ -194,7 +194,7 @@ ZEN_HEAD = r"""
     }
     #zenTools button[aria-selected="true"]::before { opacity: 1; transform: none; }
     #zenTools .zl-name { font-family: var(--zen-mincho); font-weight: 500; font-size: clamp(1.4rem, 2.4vw, 2rem); line-height: 1.2; letter-spacing: -0.015em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-    #zenTools .zl-desc { font-family: var(--zen-gothic); font-size: 0.85rem; color: #4a4a4a; transition: color 260ms; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #zenTools .zl-desc { font-family: var(--zen-gothic); font-size: 0.85rem; color: #4a4a4a; line-height: 1.35; transition: color 260ms; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
     #zenTools button:hover, #zenTools button[aria-selected="true"] { color: var(--zen-washi); }
     #zenTools button:hover .zl-desc, #zenTools button[aria-selected="true"] .zl-desc { color: #111111; }
     #zenTools .zl-empty { font-family: var(--zen-gothic); font-size: 0.85rem; color: #4a4a4a; padding: 0.5rem 0; }
