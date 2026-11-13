@@ -9337,3 +9337,8 @@ aeonik/
 from .zen_shell import apply_zen_shell  # noqa: E402
 
 MESH_OS_HTML_UI = apply_zen_shell(MESH_OS_HTML_UI)
+
+# Shared Celadon window chrome: one titlebar component, design tokens, fonts, legacy palette compiler.
+from .window_chrome import apply_window_chrome  # noqa: E402
+
+MESH_OS_HTML_UI = apply_window_chrome(MESH_OS_HTML_UI)
