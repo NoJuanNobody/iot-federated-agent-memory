@@ -35,3 +35,37 @@ def test_feed_has_visible_quick_launch_for_terminal():
         assert f'data-tool="{tool_id}"' in html
         assert f'id="{tool_id}"' in html
     assert 'data-tool="all"' in html
+
+
+def test_launcher_is_a_command_bar():
+    html = MESH_OS_HTML_UI
+    # empty-input hint row and placeholder
+    assert "Search tools · @ message someone · &gt; run a command · / commands" in html or \
+        "Search tools · @ message someone · > run a command · / commands" in html
+    assert 'placeholder="Search, @message, > run…"' in html
+    # prefix modes are wired
+    assert "first === '@'" in html
+    assert "first === '>' || first === '$'" in html
+    assert "first === '/'" in html
+    for cmd in ("/terminal", "/space", "/arena", "/board", "/talk", "/tokens", "/quests", "/help"):
+        assert f"cmd: '{cmd}'" in html
+    # people come from the existing roster; messages go through the room chat path
+    assert "/api/board/roster" in html
+    assert "sendChatMessage" in html and "/api/webrtc/signal" in html
+    # fallback actions under the tool matches
+    for label in ("Send to room", "Ask AI", "Search the board"):
+        assert label in html
+    assert "/api/chat" in html
+
+
+def test_command_bar_shell_adapter_and_identity_gate():
+    html = MESH_OS_HTML_UI
+    assert "window.TinCanShell" in html
+    assert "async function legacyShell" in html
+    assert "/api/space/exec" in html
+    # sending, asking and running all pass the same identity gate as tools
+    assert "gated('send messages in the room chat'" in html
+    assert "gated('run commands'" in html
+    assert "gated('use the AI gateway'" in html
+    # user text is rendered with textContent only
+    assert ".textContent = t.name" in html

@@ -76,7 +76,7 @@ def test_tincan_cli_brew_subcommand_and_terminal_ui(tmp_path: Path, capsys) -> N
     assert "kokoro-tts" in out["installed_now"]
 
     # Verify web terminal UI has brew tab, formula command, and /api/terminal/brew handler
-    assert 'id="tabCmdBrew"' in MESH_OS_HTML_UI
-    assert 'id="brewInstallCmd"' in MESH_OS_HTML_UI
+    assert 'data-tab="brew"' in MESH_OS_HTML_UI
+    assert 'data-cmd="brew"' in MESH_OS_HTML_UI
     assert "/Formula/tincan.rb" in MESH_OS_HTML_UI
     assert "/api/terminal/brew" in MESH_OS_HTML_UI

@@ -13,6 +13,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
   <title>TinCan Mesh OS 2.1 — Multi-Window, Multiplayer &amp; AI Mesh Gateway</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    /*TC_SHELL_CSS*/
     /* Ranger VFS: resizable split + read-only viewer */
     @media (min-width: 768px) {
       #rangerListPane { width: var(--ranger-list-w, 38%); min-width: 180px; }
@@ -847,116 +848,22 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- ===================================================================== -->
     <div id="win-terminal" class="mesh-window w-[840px] max-w-[96vw]" data-zen-window="true" data-window-id="win-terminal" style="top: 60px; left: 32px; z-index: 20;">
       <!--TC_TITLEBAR {"id": "win-terminal", "title": "Terminal", "meta_html": "<span id=\"aeonikHeaderClock\">--:--</span> <span id=\"aeonikHeaderCwd\" class=\"hidden sm:inline\">~/space</span>", "extra_controls_html": "<a href=\"/fono\" target=\"_blank\" class=\"tc-ctl\" title=\"Open the Fono mobile controller\">Fono</a>"}-->
-      <div class="window-body p-0 grid grid-cols-1 md:grid-cols-2 font-mono text-xs border-b border-black max-h-[640px] overflow-y-auto bg-[#ecf1e6]">
-        <!-- Quadrant 1: SHELL -->
-        <div class="p-5 border-b md:border-b-0 md:border-r border-black flex flex-col justify-between space-y-4">
-          <div>
-            <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black flex items-center justify-between">
-              <span>SHELL</span>
-              <div class="flex items-center gap-1.5">
-                <button onclick="clearAeonikShell()" class="px-1.5 py-0.5 border border-black rounded text-[9px] hover:bg-black hover:text-[#ecf1e6]">Clear</button>
-                <span id="termShellStatusPill" class="px-2 py-0.5 border border-black rounded-full text-[9px] font-semibold uppercase">Ready</span>
-              </div>
-            </div>
-            <div id="termShellTranscript" class="space-y-1.5 text-neutral-900 leading-relaxed text-[11px] max-h-[190px] overflow-y-auto pr-1" aria-live="polite">
-              <p class="text-neutral-700">Commands run against your own .space: <b>ls</b> [dir], <b>cat</b> file, <b>tree</b>, <b>run</b> [file], <b>py</b> code, <b>runs</b>, <b>drive</b>, <b>status</b>, <b>ask</b> question, <b>help</b>.</p>
-            </div>
-            <!-- Interactive Shell Input Prompt -->
-            <div class="pt-2 flex items-center gap-1.5 text-[11px]">
-              <span id="termPromptLabel" class="font-semibold text-black shrink-0">you@tincan:~/space$</span>
-              <input id="aeonikShellInput" type="text" placeholder="brew install tincan, ls, cat /src/main.py, run, py print(1), ask …" onkeydown="if(event.key==='Enter') execAeonikShellCommand()" class="flex-1 bg-transparent border-b border-black text-black text-[11px] px-1 py-0.5 focus:outline-none" />
-              <button onclick="execAeonikShellCommand()" class="px-2 py-0.5 bg-black text-[#ecf1e6] rounded text-[9px] font-bold">RUN</button>
-            </div>
+      <!-- The terminal is just the terminal: install card top-left, the shell below taking the rest. Files live in Space. -->
+      <div class="window-body tc-term-body p-0 font-mono text-xs border-b border-black bg-[#ecf1e6]" style="display: flex; flex-direction: column; height: min(600px, calc(100vh - 150px)); overflow: hidden;">
+        <div class="tc-term-top p-3 pb-2 flex flex-wrap items-start gap-3" style="flex: 0 0 auto;">
+          <div class="w-full md:w-[470px] max-w-full min-w-0">
+            <!--TC_INSTALL_CARD {"id": "terminal", "compact": true, "shell": "#termShellMount"}-->
           </div>
-          <!-- Interactive One-Click Install Bar -->
-          <div class="pt-3 border-t border-black space-y-2">
-            <div class="flex items-center justify-between">
-              <div class="text-[10px] font-bold uppercase text-black tracking-wider">⚡ One-Click Terminal Install</div>
-              <div class="flex items-center gap-1 text-[9px]">
-                <button id="tabCmdBrew" onclick="switchInstallCmdTab('brew')" class="px-2 py-0.5 bg-transparent text-black rounded-full border border-black font-semibold transition">🍺 brew</button>
-                <button id="tabCmdCurl" onclick="switchInstallCmdTab('curl')" class="px-2 py-0.5 bg-black text-[#ecf1e6] rounded-full border border-black font-semibold transition">curl | bash</button>
-                <button id="tabCmdNpx" onclick="switchInstallCmdTab('npx')" class="px-2 py-0.5 bg-transparent text-black rounded-full border border-black font-semibold transition">npx skills</button>
-                <button id="tabCmdChat" onclick="switchInstallCmdTab('chat')" class="px-2 py-0.5 bg-transparent text-black rounded-full border border-black font-semibold transition">AI Chat</button>
-              </div>
-            </div>
-            <div class="bg-white border border-black rounded-xl p-2 flex items-center justify-between gap-2">
-              <code id="activeInstallCmdDisplay" class="text-[10px] text-black font-semibold select-all overflow-x-auto whitespace-nowrap">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code>
-              <button id="btnOneClickCopyInstall" onclick="copyActiveInstallCmd(this)" class="px-2.5 py-1 bg-black text-[#ecf1e6] rounded-full text-[10px] font-bold shrink-0 hover:opacity-85 active:scale-95 transition">
-                📋 Copy
-              </button>
-            </div>
-            <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
-              <button onclick="simulateOneClickInstall()" class="px-2.5 py-1 bg-black text-[#ecf1e6] rounded-full text-[10px] font-semibold hover:opacity-85 active:scale-95 transition">
-                Copy install command
-              </button>
-              <button onclick="switchInstallCmdTab('brew'); execAeonikShellCommand('brew install tincan context-palace');" class="px-2.5 py-1 border border-black text-black rounded-full text-[10px] font-semibold hover:bg-black hover:text-[#ecf1e6] active:scale-95 transition">
-                🍺 brew install
-              </button>
-              <a href="/install.command" download="Install-TinCan.command" class="px-2.5 py-1 border border-black text-black rounded-full text-[10px] font-semibold hover:bg-black hover:text-[#ecf1e6] active:scale-95 transition no-underline">
-                ⬇ macOS .command
-              </a>
-              <button onclick="copyCommand('installCmd', this)" class="px-2 py-1 border border-black text-black rounded-full text-[10px] hover:bg-black hover:text-[#ecf1e6] active:scale-95 transition">
-                npx skills
-              </button>
-            </div>
-            <div class="hidden">
-              <code id="brewInstallCmd">brew install https://iot-federated-agent-memory-production.up.railway.app/Formula/tincan.rb</code>
-              <code id="curlInstallCmd">curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash</code>
-              <code id="installCmd">npx skills add NoJuanNobody/tincan-skills -g -y</code>
-              <code id="chatCmd">curl -s -X POST https://iot-federated-agent-memory-production.up.railway.app/api/chat -H "Content-Type: application/json" -d '{"prompt":"Hello world!"}'</code>
-            </div>
-          </div>
+          <p class="hidden md:block flex-1 min-w-[180px] text-[11px] leading-relaxed text-neutral-700 pt-1">
+            Your files moved to <button type="button" onclick="toggleWindow('win-agentspace')" class="underline font-semibold text-black">Space</button>, which has its own terminal. This one runs the same commands against your .space.
+          </p>
         </div>
-
-        <!-- Quadrant 2: SPACE (live stats for your .space VFS and the drive mirror) -->
-        <div class="p-5 flex flex-col justify-between space-y-3 min-w-0">
-          <div>
-            <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black flex items-center justify-between gap-2">
-              <span class="tc-truncate">SPACE <span id="termSpaceOwner" class="font-normal normal-case tracking-normal text-neutral-600"></span></span>
-              <button onclick="refreshTerminalSpace()" class="px-2 py-0.5 border border-black rounded-full text-[9px] font-semibold hover:bg-black hover:text-[#ecf1e6] transition shrink-0">↻ Refresh</button>
-            </div>
-            <div class="grid grid-cols-4 gap-2 pb-3 border-b border-black text-center">
-              <div><div class="text-[10px] text-neutral-600">FILES</div><div id="termStatFiles" class="text-base font-bold text-black">–</div></div>
-              <div><div class="text-[10px] text-neutral-600">SIZE</div><div id="termStatSize" class="text-base font-bold text-black">–</div></div>
-              <div><div class="text-[10px] text-neutral-600">RUNS</div><div id="termStatRuns" class="text-base font-bold text-black">–</div></div>
-              <div><div class="text-[10px] text-neutral-600">DRIVE</div><div id="termStatDrive" class="text-base font-bold text-black">–</div></div>
-            </div>
-            <div id="termSpaceNote" class="py-2 border-b border-black text-[10px] text-neutral-700 font-mono tc-truncate">Loading your space…</div>
-            <!-- Recent runs from the space's exec_runs table -->
-            <div class="pt-2 text-[11px] space-y-1">
-              <div class="grid grid-cols-[1fr_4rem_3.5rem_4rem] gap-2 font-bold text-neutral-600 pb-1">
-                <span>ENTRYPOINT</span><span>RUNTIME</span><span class="text-right">EXIT</span><span class="text-right">MS</span>
-              </div>
-              <div id="termRunsTable" class="space-y-1"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Quadrant 3: TREE (your .space files, plus the drive mirror when TinCan runs on this computer) -->
-        <div class="p-5 border-t md:border-t-0 md:border-r border-black min-w-0 flex flex-col">
-          <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black flex items-center justify-between gap-2">
-            <span id="termTreeTitle" class="tc-truncate">TREE ~/space</span>
-            <span class="text-[9px] font-normal text-neutral-600 shrink-0">Click a file to open it</span>
-          </div>
-          <div id="termTree" class="text-[11px] text-neutral-800 leading-snug max-h-[260px] overflow-y-auto pr-1 pb-2" role="tree" aria-label="Space files"></div>
-          <div id="termDriveTree" class="text-[11px] text-neutral-800 leading-snug max-h-[160px] overflow-y-auto pr-1 pb-2 mt-2 pt-2 border-t border-black hidden" aria-label="Drive mirror"></div>
-          <div id="aeonikTreeSummary" class="pt-2 text-[10px] text-neutral-600"></div>
-        </div>
-
-        <!-- Quadrant 4: RECENT (real runs and file views from your space) -->
-        <div class="p-5 border-t border-black space-y-2 text-[11px] min-w-0">
-          <div class="text-[11px] font-bold tracking-widest uppercase mb-2 text-black flex items-center justify-between gap-2">
-            <span>RECENT</span>
-            <div class="flex items-center gap-1">
-              <button onclick="runAeonikRecentAction('run')" class="px-2 py-0.5 bg-black text-[#ecf1e6] rounded-full text-[9px] font-semibold hover:opacity-85">▶ run /src/main.py</button>
-              <button onclick="runAeonikRecentAction('runs')" class="px-2 py-0.5 border border-black text-black rounded-full text-[9px] font-semibold hover:bg-black hover:text-[#ecf1e6]">↻ last runs</button>
-            </div>
-          </div>
-          <div id="aeonikRecentOutput" class="space-y-2 max-h-[260px] overflow-y-auto pr-1"></div>
+        <div class="px-3 pb-3" style="flex: 1 1 auto; min-height: 0;">
+          <div id="termShellMount" data-tc-shell-mount data-shell-title="Shell" style="height: 100%;"></div>
         </div>
       </div>
 
-      <!-- Bottom Status Bar matching Mockup 1 -->
+      <!-- Bottom status bar -->
       <div class="px-6 py-2.5 bg-[#ecf1e6] flex items-center justify-between font-mono text-xs text-neutral-800 border-t border-black">
         <div class="flex items-center gap-3">
           <span id="aeonikGitBranch" title="Merkle root of your .space">merkle –</span>
@@ -2396,76 +2303,141 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- ===================================================================== -->
     <div id="win-agentspace" class="mesh-window w-[980px] max-w-full hidden" data-zen-window="true" data-window-id="win-agentspace" style="top: 76px; left: 140px; z-index: 35;">
       <!--TC_TITLEBAR {"id": "win-agentspace", "icon": "📁", "title": "Space · Ranger VFS & Wasm Studio", "badge": "VFS"}-->
-      <div class="window-body p-4 space-y-4 max-h-[780px] overflow-y-auto text-xs font-sans">
-        <!-- Scope Selector & Breadcrumb Header -->
-        <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-[11px] font-mono text-slate-400 font-bold">Space / VFS:</span>
-            <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800 font-mono text-xs">
-              <button id="scopeUserBtn" onclick="switchSpaceScope('user')" class="px-2.5 py-1 rounded bg-purple-900 text-purple-200 font-semibold active:scale-95 transition">
-                👤 User Space
-              </button>
-              <button id="scopeTopicBtn" onclick="switchSpaceScope('topic')" class="px-2.5 py-1 rounded text-slate-400 hover:text-white active:scale-95 transition">
-                💬 Forum Topic Space
-              </button>
-              <button id="scopeDynamicBtn" onclick="switchSpaceScope('dynamic')" class="px-2.5 py-1 rounded text-slate-400 hover:text-white active:scale-95 transition">
-                ⚡ Dynamic Sandbox
-              </button>
+      <style>
+        /* Space IDE: Celadon, VS Code layout (explorer | tabbed editor | bottom terminal | status bar) */
+        #win-agentspace .ide { display: flex; flex-direction: column; height: min(720px, calc(100vh - 150px)); overflow: hidden; padding: 0; background: #ecf1e6; color: #111111; font-family: "Inter", -apple-system, sans-serif; font-size: 12px; }
+        #win-agentspace .hidden:not(#rangerSplitter) { display: none !important; }
+        #win-agentspace .ide-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 6px 10px; border-bottom: 1px solid #111111; flex: 0 0 auto; }
+        #win-agentspace .ide-group { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+        #win-agentspace .ide-spacer { flex: 1 1 auto; }
+        #win-agentspace .ide-seg { display: inline-flex; border: 1px solid #111111; border-radius: 9999px; overflow: hidden; background: #ffffff; }
+        #win-agentspace .ide-seg button { padding: 2px 10px; font-size: 11px; font-weight: 600; background: transparent; color: #111111; border: 0; cursor: pointer; white-space: nowrap; }
+        #win-agentspace .ide-seg button:hover { background: rgba(17,17,17,0.08); }
+        #win-agentspace .ide-seg button.is-active { background: #111111; color: #ecf1e6; }
+        #win-agentspace .ide-btn { font-size: 11px; font-weight: 600; padding: 2px 10px; border: 1px solid #111111; border-radius: 9999px; background: transparent; color: #111111; cursor: pointer; white-space: nowrap; font-family: inherit; }
+        #win-agentspace .ide-btn:hover { background: #111111; color: #ecf1e6; }
+        #win-agentspace .ide-btn--solid { background: #111111; color: #ecf1e6; }
+        #win-agentspace .ide-btn--solid:hover { opacity: 0.85; }
+        #win-agentspace .ide-btn--sm { font-size: 10px; padding: 1px 8px; font-weight: 500; }
+        #win-agentspace .ide-btn--danger { border-color: #8a1c1c; color: #8a1c1c; }
+        #win-agentspace .ide-btn--danger:hover { background: #8a1c1c; color: #ecf1e6; }
+        #win-agentspace .ide-owner { width: 150px; font: 11px "JetBrains Mono", monospace; padding: 2px 8px; }
+        #win-agentspace .ide-count { font: 10px "JetBrains Mono", monospace; padding: 1px 8px; border: 1px solid #111111; border-radius: 9999px; background: #ffffff; }
+        #win-agentspace #finderTab-files { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+        #win-agentspace #finderTab-vscode, #win-agentspace #finderTab-artcraft { flex: 1 1 auto; min-height: 0; overflow: auto; margin: 10px; }
+        #win-agentspace #rangerSplit { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: row; }
+        #win-agentspace #rangerListPane { width: var(--ranger-list-w, 24%); min-width: 170px; flex: 0 0 auto; display: flex; flex-direction: column; min-height: 0; background: #f4f8f0; }
+        #win-agentspace #rangerSplitter { width: 6px; flex: 0 0 auto; border-left: 1px solid #111111; }
+        #win-agentspace #rangerViewerPane { flex: 1 1 0; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: #ffffff; }
+        #win-agentspace .ide-sec { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px 8px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1px solid rgba(17,17,17,0.22); flex: 0 0 auto; }
+        #win-agentspace .ide-files { flex: 1 1 auto; min-height: 60px; overflow-y: auto; font-family: "JetBrains Mono", monospace; font-size: 11px; }
+        #win-agentspace .ide-hint { padding: 2px 8px; font: 9px "JetBrains Mono", monospace; color: #5c5c5c; text-align: center; flex: 0 0 auto; user-select: none; pointer-events: none; }
+        #win-agentspace .ide-details { border-top: 1px solid rgba(17,17,17,0.22); flex: 0 0 auto; }
+        #win-agentspace .ide-details > summary { cursor: pointer; padding: 5px 8px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+        #win-agentspace .ide-details > summary::-webkit-details-marker { display: none; }
+        #win-agentspace .ide-details > summary::before { content: "\25B8"; margin-right: 4px; }
+        #win-agentspace .ide-details[open] > summary::before { content: "\25BE"; }
+        #win-agentspace .ide-details > summary > span:first-child { flex: 1; min-width: 0; }
+        #win-agentspace .ide-details-body { padding: 4px 8px 8px; max-height: 190px; overflow-y: auto; }
+        #win-agentspace .ide-tabs { display: flex; align-items: stretch; overflow-x: auto; background: #f4f8f0; border-bottom: 1px solid #111111; flex: 0 0 auto; min-height: 30px; }
+        #win-agentspace .ide-tabs-empty { padding: 6px 12px; font-size: 11px; color: #5c5c5c; }
+        #win-agentspace .ide-tab { display: flex; align-items: center; gap: 6px; padding: 0 6px 0 12px; border-right: 1px solid rgba(17,17,17,0.22); font: 11px "JetBrains Mono", monospace; cursor: pointer; white-space: nowrap; color: #4a4a4a; border-top: 2px solid transparent; }
+        #win-agentspace .ide-tab:hover { background: rgba(17,17,17,0.05); }
+        #win-agentspace .ide-tab.is-active { background: #ffffff; color: #111111; border-top-color: #111111; font-weight: 600; margin-bottom: -1px; }
+        #win-agentspace .ide-dirty { font-size: 9px; }
+        #win-agentspace .ide-tab-x { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 14px; line-height: 1; padding: 0 4px; border-radius: 4px; }
+        #win-agentspace .ide-tab-x:hover { background: #111111; color: #ecf1e6; }
+        #win-agentspace .ide-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 4px 10px; border-bottom: 1px solid rgba(17,17,17,0.22); flex: 0 0 auto; background: #ffffff; }
+        #win-agentspace .ide-path { font: 600 11px "JetBrains Mono", monospace; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        #win-agentspace .ide-meta { display: inline-flex; align-items: center; gap: 6px; font: 10px "JetBrains Mono", monospace; color: #5c5c5c; }
+        #win-agentspace .ide-chip { padding: 0 7px; border: 1px solid #111111; border-radius: 9999px; font: 10px "JetBrains Mono", monospace; background: #ffffff; color: #111111; }
+        #win-agentspace .ide-editor-body { flex: 1 1 auto; min-height: 0; position: relative; overflow: auto; }
+        #win-agentspace .ide-media { min-height: 100%; display: flex; flex-direction: column; }
+        #win-agentspace .ide-media > div:not(.hidden) { flex: 1 1 auto; }
+        #win-agentspace .ide-code { display: flex; flex-direction: column; min-height: 120px; }
+        #win-agentspace .ide-textarea { display: block; width: 100%; flex: 1 1 auto; min-height: 160px; resize: none; border: 0 !important; border-radius: 0 !important; outline: 0; padding: 8px 12px; background: #ffffff !important; color: #111111 !important; font: 12px/1.55 "JetBrains Mono", ui-monospace, monospace; tab-size: 2; }
+        #win-agentspace #finderViewer { border: 0 !important; border-radius: 0 !important; background: #ffffff !important; font-family: "JetBrains Mono", monospace; }
+        #win-agentspace #finderViewerContainer, #win-agentspace #finderViewerContainer > #finderViewer { min-height: 100%; }
+        #win-agentspace .ide-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 4px; padding: 24px; color: #4a4a4a; min-height: 160px; }
+        #win-agentspace .ide-empty-title { font-weight: 600; font-size: 13px; color: #111111; }
+        #win-agentspace .ide-runbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 10px; border-top: 1px solid rgba(17,17,17,0.22); background: #f4f8f0; flex: 0 0 auto; font-size: 11px; }
+        #win-agentspace .ide-runbar select { font-size: 11px; padding: 1px 6px; }
+        #win-agentspace .ide-panel { flex: 0 0 auto; height: var(--ide-panel-h, 210px); display: flex; flex-direction: column; border-top: 1px solid #111111; background: #ffffff; min-height: 0; position: relative; }
+        #win-agentspace .ide-panel.is-collapsed { height: auto; }
+        #win-agentspace .ide-panel.is-collapsed .ide-panel-body, #win-agentspace .ide-panel.is-collapsed #idePanelHandle { display: none; }
+        #win-agentspace #idePanelHandle { position: absolute; left: 0; right: 0; top: -3px; height: 6px; cursor: row-resize; z-index: 3; touch-action: none; }
+        #win-agentspace .ide-panel-head { display: flex; align-items: center; gap: 2px; padding: 0 6px; background: #f4f8f0; border-bottom: 1px solid rgba(17,17,17,0.22); flex: 0 0 auto; }
+        #win-agentspace .ide-panel-tab { padding: 4px 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: transparent; border: 0; border-bottom: 2px solid transparent; cursor: pointer; color: #4a4a4a; }
+        #win-agentspace .ide-panel-tab.is-active { color: #111111; border-bottom-color: #111111; }
+        #win-agentspace .ide-panel-body { flex: 1 1 auto; min-height: 0; position: relative; }
+        #win-agentspace .ide-panel-body > div { position: absolute; inset: 0; }
+        #win-agentspace .ide-panel-body > div.hidden { display: none; }
+        #win-agentspace #ideTermMount .tcsh { border: 0; border-radius: 0; }
+        #win-agentspace .ide-output { margin: 0; padding: 8px 12px; height: 100%; overflow: auto; white-space: pre-wrap; font: 11px/1.5 "JetBrains Mono", monospace; color: #111111; background: #ffffff; }
+        #win-agentspace .ide-status { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 2px 10px; border-top: 1px solid #111111; background: #f4f8f0; font: 10px "JetBrains Mono", monospace; color: #262626; flex: 0 0 auto; }
+        #win-agentspace .ide-status span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+        @media (max-width: 767px) {
+          #win-agentspace #rangerSplit { flex-direction: column; }
+          #win-agentspace #rangerListPane { width: 100% !important; max-height: 34%; }
+          #win-agentspace .ide-owner { width: 110px; }
+        }
+      </style>
+      <!-- Space is a VS Code style IDE: Explorer | tabbed editor | integrated terminal | status bar -->
+      <div class="window-body ide aeonik-scope" data-ide="space">
+        <!-- Header: scope switching, owner, load/export, and the other studio views -->
+        <div class="ide-head">
+          <div class="ide-group">
+            <div class="ide-seg" role="group" aria-label="Space scope">
+              <button id="scopeUserBtn" type="button" class="is-active" onclick="switchSpaceScope('user')" title="Your own space">User</button>
+              <button id="scopeTopicBtn" type="button" onclick="switchSpaceScope('topic')" title="A forum topic space">Topic</button>
+              <button id="scopeDynamicBtn" type="button" onclick="switchSpaceScope('dynamic')" title="A dynamic sandbox space">Sandbox</button>
             </div>
-            <input id="spaceOwnerInput" type="text" placeholder="Owner ID / Space ID" class="bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-white font-mono text-xs w-44 focus:border-purple-500 focus:outline-none">
-            <button onclick="refreshAgentSpace()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 font-mono text-xs active:scale-95 transition">
-              🔄 Load Space
-            </button>
+            <input id="spaceOwnerInput" type="text" placeholder="Owner ID / Space ID" aria-label="Space owner" class="ide-owner">
+            <button type="button" class="ide-btn" onclick="refreshAgentSpace()" title="Load this space">Load</button>
           </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <span id="spaceFileCountBadge" class="px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800 font-mono text-[10px]">0 Files</span>
-            <button onclick="exportAgentSpace()" class="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white font-mono text-xs rounded transition active:scale-95">
-              📦 Export .space
-            </button>
+          <span class="ide-spacer"></span>
+          <div class="ide-group">
+            <span id="spaceFileCountBadge" class="ide-count">0 Files</span>
+            <button type="button" class="ide-btn" onclick="exportAgentSpace()" title="Download this space as a .space file">Export .space</button>
+            <div class="ide-seg" role="group" aria-label="Studio views">
+              <button id="finderTabBtn-files" type="button" class="is-active" onclick="switchFinderTab('files')">IDE</button>
+              <button id="finderTabBtn-vscode" type="button" onclick="switchFinderTab('vscode')">Extensions</button>
+              <button id="finderTabBtn-artcraft" type="button" onclick="switchFinderTab('artcraft')">ArtCraft</button>
+            </div>
           </div>
         </div>
 
-        <!-- Mode Navigation Tabs: Finder VFS | VS Code Extensions | ArtCraft Wasm -->
-        <div class="flex items-center gap-1.5 border-b border-slate-800 pb-2 font-mono text-xs">
-          <button id="finderTabBtn-files" onclick="switchFinderTab('files')" class="px-3 py-1.5 rounded-lg bg-purple-600 text-white font-bold transition flex items-center gap-1.5">
-            <span>📁</span> <span>Ranger Filesystem</span>
-          </button>
-          <button id="finderTabBtn-vscode" onclick="switchFinderTab('vscode')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5">
-            <span>🧩</span> <span>VS Code Marketplace</span>
-          </button>
-          <button id="finderTabBtn-artcraft" onclick="switchFinderTab('artcraft')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5">
-            <span>🎨</span> <span>ArtCraft 15 Suite</span>
-          </button>
-        </div>
-
-        <!-- =============================================================== -->
-        <!-- TAB 1: RANGER 3-COLUMN FILESYSTEM & MULTI-FORMAT PREVIEWER -->
-        <!-- =============================================================== -->
-        <div id="finderTab-files" class="aeonik-scope grid grid-cols-1 md:grid-cols-12 gap-3">
-          <!-- Col 1: Places & Directory Tree (3 cols) -->
-          <div class="md:col-span-3 space-y-3">
-            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-              <div class="flex items-center justify-between">
-                <span class="font-mono font-bold text-slate-300 text-xs tc-truncate min-w-0" title="Places · This Computer">Places · This Computer</span>
-                <button onclick="gatherDriveMirror('manual')" class="tc-ctl shrink-0 whitespace-nowrap text-[10px] font-mono" title="Re-scan the drive now">↻&#xFE0E; rescan</button>
+        <!-- IDE view -->
+        <div id="finderTab-files">
+          <div id="rangerSplit">
+            <!-- Explorer (the existing Ranger list, drive places and Rodin tool) -->
+            <div id="rangerListPane" aria-label="Explorer">
+              <div class="ide-sec">
+                <span id="rangerListTitle" class="tc-truncate min-w-0 flex-1" title="Files in VFS">Files in VFS</span>
+                <button id="rangerNewFileBtn" type="button" class="ide-btn ide-btn--sm shrink-0" onclick="promptCreateFile()" title="New file in this space">+ New</button>
               </div>
-              <!-- Mirrors the real drive. Gathered fresh at login / session start, held in memory only, never saved. -->
-              <div id="drivePlacesList" class="space-y-0.5 font-mono text-xs max-h-[260px] overflow-y-auto">
-                <div class="text-slate-500 py-1 text-[10px]">Scanning your drive…</div>
+              <div id="rangerBreadcrumb" class="hidden flex flex-wrap items-center gap-0.5 px-2 py-1 font-mono text-[10px]"></div>
+              <div id="spaceFileList" tabindex="0" role="listbox" aria-label="Files" class="ide-files divide-y divide-slate-800/40 focus:outline-none">
+                <div class="text-slate-500 py-2 text-center text-xs">Loading .space VFS...</div>
               </div>
-              <div id="drivePlacesStatus" class="text-[10px] font-mono text-slate-500 leading-snug"></div>
-              <button id="drivePickBtn" onclick="pickBrowserFolder()" class="hidden w-full text-left px-2 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-200 font-mono text-xs transition">
-                📂 Mirror a folder from this computer…
-              </button>
-              <div class="border-t border-slate-800 pt-1.5">
-                <button onclick="showSpaceVfs()" class="w-full text-left px-2 py-1.5 rounded hover:bg-slate-900 text-slate-300 font-mono text-xs flex items-center gap-1.5 transition" title="Files you uploaded or imported into your TinCan .space">
-                  <span>🥫</span> <span>TinCan .space (uploads &amp; imports)</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Rodin 3D Generative Mesh Tool -->
-            <div class="p-3 bg-gradient-to-br from-cyan-950/40 to-slate-950 rounded-xl border border-cyan-500/40 space-y-2">
+              <div class="ide-hint" aria-hidden="true">↑ ↓ ← → arrow keys to navigate</div>
+              <details class="ide-details">
+                <summary><span>Places · This Computer</span><button type="button" class="ide-btn ide-btn--sm" onclick="event.preventDefault(); event.stopPropagation(); gatherDriveMirror('manual')" title="Re-scan the drive now">&#8635;&#xFE0E; rescan</button></summary>
+                <div class="ide-details-body">
+                  <!-- Mirrors the real drive. Gathered fresh at login / session start, held in memory only, never saved. -->
+                  <div id="drivePlacesList" class="space-y-0.5 font-mono text-xs max-h-[130px] overflow-y-auto">
+                    <div class="text-slate-500 py-1 text-[10px]">Scanning your drive…</div>
+                  </div>
+                  <div id="drivePlacesStatus" class="text-[10px] font-mono leading-snug"></div>
+                  <button id="drivePickBtn" type="button" onclick="pickBrowserFolder()" class="hidden w-full text-left px-2 py-1.5 font-mono text-xs transition hover:bg-slate-900">📂 Mirror a folder from this computer…</button>
+                  <button type="button" onclick="showSpaceVfs()" class="w-full text-left px-2 py-1.5 hover:bg-slate-900 font-mono text-xs flex items-center gap-1.5 transition" title="Files you uploaded or imported into your TinCan .space"><span>🥫</span> <span>TinCan .space (uploads &amp; imports)</span></button>
+                </div>
+              </details>
+              <details class="ide-details">
+                <summary><span>Hyper3D Rodin 3D</span><span class="tc-chip shrink-0 font-mono">GEN-3D</span></summary>
+                <div class="ide-details-body">
+                  <!-- Rodin 3D Generative Mesh Tool -->
+            <div class="p-2 space-y-2">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-1.5">
                   <span class="text-cyan-400">🧊</span>
@@ -2493,72 +2465,50 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
               </button>
               <div id="rodinStatusNotice" class="text-[10px] font-mono text-slate-400 text-center truncate">Ready to generate 3D assets.</div>
             </div>
-          </div>
 
-          <!-- Col 2 + Col 3: files list | draggable divider | viewer (resizable split, stacks on small screens) -->
-          <div id="rangerSplit" class="md:col-span-9 flex flex-col md:flex-row gap-3 md:gap-0 min-w-0">
-          <!-- Col 2: Ranger Files List -->
-          <div id="rangerListPane" class="space-y-3 min-w-0 md:shrink-0">
-            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-              <div class="flex items-center justify-between gap-2 min-w-0">
-                <span id="rangerListTitle" class="font-mono font-bold text-slate-300 text-xs tc-truncate min-w-0 flex-1" title="Files in VFS">Files in VFS</span>
-                <button id="rangerNewFileBtn" onclick="promptCreateFile()" class="text-[10px] px-2 py-0.5 rounded bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-800 font-mono shrink-0">
-                  + New File
-                </button>
-              </div>
-              <div id="rangerBreadcrumb" class="hidden flex flex-wrap items-center gap-0.5 font-mono text-[10px] text-slate-500"></div>
-              <div id="spaceFileList" tabindex="0" role="listbox" aria-label="Files" class="space-y-1 max-h-[380px] overflow-y-auto font-mono text-[11px] text-slate-300 divide-y divide-slate-800/40 focus:outline-none focus:ring-1 focus:ring-purple-700/60 rounded">
-                <div class="text-slate-500 py-2 text-center text-xs">Loading .space VFS...</div>
-              </div>
-              <div class="pt-1 text-center font-mono text-[10px] text-slate-600/70 select-none pointer-events-none" aria-hidden="true">↑ ↓ ← → arrow keys to navigate</div>
+                </div>
+              </details>
             </div>
-          </div>
 
-          <!-- Draggable vertical divider (md+ only) -->
-          <div id="rangerSplitter" role="separator" aria-orientation="vertical" aria-label="Resize file list" tabindex="0"
-               class="hidden md:flex w-3 shrink-0 cursor-col-resize items-stretch justify-center group select-none" style="touch-action: none;">
-            <div class="w-px my-2 bg-slate-800 group-hover:bg-purple-500/70 group-focus:bg-purple-500/70 transition"></div>
-          </div>
+            <!-- Draggable vertical divider (md+ only) -->
+            <div id="rangerSplitter" role="separator" aria-orientation="vertical" aria-label="Resize explorer" tabindex="0"
+                 class="hidden md:flex cursor-col-resize items-stretch justify-center group select-none" style="touch-action: none;">
+              <div class="w-px my-0 bg-slate-800 transition"></div>
+            </div>
 
-          <!-- Col 3: File viewer & sandboxed code editor -->
-          <div id="rangerViewerPane" class="space-y-3 min-w-0 md:flex-1">
-            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-              <!-- File header: name/path, size, type, modified, source -->
-              <div class="border-b border-slate-800 pb-2 space-y-1.5">
-                <div class="flex items-start justify-between gap-2">
-                  <div class="min-w-0">
-                    <div class="flex items-center gap-1.5 min-w-0">
-                      <span id="viewerFileIcon">📄</span>
-                      <span class="font-mono text-purple-400 font-bold text-xs truncate" id="activeFilePath" title="">/src/main.py</span>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-1.5 mt-1 font-mono text-[9px]">
-                      <span id="viewerSourceBadge" class="px-1.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800">.space</span>
-                      <span id="activeFileMime" class="px-1.5 py-0.5 rounded bg-slate-900 text-slate-400">text/plain</span>
-                      <span id="viewerFileSize" class="text-slate-500"></span>
-                      <span id="viewerFileMtime" class="text-slate-600"></span>
-                    </div>
-                  </div>
-                  <div id="viewerSpaceActions" class="flex items-center gap-1.5 shrink-0">
-                    <button id="viewerEditBtn" onclick="toggleViewerEdit()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-xs rounded border border-slate-700 transition active:scale-95">✎ Edit</button>
-                    <button onclick="saveAgentSpaceFile()" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs rounded transition active:scale-95">
-                      💾 Save
-                    </button>
-                    <button onclick="deleteAgentSpaceFile()" class="px-2 py-1 bg-red-950 hover:bg-red-900 text-red-300 font-mono text-xs rounded border border-red-800 transition active:scale-95" title="Delete from .space">
-                      ✕
-                    </button>
-                  </div>
+            <!-- Editor group: open-file tabs, file toolbar, viewer/editor, run bar -->
+            <div id="rangerViewerPane" aria-label="Editor">
+              <div id="ideTabs" class="ide-tabs" role="tablist" aria-label="Open files"><span class="ide-tabs-empty">No file open</span></div>
+              <div class="ide-toolbar">
+                <span id="viewerFileIcon">📄</span>
+                <span class="ide-path" id="activeFilePath" title="">/src/main.py</span>
+                <span class="ide-meta">
+                  <span id="viewerSourceBadge" class="ide-chip">.space</span>
+                  <span id="activeFileMime">text/plain</span>
+                  <span id="viewerFileSize"></span>
+                  <span id="viewerFileMtime"></span>
+                </span>
+                <span class="ide-spacer"></span>
+                <div id="viewerSpaceActions" class="inline-flex items-center gap-1">
+                  <button id="viewerEditBtn" type="button" class="ide-btn ide-btn--sm" onclick="toggleViewerEdit()">✎ Edit</button>
+                  <button type="button" class="ide-btn ide-btn--sm ide-btn--solid" onclick="saveAgentSpaceFile()" title="Save to .space (Cmd/Ctrl+S)">Save</button>
+                  <button type="button" class="ide-btn ide-btn--sm ide-btn--danger" onclick="deleteAgentSpaceFile()" title="Delete from .space">Delete</button>
                 </div>
-                <div class="flex flex-wrap items-center gap-1 font-mono text-[10px]">
-                  <button onclick="copyViewerPath()" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">⧉ Copy path</button>
-                  <button onclick="downloadViewerFile()" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">⬇ Download</button>
-                  <button id="viewerRawToggle" onclick="toggleViewerRaw()" class="hidden px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">Raw</button>
-                  <button id="viewerWrapToggle" onclick="toggleViewerWrap()" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800">Wrap</button>
-                  <a id="viewerVsCodeLink" href="#" class="hidden px-2 py-0.5 rounded text-slate-500 hover:text-slate-300" title="Opens the real file in VS Code on this computer (needs VS Code installed)">Open in VS Code ↗</a>
+                <div class="inline-flex flex-wrap items-center gap-1">
+                  <button type="button" class="ide-btn ide-btn--sm" onclick="copyViewerPath()">Copy path</button>
+                  <button type="button" class="ide-btn ide-btn--sm" onclick="downloadViewerFile()">Download</button>
+                  <button id="viewerRawToggle" type="button" class="hidden ide-btn ide-btn--sm" onclick="toggleViewerRaw()">Raw</button>
+                  <button id="viewerWrapToggle" type="button" class="ide-btn ide-btn--sm" onclick="toggleViewerWrap()">Wrap</button>
+                  <a id="viewerVsCodeLink" href="#" class="hidden ide-btn ide-btn--sm no-underline" title="Opens the real file in VS Code on this computer (needs VS Code installed)">Open in VS Code ↗</a>
                 </div>
               </div>
-
-              <!-- Multimedia Preview Containers (Switched by file type) -->
-              <div id="finderMediaPreviewBox" class="space-y-2">
+              <div id="ideEditorBody" class="ide-editor-body">
+                <div id="finderMediaPreviewBox" class="ide-media">
+                <div id="ideEmptyPane" class="ide-empty">
+                  <div class="ide-empty-title">No file open</div>
+                  <p>Pick a file in the Explorer, or press <b>+ New</b>. Edits save to your .space with <b>Save</b> or Cmd/Ctrl+S.</p>
+                </div>
+                
                 <!-- Video Player Preview (for .mp4, .webm) -->
                 <div id="finderVideoContainer" class="hidden relative bg-black rounded-lg overflow-hidden border border-slate-800 aspect-video flex items-center justify-center">
                   <video id="finderVideoPlayer" controls class="w-full h-full object-contain"></video>
@@ -2572,7 +2522,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
                 <!-- Image Preview -->
                 <div id="finderImageContainer" class="hidden bg-slate-900 rounded-lg border border-slate-800 p-2 flex items-center justify-center" style="background-image: linear-gradient(45deg,#0f172a 25%,transparent 25%),linear-gradient(-45deg,#0f172a 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#0f172a 75%),linear-gradient(-45deg,transparent 75%,#0f172a 75%); background-size: 16px 16px;">
-                  <img id="finderImagePreview" alt="" class="max-w-full max-h-[420px] object-contain">
+                  <img id="finderImagePreview" alt="" class="max-w-full max-h-full object-contain">
                 </div>
 
                 <!-- 3D GLB Model Preview (model-viewer loaded on demand) -->
@@ -2598,19 +2548,20 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                 <!-- Read-only viewer: highlighted code with line numbers, or rendered Markdown -->
                 <div id="finderViewerContainer" class="hidden">
                   <div id="finderViewerNotice" class="hidden mb-1 px-2 py-1 rounded bg-amber-950/40 border border-amber-800/50 text-amber-300 font-mono text-[10px]"></div>
-                  <div id="finderViewer" class="ranger-viewer max-h-[460px] overflow-auto bg-slate-900/90 border border-slate-800 rounded-lg text-xs select-text"></div>
+                  <div id="finderViewer" class="ranger-viewer overflow-auto bg-slate-900/90 border border-slate-800 rounded-lg text-xs select-text"></div>
                 </div>
 
                 <!-- Text/Code Editor (edit mode for .space files) -->
-                <div id="finderCodeContainer">
-                  <textarea id="agentspaceEditor" rows="8" class="w-full bg-slate-900/90 border border-slate-700 rounded-lg p-2.5 text-slate-100 font-mono text-xs focus:border-purple-500 focus:outline-none select-text" placeholder="Write Python, JS, or Wasm bytecode..."></textarea>
+                <div id="finderCodeContainer" class="ide-code">
+                  <textarea id="agentspaceEditor" rows="8" spellcheck="false" class="ide-textarea select-text" placeholder="Write Python, JS, or Wasm bytecode..."></textarea>
                 </div>
               </div>
-              <!-- Playground Run Bar -->
-              <div class="flex flex-wrap items-center justify-between gap-2 pt-1 font-mono text-xs">
-                <div class="flex items-center gap-1.5">
-                  <span class="text-[11px] text-slate-400">Sandbox:</span>
-                  <select id="playgroundRuntimeSelect" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-[11px]">
+
+              </div>
+              <div class="ide-runbar">
+                <div class="inline-flex items-center gap-1.5">
+                  <span>Sandbox</span>
+                  <select id="playgroundRuntimeSelect">
                     <option value="auto">auto (detect)</option>
                     <option value="python">pyodide-wasm (Python)</option>
                     <option value="js">quickjs-wasm (JS)</option>
@@ -2620,27 +2571,39 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                     <option value="three-glb-viewer">three-glb-viewer (3D)</option>
                   </select>
                 </div>
-                <div class="flex items-center gap-1.5">
-                  <button onclick="runAgentSpaceAgent()" class="px-2 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded transition active:scale-95 flex items-center gap-1">
-                    <span>🤖</span> Space Agent
-                  </button>
-                  <button onclick="runAgentSpacePlayground()" class="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded transition active:scale-95 flex items-center gap-1 shadow-sm">
-                    <span>🚀</span> Run Sandbox
-                  </button>
+                <div class="inline-flex items-center gap-1.5">
+                  <button type="button" class="ide-btn" onclick="ideShowPanel('output'); runAgentSpaceAgent()">🤖 Space Agent</button>
+                  <button type="button" class="ide-btn ide-btn--solid" onclick="ideShowPanel('output'); runAgentSpacePlayground()">▶ Run Sandbox</button>
                 </div>
-              </div>
-
-              <!-- Playground Output Console -->
-              <div class="mt-2 p-2.5 bg-black/90 border border-slate-800 rounded-lg font-mono text-xs text-slate-300 max-h-32 overflow-y-auto">
-                <div class="text-[10px] text-slate-500 mb-1 flex items-center justify-between">
-                  <span>SANDBOX TERMINAL OUTPUT</span>
-                  <span id="playgroundExitCode" class="text-slate-400">Exit: 0</span>
-                </div>
-                <pre id="agentspaceOutput" class="whitespace-pre-wrap select-text text-emerald-400">Ready. Click 'Run Sandbox' to execute in isolated mini-environment.</pre>
               </div>
             </div>
-          </div>
           </div><!-- /#rangerSplit -->
+
+          <!-- Integrated panel: Terminal (TinCanShell scoped to this space) | Output -->
+          <div id="idePanel" class="ide-panel">
+            <div id="idePanelHandle" role="separator" aria-orientation="horizontal" aria-label="Resize panel" tabindex="0"></div>
+            <div class="ide-panel-head">
+              <button id="ideTab-terminal" type="button" class="ide-panel-tab is-active" onclick="ideShowPanel('terminal')">Terminal</button>
+              <button id="ideTab-output" type="button" class="ide-panel-tab" onclick="ideShowPanel('output')">Output <span id="playgroundExitCode" class="font-mono font-normal normal-case tracking-normal">Exit: 0</span></button>
+              <span class="ide-spacer"></span>
+              <button id="ideTogglePanelBtn" type="button" class="ide-btn ide-btn--sm" onclick="ideTogglePanel()" title="Show or hide the panel">Hide ▾</button>
+            </div>
+            <div class="ide-panel-body">
+              <div id="idePane-terminal"><div id="ideTermMount" data-tc-shell-mount data-shell-title="this space" style="height: 100%;"></div></div>
+              <div id="idePane-output" class="hidden"><pre id="agentspaceOutput" class="ide-output select-text">Ready. Click 'Run Sandbox' to execute in isolated mini-environment.</pre></div>
+            </div>
+          </div>
+
+          <!-- Status bar -->
+          <div id="ideStatus" class="ide-status" role="status">
+            <span id="ideStatSpace" title="Space owner">space</span>
+            <span id="ideStatScope" title="Scope">user</span>
+            <span id="ideStatFile" title="Open file">no file</span>
+            <span id="ideStatLang" title="Language">–</span>
+            <span class="ide-spacer"></span>
+            <span id="ideStatMerkle" title="Merkle root of this .space">merkle –</span>
+            <span id="ideStatDrive" title="Drive mirror">drive: off</span>
+          </div>
         </div>
 
         <!-- =============================================================== -->
@@ -4269,65 +4232,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     setTimeout(refreshBillingWindow, 1500);
 
-    // Copy Command Helper & One-Click Terminal Installer Controls
-    let activeInstallCmdId = 'curlInstallCmd';
-    function switchInstallCmdTab(tab) {
-      const mapping = {
-        brew: { id: 'brewInstallCmd', btn: 'tabCmdBrew' },
-        curl: { id: 'curlInstallCmd', btn: 'tabCmdCurl' },
-        npx: { id: 'installCmd', btn: 'tabCmdNpx' },
-        chat: { id: 'chatCmd', btn: 'tabCmdChat' }
-      };
-      const entry = mapping[tab] || mapping.curl;
-      activeInstallCmdId = entry.id;
-      const srcEl = document.getElementById(entry.id);
-      const dispEl = document.getElementById('activeInstallCmdDisplay');
-      if (srcEl && dispEl) dispEl.innerText = srcEl.innerText;
-      ['tabCmdBrew', 'tabCmdCurl', 'tabCmdNpx', 'tabCmdChat'].forEach(btnId => {
-        const b = document.getElementById(btnId);
-        if (!b) return;
-        if (btnId === entry.btn) {
-          b.className = 'px-2 py-0.5 bg-black text-[#ecf1e6] rounded-full border border-black font-semibold transition';
-        } else {
-          b.className = 'px-2 py-0.5 bg-transparent text-black rounded-full border border-black font-semibold transition';
-        }
-      });
-    }
-
-    function copyActiveInstallCmd(btnEl) {
-      copyCommand(activeInstallCmdId, btnEl);
-    }
-
-    function copyCommand(id, btnEl) {
-      const el = document.getElementById(id);
-      if (!el) return;
-      const text = el.innerText;
-      copyToClipboard(text, btnEl);
-    }
-
-    function simulateOneClickInstall() {
-      // A browser cannot run commands on your computer: copy the real installer
-      // command and say so, instead of printing a pretend install log.
-      const win = document.getElementById('win-terminal');
-      if (win && win.classList.contains('hidden')) win.classList.remove('hidden');
-      if (activeInstallCmdId === 'brewInstallCmd') {
-        const brewEl = document.getElementById('brewInstallCmd');
-        if (brewEl) copyToClipboard(brewEl.innerText);
-        execAeonikShellCommand('brew install tincan context-palace');
-        return;
-      }
-      const transcript = document.getElementById('termShellTranscript');
-      const cmdEl = document.getElementById(typeof activeInstallCmdId !== 'undefined' ? activeInstallCmdId : 'curlInstallCmd') || document.getElementById('curlInstallCmd');
-      const cmdText = cmdEl ? cmdEl.innerText : '';
-      if (cmdText) copyToClipboard(cmdText);
-      if (!transcript) return;
-      const p = document.createElement('p');
-      p.className = 'pt-1 text-neutral-800';
-      p.innerHTML = 'Copied to your clipboard. Paste it into the terminal on your computer to install TinCan:<br><code class="select-all break-all">' +
-        String(cmdText).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '</code>';
-      transcript.appendChild(p);
-      transcript.scrollTop = transcript.scrollHeight;
-    }
+    /*TC_INSTALL_CARD_JS*/
 
     // =========================================================================
     // Background Canvas: Mesh Topology, Taut String Tethers & Packet Flights
@@ -7349,17 +7254,16 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     function switchSpaceScope(scope) {
       currentSpaceScope = scope;
-      const userBtn = document.getElementById('scopeUserBtn');
-      const topicBtn = document.getElementById('scopeTopicBtn');
+      ['user', 'topic', 'dynamic'].forEach(k => {
+        const btn = document.getElementById('scope' + k.charAt(0).toUpperCase() + k.slice(1) + 'Btn');
+        if (btn) btn.classList.toggle('is-active', k === scope);
+      });
       const ownerInput = document.getElementById('spaceOwnerInput');
       if (scope === 'user') {
-        if (userBtn) { userBtn.className = 'px-2.5 py-1 rounded bg-purple-900 text-purple-200 font-semibold active:scale-95 transition'; }
-        if (topicBtn) { topicBtn.className = 'px-2.5 py-1 rounded text-slate-400 hover:text-white active:scale-95 transition'; }
         if (ownerInput) { ownerInput.value = myPeerId || ''; ownerInput.placeholder = 'User Peer ID'; }
-      } else {
-        if (topicBtn) { topicBtn.className = 'px-2.5 py-1 rounded bg-indigo-900 text-indigo-200 font-semibold active:scale-95 transition'; }
-        if (userBtn) { userBtn.className = 'px-2.5 py-1 rounded text-slate-400 hover:text-white active:scale-95 transition'; }
-        if (ownerInput) { ownerInput.placeholder = 'Topic ID (e.g. topic-abc123)'; if (!ownerInput.value.startsWith('topic-')) ownerInput.value = ''; }
+      } else if (ownerInput) {
+        ownerInput.placeholder = scope === 'topic' ? 'Topic ID (e.g. topic-abc123)' : 'Sandbox ID';
+        if (!ownerInput.value.startsWith('topic-')) ownerInput.value = '';
       }
       refreshAgentSpace();
     }
@@ -7369,6 +7273,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       if (!background) rangerMode = 'space';
       const ownerInput = document.getElementById('spaceOwnerInput');
       currentSpaceOwner = (ownerInput && ownerInput.value.trim()) || (myPeerId || 'default');
+      ideSpaceChanged();
       const fileListEl = document.getElementById('spaceFileList');
       const badgeEl = document.getElementById('spaceFileCountBadge');
       if (!fileListEl) return;
@@ -7382,7 +7287,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
         const files = data.files || [];
-        if (badgeEl) badgeEl.textContent = `${files.length} Files`;
+        if (badgeEl) badgeEl.textContent = `${files.length} File${files.length === 1 ? '' : 's'}`;
+        ideMerkle = String(data.merkle_root || '').slice(0, 10);
+        ideUpdateStatus();
         if (rangerMode !== 'space') return; // the drive mirror is showing; keep it
 
         if (files.length === 0) {
@@ -7392,7 +7299,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         }
         renderRangerList(files.map(f => ({ kind: 'file', source: 'space', path: f.path, name: f.path, size: f.size_bytes, mime: f.mime_type })));
 
-        if (!document.getElementById('agentspaceEditor').value && files.length > 0) {
+        if (!document.getElementById('agentspaceEditor').value && !ideClosedAll && files.length > 0) {
           openAgentSpaceFile(files[0].path);
         }
       } catch (err) {
@@ -7451,6 +7358,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         });
         if (resp.ok) {
           if (typeof playXpChime === 'function') playXpChime();
+          ideMarkSaved();
           refreshAgentSpace();
           const outEl = document.getElementById('agentspaceOutput');
           if (outEl) outEl.textContent = `[+] File ${currentSpaceFile} saved to ${currentSpaceScope}:${currentSpaceOwner}.space!`;
@@ -7476,6 +7384,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           })
         });
         if (resp.ok) {
+          ideForgetTab('space:' + currentSpaceFile);
           currentSpaceFile = '/src/main.py';
           refreshAgentSpace();
         }
@@ -7927,13 +7836,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       ['files', 'vscode', 'artcraft'].forEach(t => {
         const btn = document.getElementById(`finderTabBtn-${t}`);
         const panel = document.getElementById(`finderTab-${t}`);
-        if (btn) {
-          if (t === tab) {
-            btn.className = 'px-3 py-1.5 rounded-lg bg-purple-600 text-white font-bold transition flex items-center gap-1.5';
-          } else {
-            btn.className = 'px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5';
-          }
-        }
+        if (btn) btn.classList.toggle('is-active', t === tab);
         if (panel) panel.classList.toggle('hidden', t !== tab);
       });
     }
@@ -7998,6 +7901,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     // ---- File list (shared by .space and drive mirror) ----------------------
     function setRangerListHeader() {
+      ideUpdateStatus();
       const title = document.getElementById('rangerListTitle');
       const newBtn = document.getElementById('rangerNewFileBtn');
       const crumb = document.getElementById('rangerBreadcrumb');
@@ -8342,7 +8246,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     // ---- Viewer -------------------------------------------------------------
-    const RANGER_PANES = ['finderVideoContainer', 'finderAudioContainer', 'finderImageContainer', 'finder3dContainer', 'finderBinaryContainer', 'finderViewerContainer', 'finderCodeContainer'];
+    const RANGER_PANES = ['finderVideoContainer', 'finderAudioContainer', 'finderImageContainer', 'finder3dContainer', 'finderBinaryContainer', 'finderViewerContainer', 'finderCodeContainer', 'ideEmptyPane'];
     function rangerShowPane(id) { RANGER_PANES.forEach(p => { const el = document.getElementById(p); if (el) el.classList.toggle('hidden', p !== id); }); }
 
     function showViewerError(path, msg) {
@@ -8372,9 +8276,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       const badge = document.getElementById('viewerSourceBadge');
       if (badge) {
         badge.textContent = view.source === 'space' ? '.space' : 'drive · read-only';
-        badge.className = view.source === 'space'
-          ? 'px-1.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800'
-          : 'px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800';
+        badge.className = 'ide-chip';
       }
       const spaceActions = document.getElementById('viewerSpaceActions');
       if (spaceActions) spaceActions.classList.toggle('hidden', view.source !== 'space');
@@ -8390,6 +8292,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         vs.href = ok ? 'vscode://file' + encodeURI(view.absPath) : '#';
       }
       renderViewerBody();
+      ideOnView(view);
     }
 
     function renderViewerBody() {
@@ -8447,7 +8350,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
     function toggleViewerWrap() {
       rangerWrap = !rangerWrap;
-      const b = document.getElementById('viewerWrapToggle'); if (b) b.classList.toggle('text-purple-300', rangerWrap);
+      const b = document.getElementById('viewerWrapToggle'); if (b) b.classList.toggle('is-active', rangerWrap);
       renderViewerBody();
     }
     function toggleViewerEdit(force) {
@@ -8644,11 +8547,11 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     // ---- Resizable split between file list and viewer ------------------------
     (function initRangerSplit() {
-      const KEY = 'tincan_ranger_list_pct';
+      const KEY = 'tincan_ide_explorer_pct';
       const split = document.getElementById('rangerSplit');
       const handle = document.getElementById('rangerSplitter');
       if (!split || !handle) return;
-      const MIN_LIST = 180, MIN_VIEW = 280, DEFAULT = 38;
+      const MIN_LIST = 170, MIN_VIEW = 260, DEFAULT = 24;
       let pct = parseFloat(localStorage.getItem(KEY));
       if (!(pct > 5 && pct < 95)) pct = DEFAULT;
       const clamp = p => {
@@ -8705,6 +8608,208 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       if (window.ResizeObserver) new ResizeObserver(() => apply(pct, false)).observe(split);
     })();
 
+    // =========================================================================
+    // Space IDE: open-file tabs, bottom panel (terminal | output), status bar
+    // =========================================================================
+    const ideTabs = [];               // {key, source, path, name, view, dirty, buffer}
+    let ideActiveKey = null;
+    let ideMerkle = '';
+    let ideClosedAll = false;         // the user closed every tab: don't auto-open the first file again
+    let ideSpaceId = '';
+    const IDE_LANGS = { py: 'Python', js: 'JavaScript', mjs: 'JavaScript', jsx: 'JavaScript React', ts: 'TypeScript', tsx: 'TypeScript React', json: 'JSON', rs: 'Rust', go: 'Go',
+      c: 'C', h: 'C', cpp: 'C++', java: 'Java', kt: 'Kotlin', swift: 'Swift', cs: 'C#', css: 'CSS', scss: 'SCSS', html: 'HTML', htm: 'HTML', xml: 'XML', svg: 'SVG', md: 'Markdown',
+      txt: 'Plain Text', log: 'Log', csv: 'CSV', sh: 'Shell', bash: 'Shell', zsh: 'Shell', yml: 'YAML', yaml: 'YAML', toml: 'TOML', sql: 'SQL', rb: 'Ruby', lua: 'Lua',
+      wasm: 'WebAssembly', glb: '3D model', gltf: '3D model', png: 'Image', jpg: 'Image', jpeg: 'Image', gif: 'Image', webp: 'Image', mp4: 'Video', webm: 'Video', mp3: 'Audio', wav: 'Audio' };
+
+    function ideEsc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+    function ideKey(view) { return (view.source || 'space') + ':' + view.path; }
+    function ideLangName(path) {
+      const base = String(path || '').split('/').pop().toLowerCase();
+      if (base === 'dockerfile') return 'Dockerfile';
+      if (base === 'makefile') return 'Makefile';
+      const ext = base.includes('.') ? base.split('.').pop() : '';
+      return IDE_LANGS[ext] || 'Plain Text';
+    }
+
+    function ideUpdateStatus() {
+      const set = (id, v) => { const el = document.getElementById(id); if (el) { el.textContent = v; el.title = v; } };
+      set('ideStatSpace', (typeof currentSpaceOwner !== 'undefined' && currentSpaceOwner) || myPeerId || 'default');
+      set('ideStatScope', currentSpaceScope + ' scope');
+      const v = rangerView;
+      set('ideStatFile', v ? (v.source === 'drive' ? 'drive:' : '') + v.path : 'no file');
+      set('ideStatLang', v ? ideLangName(v.path) : '–');
+      set('ideStatMerkle', 'merkle ' + (ideMerkle || '–'));
+      set('ideStatDrive', 'drive: ' + ((driveState && (driveState.rootLabel || driveState.provider)) || 'off'));
+    }
+
+    function ideRenderTabs() {
+      const box = document.getElementById('ideTabs');
+      if (!box) return;
+      if (!ideTabs.length) { box.innerHTML = '<span class="ide-tabs-empty">No file open</span>'; return; }
+      box.innerHTML = ideTabs.map(t =>
+        `<div class="ide-tab${t.key === ideActiveKey ? ' is-active' : ''}" role="tab" aria-selected="${t.key === ideActiveKey}" data-key="${ideEsc(t.key)}" title="${ideEsc((t.source === 'drive' ? 'drive: ' : '') + t.path)}">` +
+        `<span class="ide-tab-name">${ideEsc(t.name)}</span><span class="ide-dirty${t.dirty ? '' : ' hidden'}" title="Unsaved changes">●</span>` +
+        `<button type="button" class="ide-tab-x" data-close="${ideEsc(t.key)}" aria-label="Close ${ideEsc(t.name)}">×</button></div>`
+      ).join('');
+      const act = box.querySelector('.ide-tab.is-active');
+      if (act && act.scrollIntoView) act.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+
+    function ideOnView(view) {
+      const key = ideKey(view);
+      let t = ideTabs.find(x => x.key === key);
+      if (!t) {
+        t = { key, source: view.source || 'space', path: view.path, name: view.name || String(view.path).split('/').pop(), view, dirty: false, buffer: null };
+        ideTabs.push(t);
+      } else { t.view = view; }
+      ideActiveKey = key;
+      ideClosedAll = false;
+      if (view.source === 'space' && view.text != null) {
+        const ed = document.getElementById('agentspaceEditor');
+        if (t.buffer != null && ed) ed.value = t.buffer;
+        if (!rangerEditing) toggleViewerEdit(true);   // IDE: text files open ready to edit
+      }
+      ideRenderTabs();
+      ideUpdateStatus();
+    }
+
+    async function ideActivate(key) {
+      const cur = ideTabs.find(x => x.key === ideActiveKey);
+      const ed = document.getElementById('agentspaceEditor');
+      if (cur && cur.source === 'space' && cur.dirty && ed) cur.buffer = ed.value;
+      const t = ideTabs.find(x => x.key === key);
+      if (!t) return;
+      if (t.source === 'space') await openAgentSpaceFile(t.path);
+      else if (typeof openDriveFile === 'function') await openDriveFile(t.path);
+      else showFileInViewer(t.view);
+    }
+
+    function ideForgetTab(key) {
+      const i = ideTabs.findIndex(x => x.key === key);
+      if (i < 0) return;
+      ideTabs.splice(i, 1);
+      if (key === ideActiveKey) ideShowEmpty(i);
+      ideRenderTabs();
+    }
+
+    function ideShowEmpty(nearIndex) {
+      const next = ideTabs[Math.min(nearIndex, ideTabs.length - 1)];
+      if (next) { ideActivate(next.key); return; }
+      ideActiveKey = null;
+      ideClosedAll = true;
+      rangerView = null;
+      const ed = document.getElementById('agentspaceEditor'); if (ed) ed.value = '';
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      set('activeFilePath', ''); set('activeFileMime', ''); set('viewerFileSize', ''); set('viewerFileMtime', '');
+      const actions = document.getElementById('viewerSpaceActions'); if (actions) actions.classList.add('hidden');
+      rangerShowPane('ideEmptyPane');
+      ideUpdateStatus();
+    }
+
+    function ideCloseTab(key) {
+      const t = ideTabs.find(x => x.key === key);
+      if (!t) return;
+      if (t.dirty && !confirm(`Discard unsaved changes to ${t.name}?`)) return;
+      ideForgetTab(key);
+    }
+
+    function ideMarkSaved() {
+      const ed = document.getElementById('agentspaceEditor');
+      const t = ideTabs.find(x => x.key === 'space:' + currentSpaceFile);
+      if (t) {
+        t.dirty = false; t.buffer = null;
+        if (t.view && ed) t.view.text = ed.value;
+        ideRenderTabs();
+      } else {
+        setTimeout(() => openAgentSpaceFile(currentSpaceFile), 0);   // a file created from the Explorer opens in a tab
+      }
+    }
+
+    // Switching space (scope or owner) drops that space's tabs; drive tabs stay.
+    function ideSpaceChanged() {
+      const id = currentSpaceScope + ':' + currentSpaceOwner;
+      if (ideSpaceId && ideSpaceId !== id) {
+        const doomed = ideTabs.filter(t => t.source === 'space');
+        doomed.forEach(t => { const i = ideTabs.indexOf(t); if (i >= 0) ideTabs.splice(i, 1); });
+        if (doomed.some(t => t.key === ideActiveKey)) ideShowEmpty(0);
+        ideClosedAll = false;
+        ideRenderTabs();
+      }
+      ideSpaceId = id;
+      ideUpdateStatus();
+    }
+
+    function ideShowPanel(which) {
+      ['terminal', 'output'].forEach(n => {
+        const pane = document.getElementById('idePane-' + n);
+        const tab = document.getElementById('ideTab-' + n);
+        if (pane) pane.classList.toggle('hidden', n !== which);
+        if (tab) tab.classList.toggle('is-active', n === which);
+      });
+      const panel = document.getElementById('idePanel');
+      if (panel && panel.classList.contains('is-collapsed')) ideTogglePanel();
+      if (which === 'terminal') { const m = document.getElementById('ideTermMount'); if (m && m.__tcShell) m.__tcShell.focus(); }
+    }
+
+    function ideTogglePanel() {
+      const panel = document.getElementById('idePanel');
+      const btn = document.getElementById('ideTogglePanelBtn');
+      if (!panel) return;
+      const collapsed = panel.classList.toggle('is-collapsed');
+      if (btn) btn.textContent = collapsed ? 'Show ▴' : 'Hide ▾';
+    }
+
+    (function initIde() {
+      const box = document.getElementById('ideTabs');
+      if (box) {
+        box.addEventListener('click', ev => {
+          const x = ev.target.closest('[data-close]');
+          if (x) { ev.stopPropagation(); ideCloseTab(x.getAttribute('data-close')); return; }
+          const tab = ev.target.closest('.ide-tab');
+          if (tab && tab.getAttribute('data-key') !== ideActiveKey) ideActivate(tab.getAttribute('data-key'));
+        });
+        box.addEventListener('auxclick', ev => {
+          const tab = ev.target.closest('.ide-tab');
+          if (tab && ev.button === 1) { ev.preventDefault(); ideCloseTab(tab.getAttribute('data-key')); }
+        });
+      }
+      const ed = document.getElementById('agentspaceEditor');
+      if (ed) {
+        ed.addEventListener('input', () => {
+          const t = ideTabs.find(x => x.key === ideActiveKey);
+          if (t && t.source === 'space' && !t.dirty) { t.dirty = true; ideRenderTabs(); }
+        });
+        ed.addEventListener('keydown', ev => {
+          if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 's') { ev.preventDefault(); saveAgentSpaceFile(); return; }
+          if (ev.key === 'Tab' && !ev.shiftKey && !ev.ctrlKey && !ev.metaKey && !ev.altKey) {
+            ev.preventDefault();
+            ed.setRangeText('  ', ed.selectionStart, ed.selectionEnd, 'end');
+            ed.dispatchEvent(new Event('input'));
+          }
+        });
+      }
+      // Resizable bottom panel
+      const handle = document.getElementById('idePanelHandle');
+      const panel = document.getElementById('idePanel');
+      if (handle && panel) {
+        let dragging = false;
+        handle.addEventListener('pointerdown', ev => { dragging = true; handle.setPointerCapture(ev.pointerId); document.body.style.userSelect = 'none'; ev.preventDefault(); });
+        handle.addEventListener('pointermove', ev => {
+          if (!dragging) return;
+          const host = panel.parentElement.getBoundingClientRect();
+          const status = (document.getElementById('ideStatus') || {}).offsetHeight || 0;
+          const h = Math.max(90, Math.min(host.height - 150, host.bottom - status - ev.clientY));
+          panel.style.setProperty('--ide-panel-h', h + 'px');
+        });
+        const end = ev => { if (!dragging) return; dragging = false; document.body.style.userSelect = ''; try { handle.releasePointerCapture(ev.pointerId); } catch (e) {} };
+        handle.addEventListener('pointerup', end);
+        handle.addEventListener('pointercancel', end);
+        handle.addEventListener('dblclick', () => panel.style.removeProperty('--ide-panel-h'));
+      }
+      rangerShowPane('ideEmptyPane');
+      ideUpdateStatus();
+    })();
+
     // Back-compat for older callers.
     function navigateFinderPath(path) { navigateDrive(path); }
     function previewFileInFinder(fpath, content = '') {
@@ -8752,347 +8857,17 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       gatherDriveMirror('session-start');
     }, 2000);
 
-    // =========================================================================
-    // Terminal (SHELL, SPACE, TREE, RECENT) wired to your .space and the drive mirror
-    // =========================================================================
-    // Terminal: every pane reads your own .space VFS (/api/space/*) and the
-    // read-only drive mirror (/api/drive/*). No canned output.
-    const termEsc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    let termSummary = null;
-    let termDrive = { available: null, mirror: null };
-
-    function termScope() { return (typeof currentSpaceScope !== 'undefined' && currentSpaceScope) || 'user'; }
-    function termOwner() {
-      return (typeof currentSpaceOwner !== 'undefined' && currentSpaceOwner) || myPeerId || 'default';
-    }
-    function termHandle() {
-      const u = (localStorage.getItem('tincan_username') || '').trim().replace(/^@+/, '');
-      return u || 'you';
-    }
-    function termBytes(n) {
-      n = Number(n) || 0;
-      if (n < 1024) return n + 'B';
-      if (n < 1048576) return (n / 1024).toFixed(1) + 'K';
-      return (n / 1048576).toFixed(1) + 'M';
-    }
-    function termPrompt() { return termHandle() + '@tincan:~/space$'; }
-
-    function termTickClock() {
-      const el = document.getElementById('aeonikHeaderClock');
-      if (el) el.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const pl = document.getElementById('termPromptLabel');
-      if (pl) pl.textContent = termPrompt();
-    }
-    setInterval(termTickClock, 15000);
-
-    async function termFetchSummary() {
-      const r = await fetch(`/api/space/ls?scope=${encodeURIComponent(termScope())}&owner_id=${encodeURIComponent(termOwner())}`, { cache: 'no-store' });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      termSummary = await r.json();
-      return termSummary;
-    }
-
-    async function termFetchDrive() {
-      try {
-        if (typeof driveState !== 'undefined' && driveState && driveState.mirror) {
-          termDrive = { available: true, mirror: driveState.mirror };
-          return termDrive;
-        }
-        const r = await fetch('/api/drive/status', { cache: 'no-store' });
-        const st = r.ok ? await r.json() : { available: false };
-        if (!st.available) { termDrive = { available: false, mirror: null, on_railway: !!st.on_railway }; return termDrive; }
-        const m = await fetch('/api/drive/mirror?depth=2', { cache: 'no-store' });
-        termDrive = { available: true, mirror: m.ok ? await m.json() : null };
-      } catch (e) {
-        termDrive = { available: false, mirror: null };
-      }
-      return termDrive;
-    }
-
-    function termBuildTree(files) {
-      const root = {};
-      files.forEach(f => {
-        const parts = String(f.path || '').split('/').filter(Boolean);
-        let node = root;
-        parts.forEach((part, i) => {
-          if (i === parts.length - 1) { node[part] = { __file: f }; return; }
-          if (!node[part] || node[part].__file) node[part] = {};
-          node = node[part];
-        });
-      });
-      return root;
-    }
-
-    function termRenderTreeNode(node, prefix) {
-      const names = Object.keys(node).sort((a, b) => {
-        const fa = !!node[a].__file, fb = !!node[b].__file;
-        return fa === fb ? a.localeCompare(b) : (fa ? 1 : -1);
-      });
-      let html = '';
-      names.forEach((name, i) => {
-        const last = i === names.length - 1;
-        const branch = prefix + (last ? '└── ' : '├── ');
-        const child = node[name];
-        if (child.__file) {
-          const f = child.__file;
-          html += `<div class="flex items-baseline min-w-0" role="treeitem"><span class="whitespace-pre text-neutral-500 shrink-0">${termEsc(branch)}</span>` +
-            `<button type="button" class="tc-truncate text-left hover:underline" title="${termEsc(f.path)} · ${termBytes(f.size_bytes)}" onclick="inspectAeonikFile(${termEsc(JSON.stringify(f.path))})">${termEsc(name)}</button>` +
-            `<span class="ml-auto pl-2 text-[10px] text-neutral-500 shrink-0">${termBytes(f.size_bytes)}</span></div>`;
-        } else {
-          html += `<div class="flex items-baseline min-w-0" role="treeitem" aria-expanded="true"><span class="whitespace-pre text-neutral-500 shrink-0">${termEsc(branch)}</span><span class="tc-truncate font-semibold" title="${termEsc(name)}/">${termEsc(name)}/</span></div>`;
-          html += termRenderTreeNode(child, prefix + (last ? '    ' : '│   '));
-        }
-      });
-      return html;
-    }
-
-    function termRenderDrive() {
-      const box = document.getElementById('termDriveTree');
-      const st = document.getElementById('termStatusDrive');
-      const stat = document.getElementById('termStatDrive');
-      if (!box) return;
-      if (!termDrive.available) {
-        box.classList.remove('hidden');
-        box.innerHTML = '<div class="text-[10px] text-neutral-600">Drive mirror: only available when TinCan runs on this computer. Open Space to pick a folder from your browser instead.</div>';
-        if (st) st.textContent = 'drive: off';
-        if (stat) stat.textContent = 'off';
-        return;
-      }
-      const m = termDrive.mirror;
-      const places = (m && m.places) || [];
-      box.classList.remove('hidden');
-      box.innerHTML = `<div class="font-semibold mb-1 tc-truncate" title="${termEsc(m ? m.root : '')}">drive ${termEsc(m ? (m.root_label || m.root) : '')}/</div>` +
-        places.map((pl, i) => {
-          const last = i === places.length - 1;
-          const kids = (pl.children || []).length;
-          return `<div class="flex items-baseline min-w-0"><span class="whitespace-pre text-neutral-500 shrink-0">${last ? '└── ' : '├── '}</span>` +
-            `<span class="tc-truncate ${pl.pinned ? 'font-semibold' : ''}" title="${termEsc(pl.path || pl.name)}">${termEsc(pl.name || pl.path)}/</span>` +
-            `<span class="ml-auto pl-2 text-[10px] text-neutral-500 shrink-0">${kids ? kids + ' dirs' : ''}</span></div>`;
-        }).join('');
-      if (st) st.textContent = 'drive: ' + places.length + ' places';
-      if (stat) stat.textContent = String(places.length);
-    }
-
-    function termRenderSummary() {
-      const s = termSummary || { files: [], recent_runs: [] };
-      const files = s.files || [];
-      const runs = s.recent_runs || [];
-      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-      set('termStatFiles', String(files.length));
-      set('termStatSize', termBytes(s.space_size_bytes));
-      set('termStatRuns', String(runs.length));
-      set('termSpaceOwner', '· ' + termOwner());
-      set('termTreeTitle', 'TREE ~/space · ' + termOwner());
-      set('aeonikHeaderCwd', '~/space · ' + termOwner());
-      set('aeonikStatusCwd', '~/space · ' + termOwner());
-      set('termStatusScope', termScope() + ' scope');
-      set('aeonikGitBranch', 'merkle ' + String(s.merkle_root || '–').slice(0, 10));
-      const dirs = new Set();
-      files.forEach(f => { const parts = String(f.path).split('/').filter(Boolean); for (let i = 1; i < parts.length; i++) dirs.add(parts.slice(0, i).join('/')); });
-      set('aeonikTreeSummary', `${dirs.size} director${dirs.size === 1 ? 'y' : 'ies'}, ${files.length} file${files.length === 1 ? '' : 's'}`);
-      // updated_at is unix seconds (or an ISO string from older rows); show the newest as a local date.
-      const toMs = v => { const n = Number(v); if (Number.isFinite(n) && n > 0) return n < 1e12 ? n * 1000 : n; const t = Date.parse(v); return Number.isFinite(t) ? t : 0; };
-      const newestMs = files.reduce((m, f) => Math.max(m, toMs(f.updated_at)), 0);
-      const newest = newestMs ? new Date(newestMs).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-      set('termSpaceNote', files.length ? `${s.space_file ? String(s.space_file).split('/').pop() : termOwner() + '.space'} · ${files.length} files · updated ${newest || '–'}` : 'Your space is empty. Save a file here or add one in Space.');
-      const tree = document.getElementById('termTree');
-      if (tree) tree.innerHTML = files.length ? termRenderTreeNode(termBuildTree(files), '') : '<div class="tc-empty">No files in your space yet. Open <strong>Space</strong> to add files or import a folder.</div>';
-      const tbl = document.getElementById('termRunsTable');
-      if (tbl) {
-        tbl.innerHTML = runs.length ? runs.map(r =>
-          `<button type="button" class="w-full grid grid-cols-[1fr_4rem_3.5rem_4rem] gap-2 text-left text-neutral-800 hover:bg-black/5 px-1 rounded" onclick="termShowRun(${termEsc(JSON.stringify(r.run_id))})" title="${termEsc(r.created_at || '')}">` +
-          `<span class="tc-truncate">${termEsc(r.entrypoint || '(inline)')}</span><span class="tc-truncate">${termEsc(r.runtime || '')}</span>` +
-          `<span class="text-right ${Number(r.exit_code) === 0 ? '' : 'text-[#8a1c1c]'}">${termEsc(r.exit_code)}</span><span class="text-right">${termEsc(r.duration_ms)}</span></button>`
-        ).join('') : '<div class="text-[10px] text-neutral-600 px-1">No runs yet. Try <b>run</b> in the shell.</div>';
-      }
-    }
-
-    async function refreshTerminalSpace() {
-      termTickClock();
-      try {
-        await termFetchSummary();
-      } catch (e) {
-        const n = document.getElementById('termSpaceNote');
-        if (n) n.textContent = 'Could not read your space: ' + e.message;
-      }
-      termRenderSummary();
-      await termFetchDrive();
-      termRenderDrive();
-    }
-
-    function termShowRun(runId) {
-      const r = ((termSummary && termSummary.recent_runs) || []).find(x => x.run_id === runId);
-      const rec = document.getElementById('aeonikRecentOutput');
-      if (!r || !rec) return;
-      rec.innerHTML = `<p><span class="font-semibold text-black">${termEsc(termPrompt())}</span> run ${termEsc(r.entrypoint || '')} <span class="text-neutral-600">(${termEsc(r.runtime)}, exit ${termEsc(r.exit_code)}, ${termEsc(r.duration_ms)} ms)</span></p>` +
-        (r.stdout ? `<pre class="whitespace-pre-wrap break-words text-neutral-800 pl-2">${termEsc(r.stdout)}</pre>` : '') +
-        (r.stderr ? `<pre class="whitespace-pre-wrap break-words text-[#8a1c1c] pl-2">${termEsc(r.stderr)}</pre>` : '');
-    }
-
-    function clearAeonikShell() {
-      const tr = document.getElementById('termShellTranscript');
-      if (tr) tr.innerHTML = '';
-    }
-
-    async function termExec(body) {
-      const r = await fetch('/api/space/exec', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(Object.assign({ scope: termScope(), owner_id: termOwner() }, body))
-      });
-      const d = await r.json();
-      if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`);
-      return d;
-    }
-
-    async function execAeonikShellCommand(presetCmd) {
-      const inp = document.getElementById('aeonikShellInput');
-      const tr = document.getElementById('termShellTranscript');
-      const pill = document.getElementById('termShellStatusPill');
-      const cmd = (presetCmd || (inp ? inp.value : '') || '').trim();
-      if (!cmd || !tr) return;
-      if (!presetCmd && inp) inp.value = '';
-      if (cmd === 'clear') { clearAeonikShell(); return; }
-
-      const cmdLine = document.createElement('p');
-      cmdLine.className = 'pt-1';
-      cmdLine.innerHTML = `<span class="font-semibold text-black">${termEsc(termPrompt())}</span> ${termEsc(cmd)}`;
-      tr.appendChild(cmdLine);
-      const out = document.createElement('pre');
-      out.className = 'text-neutral-700 pl-2 whitespace-pre-wrap break-words font-mono';
-      tr.appendChild(out);
-      if (pill) pill.innerText = 'Running';
-      const [verb, ...rest] = cmd.split(/\s+/);
-      const arg = rest.join(' ');
-      try {
-        if (verb === 'help') {
-          out.textContent = 'ls [dir]      list files in your space\ncat <file>    open a file in RECENT\ntree          refresh the TREE pane\nrun [file]    run a file in the sandbox (default /src/main.py)\npy <code>     run Python in the sandbox\nruns          list recent runs\ndrive         drive mirror status\nstatus        mesh room status\nask <q>       ask the AI gateway';
-        } else if (verb === 'ls') {
-          const s = await termFetchSummary();
-          const dir = arg ? ('/' + arg.replace(/^\/+|\/+$/g, '') + '/') : '/';
-          const names = new Set();
-          (s.files || []).forEach(f => {
-            if (!String(f.path).startsWith(dir)) return;
-            const restPath = String(f.path).slice(dir.length);
-            const first = restPath.split('/')[0];
-            names.add(restPath.includes('/') ? first + '/' : first);
-          });
-          out.textContent = names.size ? Array.from(names).sort().join('  ') : `ls: ${dir}: no files`;
-          termRenderSummary();
-        } else if (verb === 'cat' && arg) {
-          await inspectAeonikFile(arg.startsWith('/') ? arg : '/' + arg);
-          out.textContent = 'Opened ' + arg + ' in RECENT.';
-        } else if (verb === 'tree') {
-          await refreshTerminalSpace();
-          out.textContent = (document.getElementById('aeonikTreeSummary') || {}).textContent || '';
-        } else if (verb === 'run') {
-          const entry = arg ? (arg.startsWith('/') ? arg : '/' + arg) : '/src/main.py';
-          const d = await termExec({ entrypoint: entry, runtime: 'auto' });
-          out.textContent = ((d.stdout || '') + (d.stderr ? '\n' + d.stderr : '')) || `exit ${d.exit_code}`;
-          await refreshTerminalSpace();
-        } else if (verb === 'py' || verb === 'exec') {
-          const d = await termExec({ runtime: 'python', code_override: arg });
-          out.textContent = ((d.stdout || '') + (d.stderr ? '\n' + d.stderr : '')) || `exit ${d.exit_code}`;
-          await refreshTerminalSpace();
-        } else if (verb === 'runs') {
-          const s = await termFetchSummary();
-          out.textContent = (s.recent_runs || []).map(r => `${r.created_at || ''}  ${r.runtime}  exit ${r.exit_code}  ${r.duration_ms}ms  ${r.entrypoint || '(inline)'}`).join('\n') || 'No runs yet.';
-          termRenderSummary();
-        } else if (verb === 'drive') {
-          await termFetchDrive();
-          termRenderDrive();
-          out.textContent = termDrive.available ? `Mirroring ${termDrive.mirror ? termDrive.mirror.root : 'drive'} (read-only, never saved).` : 'Drive mirror is off here: it only runs when TinCan runs on this computer.';
-        } else if (verb === 'status' || cmd === 'tincan status') {
-          const r = await fetch('/api/mesh/state');
-          const d = await r.json();
-          out.textContent = `room ${d.room || 'main'} · ${Object.keys(d.peers || {}).length} peers · relay online`;
-        } else if (verb === 'brew' || cmd.startsWith('tincan brew')) {
-          const cleanBrewCmd = cmd.replace(/^tincan\s+/i, '');
-          out.textContent = '==> Contacting TinCan Homebrew Tap & Cellar...';
-          const r = await fetch('/api/terminal/brew', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ command: cleanBrewCmd, peer_id: myPeerId || 'aeonik' })
-          });
-          const d = await r.json();
-          out.textContent = d.output || (Array.isArray(d.lines) ? d.lines.join('\n') : JSON.stringify(d));
-          if (typeof awardLocalXp === 'function' && cleanBrewCmd.includes('install')) {
-            awardLocalXp(35, 'Installed package via TinCan Homebrew');
-          }
-        } else {
-          const prompt = cmd.replace(/^(ask|tincan chat)\s+/i, '');
-          out.textContent = 'Asking the AI gateway…';
-          const r = await fetch('/api/chat', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'gemini-brain', prompt: prompt, peer_id: myPeerId || 'terminal' })
-          });
-          const d = await r.json();
-          out.textContent = d.content || d.response || d.error || JSON.stringify(d);
-        }
-      } catch (e) {
-        out.textContent = verb + ': ' + e.message;
-        out.classList.add('text-[#8a1c1c]');
-      }
-      if (pill) pill.innerText = 'Ready';
-      tr.scrollTop = tr.scrollHeight;
-    }
-
-    async function inspectAeonikFile(path) {
-      const rec = document.getElementById('aeonikRecentOutput');
-      if (!rec) return;
-      rec.innerHTML = `<p class="text-neutral-600">Opening ${termEsc(path)}…</p>`;
-      try {
-        const r = await fetch(`/api/space/file?scope=${encodeURIComponent(termScope())}&owner_id=${encodeURIComponent(termOwner())}&path=${encodeURIComponent(path)}`, { cache: 'no-store' });
-        const d = await r.json();
-        if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`);
-        const text = d.content != null ? d.content : '';
-        const binary = d.content == null && Number(d.size_bytes) > 0;
-        rec.innerHTML =
-          `<div class="flex items-center justify-between gap-2"><span class="font-semibold text-black tc-truncate" title="${termEsc(path)}">cat ${termEsc(path)}</span>` +
-          (binary ? '' : `<button onclick="saveAeonikFile(${termEsc(JSON.stringify(path))})" class="px-2 py-0.5 bg-black text-[#ecf1e6] rounded-full text-[9px] font-bold shrink-0">Save</button>`) + '</div>' +
-          (binary ? `<p class="text-neutral-600">${termEsc(d.mime_type || 'binary')} · ${termBytes(d.size_bytes)} · open it in Space to preview.</p>`
-                  : `<textarea id="aeonikInlineFileEditor" rows="8" class="w-full mt-1 p-2 bg-white border border-black rounded text-[10px] font-mono text-black">${termEsc(text)}</textarea>`);
-      } catch (e) {
-        rec.innerHTML = `<p class="text-[#8a1c1c]">cat ${termEsc(path)}: ${termEsc(e.message)}</p>`;
-      }
-    }
-
-    async function saveAeonikFile(path) {
-      const ed = document.getElementById('aeonikInlineFileEditor');
-      if (!ed) return;
-      try {
-        const r = await fetch('/api/space/file', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scope: termScope(), owner_id: termOwner(), path: path, content: ed.value, updated_by: termHandle() })
-        });
-        const d = await r.json();
-        if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`);
-        showQuickNotification('Saved ' + path + ' to your space');
-        refreshTerminalSpace();
-      } catch (e) {
-        showQuickNotification('Could not save ' + path + ': ' + e.message);
-      }
-    }
-
-    async function runAeonikRecentAction(kind) {
-      if (kind === 'runs') { await refreshTerminalSpace(); const runs = (termSummary && termSummary.recent_runs) || []; if (runs.length) termShowRun(runs[0].run_id); return; }
-      const rec = document.getElementById('aeonikRecentOutput');
-      if (rec) rec.innerHTML = '<p class="text-neutral-600">Running /src/main.py in your sandbox…</p>';
-      try {
-        const d = await termExec({ entrypoint: '/src/main.py', runtime: 'auto' });
-        await refreshTerminalSpace();
-        const runs = (termSummary && termSummary.recent_runs) || [];
-        if (runs.length) termShowRun(runs[0].run_id);
-        else if (rec) rec.innerHTML = `<pre class="whitespace-pre-wrap">${termEsc(d.stdout || d.stderr || '')}</pre>`;
-      } catch (e) {
-        if (rec) rec.innerHTML = `<p class="text-[#8a1c1c]">run /src/main.py: ${termEsc(e.message)}</p>`;
-      }
-    }
-
-    window.addEventListener('load', () => { setTimeout(refreshTerminalSpace, 2600); });
+    /*TC_SHELL_JS*/
   </script>
 </body>
 </html>
 """
+
+# Reusable terminal components: the one-click install card and the TinCanShell shell.
+from .install_card import apply_install_card  # noqa: E402
+from .shell_component import apply_shell_component  # noqa: E402
+
+MESH_OS_HTML_UI = apply_install_card(apply_shell_component(MESH_OS_HTML_UI))
 
 # Two-brain arena duel + context panel in every arena view (win-arena and win-quests).
 from .arena_duel_ui import apply_arena_duel  # noqa: E402
