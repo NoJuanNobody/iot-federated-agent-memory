@@ -23,8 +23,8 @@ def live_mesh_server():
 
 def test_mesh_os_html_ui_invariants():
     for token in (
-        'id="installCmd"',
-        'id="chatCmd"',
+        'data-cmd="npx"',
+        'data-cmd="chat"',
         'id="tv"',
         'id="relayNativeVideo"',
         'id="nowPlayingTitle"',

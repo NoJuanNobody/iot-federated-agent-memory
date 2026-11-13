@@ -181,7 +181,7 @@ def test_ui_has_drive_mirror_and_split():
     from iot_federated_agent_memory.mesh_os_ui import MESH_OS_HTML_UI as H
     for token in ('id="drivePlacesList"', 'id="rangerSplitter"', 'id="rangerListPane"', 'id="rangerViewerPane"',
                   'id="finderViewer"', "gatherDriveMirror('login')", "gatherDriveMirror('session-start')",
-                  'tincan_ranger_list_pct', 'arrow keys to navigate'):
+                  'tincan_ide_explorer_pct', 'arrow keys to navigate'):
         assert token in H, token
     # The old hard-coded fake "places" are gone.
     assert "navigateFinderPath('/media/videos')" not in H
