@@ -1403,7 +1403,7 @@ aeonik/
               <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5">
                 <span>⚔️</span> Side-by-Side AI Brain Arena Duel
               </h3>
-              <p class="text-[11px] text-slate-400">Dispatch dual completions to any OpenRouter or Ronin model and vote for the best response (+150 XP).</p>
+              <p class="text-[11px] text-slate-400">Pick two chat models the router supports, send the same prompt to both, and vote for the better answer (+150 XP).</p>
             </div>
             <div class="flex items-center gap-2">
               <span class="text-[11px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800 px-2 py-0.5 rounded">
@@ -1412,37 +1412,23 @@ aeonik/
             </div>
           </div>
 
-          <!-- Dynamic Model A & Model B Pickers -->
-          <datalist id="arenaModelsDatalist">
-            <option value="google/gemini-2.5-flash">Google Gemini 2.5 Flash</option>
-            <option value="google/gemini-2.5-pro">Google Gemini 2.5 Pro</option>
-            <option value="anthropic/claude-3.7-sonnet">Anthropic Claude 3.7 Sonnet</option>
-            <option value="anthropic/claude-3.5-sonnet">Anthropic Claude 3.5 Sonnet</option>
-            <option value="openai/gpt-4o">OpenAI GPT-4o</option>
-            <option value="openai/o3-mini">OpenAI o3-mini</option>
-            <option value="deepseek/deepseek-r1">DeepSeek R1</option>
-            <option value="deepseek/deepseek-chat">DeepSeek V3</option>
-            <option value="meta-llama/llama-3.3-70b-instruct">Meta Llama 3.3 70B</option>
-            <option value="qwen/qwen-2.5-72b-instruct">Qwen 2.5 72B</option>
-            <option value="mistralai/mistral-large-2411">Mistral Large</option>
-            <option value="x-ai/grok-2-1212">xAI Grok 2</option>
-            <option value="ronin/hyper3d-rodin-v2">Ronin / Hyper3D Rodin v2 (3D Mesh &amp; PBR)</option>
-            <option value="ronin/regular">Ronin Regular 3D Mesh</option>
-            <option value="ronin/sketch">Ronin Fast Sketch 3D</option>
-            <option value="ronin/detail">Ronin Detail 3D Mesh</option>
-            <option value="ronin/smooth">Ronin Smooth 3D Quad-Mesh</option>
-          </datalist>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-            <div class="bg-slate-900/70 border border-emerald-900/60 rounded-lg p-2 flex items-center gap-2">
-              <span class="text-[11px] font-mono text-emerald-400 font-bold shrink-0">Model A:</span>
-              <input list="arenaModelsDatalist" id="arenaModelAInput" value="google/gemini-2.5-flash" oninput="updateArenaModelLabels()" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-xs text-emerald-300 font-mono focus:border-emerald-500 focus:outline-none" placeholder="Any OpenRouter or Ronin model ID...">
+          <!-- Model A & Model B pickers: filled from /api/mesh/arena/models (what the AI router actually supports) -->
+          <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 pt-1">
+            <div class="flex-1 min-w-0 bg-slate-900/70 border border-emerald-900/60 rounded-lg p-2 flex items-center gap-2">
+              <label for="arenaModelAInput" class="text-[11px] font-mono text-emerald-400 font-bold shrink-0">Model A:</label>
+              <select id="arenaModelAInput" onchange="onArenaModelChange()" class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-emerald-300 font-mono focus:border-emerald-500 focus:outline-none">
+                <option value="gemini-brain">gemini-brain</option>
+              </select>
             </div>
-            <div class="bg-slate-900/70 border border-cyan-900/60 rounded-lg p-2 flex items-center gap-2">
-              <span class="text-[11px] font-mono text-cyan-400 font-bold shrink-0">Model B:</span>
-              <input list="arenaModelsDatalist" id="arenaModelBInput" value="anthropic/claude-3.7-sonnet" oninput="updateArenaModelLabels()" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-xs text-cyan-300 font-mono focus:border-cyan-500 focus:outline-none" placeholder="Any OpenRouter or Ronin model ID...">
+            <button id="arenaSwapBtn" onclick="swapArenaModels()" title="Swap left and right models" aria-label="Swap models" class="self-center px-2 py-1 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 rounded-lg font-mono text-xs transition active:scale-95">⇄</button>
+            <div class="flex-1 min-w-0 bg-slate-900/70 border border-cyan-900/60 rounded-lg p-2 flex items-center gap-2">
+              <label for="arenaModelBInput" class="text-[11px] font-mono text-cyan-400 font-bold shrink-0">Model B:</label>
+              <select id="arenaModelBInput" onchange="onArenaModelChange()" class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-cyan-300 font-mono focus:border-cyan-500 focus:outline-none">
+                <option value="claude-brain">claude-brain</option>
+              </select>
             </div>
           </div>
+          <div id="arenaModelsNote" class="text-[10px] font-mono text-slate-500 -mt-1"></div>
 
           <div class="flex gap-2">
             <input id="arenaPromptInput" type="text" value="Explain zero-knowledge proofs and federated CRDT meshes in two concise sentences." class="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-xs text-white font-mono placeholder:text-slate-600">
@@ -1456,7 +1442,7 @@ aeonik/
             <div class="p-3 bg-slate-900/90 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
               <div class="flex justify-between items-center pb-1.5 border-b border-slate-800">
                 <span class="font-bold text-xs text-emerald-300 font-mono">Brain A</span>
-                <span id="arenaLabelA" class="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">google/gemini-2.5-flash</span>
+                <span id="arenaLabelA" class="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">gemini-brain</span>
               </div>
               <div id="arenaResultA" class="text-xs font-mono text-slate-200 min-h-[90px] max-h-[160px] overflow-y-auto whitespace-pre-wrap bg-black/40 p-2.5 rounded">
                 Click "Battle 2 Brains" above to dispatch simultaneous prompts...
@@ -1475,7 +1461,7 @@ aeonik/
             <div class="p-3 bg-slate-900/90 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
               <div class="flex justify-between items-center pb-1.5 border-b border-slate-800">
                 <span class="font-bold text-xs text-cyan-300 font-mono">Brain B</span>
-                <span id="arenaLabelB" class="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">anthropic/claude-3.7-sonnet</span>
+                <span id="arenaLabelB" class="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">claude-brain</span>
               </div>
               <div id="arenaResultB" class="text-xs font-mono text-slate-200 min-h-[90px] max-h-[160px] overflow-y-auto whitespace-pre-wrap bg-black/40 p-2.5 rounded">
                 Click "Battle 2 Brains" above to dispatch simultaneous prompts...
@@ -4858,61 +4844,122 @@ aeonik/
     // =========================================================================
     // AI Brain Arena Battle Engine & Peer Voting
     // =========================================================================
+    const ARENA_MODELS_KEY = 'tincan_arena_models';
+    let arenaModelList = [];
+    let arenaLastDuel = null;   // models actually used for the answers on screen
+    const arenaEsc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    window.addEventListener('load', () => { loadArenaModels(); });
+
+    function arenaPick() {
+      const a = document.getElementById('arenaModelAInput');
+      const b = document.getElementById('arenaModelBInput');
+      return { a: (a && a.value) || 'gemini-brain', b: (b && b.value) || 'claude-brain' };
+    }
+
+    async function loadArenaModels() {
+      const selA = document.getElementById('arenaModelAInput');
+      const selB = document.getElementById('arenaModelBInput');
+      const note = document.getElementById('arenaModelsNote');
+      if (!selA || !selB) return;
+      try {
+        const r = await fetch('/api/mesh/arena/models');
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        arenaModelList = data.models || [];
+        const groups = { configured: 'Configured brains', catalog: 'Router catalog' };
+        const html = Object.entries(groups).map(([kind, label]) => {
+          const opts = arenaModelList.filter(m => m.kind === kind)
+            .map(m => `<option value="${arenaEsc(m.id)}">${arenaEsc(kind === 'configured' ? m.name : m.id)}</option>`).join('');
+          return opts ? `<optgroup label="${label}">${opts}</optgroup>` : '';
+        }).join('');
+        selA.innerHTML = html; selB.innerHTML = html;
+        let saved = null;
+        try { saved = JSON.parse(localStorage.getItem(ARENA_MODELS_KEY) || 'null'); } catch (e) {}
+        const ids = new Set(arenaModelList.map(m => m.id));
+        const def = data.default || { a: 'gemini-brain', b: 'claude-brain' };
+        selA.value = saved && ids.has(saved.a) ? saved.a : def.a;
+        selB.value = saved && ids.has(saved.b) ? saved.b : def.b;
+        if (note) note.textContent = `${arenaModelList.length} models from the AI router. Billing is per answer, same as chat.`;
+      } catch (err) {
+        if (note) note.textContent = `Couldn't load the model list (${err.message}); using the default brains.`;
+      }
+      updateArenaModelLabels();
+    }
+
+    function onArenaModelChange() {
+      const p = arenaPick();
+      try { localStorage.setItem(ARENA_MODELS_KEY, JSON.stringify(p)); } catch (e) {}
+      updateArenaModelLabels();
+    }
+
+    function swapArenaModels() {
+      const selA = document.getElementById('arenaModelAInput');
+      const selB = document.getElementById('arenaModelBInput');
+      if (!selA || !selB) return;
+      const t = selA.value; selA.value = selB.value; selB.value = t;
+      onArenaModelChange();
+    }
+
     async function runArenaBattle() {
       initAudio();
       const prompt = document.getElementById('arenaPromptInput').value.trim();
       const resA = document.getElementById('arenaResultA');
       const resB = document.getElementById('arenaResultB');
+      const { a, b } = arenaPick();
+      arenaLastDuel = null;
 
-      resA.innerText = 'Routing prompt to Gemini 2.5 Flash...';
-      resB.innerText = 'Routing prompt to Claude 3.7 Sonnet...';
+      resA.innerText = `Routing prompt to ${a}...`;
+      resB.innerText = `Routing prompt to ${b}...`;
 
-      spawnPacketFlight(myPeerId, 'gemini-brain', 'ai_prompt', 'gemini-brain');
-      spawnPacketFlight(myPeerId, 'claude-brain', 'ai_prompt', 'claude-brain');
+      spawnPacketFlight(myPeerId, a, 'ai_prompt', a);
+      spawnPacketFlight(myPeerId, b, 'ai_prompt', b);
+
+      const ask = (model) => fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // No peer_id here on purpose: billing stays exactly as before (same /api/chat call per side).
+        body: JSON.stringify({ model, prompt, arena: true })
+      }).then(r => r.json());
 
       try {
-        const [respA, respB] = await Promise.all([
-          fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'gemini-brain', prompt })
-          }).then(r => r.json()),
-          fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'claude-brain', prompt })
-          }).then(r => r.json())
-        ]);
-
-        resA.innerText = respA.choices?.[0]?.message?.content || respA.text || JSON.stringify(respA, null, 2);
-        resB.innerText = respB.choices?.[0]?.message?.content || respB.text || JSON.stringify(respB, null, 2);
+        const [respA, respB] = await Promise.all([ask(a), ask(b)]);
+        resA.innerText = respA.choices?.[0]?.message?.content || respA.text || respA.error || JSON.stringify(respA, null, 2);
+        resB.innerText = respB.choices?.[0]?.message?.content || respB.text || respB.error || JSON.stringify(respB, null, 2);
+        if (!respA.error && !respB.error) arenaLastDuel = { a, b, prompt };
       } catch (err) {
         resA.innerText = 'Battle error: ' + err.message;
         resB.innerText = 'Battle error: ' + err.message;
       }
     }
 
-    async function voteArenaWinner(winnerAlias) {
+    async function voteArenaWinner(side) {
       initAudio();
+      const duel = arenaLastDuel || { ...arenaPick(), prompt: document.getElementById('arenaPromptInput').value };
+      const winnerSide = side === 'B' ? 'B' : 'A';
+      const winnerModel = winnerSide === 'A' ? duel.a : duel.b;
       playXpChime();
-      spawnPacketFlight(myPeerId, winnerAlias, 'ai_prompt', `Vote: ${winnerAlias}`);
+      spawnPacketFlight(myPeerId, winnerModel, 'ai_prompt', `Vote: ${winnerModel}`);
       try {
         const res = await fetch('/api/mesh/arena/vote', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             peer_id: myPeerId,
-            winner_alias: winnerAlias,
-            prompt_preview: document.getElementById('arenaPromptInput').value.substring(0, 40),
+            winner_alias: winnerModel,
+            winner_side: winnerSide,
+            model_a: duel.a,
+            model_b: duel.b,
+            prompt_preview: (duel.prompt || '').substring(0, 40),
             display_name: myPeerId,
             room: currentRoom
           })
         });
         const data = await res.json();
-        alert(`🏆 Vote recorded for ${winnerAlias}! +150 XP awarded to your squad.`);
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        showQuickNotification(`🏆 Vote recorded for ${winnerModel} (${duel.a} vs ${duel.b}). +150 XP.`);
         pollMeshState();
       } catch (err) {
-        alert('Vote error: ' + err.message);
+        showQuickNotification('Vote error: ' + err.message);
       }
     }
 

@@ -1030,6 +1030,9 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     self._send_json({"error": f"Banned: {banned_peers[peer_id].get('reason', 'Policy violation')}", "banned": True}, 403)
                     return
                 model_alias = data.get("model", "gemini-brain")
+                if data.get("arena") and not router.is_arena_model_allowed(model_alias):
+                    self._send_json({"error": f"Model not allowed in the Brain Arena: {model_alias}"}, 400)
+                    return
                 prompt = data.get("prompt")
                 messages = data.get("messages")
                 if not messages:
@@ -1443,11 +1446,26 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 data = json.loads(post_data.decode("utf-8")) if post_data else {}
                 peer_id = data.get("peer_id") or "peer"
                 winner_alias = data.get("winner_alias") or "gemini-brain"
+                model_a = data.get("model_a")
+                model_b = data.get("model_b")
+                winner_side = (data.get("winner_side") or "").upper() or None
+                if model_a or model_b:
+                    for m in (model_a, model_b):
+                        if not router.is_arena_model_allowed(m):
+                            self._send_json({"error": f"Model not allowed in the Brain Arena: {m}"}, 400)
+                            return
+                    if winner_side not in ("A", "B"):
+                        self._send_json({"error": "winner_side must be 'A' or 'B'"}, 400)
+                        return
+                    winner_alias = model_a if winner_side == "A" else model_b
                 res = mesh_os.vote_arena(
                     peer_id=peer_id,
                     winner_alias=winner_alias,
                     prompt_preview=data.get("prompt_preview", ""),
                     display_name=data.get("display_name"),
+                    model_a=model_a,
+                    model_b=model_b,
+                    winner_side=winner_side,
                 )
                 self._send_json({"status": "voted", **res}, 200)
             except Exception as e:
@@ -2722,6 +2740,9 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 "version": "2.2.0",
                 "relay_url": "https://iot-federated-agent-memory-production.up.railway.app",
             })
+        elif parsed.path == "/api/mesh/arena/models":
+            models = router.get_arena_models()
+            self._send_json({"models": models, "count": len(models), "default": router.arena_default_pair()}, 200)
         elif parsed.path in ("/api/models/available", "/api/models/openrouter"):
             models = router.get_available_models() if hasattr(router, "get_available_models") else []
             self._send_json({"models": models, "count": len(models)}, 200)
