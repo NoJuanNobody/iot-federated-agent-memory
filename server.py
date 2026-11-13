@@ -49,6 +49,7 @@ from iot_federated_agent_memory.thread_api import (
     set_account_registry as set_thread_account_registry,
 )
 from iot_federated_agent_memory.sponsor_ads import SponsorAdManager
+from iot_federated_agent_memory import drive_mirror
 from iot_federated_agent_memory.cyberspace_board import CyberspaceBoardEngine
 from iot_federated_agent_memory.crdt_mesh import CRDTMeshGossipSync, CRDTDeltaMessage
 from iot_federated_agent_memory.edge_telemetry import (
@@ -881,6 +882,74 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.end_headers()
         self._write_body(body)
+
+    def _send_private_json(self, data, code=200):
+        """JSON for local-only endpoints: no CORS header and never cached."""
+        raw = json.dumps(data, separators=(",", ":")).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self._write_body(raw)
+
+    def _drive_mirror_allowed(self) -> bool:
+        return drive_mirror.request_allowed(
+            self.client_address[0] if self.client_address else "",
+            self.headers.get("Host") or "",
+            self.headers.get("X-Forwarded-For") or "",
+        )
+
+    def _handle_drive_get(self, parsed) -> None:
+        """Read-only hard-drive mirror for the Ranger VFS (local server only)."""
+        if parsed.path == "/api/drive/status":
+            allowed = self._drive_mirror_allowed()
+            self._send_private_json({
+                "available": allowed,
+                "on_railway": drive_mirror.running_on_railway(),
+                "fallback": None if allowed else "browser-folder-picker",
+            }, 200)
+            return
+        if not self._drive_mirror_allowed():
+            self._send_private_json({
+                "error": "Drive mirror is only available when TinCan runs on this computer.",
+                "available": False,
+                "fallback": "browser-folder-picker",
+            }, 403)
+            return
+        query = parse_qs(parsed.query)
+        root = drive_mirror.mirror_root()
+        rel = query.get("path", ["/"])[0]
+        try:
+            if parsed.path == "/api/drive/mirror":
+                depth = max(1, min(int(query.get("depth", [drive_mirror.DEFAULT_MAX_DEPTH])[0]), 5))
+                self._send_private_json(drive_mirror.gather_mirror(root, max_depth=depth), 200)
+            elif parsed.path == "/api/drive/ls":
+                self._send_private_json(drive_mirror.list_dir(root, rel), 200)
+            elif parsed.path == "/api/drive/file":
+                self._send_private_json(drive_mirror.read_text_preview(root, rel), 200)
+            elif parsed.path == "/api/drive/raw":
+                abs_path, size, mime = drive_mirror.open_raw(root, rel)
+                self.send_response(200)
+                self.send_header("Content-Type", mime)
+                self.send_header("Content-Length", str(size))
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("X-Content-Type-Options", "nosniff")
+                if query.get("download", ["0"])[0] == "1":
+                    fname = os.path.basename(abs_path).replace('"', "")
+                    self.send_header("Content-Disposition", f'attachment; filename="{fname}"')
+                self.end_headers()
+                if self.command != "HEAD":
+                    for chunk in drive_mirror.iter_file_chunks(abs_path):
+                        self.wfile.write(chunk)
+            else:
+                self._send_private_json({"error": "Not found"}, 404)
+        except drive_mirror.MirrorAccessError as exc:
+            self._send_private_json({"error": str(exc)}, 403)
+        except (FileNotFoundError, NotADirectoryError):
+            self._send_private_json({"error": f"Not found: {rel}"}, 404)
+        except Exception as exc:  # pragma: no cover - defensive
+            self._send_private_json({"error": str(exc)}, 500)
 
     def do_HEAD(self):
         self.do_GET()
@@ -2665,6 +2734,8 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         elif parsed.path == "/api/3d/balance":
             billing = _get_hyper3d_billing(router)
             self._send_json(billing, 200)
+        elif parsed.path.startswith("/api/drive/"):
+            self._handle_drive_get(parsed)
         elif parsed.path == "/api/space/ls":
             query = parse_qs(parsed.query)
             scope = query.get("scope", ["user"])[0]
