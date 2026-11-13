@@ -1368,6 +1368,92 @@ class SingleFileSpaceVFS:
 # 4. Wasm and Code Playground Runner
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Dev toolchain for the exec sandbox (Homebrew, Node/npm/npx, Rust/cargo)
+# ---------------------------------------------------------------------------
+# Runtimes that run a tool with args instead of a file entrypoint.
+TOOL_RUNTIMES = {"npm": "npm", "npx": "npx", "cargo": "cargo", "rustc": "rustc", "rustup": "rustup", "brew": "brew"}
+# Directories never synced back from a run into the .space VFS (dependency
+# trees, build output and tool caches can be huge).
+SANDBOX_NO_SYNC_DIRS = {"node_modules", "target", ".npm", ".cache", ".cargo", ".rustup", ".linuxbrew", "__pycache__"}
+_TOOLCHAIN_DIRS = (
+    "/usr/local/cargo/bin",
+    "/home/linuxbrew/.linuxbrew/bin",
+    "/home/linuxbrew/.linuxbrew/sbin",
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+)
+_PASSTHROUGH_ENV = (
+    "RUSTUP_HOME", "CARGO_HOME", "RUSTUP_TOOLCHAIN",
+    "HOMEBREW_PREFIX", "HOMEBREW_CELLAR", "HOMEBREW_REPOSITORY", "HOMEBREW_NO_AUTO_UPDATE",
+    "HOMEBREW_NO_ANALYTICS", "HOMEBREW_NO_ENV_HINTS", "HOMEBREW_NO_INSTALL_CLEANUP",
+    "NODE_OPTIONS", "SSL_CERT_FILE", "SSL_CERT_DIR", "VIRTUAL_ENV",
+)
+
+
+def build_toolchain_env(tmpdir: str, cache_dir: str, base_env: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    """Sandbox env with brew, cargo and node bins on PATH.
+
+    The server's own PATH comes first (so a local Mac keeps its own tools);
+    known toolchain dirs that exist are appended. CARGO_HOME / RUSTUP_HOME /
+    HOMEBREW_* are passed through (or defaulted to the container locations
+    when present), and npm's cache goes to ``cache_dir`` (outside the synced
+    run dir).
+    """
+    env_in = dict(os.environ if base_env is None else base_env)
+    parts: List[str] = []
+    for d in (env_in.get("PATH") or "/usr/bin:/bin:/usr/local/bin").split(os.pathsep):
+        if d and d not in parts:
+            parts.append(d)
+    home = env_in.get("HOME")
+    extra = list(_TOOLCHAIN_DIRS)
+    if home:
+        extra.insert(0, os.path.join(home, ".cargo", "bin"))
+    for d in extra:
+        if d not in parts and os.path.isdir(d):
+            parts.append(d)
+    env = {
+        "PATH": os.pathsep.join(parts),
+        "TMPDIR": tmpdir,
+        "HOME": tmpdir,
+        "PYTHONPATH": tmpdir,
+        "LANG": "en_US.UTF-8",
+        "SANDBOX": "1",
+        "npm_config_cache": os.path.join(cache_dir, "npm"),
+        "npm_config_update_notifier": "false",
+        "CARGO_TARGET_DIR": os.path.join(cache_dir, "cargo-target"),
+    }
+    for k in _PASSTHROUGH_ENV:
+        if env_in.get(k):
+            env[k] = env_in[k]
+    if "CARGO_HOME" not in env:
+        for cand in ((os.path.join(home, ".cargo") if home else None), "/usr/local/cargo"):
+            if cand and os.path.isdir(cand):
+                env["CARGO_HOME"] = cand
+                break
+    if "RUSTUP_HOME" not in env:
+        for cand in ((os.path.join(home, ".rustup") if home else None), "/usr/local/rustup"):
+            if cand and os.path.isdir(cand):
+                env["RUSTUP_HOME"] = cand
+                break
+    if "HOMEBREW_PREFIX" not in env and os.path.isdir("/home/linuxbrew/.linuxbrew"):
+        env.update({
+            "HOMEBREW_PREFIX": "/home/linuxbrew/.linuxbrew",
+            "HOMEBREW_CELLAR": "/home/linuxbrew/.linuxbrew/Cellar",
+            "HOMEBREW_REPOSITORY": "/home/linuxbrew/.linuxbrew/Homebrew",
+            "HOMEBREW_NO_AUTO_UPDATE": "1",
+        })
+    return env
+
+
+def _tool_timeout(timeout_sec: float) -> float:
+    try:
+        floor = float(os.environ.get("TINCAN_TOOL_TIMEOUT_SEC", "120"))
+    except ValueError:
+        floor = 120.0
+    return max(timeout_sec, floor)
+
+
 class WasmAndCodePlaygroundRunner:
     """Executes code, Wasm binaries, and ArtCraft Wasm bridges inside ephemeral sandboxes."""
 
@@ -1397,6 +1483,8 @@ class WasmAndCodePlaygroundRunner:
                 runtime = "wasm"
             elif ext in (".sh", ".bash"):
                 runtime = "sh"
+            elif ext == ".rs":
+                runtime = "rust"
             elif ext in EXTENSION_TO_ARTCRAFT_APP:
                 runtime = "artcraft-wasm"
             else:
@@ -1469,7 +1557,8 @@ class WasmAndCodePlaygroundRunner:
             }
 
         # Ephemeral directory sandbox execution for Python, Node, Shell, and Wasm
-        with tempfile.TemporaryDirectory(prefix="agent_space_run_") as tmpdir:
+        with tempfile.TemporaryDirectory(prefix="agent_space_run_") as tmpdir, \
+                tempfile.TemporaryDirectory(prefix="agent_space_cache_") as cache_dir:
             initial_hashes: Dict[str, str] = {}
             # Materialize all files from space into tmpdir
             for f in vfs.list_files():
@@ -1486,7 +1575,7 @@ class WasmAndCodePlaygroundRunner:
             rel_entry = entrypoint.lstrip("/")
             full_entry = os.path.join(tmpdir, rel_entry)
 
-            if not os.path.exists(full_entry):
+            if runtime not in TOOL_RUNTIMES and not os.path.exists(full_entry):
                 exit_code = 127
                 stderr = f"Entrypoint not found in space: {entrypoint}"
             elif runtime == "wasm":
@@ -1512,22 +1601,21 @@ class WasmAndCodePlaygroundRunner:
                     cmd = ["node", rel_entry]
                 elif runtime == "sh":
                     cmd = ["sh", rel_entry]
+                elif runtime == "rust":
+                    # Compile the single file with rustc, then run it (binary kept out of the VFS).
+                    out_bin = os.path.join(cache_dir, "rust_main")
+                    cmd = ["sh", "-c", 'rustc --edition 2021 -O "$1" -o "$2" && shift 2 && exec "$0" "$@"', out_bin, rel_entry, out_bin]
+                    timeout_sec = _tool_timeout(timeout_sec)
+                elif runtime in TOOL_RUNTIMES:
+                    cmd = [TOOL_RUNTIMES[runtime]]
+                    timeout_sec = _tool_timeout(timeout_sec)
                 else:
                     cmd = [sys.executable, rel_entry]
 
                 if args:
                     cmd.extend(args)
 
-                sandbox_env = {
-                    "PATH": os.environ.get("PATH", "/usr/bin:/bin:/usr/local/bin"),
-                    "TMPDIR": tmpdir,
-                    "HOME": tmpdir,
-                    "PYTHONPATH": tmpdir,
-                    "LANG": "en_US.UTF-8",
-                    "SANDBOX": "1",
-                }
-                if "VIRTUAL_ENV" in os.environ:
-                    sandbox_env["VIRTUAL_ENV"] = os.environ["VIRTUAL_ENV"]
+                sandbox_env = build_toolchain_env(tmpdir, cache_dir)
 
                 try:
                     proc = subprocess.run(
@@ -1553,7 +1641,8 @@ class WasmAndCodePlaygroundRunner:
                     stderr = f"Execution failed: {err}"
 
             # Post-execution directory scan: any newly created or modified files are synced back
-            for root, _, filenames in os.walk(tmpdir):
+            for root, dirnames, filenames in os.walk(tmpdir):
+                dirnames[:] = [d for d in dirnames if d not in SANDBOX_NO_SYNC_DIRS]
                 for fname in filenames:
                     disk_file = os.path.join(root, fname)
                     rel = os.path.relpath(disk_file, tmpdir)
