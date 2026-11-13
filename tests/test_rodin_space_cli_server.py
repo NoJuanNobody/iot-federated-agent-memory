@@ -256,24 +256,13 @@ def test_mcp_rpc_dispatch():
 # -----------------------------------------------------------------------------
 
 def test_mesh_os_ui_elements():
-    # Window and Dock buttons
+    # Space window and Dock button (the Wasm/Rodin mock markup was replaced by the Space file manager)
     assert 'id="win-agentspace"' in MESH_OS_HTML_UI
     assert 'id="dockBtn-win-agentspace"' in MESH_OS_HTML_UI
-    assert "AgentSpace &amp; Wasm Studio.app" in MESH_OS_HTML_UI
-    # Rodin 3D Generator elements
-    assert "Hyper3D Rodin 3D" in MESH_OS_HTML_UI
-    assert 'id="generateRodinBtn"' in MESH_OS_HTML_UI
+    for el in ('id="tcSpaceFiles"', 'id="tcSpaceExt"', 'id="tcSpaceArt"'):
+        assert el in MESH_OS_HTML_UI
+    # Rodin credit pool still surfaces in the billing window
     assert "Hyper3D Rodin (Ronin) 3D Generative Credit Pool" in MESH_OS_HTML_UI
-    # ArtCraft 15 Wasm Applications
-    assert "cadcraft" in MESH_OS_HTML_UI
-    assert "vectorcraft" in MESH_OS_HTML_UI
-    assert "deckcraft" in MESH_OS_HTML_UI
-    assert "designcraft" in MESH_OS_HTML_UI
-    assert "?host=parent" in MESH_OS_HTML_UI
-    # PostMessage bridge event listener
-    assert ':ready' in MESH_OS_HTML_UI
-    assert ':save' in MESH_OS_HTML_UI
-    assert ':dirty' in MESH_OS_HTML_UI
 
 
 # -----------------------------------------------------------------------------

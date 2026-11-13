@@ -171,9 +171,9 @@ THEME_HEAD = r"""
     html.tc-popout #multiplayerCursorsLayer, html.tc-popout #zenStage, html.tc-popout .zen-chrome,
     html.tc-popout #zenLauncher, html.tc-popout #zenDirtSurface { display: none !important; }
     html.tc-popout #desktopWorkspace { padding: 0 !important; min-height: 0 !important; }
-    html.tc-popout .mesh-window:not(.hidden):not(.minimized) {
+    html.tc-popout .mesh-window:not(.hidden):not(.minimized), html.tc-popout .mesh-window.popout-fullscreen:not(.hidden):not(.minimized) {
       position: fixed !important; inset: 0 !important; width: auto !important; max-width: none !important;
-      height: 100dvh !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; transform: none !important;
+      height: 100dvh !important; min-height: 100dvh !important; max-height: 100dvh !important; resize: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; transform: none !important;
     }
     html.tc-popout .mesh-window .window-body { flex: 1 1 auto; min-height: 0; max-height: none !important; }
     html.tc-popout #win-terminal .tc-term-body, html.tc-popout #win-comms .tc-comms-body, html.tc-popout #win-agentspace .tc-space-body { height: auto !important; }
@@ -514,7 +514,18 @@ THEME_BODY = r"""
       const b = e.target.closest('[data-tc-meta]');
       if (!b) return;
       const what = b.dataset.tcMeta;
-      if (what === 'account') { if (typeof openAccountModal === 'function') openAccountModal(false); }
+      if (what === 'account') {
+        const m = document.getElementById('accountSetupModal');
+        if (typeof openAccountModal === 'function') openAccountModal(false);
+        // the zen shell only lets the gate open when armed; an explicit click on the account chip always may
+        if (m && m.classList.contains('hidden')) {
+          [['accInputFullName', 'tincan_fullname'], ['accInputUsername', 'tincan_username'], ['accInputEmail', 'tincan_email'], ['accInputPhone', 'tincan_phone']].forEach(([id, key]) => {
+            const el = document.getElementById(id); let v = ''; try { v = localStorage.getItem(key) || ''; } catch (err) {}
+            if (el && v) el.value = v;
+          });
+          m.classList.remove('hidden');
+        }
+      }
       else if (what === 'peers') openOther('win-network');
       else if (what === 'chat') openOther('win-comms');
     });
