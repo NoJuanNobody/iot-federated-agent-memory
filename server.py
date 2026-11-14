@@ -23,7 +23,7 @@ from http.server import ThreadingHTTPServer as HTTPServer, BaseHTTPRequestHandle
 from urllib.parse import urlparse, parse_qs
 from iot_federated_agent_memory.scale import IoTFederatedMemoryScale
 from iot_federated_agent_memory.webrtc_relay import WebRTCSignalingRelay
-from iot_federated_agent_memory.ai_gateway import DynamicAIGatewayRouter
+from iot_federated_agent_memory.ai_gateway import DynamicAIGatewayRouter, filter_gateway_models
 from iot_federated_agent_memory.tincan_relay import TinCanBlindRelay
 from iot_federated_agent_memory.video_playlist import RelayVideoPlaylist
 from iot_federated_agent_memory.mesh_os_engine import TinCanMeshOSEngine
@@ -1261,15 +1261,21 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 alias = data.get("alias")
                 new_model = data.get("model")
                 display_name = data.get("display_name")
+                gateway = data.get("gateway")
                 if not alias or not new_model:
                     self._send_json({"error": "Missing 'alias' or 'model'"}, 400)
                     return
-                updated_config = router.set_model(alias, new_model, display_name)
+                try:
+                    updated_config = router.set_model(alias, new_model, display_name, gateway=gateway)
+                except TypeError:
+                    updated_config = router.set_model(alias, new_model, display_name)
                 self._send_json({
                     "status": "updated",
                     "alias": alias,
                     "model": updated_config.model_alias,
                     "display_name": updated_config.display_name,
+                    "endpoint": updated_config.endpoint,
+                    "gateway": "nanogpt" if updated_config.api_key_env == "NANOGPT_API_KEY" else "openrouter",
                 }, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
@@ -3011,8 +3017,36 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         elif parsed.path == "/api/mesh/arena/models":
             models = router.get_arena_models()
             self._send_json({"models": models, "count": len(models), "default": router.arena_default_pair()}, 200)
+        elif parsed.path == "/api/models/nanogpt":
+            query = parse_qs(parsed.query)
+            live = query.get("live", ["1"])[0].lower() not in ("0", "false", "no")
+            force = query.get("refresh", ["0"])[0].lower() in ("1", "true", "yes")
+            models = (
+                router.get_nanogpt_models(force_refresh=force, include_live_public=live)
+                if hasattr(router, "get_nanogpt_models")
+                else []
+            )
+            models = filter_gateway_models(
+                models,
+                category=query.get("category", [""])[0],
+                exact_category=True,
+                uncensored=query.get("uncensored", ["0"])[0].lower() in ("1", "true", "yes"),
+                tee=query.get("tee", ["0"])[0].lower() in ("1", "true", "yes"),
+                subscription=query.get("subscription", ["0"])[0].lower() in ("1", "true", "yes"),
+                search=query.get("q", [""])[0],
+            )
+            self._send_json({"models": models, "count": len(models), "gateway": "nanogpt"}, 200)
         elif parsed.path in ("/api/models/available", "/api/models/openrouter"):
-            models = router.get_available_models() if hasattr(router, "get_available_models") else []
+            query = parse_qs(parsed.query)
+            gateway = (query.get("gateway", ["all"])[0] or "all").strip().lower()
+            search_q = query.get("q", [""])[0]
+            if gateway == "nanogpt" and hasattr(router, "get_nanogpt_models"):
+                models = router.get_nanogpt_models(include_live_public=True)
+            else:
+                models = router.get_available_models() if hasattr(router, "get_available_models") else []
+                if gateway in ("openrouter", "ronin"):
+                    models = [m for m in models if str(m.get("gateway", "openrouter")).lower() == gateway]
+            models = filter_gateway_models(models, search=search_q)
             self._send_json({"models": models, "count": len(models)}, 200)
         elif parsed.path == "/api/spaces":
             query = parse_qs(parsed.query)

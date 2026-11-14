@@ -20,9 +20,94 @@ def _resolve_openrouter_key_fallback() -> Optional[str]:
     return os.environ.get("OPENROUTER_API_KEY")
 
 
+def _resolve_nanogpt_key_fallback() -> Optional[str]:
+    """Resolve NANOGPT_API_KEY strictly from environment."""
+    return os.environ.get("NANOGPT_API_KEY")
+
+
 def _resolve_hyper3d_key_fallback() -> Optional[str]:
     """Resolve Hyper3D / Rodin API key from environment."""
     return os.environ.get("HYPER3D_API_KEY") or os.environ.get("RODIN_API_KEY")
+
+
+def _normalize_nanogpt_pricing(pricing: Any) -> Dict[str, Any]:
+    """Normalize NanoGPT per-1M token pricing into OpenRouter-compatible per-token fields."""
+    if not isinstance(pricing, dict):
+        return {"prompt": "0", "completion": "0", "prompt_per_1m": 0.0, "completion_per_1m": 0.0}
+    unit = str(pricing.get("unit") or "").lower()
+    raw_p = pricing.get("prompt")
+    raw_c = pricing.get("completion")
+    try:
+        p_val = float(raw_p) if raw_p is not None else 0.0
+    except (TypeError, ValueError):
+        p_val = 0.0
+    try:
+        c_val = float(raw_c) if raw_c is not None else 0.0
+    except (TypeError, ValueError):
+        c_val = 0.0
+
+    # NanoGPT's ?detailed=true endpoint reports USD per million tokens; convert to per-token strings.
+    if unit == "per_million_tokens" or p_val >= 0.001 or c_val >= 0.001:
+        p_per_1m, c_per_1m = p_val, c_val
+        p_per_tok, c_per_tok = p_val / 1_000_000.0, c_val / 1_000_000.0
+    else:
+        p_per_tok, c_per_tok = p_val, c_val
+        p_per_1m, c_per_1m = p_val * 1_000_000.0, c_val * 1_000_000.0
+
+    return {
+        "prompt": f"{p_per_tok:.12g}",
+        "completion": f"{c_per_tok:.12g}",
+        "prompt_per_1m": round(p_per_1m, 6),
+        "completion_per_1m": round(c_per_1m, 6),
+        "currency": pricing.get("currency", "USD"),
+        "unit": "per_token",
+    }
+
+
+def filter_gateway_models(
+    models: List[Dict[str, Any]],
+    *,
+    category: Optional[str] = None,
+    exact_category: bool = False,
+    uncensored: bool = False,
+    tee: bool = False,
+    subscription: bool = False,
+    search: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Filter normalized gateway model descriptors by category, privacy/uncensored flags, and query."""
+    result = list(models)
+    cat = (category or "").strip().lower()
+    if cat:
+        if exact_category:
+            result = [m for m in result if str(m.get("category", "")).lower() == cat]
+        else:
+            result = [m for m in result if cat in str(m.get("category", "")).lower()]
+    if uncensored:
+        result = [
+            m
+            for m in result
+            if "uncensor" in str(m.get("category", "")).lower()
+            or any(k in str(m.get("id", "")).lower() for k in ("abliterat", "heretic", "uncensor"))
+        ]
+    if tee:
+        result = [
+            m
+            for m in result
+            if "tee" in str(m.get("category", "")).lower()
+            or "/tee/" in str(m.get("id", "")).lower()
+        ]
+    if subscription:
+        result = [m for m in result if m.get("subscription_included")]
+    q = (search or "").strip().lower()
+    if q:
+        result = [
+            m
+            for m in result
+            if q in str(m.get("id", "")).lower()
+            or q in str(m.get("name", "")).lower()
+            or q in str(m.get("description", "")).lower()
+        ]
+    return result
 
 
 def generate_minimal_glb_bytes(name: str = "rodin_mesh") -> bytes:
@@ -271,12 +356,150 @@ DEFAULT_OPENROUTER_MODELS: List[Dict[str, Any]] = [
 ]
 
 
+DEFAULT_NANOGPT_MODELS: List[Dict[str, Any]] = [
+    {
+        "id": "nanogpt/pqhaz/DeepSeek-V4.1-Flash-1017-heretic",
+        "upstream_id": "pqhaz/DeepSeek-V4.1-Flash-1017-heretic",
+        "name": "NanoGPT DeepSeek V4.1 Flash Heretic",
+        "provider": "NanoGPT",
+        "gateway": "nanogpt",
+        "description": "Heretic directional-ablation DeepSeek V4.1 Flash with 512k context and reasoning.",
+        "category": "Uncensored",
+        "context_length": 512000,
+        "open_weights": True,
+        "subscription_included": True,
+        "pricing": _normalize_nanogpt_pricing({"prompt": 0.198, "completion": 0.792, "unit": "per_million_tokens"}),
+    },
+    {
+        "id": "nanogpt/abliteration-ai/abliterated-model-large-v2",
+        "upstream_id": "abliteration-ai/abliterated-model-large-v2",
+        "name": "NanoGPT Abliterated Large V2",
+        "provider": "NanoGPT",
+        "gateway": "nanogpt",
+        "description": "Flagship 1M-context abliterated generalist with reasoning and tool calling.",
+        "category": "Uncensored",
+        "context_length": 1000000,
+        "open_weights": True,
+        "subscription_included": False,
+        "pricing": _normalize_nanogpt_pricing({"prompt": 3.0, "completion": 5.0, "unit": "per_million_tokens"}),
+    },
+    {
+        "id": "nanogpt/abliteration-ai/abliterated-model-large-flash",
+        "upstream_id": "abliteration-ai/abliterated-model-large-flash",
+        "name": "NanoGPT Abliterated Large Flash",
+        "provider": "NanoGPT",
+        "gateway": "nanogpt",
+        "description": "Fast 1M-context abliterated multimodal reasoning model.",
+        "category": "Uncensored",
+        "context_length": 1048576,
+        "open_weights": True,
+        "subscription_included": False,
+        "pricing": _normalize_nanogpt_pricing({"prompt": 1.0, "completion": 2.0, "unit": "per_million_tokens"}),
+    },
+    {
+        "id": "nanogpt/z-ai/glm-5.3-flash-apex-abliterated",
+        "upstream_id": "z-ai/glm-5.3-flash-apex-abliterated",
+        "name": "NanoGPT GLM-5.3 Flash Apex Abliterated",
+        "provider": "NanoGPT",
+        "gateway": "nanogpt",
+        "description": "1M-context abliterated GLM-5.3 Flash Apex variant.",
+        "category": "Uncensored",
+        "context_length": 1048576,
+        "open_weights": True,
+        "subscription_included": True,
+        "pricing": _normalize_nanogpt_pricing({"prompt": 0.15, "completion": 0.5, "unit": "per_million_tokens"}),
+    },
+    {
+        "id": "nanogpt/xiaomi/mimo-v2.6-flash-abliterated",
+        "upstream_id": "xiaomi/mimo-v2.6-flash-abliterated",
+        "name": "NanoGPT MiMo V2.6 Flash Abliterated",
+        "provider": "NanoGPT",
+        "gateway": "nanogpt",
+        "description": "1M-context abliterated MiMo V2.6 Flash model.",
+        "category": "Uncensored",
+        "context_length": 1048576,
+        "open_weights": True,
+        "subscription_included": False,
+        "pricing": _normalize_nanogpt_pricing({"prompt": 0.5, "completion": 1.5, "unit": "per_million_tokens"}),
+    },
+    {
+        "id": "nanogpt/Gemma-4-31B-Gembrain-uncensored-heretic",
+        "upstream_id": "Gemma-4-31B-Gembrain-uncensored-heretic",
+        "name": "NanoGPT Gemma 4 31B Gembrain Heretic",
+        "provider": "NanoGPT",
+        "gateway": "nanogpt",
+        "description": "262k-context Gemma 4 31B Heretic uncensored generalist.",
+        "category": "Uncensored",
+        "context_length": 262144,
+        "open_weights": True,
+        "subscription_included": True,
+        "pricing": _normalize_nanogpt_pricing({"prompt": 0.306, "completion": 0.306, "unit": "per_million_tokens"}),
+    },
+    {
+        "id": "nanogpt/huihui-ai/Llama-3.3-70B-Instruct-abliterated",
+        "upstream_id": "huihui-ai/Llama-3.3-70B-Instruct-abliterated",
+        "name": "NanoGPT Llama 3.3 70B Abliterated",
+        "provider": "NanoGPT",
+        "gateway": "nanogpt",
+        "description": "Huihui-AI refusal-ablated Llama 3.3 70B Instruct.",
+        "category": "Uncensored",
+        "context_length": 32768,
+        "open_weights": True,
+        "subscription_included": True,
+        "pricing": _normalize_nanogpt_pricing({"prompt": 0.7, "completion": 0.7, "unit": "per_million_tokens"}),
+    },
+    {
+        "id": "nanogpt/TEE/deepseek-v4.1-flash",
+        "upstream_id": "TEE/deepseek-v4.1-flash",
+        "name": "NanoGPT Private/TEE DeepSeek V4.1 Flash",
+        "provider": "NanoGPT",
+        "gateway": "nanogpt",
+        "description": "Hardware-attested TEE DeepSeek V4.1 Flash on NanoGPT.",
+        "category": "Private/TEE",
+        "context_length": 1048576,
+        "open_weights": True,
+        "subscription_included": False,
+        "pricing": _normalize_nanogpt_pricing({"prompt": 0.375, "completion": 1.5, "unit": "per_million_tokens"}),
+    },
+    {
+        "id": "nanogpt/TEE/gemma-4-26b-a4b-uncensored",
+        "upstream_id": "TEE/gemma-4-26b-a4b-uncensored",
+        "name": "NanoGPT Private/TEE Gemma 4 26B Uncensored",
+        "provider": "NanoGPT",
+        "gateway": "nanogpt",
+        "description": "Hardware-attested TEE Gemma 4 26B A4B Uncensored on NanoGPT.",
+        "category": "Private/TEE",
+        "context_length": 65536,
+        "open_weights": True,
+        "subscription_included": False,
+        "pricing": _normalize_nanogpt_pricing({"prompt": 0.15, "completion": 0.7, "unit": "per_million_tokens"}),
+    },
+    {
+        "id": "nanogpt/auto-model",
+        "upstream_id": "auto-model",
+        "name": "NanoGPT Auto Router",
+        "provider": "NanoGPT",
+        "gateway": "nanogpt",
+        "description": "Automatic prompt-aware model routing across NanoGPT's catalog.",
+        "category": "NanoGPT",
+        "context_length": 128000,
+        "open_weights": False,
+        "subscription_included": False,
+        "pricing": _normalize_nanogpt_pricing({"prompt": 0.5, "completion": 1.5, "unit": "per_million_tokens"}),
+    },
+]
+
+
 class DynamicAIGatewayRouter:
-    """Manages hot-swappable AI provider models, live OpenRouter billing/credits, and per-call cost tracking."""
+    """Manages hot-swappable AI provider models, live OpenRouter/NanoGPT billing/credits, and per-call cost tracking."""
 
     OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
     OPENROUTER_CREDITS_URL = "https://openrouter.ai/api/v1/credits"
     OPENROUTER_KEY_URL = "https://openrouter.ai/api/v1/auth/key"
+
+    NANOGPT_ENDPOINT = "https://api.nano-gpt.com/api/v1/chat/completions"
+    NANOGPT_MODELS_URL = "https://api.nano-gpt.com/api/v1/models?detailed=true"
+    NANOGPT_BALANCE_URL = "https://api.nano-gpt.com/api/check-balance"
 
     # Hyper3D Rodin (Ronin) v2 3D Generation Endpoints
     RODIN_GENERATE_URL = "https://api.hyper3d.com/api/v2/rodin"
@@ -330,15 +553,28 @@ class DynamicAIGatewayRouter:
             input_cost_per_1m=2.50,
             output_cost_per_1m=10.00,
         ),
+        "nanogpt-brain": LabProviderConfig(
+            lab_id="nanogpt",
+            display_name="NanoGPT DeepSeek Heretic",
+            model_alias="nanogpt/pqhaz/DeepSeek-V4.1-Flash-1017-heretic",
+            endpoint=NANOGPT_ENDPOINT,
+            api_key_env="NANOGPT_API_KEY",
+            available_credits=100.0,
+            is_active=True,
+            input_cost_per_1m=0.198,
+            output_cost_per_1m=0.792,
+        ),
     }
 
     def __init__(
         self,
         openrouter_key: Optional[str] = None,
         hyper3d_key: Optional[str] = None,
+        nanogpt_key: Optional[str] = None,
     ):
         self.openrouter_key = openrouter_key if openrouter_key is not None else os.environ.get("OPENROUTER_API_KEY")
         self.hyper3d_key = hyper3d_key if hyper3d_key is not None else _resolve_hyper3d_key_fallback()
+        self.nanogpt_key = nanogpt_key if nanogpt_key is not None else os.environ.get("NANOGPT_API_KEY")
         self.providers: Dict[str, LabProviderConfig] = {
             k: LabProviderConfig(**asdict(v)) for k, v in self.DEFAULT_LABS.items()
         }
@@ -349,6 +585,18 @@ class DynamicAIGatewayRouter:
         self._billing_lock = threading.Lock()
         self.BILLING_CACHE_TTL: float = 60.0
 
+        # NanoGPT billing & catalog caches
+        self._nanogpt_billing_cache: Optional[Dict[str, Any]] = None
+        self._nanogpt_billing_cached_at: float = 0.0
+        self._nanogpt_billing_refreshing: bool = False
+        self._nanogpt_billing_lock = threading.Lock()
+        self._nanogpt_models_cache: Optional[List[Dict[str, Any]]] = None
+        self._nanogpt_models_cached_at: float = 0.0
+        self._nanogpt_models_live_cached: bool = False
+        self._nanogpt_upstream_ids: set = {
+            str(m.get("upstream_id") or "") for m in DEFAULT_NANOGPT_MODELS if m.get("upstream_id")
+        }
+
         # Hyper3D Rodin state & caching
         self.rodin_tasks: Dict[str, Dict[str, Any]] = {}
         self.rodin_total_calls: int = 0
@@ -358,17 +606,125 @@ class DynamicAIGatewayRouter:
         self._rodin_billing_refreshing: bool = False
         self._rodin_billing_lock = threading.Lock()
 
-        # Available models cache (OpenRouter + Ronin)
+        # Available models cache (OpenRouter + NanoGPT + Ronin)
         self._available_models_cache: Optional[List[Dict[str, Any]]] = None
         self._available_models_cached_at: float = 0.0
 
+    @staticmethod
+    def _strip_nanogpt_prefix(model_id: str) -> str:
+        return model_id[len("nanogpt/"):] if model_id.startswith("nanogpt/") else model_id
+
+    def _is_nanogpt_model(self, model_id: str) -> bool:
+        if not model_id or not isinstance(model_id, str):
+            return False
+        if model_id.startswith("nanogpt/"):
+            return True
+        if model_id in self._nanogpt_upstream_ids:
+            return True
+        low = model_id.lower()
+        return model_id.startswith(("abliteration-ai/", "huihui-ai/", "TEE/", "pqhaz/", "xtools-at/")) or (
+            "abliterated" in low or low.endswith("-heretic") or "-heretic:" in low
+        )
+
+    def _lookup_catalog_rates(self, model_id: str) -> Optional[tuple]:
+        candidates = {model_id, self._strip_nanogpt_prefix(model_id), f"nanogpt/{self._strip_nanogpt_prefix(model_id)}"}
+        pools: List[List[Dict[str, Any]]] = [DEFAULT_OPENROUTER_MODELS, DEFAULT_NANOGPT_MODELS]
+        if self._available_models_cache:
+            pools.append(self._available_models_cache)
+        if self._nanogpt_models_cache:
+            pools.append(self._nanogpt_models_cache)
+        for pool in pools:
+            for item in pool:
+                if item.get("id") in candidates or item.get("upstream_id") in candidates:
+                    pricing = item.get("pricing") or {}
+                    try:
+                        if "prompt_per_1m" in pricing or "completion_per_1m" in pricing:
+                            return (
+                                float(pricing.get("prompt_per_1m") or 0.0),
+                                float(pricing.get("completion_per_1m") or 0.0),
+                            )
+                        p_raw = str(pricing.get("prompt") or "0")
+                        c_raw = str(pricing.get("completion") or "0")
+                        if "/gen" in p_raw:
+                            continue
+                        return (float(p_raw) * 1_000_000.0, float(c_raw) * 1_000_000.0)
+                    except (TypeError, ValueError):
+                        return None
+        return None
+
+    def get_nanogpt_models(
+        self,
+        force_refresh: bool = False,
+        include_live_public: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """Return NanoGPT model catalog, fetching live /api/v1/models?detailed=true when key is set or public sync is requested."""
+        now = time.time()
+        api_key = self.nanogpt_key if self.nanogpt_key is not None else _resolve_nanogpt_key_fallback()
+        want_live = bool(api_key or include_live_public)
+
+        if (
+            not force_refresh
+            and self._nanogpt_models_cache is not None
+            and (now - self._nanogpt_models_cached_at < 600.0)
+            and (not want_live or self._nanogpt_models_live_cached)
+        ):
+            return list(self._nanogpt_models_cache)
+
+        models = [dict(m) for m in DEFAULT_NANOGPT_MODELS]
+        live_fetched = False
+
+        if want_live:
+            try:
+                headers = {"Accept": "application/json", "User-Agent": "TinCan-Mesh-OS/2.2"}
+                if api_key:
+                    headers["Authorization"] = f"Bearer {api_key}"
+                    headers["x-api-key"] = api_key
+                req = urllib.request.Request(self.NANOGPT_MODELS_URL, headers=headers, method="GET")
+                with urllib.request.urlopen(req, timeout=8.0) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    raw_list = data.get("data", []) if isinstance(data, dict) else []
+                    known_ids = {m["id"] for m in models}
+                    for item in raw_list:
+                        raw_id = item.get("id")
+                        if not raw_id:
+                            continue
+                        self._nanogpt_upstream_ids.add(raw_id)
+                        prefixed_id = raw_id if raw_id.startswith("nanogpt/") else f"nanogpt/{raw_id}"
+                        if prefixed_id in known_ids:
+                            continue
+                        sub_info = item.get("subscription") or {}
+                        models.append({
+                            "id": prefixed_id,
+                            "upstream_id": raw_id,
+                            "name": item.get("name") or raw_id,
+                            "provider": "NanoGPT",
+                            "gateway": "nanogpt",
+                            "description": item.get("description", ""),
+                            "context_length": item.get("context_length", 8192),
+                            "max_output_tokens": item.get("max_output_tokens"),
+                            "category": item.get("category") or "NanoGPT",
+                            "open_weights": bool(item.get("open_weights")),
+                            "subscription_included": bool(sub_info.get("included")),
+                            "pricing": _normalize_nanogpt_pricing(item.get("pricing")),
+                        })
+                        known_ids.add(prefixed_id)
+                    live_fetched = True
+            except Exception:
+                pass
+
+        self._nanogpt_models_cache = models
+        self._nanogpt_models_cached_at = now
+        self._nanogpt_models_live_cached = live_fetched
+        return list(models)
+
     def get_available_models(self, force_refresh: bool = False) -> List[Dict[str, Any]]:
-        """Return full catalog of OpenRouter and Ronin/Hyper3D models with caching."""
+        """Return full catalog of OpenRouter, NanoGPT, and Ronin/Hyper3D models with caching."""
         now = time.time()
         if not force_refresh and self._available_models_cache and (now - self._available_models_cached_at < 600.0):
             return list(self._available_models_cache)
 
-        models = [dict(m) for m in DEFAULT_OPENROUTER_MODELS]
+        models = [dict(m, gateway=m.get("gateway") or ("ronin" if m["id"].startswith("ronin/") else "openrouter")) for m in DEFAULT_OPENROUTER_MODELS]
+        known_ids = {m["id"] for m in models}
         api_key = self.openrouter_key if self.openrouter_key is not None else os.environ.get("OPENROUTER_API_KEY")
 
         if api_key:
@@ -378,7 +734,6 @@ class DynamicAIGatewayRouter:
                 with urllib.request.urlopen(req, timeout=5.0) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
                     raw_list = data.get("data", [])
-                    known_ids = {m["id"] for m in models}
                     for item in raw_list:
                         m_id = item.get("id")
                         if m_id and m_id not in known_ids:
@@ -387,6 +742,7 @@ class DynamicAIGatewayRouter:
                                 "id": m_id,
                                 "name": item.get("name") or m_id,
                                 "provider": m_id.split("/")[0].capitalize(),
+                                "gateway": "openrouter",
                                 "description": item.get("description", ""),
                                 "context_length": item.get("context_length", 8192),
                                 "category": "OpenRouter",
@@ -395,6 +751,12 @@ class DynamicAIGatewayRouter:
                             known_ids.add(m_id)
             except Exception:
                 pass
+
+        for ng_m in self.get_nanogpt_models(force_refresh=force_refresh, include_live_public=False):
+            m_id = ng_m.get("id")
+            if m_id and m_id not in known_ids:
+                models.append(ng_m)
+                known_ids.add(m_id)
 
         self._available_models_cache = models
         self._available_models_cached_at = now
@@ -408,10 +770,10 @@ class DynamicAIGatewayRouter:
         """Chat models the Brain Arena may compare.
 
         Built from what this router actually supports: the configured provider
-        aliases (claude-brain, gemini-brain, ...) first, then the chat models in
-        the router catalog (DEFAULT_OPENROUTER_MODELS, plus the live OpenRouter
-        list when a key is configured). 3D generators (Ronin/Rodin) are left out
-        because they are not chat completions and bill per generation.
+        aliases (claude-brain, gemini-brain, ..., nanogpt-brain) first, then the
+        chat models in the router catalog (OpenRouter + NanoGPT models). 3D
+        generators (Ronin/Rodin) are left out because they are not chat
+        completions and bill per generation.
         """
         out: List[Dict[str, Any]] = []
         seen = set()
@@ -445,17 +807,20 @@ class DynamicAIGatewayRouter:
                 "secondary": mid,
                 "provider": m.get("provider") or mid.split("/")[0],
                 "model": mid,
+                "upstream_id": m.get("upstream_id"),
                 "kind": "catalog",
             })
             seen.add(mid)
         return out
 
     def is_arena_model_allowed(self, model_id: str) -> bool:
-        """True for any listed arena model, or the raw id behind a configured alias
-        (e.g. google/gemini-2.5-flash, which the picker shows as gemini-brain)."""
+        """True for any listed arena model, or the raw/upstream id behind a configured alias."""
         if not model_id or not isinstance(model_id, str):
             return False
-        return any(model_id in (m["id"], m["model"]) for m in self.get_arena_models())
+        return any(
+            model_id in (m["id"], m["model"], m.get("upstream_id"))
+            for m in self.get_arena_models()
+        )
 
     def arena_default_pair(self) -> Dict[str, str]:
         ids = [m["id"] for m in self.get_arena_models()]
@@ -470,7 +835,7 @@ class DynamicAIGatewayRouter:
         """Route request to the target lab, or fallback if credit pool is exhausted."""
         primary = self.providers.get(requested_alias)
         if not primary:
-            # Dynamically register custom model alias (OpenRouter or Ronin)
+            # Dynamically register custom model alias (Ronin 3D, NanoGPT, or OpenRouter)
             if requested_alias.startswith(("ronin/", "rodin/", "hyper3d/")):
                 tier = "Regular"
                 if "sketch" in requested_alias.lower():
@@ -488,10 +853,28 @@ class DynamicAIGatewayRouter:
                     available_credits=100.0,
                     is_active=True,
                 )
+            elif self._is_nanogpt_model(requested_alias):
+                upstream = self._strip_nanogpt_prefix(requested_alias)
+                rates = self._lookup_catalog_rates(requested_alias)
+                in_rate, out_rate = rates if rates else (0.5, 1.5)
+                model_name = upstream.split("/")[-1].replace("-", " ").title()
+                primary = LabProviderConfig(
+                    lab_id="nanogpt",
+                    display_name=f"NanoGPT {model_name}",
+                    model_alias=requested_alias,
+                    endpoint=self.NANOGPT_ENDPOINT,
+                    api_key_env="NANOGPT_API_KEY",
+                    available_credits=100.0,
+                    is_active=True,
+                    input_cost_per_1m=in_rate,
+                    output_cost_per_1m=out_rate,
+                )
             else:
                 parts = requested_alias.split("/")
                 lab_id = parts[0] if len(parts) > 1 else "openrouter"
                 model_name = parts[-1].replace("-", " ").title()
+                rates = self._lookup_catalog_rates(requested_alias)
+                in_rate, out_rate = rates if rates else (1.0, 3.0)
                 primary = LabProviderConfig(
                     lab_id=lab_id,
                     display_name=f"{lab_id.capitalize()} {model_name}",
@@ -500,6 +883,8 @@ class DynamicAIGatewayRouter:
                     api_key_env="OPENROUTER_API_KEY",
                     available_credits=100.0,
                     is_active=True,
+                    input_cost_per_1m=in_rate,
+                    output_cost_per_1m=out_rate,
                 )
             self.providers[requested_alias] = primary
 
@@ -533,26 +918,63 @@ class DynamicAIGatewayRouter:
 
     def swap_lab_endpoint(self, alias: str, new_model: str, new_endpoint: Optional[str] = None) -> None:
         if alias in self.providers:
-            self.providers[alias].model_alias = new_model
+            cfg = self.providers[alias]
+            cfg.model_alias = new_model
             if new_endpoint:
-                self.providers[alias].endpoint = new_endpoint
+                cfg.endpoint = new_endpoint
+            elif self._is_nanogpt_model(new_model):
+                cfg.endpoint = self.NANOGPT_ENDPOINT
+                cfg.api_key_env = "NANOGPT_API_KEY"
+            elif new_model.startswith("openrouter/"):
+                cfg.model_alias = new_model[len("openrouter/"):]
+                cfg.endpoint = self.OPENROUTER_ENDPOINT
+                cfg.api_key_env = "OPENROUTER_API_KEY"
 
-    def set_model(self, alias: str, new_model: str, display_name: Optional[str] = None) -> LabProviderConfig:
-        """Set or update model name for a provider alias."""
+    def set_model(
+        self,
+        alias: str,
+        new_model: str,
+        display_name: Optional[str] = None,
+        gateway: Optional[str] = None,
+    ) -> LabProviderConfig:
+        """Set or update model name (and gateway endpoint if applicable) for a provider alias."""
+        use_nanogpt = (
+            gateway == "nanogpt"
+            or self._is_nanogpt_model(new_model)
+            or (alias == "nanogpt-brain" and gateway != "openrouter" and not new_model.startswith("openrouter/"))
+        )
+        clean_model = (
+            new_model[len("openrouter/"):]
+            if new_model.startswith("openrouter/")
+            else new_model
+        )
+        target_endpoint = self.NANOGPT_ENDPOINT if use_nanogpt else self.OPENROUTER_ENDPOINT
+        target_env = "NANOGPT_API_KEY" if use_nanogpt else "OPENROUTER_API_KEY"
+        rates = self._lookup_catalog_rates(clean_model)
+
         if alias not in self.providers:
             self.providers[alias] = LabProviderConfig(
-                lab_id="custom",
+                lab_id="nanogpt" if use_nanogpt else "custom",
                 display_name=display_name or alias,
-                model_alias=new_model,
-                endpoint=self.OPENROUTER_ENDPOINT,
-                api_key_env="OPENROUTER_API_KEY",
+                model_alias=clean_model,
+                endpoint=target_endpoint,
+                api_key_env=target_env,
                 available_credits=50.0,
                 is_active=True,
+                input_cost_per_1m=rates[0] if rates else 1.0,
+                output_cost_per_1m=rates[1] if rates else 3.0,
             )
         else:
-            self.providers[alias].model_alias = new_model
+            cfg = self.providers[alias]
+            cfg.model_alias = clean_model
+            cfg.endpoint = target_endpoint
+            cfg.api_key_env = target_env
+            if use_nanogpt and cfg.lab_id == "custom":
+                cfg.lab_id = "nanogpt"
+            if rates:
+                cfg.input_cost_per_1m, cfg.output_cost_per_1m = rates
             if display_name:
-                self.providers[alias].display_name = display_name
+                cfg.display_name = display_name
         return self.providers[alias]
 
     def record_usage(
@@ -659,6 +1081,116 @@ class DynamicAIGatewayRouter:
             return self._billing_cache
 
         return self._fetch_openrouter_billing_sync(api_key)
+
+    def _fetch_nanogpt_billing_sync(self, api_key: str) -> Dict[str, Any]:
+        """Perform synchronous NanoGPT /api/check-balance request and update cache."""
+        now = time.time()
+        headers = {
+            "x-api-key": api_key,
+            "Authorization": f"Bearer {api_key}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": "TinCan-Mesh-OS/2.2",
+        }
+        balance_data: Dict[str, Any] = {}
+        connected = False
+        err_msg: Optional[str] = None
+
+        try:
+            req = urllib.request.Request(
+                self.NANOGPT_BALANCE_URL,
+                data=b"{}",
+                headers=headers,
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=5.0) as resp:
+                raw = resp.read().decode("utf-8")
+                balance_data = json.loads(raw) or {}
+                connected = True
+        except Exception as exc:
+            err_msg = str(exc)
+
+        data_obj = balance_data.get("data") if isinstance(balance_data.get("data"), dict) else balance_data
+        try:
+            usd_val = float(
+                data_obj.get("usd_balance")
+                or data_obj.get("usdBalance")
+                or data_obj.get("balance")
+                or 0.0
+            )
+        except (TypeError, ValueError):
+            usd_val = 0.0
+        try:
+            nano_val = float(
+                data_obj.get("nano_balance")
+                or data_obj.get("nanoBalance")
+                or 0.0
+            )
+        except (TypeError, ValueError):
+            nano_val = 0.0
+
+        nano_providers = [p for p in self.providers.values() if p.api_key_env == "NANOGPT_API_KEY"]
+        billing: Dict[str, Any] = {
+            "connected": connected,
+            "provider": "NanoGPT",
+            "endpoint": self.NANOGPT_ENDPOINT,
+            "account_remaining_balance_usd": round(usd_val, 6),
+            "account_remaining_nano": round(nano_val, 6),
+            "session_total_calls": sum(p.total_calls for p in nano_providers),
+            "session_total_tokens": sum(p.total_tokens for p in nano_providers),
+            "session_total_spend_usd": round(sum(p.total_cost for p in nano_providers), 6),
+            "key_label": "pooled-nanogpt-key [redacted]" if api_key else "not_configured",
+            "fetched_at": now,
+        }
+        if err_msg and not connected:
+            billing["error"] = err_msg
+
+        with self._nanogpt_billing_lock:
+            self._nanogpt_billing_cache = billing
+            self._nanogpt_billing_cached_at = now
+            self._nanogpt_billing_refreshing = False
+        return billing
+
+    def get_nanogpt_billing(self, force_refresh: bool = False) -> Dict[str, Any]:
+        """Fetch live NanoGPT account balance with 60s stale-while-revalidate caching."""
+        now = time.time()
+        if (
+            not force_refresh
+            and self._nanogpt_billing_cached_at
+            and (now - self._nanogpt_billing_cached_at) < self.BILLING_CACHE_TTL
+            and self._nanogpt_billing_cache
+        ):
+            return self._nanogpt_billing_cache
+
+        api_key = self.nanogpt_key if self.nanogpt_key is not None else _resolve_nanogpt_key_fallback()
+        nano_providers = [p for p in self.providers.values() if p.api_key_env == "NANOGPT_API_KEY"]
+        if not api_key:
+            return {
+                "connected": False,
+                "provider": "NanoGPT",
+                "endpoint": self.NANOGPT_ENDPOINT,
+                "account_remaining_balance_usd": 0.0,
+                "account_remaining_nano": 0.0,
+                "session_total_calls": sum(p.total_calls for p in nano_providers),
+                "session_total_tokens": sum(p.total_tokens for p in nano_providers),
+                "session_total_spend_usd": round(sum(p.total_cost for p in nano_providers), 6),
+                "key_label": "not_configured",
+            }
+
+        if not force_refresh and self._nanogpt_billing_cache is not None:
+            with self._nanogpt_billing_lock:
+                should_spawn = not self._nanogpt_billing_refreshing
+                if should_spawn:
+                    self._nanogpt_billing_refreshing = True
+            if should_spawn:
+                threading.Thread(
+                    target=self._fetch_nanogpt_billing_sync,
+                    args=(api_key,),
+                    daemon=True,
+                ).start()
+            return self._nanogpt_billing_cache
+
+        return self._fetch_nanogpt_billing_sync(api_key)
 
     def _fetch_hyper3d_billing_sync(self, api_key: str) -> Dict[str, Any]:
         """Perform synchronous Hyper3D check_balance request and update cache."""
@@ -894,41 +1426,47 @@ class DynamicAIGatewayRouter:
         }
 
     def get_analytics(self, include_live_billing: bool = True) -> Dict[str, Any]:
-        """Aggregate usage analytics, per-model token rates, and live OpenRouter account spend."""
+        """Aggregate usage analytics, per-model token rates, and live OpenRouter/NanoGPT/Hyper3D spend."""
         session_calls = sum(p.total_calls for p in self.providers.values())
         session_tokens = sum(p.total_tokens for p in self.providers.values())
         session_spend = sum(p.total_cost for p in self.providers.values())
         billing = self.get_openrouter_billing() if include_live_billing else {}
+        nanogpt_billing = self.get_nanogpt_billing() if include_live_billing else {}
         hyper3d_billing = self.get_hyper3d_billing() if include_live_billing else {}
+
+        providers_out: Dict[str, Any] = {}
+        for k, p in self.providers.items():
+            is_nano = p.api_key_env == "NANOGPT_API_KEY" or p.endpoint == self.NANOGPT_ENDPOINT
+            gw_billing = nanogpt_billing if is_nano else billing
+            rem_credits = (
+                gw_billing.get("account_remaining_balance_usd", p.available_credits)
+                if gw_billing.get("connected")
+                else p.available_credits
+            )
+            providers_out[k] = {
+                "display_name": p.display_name,
+                "model": p.model_alias,
+                "gateway": "nanogpt" if is_nano else ("hyper3d" if p.api_key_env == "HYPER3D_API_KEY" else "openrouter"),
+                "input_cost_per_1m_usd": p.input_cost_per_1m,
+                "output_cost_per_1m_usd": p.output_cost_per_1m,
+                "est_cost_per_1k_prompt_usd": round((p.input_cost_per_1m * 0.5 + p.output_cost_per_1m * 0.5) / 1000.0, 6),
+                "total_calls": p.total_calls,
+                "prompt_tokens": p.total_prompt_tokens,
+                "completion_tokens": p.total_completion_tokens,
+                "total_tokens": p.total_tokens,
+                "cost_usd": round(p.total_cost, 6),
+                "remaining_credits": round(rem_credits, 4),
+                "is_active": p.is_active,
+            }
 
         return {
             "total_calls": session_calls,
             "total_tokens": session_tokens,
             "total_spend_usd": round(session_spend, 6),
             "openrouter": billing,
+            "nanogpt": nanogpt_billing,
             "hyper3d": hyper3d_billing,
-            "providers": {
-                k: {
-                    "display_name": p.display_name,
-                    "model": p.model_alias,
-                    "input_cost_per_1m_usd": p.input_cost_per_1m,
-                    "output_cost_per_1m_usd": p.output_cost_per_1m,
-                    "est_cost_per_1k_prompt_usd": round((p.input_cost_per_1m * 0.5 + p.output_cost_per_1m * 0.5) / 1000.0, 6),
-                    "total_calls": p.total_calls,
-                    "prompt_tokens": p.total_prompt_tokens,
-                    "completion_tokens": p.total_completion_tokens,
-                    "total_tokens": p.total_tokens,
-                    "cost_usd": round(p.total_cost, 6),
-                    "remaining_credits": round(
-                        billing.get("account_remaining_balance_usd", p.available_credits)
-                        if billing.get("connected")
-                        else p.available_credits,
-                        4,
-                    ),
-                    "is_active": p.is_active,
-                }
-                for k, p in self.providers.items()
-            },
+            "providers": providers_out,
             "recent_routing_log": self.routing_log[-20:],
         }
 
@@ -939,7 +1477,7 @@ class DynamicAIGatewayRouter:
         temperature: float = 0.7,
         max_tokens: int = 1024,
     ) -> Dict[str, Any]:
-        """Dispatch chat completion to OpenRouter, Ronin 3D, or simulated fallback."""
+        """Dispatch chat completion to OpenRouter, NanoGPT, Ronin 3D, or simulated fallback."""
         if alias.startswith(("ronin/", "rodin/", "hyper3d/")) or alias in ("ronin", "rodin", "hyper3d"):
             prompt_text = " ".join([m.get("content", "") for m in messages if m.get("role") != "system"]).strip()
             if not prompt_text:
@@ -984,7 +1522,17 @@ class DynamicAIGatewayRouter:
             }
 
         config = self.route_request(alias)
-        api_key = self.openrouter_key if self.openrouter_key is not None else os.environ.get("OPENROUTER_API_KEY")
+        is_nanogpt = config.api_key_env == "NANOGPT_API_KEY" or config.endpoint == self.NANOGPT_ENDPOINT
+        if is_nanogpt:
+            api_key = self.nanogpt_key if self.nanogpt_key is not None else _resolve_nanogpt_key_fallback()
+            router_label = "NanoGPT"
+            upstream_model = self._strip_nanogpt_prefix(config.model_alias)
+            fallback_model = "auto-model"
+        else:
+            api_key = self.openrouter_key if self.openrouter_key is not None else os.environ.get("OPENROUTER_API_KEY")
+            router_label = "OpenRouter"
+            upstream_model = config.model_alias
+            fallback_model = "google/gemini-2.5-flash"
 
         if not api_key:
             # Simulated offline response if no API key is injected
@@ -992,23 +1540,34 @@ class DynamicAIGatewayRouter:
             return {
                 "id": f"sim-{alias}",
                 "model": config.model_alias,
+                "gateway": "nanogpt" if is_nanogpt else "openrouter",
                 "choices": [{
                     "message": {
                         "role": "assistant",
-                        "content": f"[Simulated {config.display_name} via OpenRouter router: key pending]",
+                        "content": f"[Simulated {config.display_name} via {router_label} router: key pending]",
                     }
                 }],
                 "usage": {"total_tokens": 42},
             }
 
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://github.com/NoJuanNobody/tin-can",
-            "X-Title": "TinCan 2 / IoT Federated Agent Memory",
-        }
+        if is_nanogpt:
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "x-api-key": api_key,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "User-Agent": "TinCan-Mesh-OS/2.2",
+            }
+        else:
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://github.com/NoJuanNobody/tin-can",
+                "X-Title": "TinCan 2 / IoT Federated Agent Memory",
+            }
+
         payload = {
-            "model": config.model_alias,
+            "model": upstream_model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
@@ -1024,9 +1583,9 @@ class DynamicAIGatewayRouter:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as http_err:
-            # If a configured model alias is unavailable on OpenRouter (400/404), retry with google/gemini-2.5-flash
-            if http_err.code in (400, 404) and payload.get("model") != "google/gemini-2.5-flash":
-                fallback_payload = dict(payload, model="google/gemini-2.5-flash")
+            # If a configured model alias is unavailable (400/404), retry with the gateway's default model.
+            if http_err.code in (400, 404) and payload.get("model") != fallback_model:
+                fallback_payload = dict(payload, model=fallback_model)
                 req_fb = urllib.request.Request(
                     config.endpoint,
                     data=json.dumps(fallback_payload).encode("utf-8"),
@@ -1042,5 +1601,11 @@ class DynamicAIGatewayRouter:
         comp_toks = int(usage.get("completion_tokens", 0))
         total_toks = int(usage.get("total_tokens", prompt_toks + comp_toks))
         cost = float(usage.get("cost") or 0.0)
+        if cost <= 0.0 and is_nanogpt and (prompt_toks > 0 or comp_toks > 0):
+            cost = (
+                (prompt_toks / 1_000_000.0) * config.input_cost_per_1m
+                + (comp_toks / 1_000_000.0) * config.output_cost_per_1m
+            )
+            data.setdefault("cost_usd", round(cost, 8))
         self.record_usage(alias, prompt_toks, comp_toks, total_toks, cost)
         return data

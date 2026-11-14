@@ -209,10 +209,20 @@ def main(argv: Optional[List[str]] = None) -> int:
     admin_role.add_argument("--role", default=None, choices=["admin", "moderator", "mentor", "mentee", "peer"], help="Role to assign")
     admin_role.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
-    # credits / cost (live OpenRouter cost & credit dashboard)
+    # credits / cost (live OpenRouter & NanoGPT cost & credit dashboard)
     for cr_cmd in ("credits", "cost"):
-        cr_parser = subparsers.add_parser(cr_cmd, help="Display live OpenRouter account credits, spend, and per-model cost rates")
+        cr_parser = subparsers.add_parser(cr_cmd, help="Display live OpenRouter & NanoGPT account credits, spend, and per-model cost rates")
         cr_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # models (browse OpenRouter & NanoGPT catalogs)
+    models_p = subparsers.add_parser("models", help="List available OpenRouter and NanoGPT models (including abliterated/Heretic & TEE)")
+    models_p.add_argument("--gateway", default="all", choices=["all", "nanogpt", "openrouter"], help="Filter by gateway provider")
+    models_p.add_argument("--category", default=None, help="Filter by category substring (e.g. Uncensored, Private/TEE, Roleplay)")
+    models_p.add_argument("--uncensored", action="store_true", help="Show only uncensored / abliterated / Heretic models")
+    models_p.add_argument("--tee", action="store_true", help="Show only hardware-attested Private/TEE models")
+    models_p.add_argument("--search", "-s", default=None, help="Filter models by ID or name substring")
+    models_p.add_argument("--live", action="store_true", help="Fetch live public NanoGPT catalog (600+ models)")
+    models_p.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
     # disconnect / leave / close
     for disc_cmd in ("disconnect", "leave", "close"):
@@ -1325,10 +1335,18 @@ def main(argv: Optional[List[str]] = None) -> int:
             print("\n\033[1;35m--- Per-Model Token Pricing & Cost ---\033[0m")
             for alias, p in (analytics.get("providers") or {}).items():
                 print(
-                    f"  • {alias:13s} ({p['model']:28s}) -> "
-                    f"In: ${p['input_cost_per_1m_usd']:.2f}/1M | Out: ${p['output_cost_per_1m_usd']:.2f}/1M | "
+                    f"  • {alias:13s} [{p.get('gateway', 'openrouter'):10s}] ({p['model']:28s}) -> "
+                    f"In: ${p['input_cost_per_1m_usd']:.3f}/1M | Out: ${p['output_cost_per_1m_usd']:.3f}/1M | "
                     f"~1K Call: ${p['est_cost_per_1k_prompt_usd']:.5f}"
                 )
+            ng_info = analytics.get("nanogpt") or {}
+            print("\n\033[1;36m=== ⚡ NanoGPT Live Balance & Credit Pool ===\033[0m")
+            if ng_info.get("connected"):
+                print(f"  Remaining USD:       \033[1;32m${ng_info.get('account_remaining_balance_usd', 0):.6f}\033[0m ({ng_info.get('account_remaining_nano', 0):.6f} NANO)")
+                print(f"  Session Calls/Spend: {ng_info.get('session_total_calls', 0)} calls (${ng_info.get('session_total_spend_usd', 0):.6f})")
+                print(f"  Key Label:           {ng_info.get('key_label', 'pooled-nanogpt-key [redacted]')}")
+            else:
+                print("  Status:              NANOGPT_API_KEY not found in local environment (offline catalog active)")
             h3d = analytics.get("hyper3d") or {}
             print("\n\033[1;36m=== 🧊 Hyper3D Rodin (Ronin) 3D Credit Pool ===\033[0m")
             conn = h3d.get("connected", False)
@@ -1341,6 +1359,50 @@ def main(argv: Optional[List[str]] = None) -> int:
             pricing = h3d.get("tier_pricing_usd") or {"Regular": 0.50, "Sketch": 0.25, "Detail": 1.00, "Smooth": 0.75}
             for t_name, t_cost in pricing.items():
                 print(f"    • {t_name:8s}: ${t_cost:.2f}")
+        return 0
+
+    if args.command == "models":
+        from .ai_gateway import DynamicAIGatewayRouter, filter_gateway_models
+
+        router_inst = DynamicAIGatewayRouter()
+        gw = getattr(args, "gateway", "all")
+        live = bool(getattr(args, "live", False))
+        if gw == "nanogpt":
+            models = router_inst.get_nanogpt_models(include_live_public=live)
+        else:
+            models = router_inst.get_available_models()
+            if live:
+                live_ng = router_inst.get_nanogpt_models(include_live_public=True)
+                seen_ids = {m["id"] for m in models}
+                for m in live_ng:
+                    if m["id"] not in seen_ids:
+                        models.append(m)
+                        seen_ids.add(m["id"])
+            if gw == "openrouter":
+                models = [m for m in models if str(m.get("gateway", "openrouter")).lower() == "openrouter"]
+
+        models = filter_gateway_models(
+            models,
+            category=getattr(args, "category", None),
+            uncensored=bool(getattr(args, "uncensored", False)),
+            tee=bool(getattr(args, "tee", False)),
+            search=getattr(args, "search", None),
+        )
+
+        if args.json:
+            print(json.dumps({"count": len(models), "gateway": gw, "models": models}, indent=2))
+        else:
+            print(f"\033[1;36m=== 🧠 TinCan AI Gateway Models ({gw}, {len(models)} matched) ===\033[0m")
+            for m in models:
+                p = m.get("pricing") or {}
+                if "prompt_per_1m" in p:
+                    rate_str = f"${float(p['prompt_per_1m']):.3f}/${float(p.get('completion_per_1m', 0)):.3f} per 1M"
+                else:
+                    rate_str = f"prompt={p.get('prompt', '?')}"
+                print(
+                    f"  • {m['id']:54s} [{m.get('gateway', 'openrouter'):10s}] "
+                    f"({m.get('category', 'General'):20s}) ctx={m.get('context_length', '?')} | {rate_str}"
+                )
         return 0
 
     if args.command in ("disconnect", "leave", "close"):

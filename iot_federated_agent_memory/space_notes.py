@@ -95,10 +95,12 @@ class RelayChatRouter:
 
 
 def pick_router(local_router: Optional[Any], relay_url: Optional[str], peer_id: str) -> Optional[Any]:
-    """Use the local gateway when it has an OpenRouter key, else the relay's pooled gateway."""
-    if local_router is not None and getattr(local_router, "openrouter_key", None):
+    """Use the local gateway when it has an OpenRouter or NanoGPT key, else the relay's pooled gateway."""
+    if local_router is not None and (
+        getattr(local_router, "openrouter_key", None) or getattr(local_router, "nanogpt_key", None)
+    ):
         return local_router
-    if os.environ.get("OPENROUTER_API_KEY") or not relay_url:
+    if os.environ.get("OPENROUTER_API_KEY") or os.environ.get("NANOGPT_API_KEY") or not relay_url:
         return local_router
     return RelayChatRouter(relay_url, peer_id=peer_id)
 

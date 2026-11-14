@@ -115,6 +115,12 @@ KNOWN_AI_AGENTS: Dict[str, Dict[str, str]] = {
         "display_name": "GPT-4o (@openai-brain)",
         "specialty": "Information retrieval, BM25 lexical scoring, and multi-agent orchestration",
     },
+    "nanogpt-brain": {
+        "handle": "@nanogpt-brain",
+        "alias": "nanogpt-brain",
+        "display_name": "NanoGPT DeepSeek Heretic (@nanogpt-brain)",
+        "specialty": "Uncensored/abliterated reasoning, TEE confidential inference, and NanoGPT multi-model routing",
+    },
     "gpt-4o": {
         "handle": "@gpt-4o",
         "alias": "openai-brain",
@@ -3465,7 +3471,12 @@ class CyberspaceBoardEngine:
                 f"Knowledge Graph Concepts: {', '.join(involved_tags[:8])}."
             )
 
-            if synthesize_llm and self.ai_router is not None and (self.ai_router.openrouter_key or os.environ.get("OPENROUTER_API_KEY")):
+            if synthesize_llm and self.ai_router is not None and (
+                self.ai_router.openrouter_key
+                or os.environ.get("OPENROUTER_API_KEY")
+                or getattr(self.ai_router, "nanogpt_key", None)
+                or os.environ.get("NANOGPT_API_KEY")
+            ):
                 try:
                     context_passages = "\n".join(
                         f"- [{r['topic_id']}] {r['title']} (by {r['author_username']}, BM25={r['bm25_score']}, GraphRAG={r['graphrag_score']}): {r['snippet']} | Paths: {'; '.join(r['graph_paths'][:2])}"

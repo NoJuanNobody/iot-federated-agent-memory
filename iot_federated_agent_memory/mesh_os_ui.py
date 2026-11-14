@@ -982,9 +982,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         <div class="flex flex-wrap justify-between items-center gap-2">
           <div>
             <h2 class="text-sm font-bold text-white flex items-center gap-2">
-              <span>💳</span> OpenRouter Cost, Spend &amp; Credit Dashboard
+              <span>💳</span> OpenRouter &amp; NanoGPT Cost, Spend &amp; Credit Dashboard
             </h2>
-            <p class="text-[11px] text-slate-400">Live account credits, lifetime spend, key usage, and per-model token pricing</p>
+            <p class="text-[11px] text-slate-400">Live account credits, NanoGPT USD/NANO balance, key usage, and per-model token pricing</p>
           </div>
           <div id="analyticsHeader" class="text-right text-[11px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-2.5 py-1 rounded-md">
             Fetching live OpenRouter billing...
@@ -1020,6 +1020,14 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           </div>
         </div>
 
+        <div id="nanoDashBanner" class="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg border border-cyan-800/60 bg-cyan-950/30 text-[11px] font-mono">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="px-1.5 py-0.5 rounded bg-cyan-900/70 text-cyan-200 border border-cyan-700/70 font-bold shrink-0">NanoGPT</span>
+            <span id="nanoDashStatus" class="text-slate-300 truncate">Checking NanoGPT gateway balance...</span>
+          </div>
+          <a href="/api/models/nanogpt" target="_blank" rel="noopener" class="text-cyan-300 hover:text-cyan-200 underline shrink-0">/api/models/nanogpt</a>
+        </div>
+
         <!-- Hidden elements to preserve backward compatibility for top cards -->
         <div class="hidden">
           <div id="topBalanceValue">Loading...</div>
@@ -1047,11 +1055,12 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                 <option value="claude-brain">claude-brain → anthropic/claude-sonnet-5.5</option>
                 <option value="grok-brain">grok-brain → x-ai/grok-4.7</option>
                 <option value="openai-brain">openai-brain → openai/gpt-4o</option>
+                <option value="nanogpt-brain">nanogpt-brain → nanogpt/pqhaz/DeepSeek-V4.1-Flash-1017-heretic</option>
               </select>
             </div>
             <div class="min-w-0">
-              <label for="modelInput" class="block text-slate-400 mb-1 text-[11px]">OpenRouter model ID</label>
-              <input type="text" id="modelInput" placeholder="e.g. meta-llama/llama-3.3-70b-instruct" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono placeholder:text-slate-600">
+              <label for="modelInput" class="block text-slate-400 mb-1 text-[11px]">Model ID (OpenRouter or nanogpt/*)</label>
+              <input type="text" id="modelInput" placeholder="e.g. nanogpt/pqhaz/DeepSeek-V4.1-Flash-1017-heretic" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white font-mono placeholder:text-slate-600">
             </div>
             <div class="flex items-end">
               <button onclick="updateModel()" class="tc-btn w-full whitespace-nowrap bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded px-2.5 py-1.5 transition active:scale-95 text-xs">
@@ -1067,6 +1076,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             <button type="button" onclick="quickPickModel('openai/gpt-4o')" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-indigo-950 text-slate-300 border border-slate-700">openai/gpt-4o</button>
             <button type="button" onclick="quickPickModel('meta-llama/llama-3.3-70b-instruct')" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-indigo-950 text-slate-300 border border-slate-700">llama-3.3-70b</button>
             <button type="button" onclick="quickPickModel('deepseek/deepseek-r1')" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-indigo-950 text-slate-300 border border-slate-700">deepseek-r1</button>
+            <button type="button" onclick="quickPickModel('nanogpt/pqhaz/DeepSeek-V4.1-Flash-1017-heretic')" class="px-1.5 py-0.5 rounded bg-cyan-950/70 hover:bg-cyan-900 text-cyan-200 border border-cyan-700/70">nanogpt-heretic</button>
+            <button type="button" onclick="quickPickModel('nanogpt/abliteration-ai/abliterated-model-large-v2')" class="px-1.5 py-0.5 rounded bg-cyan-950/70 hover:bg-cyan-900 text-cyan-200 border border-cyan-700/70">nanogpt-abliterated-v2</button>
+            <button type="button" onclick="quickPickModel('nanogpt/TEE/deepseek-v4.1-flash')" class="px-1.5 py-0.5 rounded bg-cyan-950/70 hover:bg-cyan-900 text-cyan-200 border border-cyan-700/70">nanogpt-tee</button>
           </div>
           <p id="updateFeedback" class="text-xs mt-2 font-mono hidden"></p>
         </div>
@@ -5197,6 +5209,18 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           document.getElementById('orKeyLabel').innerText = `Key: ${or.key_label || '--'}`;
         }
 
+        const ng = data.nanogpt || {};
+        const nanoEl = document.getElementById('nanoDashStatus');
+        if (nanoEl) {
+          if (ng.connected) {
+            nanoEl.textContent = `Connected · $${Number(ng.account_remaining_balance_usd || 0).toFixed(4)} USD (${Number(ng.account_remaining_nano || 0).toFixed(4)} NANO) · Calls: ${Number(ng.session_total_calls || 0)}`;
+          } else if (ng.key_label && ng.key_label !== 'not_configured') {
+            nanoEl.textContent = `Key configured (${ng.key_label}) · Balance check pending`;
+          } else {
+            nanoEl.textContent = 'Set NANOGPT_API_KEY on server for live NanoGPT inference & balance (catalog browsable via /api/models/nanogpt)';
+          }
+        }
+
         document.getElementById('analyticsHeader').innerText = 
           `Calls: ${data.total_calls} | Tokens: ${data.total_tokens} | Cost: $${Number(data.total_spend_usd).toFixed(6)}`;
         
@@ -5225,7 +5249,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           card.innerHTML = `
             <div class="flex justify-between items-center gap-2 min-w-0">
               <span class="font-semibold font-mono truncate">${esc(alias)}</span>
-              <span class="tc-chip shrink-0">${esc(info.display_name)}</span>
+              <span class="tc-chip shrink-0">${esc(info.gateway || 'openrouter')} · ${esc(info.display_name)}</span>
             </div>
             <div class="tc-truncate font-mono text-[11px]" title="${esc(info.model)}"><span class="tc-stat__label">Model</span> ${esc(info.model)}</div>
             <dl class="tc-provider-stats">
