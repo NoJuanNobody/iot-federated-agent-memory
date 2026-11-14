@@ -4,7 +4,7 @@ Provides a unified, responsive showcase for all updated design mockups across:
 0. Aeonik Celadon & Ink Reskin (4-quadrant Industrial Terminal + Aeonik Fono Mobile UI)
 1. Native iOS App (9 screen mockups + composite sheets + live simulator)
 2. Car Head-Unit UI (1280x720 Sumi-Dock driving, parked, dashcam, identity mockups + live UI)
-3. Mesh OS Desktop (11-window Zen contact sheet + tiled grid mockups)
+3. Mesh OS Desktop (11-window Zen contact sheet + tiled grid + Workstation Studio mockups)
 """
 
 from typing import Dict, List, Any
@@ -54,6 +54,26 @@ DESKTOP_MOCKUPS: List[Dict[str, str]] = [
     {"id": "win-contact", "title": "Mesh OS Zen Windows Contact Sheet", "desc": "Master contact sheet uniting all 11 tool windows in the Zen design system.", "img": "/assets/designs/tincan_zen_windows_contact_sheet.png"},
     {"id": "win-tiled", "title": "Tiled Desktop Design", "desc": "Responsive 2x2 window tiling layout designed in FigCraft.", "img": "/assets/designs/tiled_desktop_design.png"},
     {"id": "win-peers", "title": "Peers & Leaderboard Pop-Out", "desc": "Dedicated pop-out window for active peers, XP ranking, and presence.", "img": "/assets/designs/peers_popout_design.png"},
+    {
+        "id": "ws-studio",
+        "title": "Workstation · Multi-Model & 3D Studio",
+        "desc": "FigCraft spec for /workstation combining NanoGPT TEE/Heretic routing, Hyper3D Rodin v2 mesh synthesis, enclave diff patches, and .space Merkle sync.",
+        "img": "/assets/designs/workstation_studio_design.png",
+        "link": "/workstation",
+        "link_label": "Open Workstation",
+    },
+    {
+        "id": "ws-stories",
+        "title": "Workstation · 4 User Story Workflows",
+        "desc": "End-to-end user journeys for 3D Asset Foundry, Private TEE Enclave Audit, Arena Calibration, and Live Peer + Rodin Review.",
+        "img": "/assets/designs/workstation_user_stories.png",
+    },
+    {
+        "id": "ws-dual",
+        "title": "Space + Workstation Dual Zen Desktop",
+        "desc": "Side-by-side tiled layout pairing Space Ranger VFS & Wasm Studio (/space) with Workstation Foundry & Enclave (/workstation) over shared .space state.",
+        "img": "/assets/designs/workstation_dual_space_desktop.png",
+    },
 ]
 
 
@@ -106,7 +126,7 @@ def render_designs_gallery_html(active_tab: str = "aeonik") -> str:
         for m in CAR_MOCKUPS
     )
     desktop_cards = "\n".join(
-        _build_card_html(m, "/mesh", "Open Desktop")
+        _build_card_html(m, m.get("link", "/mesh"), m.get("link_label", "Open Desktop"))
         for m in DESKTOP_MOCKUPS
     )
 
@@ -342,7 +362,7 @@ main.container {{
   <button class="tab-btn active" onclick="switchGalleryTab('aeonik')">01 · Aeonik Celadon &amp; Ink (2)</button>
   <button class="tab-btn" onclick="switchGalleryTab('ios')">02 · Native iOS App (11)</button>
   <button class="tab-btn" onclick="switchGalleryTab('car')">03 · Car Head-Unit UI (5)</button>
-  <button class="tab-btn" onclick="switchGalleryTab('desktop')">04 · Mesh OS Windows (3)</button>
+  <button class="tab-btn" onclick="switchGalleryTab('desktop')">04 · Mesh OS Windows ({len(DESKTOP_MOCKUPS)})</button>
 </div>
 
 <main class="container">
@@ -432,7 +452,7 @@ main.container {{
     <div class="intro-panel">
       <div class="intro-text">
         <h2>TinCan Mesh OS · Zen Desktop Windows</h2>
-        <p>All 11 tool windows with responsive 2x2 grid window tiling and dedicated pop-out windows.</p>
+        <p>All 11 tool windows plus Workstation Studio with responsive 2x2 grid window tiling and dedicated pop-out windows.</p>
       </div>
       <a href="/mesh" class="btn-cta">🖥️ Open Mesh OS Desktop</a>
     </div>

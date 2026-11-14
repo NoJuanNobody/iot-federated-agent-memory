@@ -28,12 +28,38 @@ def test_designs_gallery_html_structure():
     # Verify mockup counts
     assert len(IOS_MOCKUPS) == 11
     assert len(CAR_MOCKUPS) == 5
-    assert len(DESKTOP_MOCKUPS) == 3
+    assert len(DESKTOP_MOCKUPS) == 6
+    assert "04 · Mesh OS Windows (6)" in html
 
     # Check key mockups are referenced
     assert "01-onboarding.png" in html
     assert "sumi-dock-driving.png" in html
     assert "tincan_zen_windows_contact_sheet.png" in html
+
+    # Check Workstation FigCraft designs are registered and linked cleanly
+    desktop_ids = {m["id"] for m in DESKTOP_MOCKUPS}
+    assert {"ws-studio", "ws-stories", "ws-dual"}.issubset(desktop_ids)
+    assert "Workstation · Multi-Model & 3D Studio" in html
+    assert "Workstation · 4 User Story Workflows" in html
+    assert "Space + Workstation Dual Zen Desktop" in html
+    assert "/assets/designs/workstation_studio_design.png" in html
+    assert "/assets/designs/workstation_user_stories.png" in html
+    assert "/assets/designs/workstation_dual_space_desktop.png" in html
+    assert '<a href="/workstation" class="btn-sm primary">Open Workstation</a>' in html
+
+
+def test_workstation_design_assets_exist():
+    assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "designs")
+    expected_files = (
+        "tincan_workstation_designs.figcraft",
+        "workstation_studio_design.png",
+        "workstation_user_stories.png",
+        "workstation_dual_space_desktop.png",
+    )
+    for fname in expected_files:
+        fpath = os.path.join(assets_dir, fname)
+        assert os.path.isfile(fpath), f"Missing design asset: {fpath}"
+        assert os.path.getsize(fpath) > 0, f"Empty design asset: {fpath}"
 
 
 @pytest.fixture
@@ -72,8 +98,18 @@ def test_server_designs_routes(running_test_server):
         body = resp.read().decode("utf-8")
         assert "Aeonik Fono" in body
 
-    # Test static file serving: /docs/designs/aeonik-terminal.png
+    # Test static file serving: /docs/designs/aeonik-terminal.png and Workstation assets
     with urllib.request.urlopen(f"{running_test_server}/docs/designs/aeonik-terminal.png") as resp:
         assert resp.status == 200
         assert resp.headers["Content-Type"] == "image/png"
         assert len(resp.read()) > 1000
+
+    for fname in (
+        "workstation_studio_design.png",
+        "workstation_user_stories.png",
+        "workstation_dual_space_desktop.png",
+    ):
+        with urllib.request.urlopen(f"{running_test_server}/assets/designs/{fname}") as resp:
+            assert resp.status == 200
+            assert resp.headers["Content-Type"] == "image/png"
+            assert len(resp.read()) > 1000
