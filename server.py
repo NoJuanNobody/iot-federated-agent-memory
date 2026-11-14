@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import difflib
 import gzip
 import hashlib
 import hmac
@@ -18,12 +19,13 @@ import sqlite3
 import sys
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from http.server import ThreadingHTTPServer as HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from iot_federated_agent_memory.scale import IoTFederatedMemoryScale
 from iot_federated_agent_memory.webrtc_relay import WebRTCSignalingRelay
 from iot_federated_agent_memory.ai_gateway import DynamicAIGatewayRouter, filter_gateway_models
+from iot_federated_agent_memory.space_notes import EditPlanError, SpaceNotesEditor
 from iot_federated_agent_memory.tincan_relay import TinCanBlindRelay
 from iot_federated_agent_memory.video_playlist import RelayVideoPlaylist
 from iot_federated_agent_memory.mesh_os_engine import TinCanMeshOSEngine
@@ -118,6 +120,7 @@ _html_cache = {}
 
 relay = WebRTCSignalingRelay()
 router = DynamicAIGatewayRouter()
+_DEFAULT_ROUTER = router
 scale = IoTFederatedMemoryScale()
 tincan_relay = TinCanBlindRelay()
 playlist = RelayVideoPlaylist()
@@ -363,6 +366,73 @@ WASM_POSTMESSAGE_CONTRACT = {
 }
 
 
+RODIN_TIER_PRICING_USD = {
+    "Sketch": 0.25,
+    "Regular": 0.50,
+    "Smooth": 0.75,
+    "Detail": 1.00,
+}
+
+
+def _estimate_rodin_tier_cost(tier: str) -> float:
+    """Resolve estimated USD cost for a Hyper3D Rodin generation tier."""
+    if tier in RODIN_TIER_PRICING_USD:
+        return float(RODIN_TIER_PRICING_USD[tier])
+    low = str(tier or "").strip().lower()
+    for key, price in RODIN_TIER_PRICING_USD.items():
+        if key.lower() == low:
+            return float(price)
+    return 0.50
+
+
+def _compute_plan_diff_preview(sp, edits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Compute unified diff snippets comparing current VFS content vs proposed edits."""
+    simulated: Dict[str, Optional[str]] = {}
+    previews: List[Dict[str, Any]] = []
+    for edit in edits:
+        path = edit["path"]
+        op = edit.get("op", "write")
+        if path not in simulated:
+            try:
+                rec = sp.read_file(path, as_text=True)
+                content = rec.get("content")
+                simulated[path] = content if content is not None else "[binary content]"
+            except FileNotFoundError:
+                simulated[path] = None
+        old_text = simulated[path]
+        if op == "write":
+            new_text: Optional[str] = edit.get("content", "")
+        elif op == "delete":
+            new_text = None
+        elif op == "patch":
+            target = edit.get("target", "")
+            replacement = edit.get("replacement", "")
+            if old_text is not None and target and target in old_text:
+                new_text = old_text.replace(target, replacement, 1)
+            else:
+                new_text = old_text
+        else:
+            new_text = old_text
+        simulated[path] = new_text
+
+        old_lines = old_text.splitlines() if old_text is not None else []
+        new_lines = new_text.splitlines() if new_text is not None else []
+        fromfile = "/dev/null" if old_text is None else f"a{path}"
+        tofile = "/dev/null" if new_text is None else f"b{path}"
+        diff_lines = list(
+            difflib.unified_diff(old_lines, new_lines, fromfile=fromfile, tofile=tofile, lineterm="")
+        )
+        previews.append({
+            "path": path,
+            "op": op,
+            "diff": "\n".join(diff_lines),
+            "lines": diff_lines,
+            "added": sum(1 for ln in diff_lines if ln.startswith("+") and not ln.startswith("+++")),
+            "removed": sum(1 for ln in diff_lines if ln.startswith("-") and not ln.startswith("---")),
+        })
+    return previews
+
+
 def _dispatch_rodin(ai_router, prompt, images=None, tier="Regular", geometry_file_format="glb", material="PBR", quality="medium", mesh_mode="Quad"):
     if hasattr(ai_router, "dispatch_rodin_generation"):
         return ai_router.dispatch_rodin_generation(
@@ -374,8 +444,7 @@ def _dispatch_rodin(ai_router, prompt, images=None, tier="Regular", geometry_fil
             quality=quality,
             mesh_mode=mesh_mode,
         )
-    tier_costs = {"Regular": 0.50, "Sketch": 0.25, "Detail": 1.00, "Smooth": 0.75}
-    cost = tier_costs.get(tier, 0.50)
+    cost = _estimate_rodin_tier_cost(tier)
     task_id = f"rodin-task-{uuid.uuid4().hex[:12]}"
     sub_key = f"sub-{uuid.uuid4().hex[:12]}"
     glb_raw = b"glTF\x02\x00\x00\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
@@ -435,12 +504,7 @@ def _get_hyper3d_billing(ai_router):
         "session_total_tasks": 0,
         "session_total_spend_usd": 0.0,
         "key_label": "not_configured",
-        "tier_pricing_usd": {
-            "Regular": 0.50,
-            "Sketch": 0.25,
-            "Detail": 1.00,
-            "Smooth": 0.75,
-        },
+        "tier_pricing_usd": dict(RODIN_TIER_PRICING_USD),
     }
 
 
@@ -801,7 +865,7 @@ HTML_UI = MESH_OS_HTML_UI
 SINGLE_WINDOW_ROUTES = frozenset({
     "/tv", "/call", "/comms", "/chat", "/arena", "/terminal", "/billing", "/tokens",
     "/board", "/cyberspace", "/space", "/files", "/finder", "/agentspace",
-    "/quests", "/rewards", "/network",
+    "/quests", "/rewards", "/network", "/workstation",
 })
 
 
@@ -924,15 +988,168 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             self.headers.get("X-Forwarded-For") or "",
         )
 
+    def _drive_status_payload(self, include_root: bool = False) -> Dict[str, Any]:
+        """Build local drive-mirror status dictionary shared by /api/drive/status and /api/workstation/status."""
+        allowed = self._drive_mirror_allowed()
+        payload: Dict[str, Any] = {
+            "available": allowed,
+            "on_railway": drive_mirror.running_on_railway(),
+            "fallback": None if allowed else "browser-folder-picker",
+        }
+        if include_root:
+            root_path = drive_mirror.mirror_root() if allowed else None
+            payload["connected"] = allowed
+            payload["root_name"] = (os.path.basename(root_path) or root_path) if root_path else None
+        return payload
+
+    def _read_json_body(self) -> Dict[str, Any]:
+        content_length = int(self.headers.get("Content-Length", 0))
+        post_data = self.rfile.read(content_length) if content_length > 0 else b""
+        if not post_data:
+            return {}
+        data = json.loads(post_data.decode("utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError("JSON body must be an object")
+        return data
+
+    def _resolve_space_identity(self, data: Dict[str, Any]) -> Tuple[str, str, str]:
+        scope = data.get("scope") or "user"
+        owner_id = data.get("owner_id") or data.get("peer_id") or data.get("topic_id") or "default_user"
+        author = data.get("author") or data.get("updated_by") or "user"
+        return str(scope), str(owner_id), str(author)
+
+    def _resolve_space_query(self, query: Dict[str, List[str]]) -> Tuple[str, str]:
+        scope = query.get("scope", ["user"])[0]
+        owner_id = query.get("owner_id", query.get("peer_id", query.get("topic_id", ["default_user"])))[0]
+        return scope, owner_id
+
+    def _reject_if_banned(self, *peer_ids: str) -> bool:
+        for pid in peer_ids:
+            if pid and pid in banned_peers:
+                self._send_json(
+                    {"error": f"Banned: {banned_peers[pid].get('reason', 'Policy violation')}", "banned": True},
+                    403,
+                )
+                return True
+        return False
+
+    def _get_notes_editor(self, scope: str, owner_id: str) -> Tuple[Any, SpaceNotesEditor]:
+        sm = _get_space_manager()
+        sp = sm.get_or_create_space(scope, owner_id)
+        sm_router = getattr(sm, "ai_router", None)
+        ai_r = router
+        if sm_router is not None and sm_router is not _DEFAULT_ROUTER and router is _DEFAULT_ROUTER:
+            ai_r = sm_router
+        return sp, SpaceNotesEditor(sp, ai_router=ai_r)
+
+    def _handle_space_notes_post(self, path: str) -> None:
+        """Dispatch POST /api/space/notes* endpoints backed by SpaceNotesEditor."""
+        if path not in (
+            "/api/space/notes",
+            "/api/space/notes/propose",
+            "/api/space/notes/commit",
+            "/api/space/notes/revert",
+        ):
+            self._send_empty(404)
+            return
+        try:
+            data = self._read_json_body()
+            scope, owner_id, author = self._resolve_space_identity(data)
+            if self._reject_if_banned(owner_id, author):
+                return
+            sp, editor = self._get_notes_editor(scope, owner_id)
+
+            if path == "/api/space/notes":
+                action = str(data.get("action") or "add").strip().lower()
+                if action == "add":
+                    raw_kind = str(data.get("kind") or "observation").strip().lower()
+                    note_kind = "edit" if raw_kind == "change" else raw_kind
+                    note = editor.add_note(
+                        body=data.get("body", ""),
+                        kind=note_kind,
+                        path=data.get("path"),
+                        author=author,
+                    )
+                    self._send_json({"note": note}, 200)
+                elif action == "drop":
+                    note_id = data.get("note_id")
+                    if not note_id:
+                        self._send_json({"error": "Missing 'note_id'"}, 400)
+                        return
+                    self._send_json(editor.drop_note(str(note_id)), 200)
+                else:
+                    self._send_json({"error": f"Unknown notes action '{action}'"}, 400)
+                return
+
+            if path == "/api/space/notes/propose":
+                model_alias = data.get("model") or data.get("model_alias") or "nanogpt/TEE/deepseek-v4.1-flash"
+                note_ids = data.get("note_ids")
+                instruction = data.get("instruction") or ""
+                note_body = data.get("note_body")
+                inline_note = None
+                if note_body is not None:
+                    if not str(note_body).strip():
+                        self._send_json({"error": "Note body cannot be empty"}, 400)
+                        return
+                    raw_kind = str(data.get("kind") or "edit").strip().lower()
+                    inline_kind = "edit" if raw_kind == "change" else raw_kind
+                    inline_note = editor.add_note(
+                        body=str(note_body),
+                        kind=inline_kind,
+                        path=data.get("path"),
+                        author=author,
+                    )
+                    if isinstance(note_ids, list) and inline_note["note_id"] not in note_ids:
+                        note_ids = list(note_ids) + [inline_note["note_id"]]
+                plan = editor.propose(
+                    model_alias=model_alias,
+                    note_ids=note_ids,
+                    instruction=instruction,
+                )
+                diff_preview = _compute_plan_diff_preview(sp, plan.get("edits", []))
+                resp: Dict[str, Any] = {**plan, "diff_preview": diff_preview}
+                if inline_note is not None:
+                    resp["note"] = inline_note
+                self._send_json(resp, 200)
+                return
+
+            if path == "/api/space/notes/commit":
+                plan_id = data.get("plan_id")
+                if not plan_id:
+                    self._send_json({"error": "Missing 'plan_id'"}, 400)
+                    return
+                commit_author = data.get("author") or "notes-editor"
+                self._send_json(editor.commit(str(plan_id), author=commit_author), 200)
+                return
+
+            version_id = data.get("version_id")
+            if not version_id:
+                self._send_json({"error": "Missing 'version_id'"}, 400)
+                return
+            revert_author = data.get("author") or "notes-editor"
+            self._send_json(editor.revert(str(version_id), author=revert_author), 200)
+        except (KeyError, FileNotFoundError) as exc:
+            msg = exc.args[0] if isinstance(exc, KeyError) and exc.args else str(exc)
+            self._send_json({"error": msg}, 404)
+        except EditPlanError as exc:
+            msg = str(exc)
+            lower = msg.lower()
+            code = (
+                409
+                if (path.endswith("/commit") or path.endswith("/revert"))
+                and ("changed" in lower or "already" in lower)
+                else 400
+            )
+            self._send_json({"error": msg}, code)
+        except ValueError as exc:
+            self._send_json({"error": str(exc)}, 400)
+        except Exception as exc:
+            self._send_json({"error": str(exc)}, 500)
+
     def _handle_drive_get(self, parsed) -> None:
         """Read-only hard-drive mirror for the Ranger VFS (local server only)."""
         if parsed.path == "/api/drive/status":
-            allowed = self._drive_mirror_allowed()
-            self._send_private_json({
-                "available": allowed,
-                "on_railway": drive_mirror.running_on_railway(),
-                "fallback": None if allowed else "browser-folder-picker",
-            }, 200)
+            self._send_private_json(self._drive_status_payload(), 200)
             return
         if not self._drive_mirror_allowed():
             self._send_private_json({
@@ -2203,6 +2420,25 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 owner_id = data.get("owner_id") or data.get("topic_id") or data.get("peer_id") or peer_id
                 save_path = data.get("save_path")
 
+                if data.get("max_cost_usd") is not None:
+                    try:
+                        max_cost_usd = float(data["max_cost_usd"])
+                    except (TypeError, ValueError):
+                        self._send_json({"error": "Invalid 'max_cost_usd' value"}, 400)
+                        return
+                    estimated_cost_usd = _estimate_rodin_tier_cost(tier)
+                    if estimated_cost_usd > max_cost_usd:
+                        self._send_json({
+                            "error": (
+                                f"Rodin tier '{tier}' estimated cost ${estimated_cost_usd:.2f} "
+                                f"exceeds max_cost_usd ${max_cost_usd:.2f}"
+                            ),
+                            "estimated_cost_usd": estimated_cost_usd,
+                            "max_cost_usd": max_cost_usd,
+                            "budget_exceeded": True,
+                        }, 400)
+                        return
+
                 res = _dispatch_rodin(
                     router,
                     prompt=prompt,
@@ -2285,6 +2521,8 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json(out, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path.startswith("/api/space/notes"):
+            self._handle_space_notes_post(parsed.path)
         elif parsed.path == "/api/space/exec":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
@@ -3057,8 +3295,53 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         elif parsed.path == "/api/3d/balance":
             billing = _get_hyper3d_billing(router)
             self._send_json(billing, 200)
+        elif parsed.path == "/api/workstation/status":
+            query = parse_qs(parsed.query)
+            scope, owner_id = self._resolve_space_query(query)
+            sm = _get_space_manager()
+            sp = sm.get_or_create_space(scope, owner_id)
+            sp_summary = sp.get_summary()
+
+            ng_key = getattr(router, "nanogpt_key", None)
+            nanogpt_configured = bool(ng_key if ng_key is not None else os.environ.get("NANOGPT_API_KEY"))
+            nanogpt_models = (
+                router.get_nanogpt_models(include_live_public=False)
+                if hasattr(router, "get_nanogpt_models")
+                else []
+            )
+            self._send_json({
+                "rodin": _get_hyper3d_billing(router),
+                "rodin_tiers": dict(RODIN_TIER_PRICING_USD),
+                "nanogpt": {
+                    "configured": nanogpt_configured,
+                    "total_count": len(nanogpt_models),
+                    "tee_count": len(filter_gateway_models(nanogpt_models, tee=True)),
+                    "heretic_count": len(filter_gateway_models(nanogpt_models, uncensored=True)),
+                },
+                "space": {
+                    "scope": sp_summary.get("scope", scope),
+                    "owner_id": sp_summary.get("owner_id", owner_id),
+                    "merkle_root": sp_summary.get("merkle_root", ""),
+                    "file_count": sp_summary.get("file_count", 0),
+                },
+                "drive_mirror": self._drive_status_payload(include_root=True),
+            }, 200)
         elif parsed.path.startswith("/api/drive/"):
             self._handle_drive_get(parsed)
+        elif parsed.path == "/api/space/notes":
+            query = parse_qs(parsed.query)
+            scope, owner_id = self._resolve_space_query(query)
+            raw_status = query.get("status", ["pending"])[0]
+            note_status = None if raw_status == "all" else raw_status
+            try:
+                sp, editor = self._get_notes_editor(scope, owner_id)
+                self._send_json({
+                    "notes": editor.list_notes(status=note_status),
+                    "versions": editor.list_versions(),
+                    "merkle_root": sp.compute_merkle_root(),
+                }, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
         elif parsed.path == "/api/space/ls":
             query = parse_qs(parsed.query)
             scope = query.get("scope", ["user"])[0]
