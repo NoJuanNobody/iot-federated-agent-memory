@@ -22,7 +22,7 @@ ZEN_HEAD = r"""
       }
       var q = new URLSearchParams(location.search);
       var singleRoutes = ['/tv', '/call', '/comms', '/chat', '/arena', '/terminal', '/billing', '/tokens', '/board', '/cyberspace',
-                          '/space', '/files', '/finder', '/agentspace', '/quests', '/rewards', '/network'];
+                          '/space', '/files', '/finder', '/agentspace', '/workstation', '/quests', '/rewards', '/network'];
       if (q.get('classic') === '1' || q.get('window') || singleRoutes.indexOf(location.pathname) !== -1) return;
       document.documentElement.classList.add('zen-boot');
     })();
@@ -303,6 +303,7 @@ ZEN_BODY = r"""
       <button class="zen-btn" type="button" data-tool="win-terminal">Terminal</button>
       <button class="zen-btn zq-extra" type="button" data-tool="win-agentspace">Space</button>
       <button class="zen-btn zq-extra" type="button" data-tool="win-arena">Arena</button>
+      <button class="zen-btn zq-extra" type="button" data-tool="win-workstation">Workstation</button>
       <button class="zen-btn" type="button" data-tool="all" aria-haspopup="dialog" aria-controls="zenLauncher">All tools<kbd>⌘K</kbd></button>
     </nav>
     <button id="zenSound" class="zen-btn" type="button" aria-pressed="false">
@@ -352,6 +353,7 @@ ZEN_BODY = r"""
         { id: 'chat', name: 'Talk', desc: 'Room chat, voice and video calls', gate: 'talk in the room' },
         { id: 'win-board', name: 'Board', desc: 'Topics, threads and the knowledge graph', gate: 'open the board' },
         { id: 'win-agentspace', name: 'Space', desc: 'Files, code runs and the notes editor', gate: 'open your space' },
+        { id: 'win-workstation', name: 'Workstation', desc: 'AI foundry, TEE audits & Hyper3D Rodin 3D', gate: 'open workstation' },
         { id: 'win-terminal', name: 'Terminal', desc: 'Quickstart and commands', gate: 'open the terminal' },
         { id: 'win-arena', name: 'Arena', desc: 'AI models, routing and duels', gate: 'use the AI arena' },
         { id: 'win-network', name: 'Network', desc: "Who's here, peers and the leaderboard", gate: 'see the network' },
@@ -636,6 +638,7 @@ ZEN_BODY = r"""
       const SLASH = [
         { cmd: '/terminal', tool: 'win-terminal', desc: 'Quickstart and commands' },
         { cmd: '/space', tool: 'win-agentspace', desc: 'Files, code runs and the notes editor' },
+        { cmd: '/workstation', tool: 'win-workstation', desc: 'AI foundry, TEE audits and 3D meshes' },
         { cmd: '/arena', tool: 'win-arena', desc: 'AI models, routing and duels' },
         { cmd: '/board', tool: 'win-board', desc: 'Topics, threads and the knowledge graph' },
         { cmd: '/talk', tool: 'chat', desc: 'Room chat, voice and video calls' },
@@ -646,7 +649,7 @@ ZEN_BODY = r"""
       const HELP_TEXT = 'Search tools      type a name, enter opens it\n' +
         '@name message     tag someone in the room chat\n' +
         '> command         run a command in your space ($ works too)\n' +
-        '/command          /terminal /space /arena /board /talk /tokens /quests /help\n' +
+        '/command          /terminal /space /workstation /arena /board /talk /tokens /quests /help\n' +
         'Tab completes an @name, esc returns to the feed';
 
       // ---- Command bar adapters (one small seam per outside system) ----------------

@@ -47,7 +47,7 @@ def test_launcher_is_a_command_bar():
     assert "first === '@'" in html
     assert "first === '>' || first === '$'" in html
     assert "first === '/'" in html
-    for cmd in ("/terminal", "/space", "/arena", "/board", "/talk", "/tokens", "/quests", "/help"):
+    for cmd in ("/terminal", "/space", "/workstation", "/arena", "/board", "/talk", "/tokens", "/quests", "/help"):
         assert f"cmd: '{cmd}'" in html
     # people come from the existing roster; messages go through the room chat path
     assert "/api/board/roster" in html
@@ -69,3 +69,18 @@ def test_command_bar_shell_adapter_and_identity_gate():
     assert "gated('use the AI gateway'" in html
     # user text is rendered with textContent only
     assert ".textContent = t.name" in html
+
+
+def test_workstation_launcher_and_route_registered():
+    html = MESH_OS_HTML_UI
+    # /workstation enters classic single-window mode like /space and /arena
+    assert "'/workstation'" in html
+    # quick-launch pill exists in feed quickbar
+    assert '<button class="zen-btn zq-extra" type="button" data-tool="win-workstation">Workstation</button>' in html
+    # TOOLS and SLASH entries plus HELP_TEXT registration
+    assert "id: 'win-workstation'" in html
+    assert "name: 'Workstation'" in html
+    assert "gate: 'open workstation'" in html
+    assert "cmd: '/workstation', tool: 'win-workstation'" in html
+    help_block = html.split("const HELP_TEXT", 1)[1].split(";", 1)[0]
+    assert "/workstation" in help_block
