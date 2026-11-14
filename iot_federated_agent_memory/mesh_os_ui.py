@@ -2411,6 +2411,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           <div class="ide-group">
             <span id="spaceFileCountBadge" class="ide-count">0 Files</span>
             <button type="button" class="ide-btn" onclick="exportAgentSpace()" title="Download this space as a .space file">Export .space</button>
+            <button type="button" class="ide-btn" id="spaceOpenWorkstationBtn" onclick="window.TinCanWorkstation ? window.TinCanWorkstation.tileWithSpace() : toggleWindow('win-workstation')" title="Open TinCan Workstation beside Space">Workstation</button>
             <div class="ide-seg" role="group" aria-label="Studio views">
               <button id="finderTabBtn-files" type="button" class="is-active" onclick="switchFinderTab('files')">IDE</button>
               <button id="finderTabBtn-vscode" type="button" onclick="switchFinderTab('vscode')">Extensions</button>
@@ -2780,6 +2781,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       </div>
     </div>
 
+    <!--TC_WORKSTATION_WINDOW-->
+
   </main>
 
   <!-- Bottom OS Dock -->
@@ -2811,6 +2814,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     </button>
     <button id="dockBtn-win-agentspace" onclick="toggleWindow('win-agentspace')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Mesh Finder &amp; Ranger VFS Filesystem (Code, Video, 3D)">
       <span>📁</span> <span class="hidden md:inline">Files / Finder</span>
+    </button>
+    <button id="dockBtn-win-workstation" onclick="toggleWindow('win-workstation')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Workstation · Multi-Model Foundry &amp; Hyper3D Rodin 3D Studio">
+      <span>🛠️</span> <span class="hidden md:inline">Workstation</span>
     </button>
     <button id="dockBtn-win-billing" onclick="toggleWindow('win-billing')" class="px-2.5 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/80 text-emerald-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95 font-semibold" title="Token Billing, Store &amp; Sponsor Ads">
       <span>💳</span> <span class="hidden md:inline">Tokens &amp; Ads</span>
@@ -2855,6 +2861,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       else if (window.location.pathname === '/billing' || window.location.pathname === '/tokens') singleWindowParam = 'win-billing';
       else if (window.location.pathname === '/board' || window.location.pathname === '/cyberspace') singleWindowParam = 'win-board';
       else if (['/space', '/files', '/finder', '/agentspace'].includes(window.location.pathname)) singleWindowParam = 'win-agentspace';
+      else if (window.location.pathname === '/workstation') singleWindowParam = 'win-workstation';
       else if (window.location.pathname === '/rewards' || window.location.pathname === '/quests') singleWindowParam = 'win-quests';
       else if (window.location.pathname === '/network') singleWindowParam = 'win-network';
     }
@@ -3033,7 +3040,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     // Window Manager: Draggable, Resizable, Focus, Minimize, Maximize, Pop Out
     let highestZ = 30;
-    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-call', 'win-comms', 'win-quests', 'win-moderator', 'win-billing', 'win-board', 'win-network', 'win-agentspace'];
+    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-call', 'win-comms', 'win-quests', 'win-moderator', 'win-billing', 'win-board', 'win-network', 'win-agentspace', 'win-workstation'];
     const poppedOutWindows = new Set();
 
     function switchNetTab(tabName) {
@@ -8897,6 +8904,11 @@ MESH_OS_HTML_UI = apply_install_card(apply_shell_component(MESH_OS_HTML_UI))
 from .arena_duel_ui import apply_arena_duel  # noqa: E402
 
 MESH_OS_HTML_UI = apply_arena_duel(MESH_OS_HTML_UI)
+
+# Dedicated TinCan Workstation Studio (NanoGPT OpenRouter/TEE/Heretic + Hyper3D Rodin + Space Bridge).
+from .workstation_ui import render_workstation_window_html  # noqa: E402
+
+MESH_OS_HTML_UI = MESH_OS_HTML_UI.replace("<!--TC_WORKSTATION_WINDOW-->", render_workstation_window_html(), 1)
 
 # Zen startup shell (calm feed + launcher), injected so the classic markup above stays untouched.
 from .zen_shell import apply_zen_shell  # noqa: E402

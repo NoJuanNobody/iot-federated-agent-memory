@@ -80,13 +80,16 @@ def test_aeonik_celadon_palette_and_zero_legacy_dark_slate() -> None:
 
 
 def test_unique_element_ids_and_no_mesh_os_collisions() -> None:
+    from collections import Counter
+
     html = render_workstation_window_html()
     ws_ids = re.findall(r'(?<![\w-])id="([^"]+)"', html)
     assert len(ws_ids) >= 50
     assert len(ws_ids) == len(set(ws_ids))
 
-    mesh_ids = set(re.findall(r'(?<![\w-])id="([^"]+)"', MESH_OS_HTML_UI))
-    assert not (set(ws_ids) & mesh_ids)
+    mesh_counts = Counter(re.findall(r'(?<![\w-])id="([^"]+)"', MESH_OS_HTML_UI))
+    duplicates = [eid for eid in ws_ids if mesh_counts[eid] != 1]
+    assert duplicates == []
 
 
 def test_left_pane_gateways_context_and_guardrails() -> None:
@@ -377,3 +380,40 @@ Promise.resolve(api.refresh()).then(() => api.dispatch()).then(() => {
     )
     assert run.returncode == 0, f"sandbox execution failed: {run.stderr}"
     assert run.stdout.strip() == "OK:1"
+
+
+def test_mesh_os_html_ui_wires_workstation_and_space_tiling() -> None:
+    assert "<!--TC_WORKSTATION_WINDOW-->" not in MESH_OS_HTML_UI
+    assert "<!--TC_TITLEBAR" not in MESH_OS_HTML_UI
+    assert 'id="win-workstation"' in MESH_OS_HTML_UI
+    ws_idx = MESH_OS_HTML_UI.find('id="win-workstation"')
+    assert 'data-zen-window="true"' in MESH_OS_HTML_UI[ws_idx : ws_idx + 180]
+    assert 'id="dockBtn-win-workstation"' in MESH_OS_HTML_UI
+    assert 'id="spaceOpenWorkstationBtn"' in MESH_OS_HTML_UI
+    assert "'win-agentspace', 'win-workstation'" in MESH_OS_HTML_UI
+    assert "window.location.pathname === '/workstation'" in MESH_OS_HTML_UI
+    assert "singleWindowParam = 'win-workstation'" in MESH_OS_HTML_UI
+    assert "Workstation · Multi-Model &amp; 3D Studio" in MESH_OS_HTML_UI or (
+        "Workstation · Multi-Model & 3D Studio" in MESH_OS_HTML_UI
+    )
+
+
+def test_mesh_os_html_ui_workstation_window_has_zero_legacy_palette_classes() -> None:
+    ws_idx = MESH_OS_HTML_UI.find('id="win-workstation"')
+    main_end = MESH_OS_HTML_UI.find("</main>", ws_idx)
+    assert ws_idx != -1 and main_end > ws_idx
+    workstation_slice = MESH_OS_HTML_UI[ws_idx:main_end]
+    assert legacy_palette_classes(workstation_slice) == []
+
+
+def test_workstation_three_way_route_sync() -> None:
+    import server as srv
+    from iot_federated_agent_memory.designs_gallery import DESKTOP_MOCKUPS
+
+    assert "/workstation" in srv.SINGLE_WINDOW_ROUTES
+    assert "'/workstation'" in MESH_OS_HTML_UI
+    assert "tool: 'win-workstation'" in MESH_OS_HTML_UI
+    assert "window.location.pathname === '/workstation'" in MESH_OS_HTML_UI
+    assert "singleWindowParam = 'win-workstation'" in MESH_OS_HTML_UI
+    mockup_ids = {m["id"] for m in DESKTOP_MOCKUPS}
+    assert {"ws-studio", "ws-stories", "ws-dual"}.issubset(mockup_ids)
