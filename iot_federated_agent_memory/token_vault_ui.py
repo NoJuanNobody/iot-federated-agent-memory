@@ -843,7 +843,7 @@ def render_token_vault_window_html() -> str:
         <section class="tv-rodin-strip" aria-label="Hyper3D Rodin 3D Generative Credit Pool">
           <div class="tv-sec-head">
             <div class="tv-subbar-group">
-              <span class="tv-sec-title">Hyper3D Rodin (Ronin) 3D Credit Pool</span>
+              <span class="tv-sec-title">Hyper3D Rodin (Ronin) 3D Generative Credit Pool</span>
               <span id="rodinBillingStatusBadge" class="tv-badge tv-badge--pos">ONLINE / POOLED</span>
             </div>
             <div class="tv-subbar-group">
