@@ -5,6 +5,7 @@ Provides a unified, responsive showcase for all updated design mockups across:
 1. Native iOS App (9 screen mockups + composite sheets + live simulator)
 2. Car Head-Unit UI (1280x720 Sumi-Dock driving, parked, dashcam, identity mockups + live UI)
 3. Mesh OS Desktop (11-window Zen contact sheet + tiled grid + Workstation Studio mockups)
+4. Terminal AI Redesign (AI Home Shell, AI Copilot, Blind Brain Arena & Token Vault mockups)
 """
 
 from typing import Dict, List, Any
@@ -76,6 +77,49 @@ DESKTOP_MOCKUPS: List[Dict[str, str]] = [
     },
 ]
 
+TERMINAL_AI_MOCKUPS: List[Dict[str, str]] = [
+    {
+        "id": "term-ai-sheet",
+        "title": "TinCan Terminal AI · Master Contact Sheet",
+        "desc": "4-screen Aeonik Celadon & Ink redesign sheet uniting AI Home Shell, AI Copilot, Blind Brain Arena, and Token Vault.",
+        "img": "/assets/designs/tincan_terminal_ai_sheet.png",
+        "link": "/",
+        "link_label": "Open AI Home",
+    },
+    {
+        "id": "term-ai-home",
+        "title": "01 · AI Gateway & Mesh Home Shell",
+        "desc": "tincan ask command hero, zero-burn local Ollama / FAU OwlChat / NanoGPT TEE router chips, 4 workflow cards, and monochrome telemetry.",
+        "img": "/assets/designs/tincan_terminal_01_home.png",
+        "link": "/",
+        "link_label": "Open AI Home",
+    },
+    {
+        "id": "term-ai-copilot",
+        "title": "02 · AI Copilot & .space Code Diffs",
+        "desc": "Dedicated thread workspace with direct localhost Ollama & OwlChat BYOK routing, .space RAG file context, and one-click patch apply.",
+        "img": "/assets/designs/tincan_terminal_02_copilot.png",
+        "link": "/copilot",
+        "link_label": "Open AI Copilot",
+    },
+    {
+        "id": "term-ai-arena",
+        "title": "03 · AI Brain Arena (Local vs Cloud)",
+        "desc": "Side-by-side blind duel comparing zero-burn local open-weight models against frontier cloud with pre-auth credit caps and +25 XP votes.",
+        "img": "/assets/designs/tincan_terminal_03_arena.png",
+        "link": "/arena",
+        "link_label": "Open AI Brain Arena",
+    },
+    {
+        "id": "term-ai-tokens",
+        "title": "04 · Token Vault & Sponsor Arbitrage",
+        "desc": "USD-normalized credits (1 CR = $0.001), Stripe $1/$5/$20 top-up packs, rate card, +50 CR sponsor video clips, and audit ledger.",
+        "img": "/assets/designs/tincan_terminal_04_tokens.png",
+        "link": "/tokens",
+        "link_label": "Open Token Vault",
+    },
+]
+
 
 def _build_card_html(m: Dict[str, str], action_href: str = "", action_label: str = "") -> str:
     img = m["img"]
@@ -105,6 +149,10 @@ def _build_card_html(m: Dict[str, str], action_href: str = "", action_label: str
 
 def render_designs_gallery_html(active_tab: str = "aeonik") -> str:
     """Renders the comprehensive mockups gallery page in Aeonik Celadon & Ink style (Python 3.11+ safe)."""
+    valid_tabs = {"aeonik", "ios", "car", "desktop", "terminal-ai"}
+    selected_tab = active_tab if active_tab in valid_tabs else "aeonik"
+    tab_cls = lambda key: " active" if selected_tab == key else ""
+
     aeonik_cards = "\n".join(
         _build_card_html(m, m.get("link", "/mesh"), m.get("link_label", "Open Live View"))
         for m in AEONIK_MOCKUPS
@@ -128,6 +176,10 @@ def render_designs_gallery_html(active_tab: str = "aeonik") -> str:
     desktop_cards = "\n".join(
         _build_card_html(m, m.get("link", "/mesh"), m.get("link_label", "Open Desktop"))
         for m in DESKTOP_MOCKUPS
+    )
+    terminal_ai_cards = "\n".join(
+        _build_card_html(m, m.get("link", "/"), m.get("link_label", "Open Live View"))
+        for m in TERMINAL_AI_MOCKUPS
     )
 
     return f"""<!DOCTYPE html>
@@ -359,10 +411,11 @@ main.container {{
 </header>
 
 <div class="tabs-bar">
-  <button class="tab-btn active" onclick="switchGalleryTab('aeonik')">01 · Aeonik Celadon &amp; Ink (2)</button>
-  <button class="tab-btn" onclick="switchGalleryTab('ios')">02 · Native iOS App (11)</button>
-  <button class="tab-btn" onclick="switchGalleryTab('car')">03 · Car Head-Unit UI (5)</button>
-  <button class="tab-btn" onclick="switchGalleryTab('desktop')">04 · Mesh OS Windows ({len(DESKTOP_MOCKUPS)})</button>
+  <button class="tab-btn{tab_cls('aeonik')}" onclick="switchGalleryTab('aeonik')">01 · Aeonik Celadon &amp; Ink (2)</button>
+  <button class="tab-btn{tab_cls('ios')}" onclick="switchGalleryTab('ios')">02 · Native iOS App (11)</button>
+  <button class="tab-btn{tab_cls('car')}" onclick="switchGalleryTab('car')">03 · Car Head-Unit UI (5)</button>
+  <button class="tab-btn{tab_cls('desktop')}" onclick="switchGalleryTab('desktop')">04 · Mesh OS Windows ({len(DESKTOP_MOCKUPS)})</button>
+  <button class="tab-btn{tab_cls('terminal-ai')}" onclick="switchGalleryTab('terminal-ai')">05 · Terminal AI Redesign ({len(TERMINAL_AI_MOCKUPS)})</button>
 </div>
 
 <main class="container">
@@ -384,7 +437,7 @@ main.container {{
   </div>
 
   <!-- TAB 0: AEONIK RESKIN -->
-  <div id="tab-aeonik" class="tab-section active">
+  <div id="tab-aeonik" class="tab-section{tab_cls('aeonik')}">
     <div class="intro-panel">
       <div class="intro-text">
         <h2>Aeonik Celadon &amp; Ink Design System (Live Interactive + Reference)</h2>
@@ -420,7 +473,7 @@ main.container {{
   </div>
 
   <!-- TAB 1: iOS APP -->
-  <div id="tab-ios" class="tab-section">
+  <div id="tab-ios" class="tab-section{tab_cls('ios')}">
     <div class="intro-panel">
       <div class="intro-text">
         <h2>TinCan 2.2 · Native iOS App</h2>
@@ -434,7 +487,7 @@ main.container {{
   </div>
 
   <!-- TAB 2: CAR UI -->
-  <div id="tab-car" class="tab-section">
+  <div id="tab-car" class="tab-section{tab_cls('car')}">
     <div class="intro-panel">
       <div class="intro-text">
         <h2>TinCan OS · Aftermarket Car Head-Unit UI</h2>
@@ -448,7 +501,7 @@ main.container {{
   </div>
 
   <!-- TAB 3: MESH OS WINDOWS -->
-  <div id="tab-desktop" class="tab-section">
+  <div id="tab-desktop" class="tab-section{tab_cls('desktop')}">
     <div class="intro-panel">
       <div class="intro-text">
         <h2>TinCan Mesh OS · Zen Desktop Windows</h2>
@@ -458,6 +511,25 @@ main.container {{
     </div>
     <div class="grid-gallery">
       {desktop_cards}
+    </div>
+  </div>
+
+  <!-- TAB 4: TERMINAL AI REDESIGN -->
+  <div id="tab-terminal-ai" class="tab-section{tab_cls('terminal-ai')}">
+    <div class="intro-panel">
+      <div class="intro-text">
+        <h2>TinCan Terminal AI Redesign · Home, Copilot, Arena &amp; Token Vault</h2>
+        <p>Aeonik Celadon &amp; Ink v2.2 terminal AI specs: zero-burn local Ollama &amp; FAU OwlChat command routing, .space code diffs in AI Copilot, blind local-vs-cloud Brain Arena duels, and USD-normalized Stripe + sponsor arbitrage Token Vault.</p>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <a href="/" class="btn-cta">⚡ AI Home</a>
+        <a href="/copilot" class="btn-cta outline">💬 /copilot</a>
+        <a href="/arena" class="btn-cta outline">⚔️ /arena</a>
+        <a href="/tokens" class="btn-cta outline">💳 /tokens</a>
+      </div>
+    </div>
+    <div class="grid-gallery">
+      {terminal_ai_cards}
     </div>
   </div>
 </main>

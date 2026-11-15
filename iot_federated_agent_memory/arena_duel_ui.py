@@ -8,6 +8,10 @@ once. Every element id is prefixed, so the duel can live in win-arena
 same time without duplicate ids. The win-quests prefix is ``arena``, which
 keeps its historic ids (``arenaBattleBox``, ``arenaPromptInput``,
 ``arenaResultA`` ...).
+
+Styled with TinCan's Aeonik Celadon & Ink design tokens (``#ecf1e6``,
+``#f4f8f0``, ``#ffffff``, ``#111111``, plus surgical ``#107a47`` / ``#8a1c1c``
+inline telemetry accents).
 """
 
 from __future__ import annotations
@@ -32,50 +36,55 @@ _MARKER_RE = re.compile(r"<!--ARENA_DUEL:([A-Za-z][A-Za-z0-9]*)-->")
 
 def _brain_column(p: str, side: str, color: str, model: str, agent: str) -> str:
     return f"""
-            <div class="arena-brain-slot p-3 bg-slate-900/90 rounded-lg border border-slate-800 flex flex-col gap-2" data-arena-slot="{side}" id="{p}Slot{side}">
-              <div class="flex justify-between items-center pb-1.5 border-b border-slate-800 gap-2">
-                <span class="font-bold text-xs text-{color}-300 font-mono">Brain {side}</span>
-                <span id="{p}Label{side}" class="text-[10px] text-slate-400 font-mono truncate max-w-[200px]">{html.escape(model)}</span>
+            <div class="arena-brain-slot p-3 bg-[#ffffff] text-[#111111] rounded-xl border border-[#111111] flex flex-col gap-2" data-arena-slot="{side}" id="{p}Slot{side}">
+              <div class="flex flex-wrap justify-between items-center pb-1.5 border-b border-[#111111]/15 gap-2">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span class="font-bold text-xs text-[#111111] font-mono uppercase tracking-wider shrink-0">Brain {side}</span>
+                  <span class="text-[#5c5c5c] font-mono text-xs shrink-0">·</span>
+                  <span id="{p}Label{side}" class="text-[11px] text-[#4a4a4a] font-mono truncate max-w-[180px]">{html.escape(model)}</span>
+                  <span id="{p}TierTag{side}" class="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-[#111111]/30 bg-[#f4f8f0] text-[#4a4a4a] shrink-0">CLOUD</span>
+                </div>
+                <div id="{p}Bill{side}" class="text-[10px] font-mono text-[#4a4a4a] min-h-[12px] text-right"></div>
               </div>
-              <div id="{p}Result{side}" class="text-xs font-mono text-slate-200 min-h-[90px] max-h-[200px] overflow-y-auto whitespace-pre-wrap bg-black/40 p-2.5 rounded" aria-live="polite">Click "Battle 2 Brains" to send the prompt to both brains.</div>
-              <div id="{p}Bill{side}" class="text-[10px] font-mono text-slate-500 min-h-[12px]"></div>
+              <div id="{p}Result{side}" class="text-xs font-mono text-[#111111] min-h-[96px] max-h-[210px] overflow-y-auto whitespace-pre-wrap bg-[#f4f8f0] border border-[#111111]/20 p-2.5 rounded-lg" aria-live="polite">Click "Battle 2 Brains" to send the prompt to both brains.</div>
+              <div id="{p}Savings{side}" class="text-[10px] font-mono text-[#4a4a4a] bg-[#ffffff] border border-[#111111]/25 rounded-lg px-2 py-1 min-h-[22px] flex items-center justify-between gap-2">Awaiting duel telemetry · cost delta &amp; TTFT</div>
 
-              <div class="arena-ctx rounded border border-slate-800 bg-slate-950/70 p-2 space-y-2" id="{p}Ctx{side}">
+              <div class="arena-ctx rounded-lg border border-[#111111]/25 bg-[#f4f8f0] p-2.5 space-y-2" id="{p}Ctx{side}">
                 <div class="flex items-center justify-between gap-2">
-                  <span class="text-[10px] uppercase tracking-wider text-slate-400 font-mono">Context used</span>
-                  <label class="text-[10px] text-slate-400 font-mono flex items-center gap-1"><input type="checkbox" id="{p}UseCtx{side}" checked onchange="arenaCtxSaveSettings('{p}')"> use files</label>
+                  <span class="text-[10px] uppercase tracking-wider text-[#4a4a4a] font-mono font-semibold">Context used</span>
+                  <label class="text-[10px] text-[#4a4a4a] font-mono flex items-center gap-1 cursor-pointer"><input type="checkbox" id="{p}UseCtx{side}" class="accent-[#111111]" checked onchange="arenaCtxSaveSettings('{p}')"> use files</label>
                 </div>
-                <div id="{p}Used{side}" class="text-[11px] font-mono text-slate-400 space-y-1">No duel yet.</div>
+                <div id="{p}Used{side}" class="text-[11px] font-mono text-[#4a4a4a] space-y-1">No duel yet.</div>
 
-                <div class="flex items-center gap-1.5 pt-1 border-t border-slate-800">
-                  <span class="text-[10px] text-slate-500 font-mono shrink-0">Brain store</span>
-                  <input id="{p}Agent{side}" value="{agent}" maxlength="48" onchange="arenaCtxAgentChanged('{p}','{side}')" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-[11px] text-{color}-300 font-mono" aria-label="Brain {side} store id">
-                  <button type="button" onclick="arenaCtxRefresh('{p}','{side}')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-mono" title="Reload this brain's files">↻</button>
+                <div class="flex items-center gap-1.5 pt-1 border-t border-[#111111]/15">
+                  <span class="text-[10px] text-[#5c5c5c] font-mono shrink-0">Brain store</span>
+                  <input id="{p}Agent{side}" value="{agent}" maxlength="48" onchange="arenaCtxAgentChanged('{p}','{side}')" class="flex-1 min-w-0 bg-[#ffffff] border border-[#111111]/40 rounded px-1.5 py-0.5 text-[11px] text-[#111111] font-mono" aria-label="Brain {side} store id">
+                  <button type="button" onclick="arenaCtxRefresh('{p}','{side}')" class="px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111]/40 text-[10px] font-mono transition" title="Reload this brain's files">↻</button>
                 </div>
-                <div id="{p}Files{side}" class="max-h-[120px] overflow-y-auto text-[11px] font-mono text-slate-300 space-y-0.5"></div>
-                <div id="{p}Viewer{side}" class="hidden max-h-[160px] overflow-y-auto whitespace-pre-wrap text-[10px] font-mono text-slate-300 bg-black/50 p-2 rounded border border-slate-800"></div>
+                <div id="{p}Files{side}" class="max-h-[120px] overflow-y-auto text-[11px] font-mono text-[#111111] space-y-0.5"></div>
+                <div id="{p}Viewer{side}" class="hidden max-h-[160px] overflow-y-auto whitespace-pre-wrap text-[10px] font-mono text-[#111111] bg-[#ffffff] p-2 rounded border border-[#111111]/30"></div>
 
                 <div class="flex flex-wrap gap-1 text-[10px] font-mono">
-                  <label class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer">⬆ Upload<input type="file" multiple class="hidden" id="{p}Upload{side}" onchange="arenaCtxUpload('{p}','{side}', this)"></label>
-                  <button type="button" onclick="arenaCtxTogglePaste('{p}','{side}')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200">✎ Paste</button>
-                  <button type="button" onclick="arenaCtxImportSpace('{p}','{side}')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200" title="Copy the files in your own Agent Space into this brain">⇣ Import my Space</button>
-                  <button type="button" id="{p}DriveBtn{side}" onclick="arenaCtxToggleDrive('{p}','{side}')" class="hidden px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200" title="Link files from your local drive mirror">⌂ Link drive</button>
+                  <label class="px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111]/40 cursor-pointer transition">⬆ Upload<input type="file" multiple class="hidden" id="{p}Upload{side}" onchange="arenaCtxUpload('{p}','{side}', this)"></label>
+                  <button type="button" onclick="arenaCtxTogglePaste('{p}','{side}')" class="px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111]/40 transition">✎ Paste</button>
+                  <button type="button" onclick="arenaCtxImportSpace('{p}','{side}')" class="px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111]/40 transition" title="Copy the files in your own Agent Space into this brain">⇣ Import my Space</button>
+                  <button type="button" id="{p}DriveBtn{side}" onclick="arenaCtxToggleDrive('{p}','{side}')" class="hidden px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111]/40 transition" title="Link files from your local drive mirror">⌂ Link drive</button>
                 </div>
                 <div id="{p}PasteBox{side}" class="hidden space-y-1">
-                  <input id="{p}PasteName{side}" placeholder="notes.md" maxlength="120" class="w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-[11px] text-white font-mono">
-                  <textarea id="{p}PasteText{side}" rows="4" placeholder="Paste text this brain should know..." class="w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-[11px] text-white font-mono"></textarea>
-                  <button type="button" onclick="arenaCtxPaste('{p}','{side}')" class="w-full py-1 bg-slate-700 hover:bg-slate-600 text-white rounded text-[10px] font-mono">Add to Brain {side}</button>
+                  <input id="{p}PasteName{side}" placeholder="notes.md" maxlength="120" class="w-full bg-[#ffffff] border border-[#111111]/40 rounded px-1.5 py-0.5 text-[11px] text-[#111111] font-mono">
+                  <textarea id="{p}PasteText{side}" rows="4" placeholder="Paste text this brain should know..." class="w-full bg-[#ffffff] border border-[#111111]/40 rounded px-1.5 py-1 text-[11px] text-[#111111] font-mono"></textarea>
+                  <button type="button" onclick="arenaCtxPaste('{p}','{side}')" class="w-full py-1 bg-[#111111] hover:bg-[#333333] text-[#ecf1e6] rounded-full text-[10px] font-mono font-semibold">Add to Brain {side}</button>
                 </div>
                 <div id="{p}DriveBox{side}" class="hidden space-y-1">
-                  <input id="{p}DrivePath{side}" placeholder="/dev/project/README.md or a folder" class="w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-[11px] text-white font-mono">
-                  <button type="button" onclick="arenaCtxLinkDrive('{p}','{side}')" class="w-full py-1 bg-slate-700 hover:bg-slate-600 text-white rounded text-[10px] font-mono">Link to Brain {side}</button>
+                  <input id="{p}DrivePath{side}" placeholder="/dev/project/README.md or a folder" class="w-full bg-[#ffffff] border border-[#111111]/40 rounded px-1.5 py-0.5 text-[11px] text-[#111111] font-mono">
+                  <button type="button" onclick="arenaCtxLinkDrive('{p}','{side}')" class="w-full py-1 bg-[#111111] hover:bg-[#333333] text-[#ecf1e6] rounded-full text-[10px] font-mono font-semibold">Link to Brain {side}</button>
                 </div>
-                <div id="{p}CtxMsg{side}" class="text-[10px] font-mono text-slate-500 min-h-[12px]" aria-live="polite"></div>
+                <div id="{p}CtxMsg{side}" class="text-[10px] font-mono text-[#4a4a4a] min-h-[12px]" aria-live="polite"></div>
               </div>
 
-              <div class="space-y-1.5 pt-1">
-                <button id="{p}VoteBtn{side}" onclick="arenaDuelVote('{p}','{side}')" class="w-full py-1.5 bg-{color}-700/80 hover:bg-{color}-600 text-white font-semibold rounded text-xs transition active:scale-95 font-mono">🏆 Vote Brain {side} (+150 XP)</button>
-                <button onclick="arenaDuelToSpace('{p}','{side}')" class="w-full py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-mono flex items-center justify-center gap-1 border border-slate-700 transition active:scale-95" title="Copy this answer to your Agent Space and sandbox">🚀 Use in Agent Space &amp; Sandbox</button>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                <button type="button" id="{p}VoteBtn{side}" onclick="arenaDuelVote('{p}','{side}')" class="w-full py-1.5 px-3 bg-[#111111] hover:bg-[#333333] text-[#ecf1e6] font-semibold rounded-full text-xs transition active:scale-95 font-mono border border-[#111111]">🏆 Vote Brain {side} (+150 XP)</button>
+                <button type="button" id="{p}UseSpaceBtn{side}" onclick="arenaDuelToSpace('{p}','{side}')" class="w-full py-1.5 px-3 bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] rounded-full text-[10px] font-mono flex items-center justify-center gap-1 border border-[#111111] transition active:scale-95" title="Copy this answer to your Agent Space and sandbox">🚀 Use in Agent Space &amp; Sandbox</button>
               </div>
             </div>"""
 
@@ -86,38 +95,68 @@ def render_arena_duel(prefix: str, view_label: str = "") -> str:
     (sa, ca, ma, _), (sb, cb, mb, _) = _SIDES
     columns = "".join(_brain_column(p, side, color, model, agent) for side, color, model, agent in _SIDES)
     return f"""
-        <div id="{p}BattleBox" class="arena-duel bg-slate-950/90 border border-indigo-900/60 rounded-xl p-4 space-y-3" data-arena-view="{p}" data-arena-view-label="{html.escape(view_label)}">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5"><span>⚔️</span> Side-by-Side AI Brain Arena Duel</h3>
-              <p class="text-[11px] text-slate-400">Pick two chat models the router supports. Each brain answers with the files in its own store, and both sides are billed to your signed-in account. Vote for the better answer (+150 XP).</p>
+        <div id="{p}BattleBox" class="arena-duel bg-[#f4f8f0] text-[#111111] border border-[#111111] rounded-xl p-4 space-y-3" data-arena-view="{p}" data-arena-view-label="{html.escape(view_label)}">
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-[#111111]/15">
+            <div class="space-y-0.5">
+              <div class="flex flex-wrap items-center gap-2">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center gap-1.5"><span>⚔️</span> AI Brain Arena · Blind Multi-Model Duel</h3>
+                <span class="px-2 py-0.5 rounded-full bg-[#111111] text-[#ecf1e6] text-[10px] font-mono font-semibold uppercase tracking-wider">BLIND DUEL</span>
+                <span class="text-[11px] font-mono text-[#4a4a4a]">+150 XP per blind vote · local vs cloud</span>
+              </div>
+              <p class="text-[11px] text-[#4a4a4a]">Pick two chat models the router supports. Each brain answers with the files in its own store, and both sides are billed to your signed-in account. Vote for the better answer (+150 XP).</p>
             </div>
-            <span id="{p}Account" role="button" tabindex="0" onclick="arenaCtxStatus(true)" title="Refresh sign-in and files" class="cursor-pointer text-[11px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800 px-2 py-0.5 rounded">Checking sign-in…</span>
+            <span id="{p}Account" role="button" tabindex="0" onclick="arenaCtxStatus(true)" title="Refresh sign-in and files" class="cursor-pointer text-[11px] font-mono text-[#111111] bg-[#ffffff] border border-[#111111] hover:bg-[#111111] hover:text-[#ecf1e6] px-2.5 py-1 rounded-full transition">Checking sign-in…</span>
           </div>
 
-          <!-- Model A & Model B pickers: filled from /api/mesh/arena/models (what the AI router actually supports) -->
-          <div class="aeonik-scope flex flex-col md:flex-row items-stretch md:items-center gap-2 pt-1">
-            <div class="flex-1 min-w-0 bg-slate-900/70 border border-{ca}-900/60 rounded-lg p-2 flex items-center gap-2">
-              <label for="{p}Model{sa}Input" class="text-[11px] font-mono text-{ca}-400 font-bold shrink-0">Model {sa}:</label>
-              <select id="{p}Model{sa}Input" data-arena-picker="{sa}" onchange="arenaDuelModelChange('{p}')" class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-{ca}-300 font-mono focus:border-{ca}-500 focus:outline-none">
-                <option value="{ma}">{ma}</option>
-              </select>
+          <div class="bg-[#ffffff] border border-[#111111] rounded-xl p-3 space-y-2.5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="text-[10px] font-mono uppercase tracking-wider text-[#4a4a4a] font-semibold">ARENA DUEL PROMPT &amp; VAULT RAG CONTEXT</span>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span id="{p}RagBadge" class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#ecf1e6] text-[#111111] border border-[#111111] text-[10px] font-mono">RAG: .space (ready)</span>
+                <span id="{p}PreAuthCap" class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#ecf1e6] text-[#107a47] border border-[#107a47] text-[10px] font-mono font-semibold">PRE-AUTH CAP: 533 TOK/SIDE MAX</span>
+              </div>
             </div>
-            <button id="{p}SwapBtn" onclick="arenaDuelSwap('{p}')" title="Swap left and right models" aria-label="Swap models" class="self-center px-2 py-1 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 rounded-lg font-mono text-xs transition active:scale-95">⇄</button>
-            <div class="flex-1 min-w-0 bg-slate-900/70 border border-{cb}-900/60 rounded-lg p-2 flex items-center gap-2">
-              <label for="{p}Model{sb}Input" class="text-[11px] font-mono text-{cb}-400 font-bold shrink-0">Model {sb}:</label>
-              <select id="{p}Model{sb}Input" data-arena-picker="{sb}" onchange="arenaDuelModelChange('{p}')" class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-{cb}-300 font-mono focus:border-{cb}-500 focus:outline-none">
-                <option value="{mb}">{mb}</option>
-              </select>
-            </div>
-          </div>
-          <div id="{p}ModelsNote" class="text-[10px] font-mono text-slate-500 -mt-1"></div>
 
-          <div class="flex gap-2">
-            <input id="{p}PromptInput" type="text" value="Summarize what my files say about deploying TinCan." class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-xs text-white font-mono placeholder:text-slate-600" aria-label="Duel prompt" onkeydown="if(event.key==='Enter')arenaDuelRun('{p}')">
-            <button id="{p}RunBtn" onclick="arenaDuelRun('{p}')" class="px-4 py-1.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:brightness-110 text-white font-semibold rounded text-xs transition active:scale-95 shrink-0 flex items-center gap-1.5"><span>⚔️</span> <span>Battle 2 Brains</span></button>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex flex-wrap items-center gap-2">
+                <button type="button" id="{p}PresetLocalCloudBtn" onclick="arenaPresetLocalVsCloud('{p}')" class="px-3 py-1 rounded-full bg-[#ecf1e6] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111] text-[10px] font-mono font-semibold transition active:scale-95" title="Arm a zero-burn local or open-weight model on Brain A against a frontier cloud model on Brain B">⚡ Local vs Cloud Preset</button>
+                <span id="{p}PresetStatus" class="text-[10px] font-mono text-[#4a4a4a]">Compare local Ollama / open-weight vs frontier cloud</span>
+              </div>
+            </div>
+
+            <!-- Model A & Model B pickers: filled from /api/mesh/arena/models (what the AI router actually supports) -->
+            <div class="aeonik-scope flex flex-col md:flex-row items-stretch md:items-center gap-2">
+              <div class="flex-1 min-w-0 bg-[#f4f8f0] border border-[#111111] rounded-lg p-2 flex items-center gap-2">
+                <label for="{p}Model{sa}Input" class="text-[11px] font-mono text-[#111111] font-bold shrink-0">Model {sa}:</label>
+                <select id="{p}Model{sa}Input" data-arena-picker="{sa}" onchange="arenaDuelModelChange('{p}')" class="flex-1 min-w-0 bg-[#ffffff] border border-[#111111] rounded px-2 py-1 text-xs text-[#111111] font-mono focus:outline-none">
+                  <option value="{ma}">{ma}</option>
+                </select>
+              </div>
+              <button type="button" id="{p}SwapBtn" onclick="arenaDuelSwap('{p}')" title="Swap left and right models" aria-label="Swap models" class="self-center px-2.5 py-1 bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111] rounded-full font-mono text-xs transition active:scale-95">⇄</button>
+              <div class="flex-1 min-w-0 bg-[#f4f8f0] border border-[#111111] rounded-lg p-2 flex items-center gap-2">
+                <label for="{p}Model{sb}Input" class="text-[11px] font-mono text-[#111111] font-bold shrink-0">Model {sb}:</label>
+                <select id="{p}Model{sb}Input" data-arena-picker="{sb}" onchange="arenaDuelModelChange('{p}')" class="flex-1 min-w-0 bg-[#ffffff] border border-[#111111] rounded px-2 py-1 text-xs text-[#111111] font-mono focus:outline-none">
+                  <option value="{mb}">{mb}</option>
+                </select>
+              </div>
+            </div>
+            <div id="{p}ModelsNote" class="text-[10px] font-mono text-[#4a4a4a]"></div>
+
+            <div class="flex flex-col sm:flex-row gap-2">
+              <input id="{p}PromptInput" type="text" value="Summarize what my files say about deploying TinCan." class="flex-1 min-w-0 bg-[#f4f8f0] border border-[#111111] rounded-lg px-3 py-1.5 text-xs text-[#111111] font-mono placeholder:text-[#5c5c5c]" aria-label="Duel prompt" oninput="if(typeof arenaUpdatePreAuthCap==='function')arenaUpdatePreAuthCap('{p}')" onkeydown="if(event.key==='Enter')arenaDuelRun('{p}')">
+              <button type="button" id="{p}RunBtn" onclick="arenaDuelRun('{p}')" class="px-4 py-1.5 bg-[#111111] hover:bg-[#333333] text-[#ecf1e6] font-semibold rounded-full text-xs transition active:scale-95 shrink-0 flex items-center justify-center gap-1.5 border border-[#111111]"><span>⚔️</span> <span>Battle 2 Brains</span></button>
+            </div>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">{columns}
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">{columns}
+          </div>
+
+          <div id="{p}ProStrip" class="bg-[#ffffff] border border-[#111111] rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
+            <div class="min-w-0 space-y-0.5">
+              <div id="{p}ProTelemetryTitle" class="text-[10px] font-mono font-bold uppercase tracking-wider text-[#111111]">PRO MONETIZATION TELEMETRY</div>
+              <p id="{p}ProTelemetrySub" class="text-[11px] text-[#4a4a4a]">Bundle 4-Model Round-Robin Tournaments + Automated Vault RAG Evaluation Suites or run zero-burn via local Ollama.</p>
+            </div>
+            <button type="button" id="{p}UpgradeProBtn" onclick="if(typeof toggleWindow==='function')toggleWindow('win-billing')" class="px-4 py-1.5 bg-[#111111] hover:bg-[#333333] text-[#ecf1e6] font-semibold rounded-full text-xs font-mono transition active:scale-95 shrink-0 border border-[#111111]">Upgrade Arena Pro →</button>
           </div>
         </div>"""
 
@@ -128,15 +167,18 @@ ARENA_DUEL_SCRIPT = r"""
   const VIEWS = __ARENA_VIEWS__;
   const SIDES = ['A', 'B'];
   const lastDuel = {};
+  const ragStats = {};
   const MODELS_KEY = 'tincan_arena_models';   // shared with the #12 pickers
   let driveAllowed = false;
   let modelList = [];
+  let lastTokenBalance = null;
 
   const el = (id) => document.getElementById(id);
   const peer = () => (typeof myPeerId !== 'undefined' ? myPeerId : (localStorage.getItem('tincan_peer_id') || ''));
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
   const agentOf = (p, side) => ((el(p + 'Agent' + side) || {}).value || ('brain-' + side.toLowerCase())).trim().toLowerCase();
   const modelOf = (p, side) => ((el(p + 'Model' + side + 'Input') || {}).value || '').trim();
+  const nowMs = () => (typeof performance !== 'undefined' && performance && typeof performance.now === 'function' ? performance.now() : Date.now());
 
   async function api(path, opts) {
     opts = opts || {};
@@ -150,8 +192,156 @@ ARENA_DUEL_SCRIPT = r"""
 
   function msg(p, side, text, isError) {
     const m = el(p + 'CtxMsg' + side);
-    if (m) { m.textContent = text || ''; m.className = 'text-[10px] font-mono min-h-[12px] ' + (isError ? 'text-rose-400' : 'text-slate-500'); }
+    if (m) { m.textContent = text || ''; m.className = 'text-[10px] font-mono min-h-[12px] ' + (isError ? 'text-[#8a1c1c] font-semibold' : 'text-[#4a4a4a]'); }
   }
+
+  function isLocalModelId(id) {
+    const v = String(id || '').trim().toLowerCase();
+    if (!v) return false;
+    if (v.startsWith('ollama/') || v.startsWith('local/') || v.startsWith('openai-compat/') || v.startsWith('owlchat/') || v.startsWith('trussed/')) return true;
+    if (v === 'ollama-brain' || v === 'local-brain' || v.endsWith(':free')) return true;
+    const meta = modelList.find((m) => m && m.id === id);
+    if (meta) {
+      const gw = String(meta.gateway || '').toLowerCase();
+      const prov = String(meta.provider || '').toLowerCase();
+      if (gw === 'ollama' || gw === 'local' || prov.indexOf('ollama') !== -1 || prov.indexOf('local') !== -1) return true;
+    }
+    return false;
+  }
+
+  function isOpenWeightModelId(id) {
+    if (isLocalModelId(id)) return true;
+    const v = String(id || '').trim().toLowerCase();
+    if (!v) return false;
+    const meta = modelList.find((m) => m && m.id === id);
+    if (meta && meta.open_weights) return true;
+    return v === 'nanogpt-brain' || v.startsWith('nanogpt/') || v.startsWith('deepseek/') || v.startsWith('meta-llama/') || v.startsWith('qwen/') || v.startsWith('mistralai/');
+  }
+
+  function getAvailableOptions(p) {
+    if (modelList && modelList.length) return modelList.slice();
+    const sel = el(p + 'ModelAInput') || el(p + 'ModelBInput');
+    if (!sel || !sel.options) return [];
+    return Array.from(sel.options).map((o) => ({id: o.value, name: o.textContent || o.value, provider: '', kind: 'catalog'}));
+  }
+
+  function updateRagBadge(p, matchedInfo) {
+    const badge = el(p + 'RagBadge');
+    if (!badge) return;
+    if (matchedInfo && (matchedInfo.files > 0 || matchedInfo.tokens > 0)) {
+      badge.textContent = 'RAG: .space · ' + matchedInfo.files + ' file(s) · ~' + matchedInfo.tokens + ' tok';
+      badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#ecf1e6] text-[#107a47] border border-[#107a47] text-[10px] font-mono font-semibold';
+      return;
+    }
+    const useA = !!(el(p + 'UseCtxA') || {}).checked;
+    const useB = !!(el(p + 'UseCtxB') || {}).checked;
+    if (!useA && !useB) {
+      badge.textContent = 'RAG: .space (off)';
+      badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#f4f8f0] text-[#5c5c5c] border border-[#111111]/40 text-[10px] font-mono';
+      return;
+    }
+    const st = ragStats[p] || {};
+    const totalFiles = (useA && st.A ? st.A.count : 0) + (useB && st.B ? st.B.count : 0);
+    const totalChunks = (useA && st.A ? st.A.chunks : 0) + (useB && st.B ? st.B.chunks : 0);
+    const firstPath = (useA && st.A && st.A.firstPath) || (useB && st.B && st.B.firstPath) || '';
+    if (totalFiles > 0) {
+      badge.textContent = totalFiles === 1 && firstPath
+        ? ('RAG: ' + firstPath + ' (' + totalChunks + ' ch)')
+        : ('RAG: .space · ' + totalFiles + ' file(s) · ' + totalChunks + ' ch');
+      badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#ecf1e6] text-[#107a47] border border-[#107a47] text-[10px] font-mono font-semibold';
+    } else {
+      badge.textContent = 'RAG: .space (0 files · ready)';
+      badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#ecf1e6] text-[#111111] border border-[#111111] text-[10px] font-mono';
+    }
+  }
+
+  function estimateSideTokens(prompt) {
+    const len = String(prompt || '').length;
+    return Math.floor((len + 3) / 4) + 8 + 512;
+  }
+
+  window.arenaUpdatePreAuthCap = function (p) {
+    const cap = el(p + 'PreAuthCap');
+    if (!cap) return;
+    const prompt = ((el(p + 'PromptInput') || {}).value || '').trim();
+    const est = estimateSideTokens(prompt);
+    if (lastTokenBalance !== null && lastTokenBalance < est) {
+      cap.textContent = 'PRE-AUTH CAP: ' + est + ' TOK/SIDE · LOW BAL (' + lastTokenBalance + ')';
+      cap.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#ecf1e6] text-[#8a1c1c] border border-[#8a1c1c] text-[10px] font-mono font-semibold';
+    } else {
+      cap.textContent = 'PRE-AUTH CAP: ' + est + ' TOK/SIDE MAX';
+      cap.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#ecf1e6] text-[#107a47] border border-[#107a47] text-[10px] font-mono font-semibold';
+    }
+  };
+
+  function renderSavingsDelta(p, telemetry) {
+    if (!telemetry) return;
+    SIDES.forEach((side) => {
+      const mine = telemetry[side];
+      if (!mine) return;
+      const otherSide = side === 'A' ? 'B' : 'A';
+      const other = telemetry[otherSide];
+      const box = el(p + 'Savings' + side);
+      const bill = el(p + 'Bill' + side);
+      const ttftText = Number(mine.ttft || 0).toFixed(2) + 's TTFT';
+      const cost = Number(mine.cost || 0);
+      const tokens = Number(mine.tokens || 0);
+      if (bill) {
+        if (cost <= 0) {
+          bill.className = 'text-[10px] font-mono text-[#107a47] font-semibold min-h-[12px] text-right';
+          bill.textContent = tokens + ' tok · $0.000000 (FREE) · ' + ttftText + (mine.simulated ? ' · simulated' : '');
+        } else {
+          bill.className = 'text-[10px] font-mono ' + (other && Number(other.cost || 0) <= 0 ? 'text-[#8a1c1c] font-semibold' : 'text-[#4a4a4a]') + ' min-h-[12px] text-right';
+          bill.textContent = 'Billed: ' + tokens + ' tok · $' + cost.toFixed(6) + ' · ' + ttftText + (mine.simulated ? ' · simulated' : '');
+        }
+      }
+      if (!box) return;
+      if (cost <= 0) {
+        box.className = 'text-[10px] font-mono text-[#107a47] bg-[#ffffff] border border-[#107a47] rounded-lg px-2 py-1 min-h-[22px] flex items-center justify-between gap-2 font-semibold';
+        if (other && Number(other.cost || 0) > 0) {
+          box.textContent = '● ZERO-BURN FREE ($0) · SAVES $' + Number(other.cost).toFixed(6) + ' (100%) VS BRAIN ' + otherSide + ' · ' + ttftText;
+        } else {
+          box.textContent = '● ZERO-BURN FREE ($0.000000) · LOCAL / ZERO POOL BURN · ' + ttftText;
+        }
+      } else if (other && Number(other.cost || 0) <= 0) {
+        box.className = 'text-[10px] font-mono text-[#8a1c1c] bg-[#ffffff] border border-[#111111]/25 rounded-lg px-2 py-1 min-h-[22px] flex items-center justify-between gap-2';
+        box.textContent = 'CLOUD BILLED · +$' + cost.toFixed(6) + ' vs Brain ' + otherSide + ' ($0 free) · ' + ttftText;
+      } else if (other && cost < Number(other.cost)) {
+        const diff = Number(other.cost) - cost;
+        const pct = Math.round((diff / Number(other.cost)) * 100);
+        box.className = 'text-[10px] font-mono text-[#107a47] bg-[#ffffff] border border-[#107a47] rounded-lg px-2 py-1 min-h-[22px] flex items-center justify-between gap-2 font-semibold';
+        box.textContent = '● LOWER BURN · SAVES $' + diff.toFixed(6) + ' (' + pct + '%) VS BRAIN ' + otherSide + ' · ' + ttftText;
+      } else if (other && cost > Number(other.cost)) {
+        const delta = cost - Number(other.cost);
+        box.className = 'text-[10px] font-mono text-[#4a4a4a] bg-[#ffffff] border border-[#111111]/25 rounded-lg px-2 py-1 min-h-[22px] flex items-center justify-between gap-2';
+        box.textContent = '+$' + delta.toFixed(6) + ' vs Brain ' + otherSide + ' (' + tokens + ' tok) · ' + ttftText;
+      } else {
+        box.className = 'text-[10px] font-mono text-[#4a4a4a] bg-[#ffffff] border border-[#111111]/25 rounded-lg px-2 py-1 min-h-[22px] flex items-center justify-between gap-2';
+        box.textContent = tokens + ' tok · $' + cost.toFixed(6) + ' · ' + ttftText;
+      }
+    });
+    const proTitle = el(p + 'ProTelemetryTitle');
+    if (proTitle && telemetry.A && telemetry.B) {
+      const ca = Number(telemetry.A.cost || 0);
+      const cb = Number(telemetry.B.cost || 0);
+      const totalTok = Number(telemetry.A.tokens || 0) + Number(telemetry.B.tokens || 0);
+      if ((ca <= 0 && cb > 0) || (cb <= 0 && ca > 0)) {
+        const paid = Math.max(ca, cb);
+        proTitle.className = 'text-[10px] font-mono font-bold uppercase tracking-wider text-[#107a47]';
+        proTitle.textContent = 'PRO MONETIZATION TELEMETRY: ZERO-BURN SAVED 100% VS CLOUD ($' + paid.toFixed(6) + '/DUEL)';
+      } else if (ca !== cb && Math.max(ca, cb) > 0) {
+        const hi = Math.max(ca, cb);
+        const lo = Math.min(ca, cb);
+        const pct = Math.round(((hi - lo) / hi) * 100);
+        proTitle.className = 'text-[10px] font-mono font-bold uppercase tracking-wider text-[#107a47]';
+        proTitle.textContent = 'PRO MONETIZATION TELEMETRY: SAVED $' + (hi - lo).toFixed(6) + ' (' + pct + '%) ON LOWER-COST MODEL';
+      } else {
+        proTitle.className = 'text-[10px] font-mono font-bold uppercase tracking-wider text-[#111111]';
+        proTitle.textContent = 'PRO MONETIZATION TELEMETRY: DUEL COST $' + (ca + cb).toFixed(6) + ' (' + totalTok + ' TOK)';
+      }
+    }
+  }
+  window.arenaRenderSavings = renderSavingsDelta;
 
   function settingsKey(side) { return 'tincan_arena_brain_' + side; }
   function loadSettings() {
@@ -163,6 +353,7 @@ ARENA_DUEL_SCRIPT = r"""
         if (typeof st.useCtx === 'boolean' && el(p + 'UseCtx' + side)) el(p + 'UseCtx' + side).checked = st.useCtx;
       });
     });
+    VIEWS.forEach((p) => updateRagBadge(p));
   }
   window.arenaCtxSaveSettings = function (p) {
     SIDES.forEach((side) => {
@@ -174,10 +365,21 @@ ARENA_DUEL_SCRIPT = r"""
         if (el(q + 'UseCtx' + side)) el(q + 'UseCtx' + side).checked = st.useCtx;
       });
     });
+    VIEWS.forEach((q) => updateRagBadge(q));
   };
 
   function labels(p) {
-    SIDES.forEach((side) => { const l = el(p + 'Label' + side); if (l) l.textContent = modelOf(p, side) || ('Brain ' + side); });
+    SIDES.forEach((side) => {
+      const m = modelOf(p, side);
+      const l = el(p + 'Label' + side);
+      if (l) l.textContent = m || ('Brain ' + side);
+      const tag = el(p + 'TierTag' + side);
+      if (tag) {
+        const local = isLocalModelId(m);
+        tag.textContent = local ? 'LOCAL' : 'CLOUD';
+        tag.className = 'text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full border shrink-0 ' + (local ? 'border-[#107a47] bg-[#ecf1e6] text-[#107a47] font-semibold' : 'border-[#111111]/30 bg-[#f4f8f0] text-[#4a4a4a]');
+      }
+    });
   }
 
   // ---- model pickers (from /api/mesh/arena/models), mirrored across every view
@@ -190,6 +392,36 @@ ARENA_DUEL_SCRIPT = r"""
       labels(q);
     });
   }
+
+  window.arenaPresetLocalVsCloud = function (p) {
+    const opts = getAvailableOptions(p);
+    if (!opts.length) return null;
+    const localStrict = opts.find((m) => isLocalModelId(m.id));
+    const localPick = localStrict || opts.find((m) => isOpenWeightModelId(m.id)) || opts[0];
+    const cloudPrefs = ['claude-brain', 'anthropic/claude-sonnet-5.5', 'anthropic/claude-3.7-sonnet', 'anthropic/claude-3.5-sonnet', 'openai-brain', 'openai/gpt-4o', 'grok-brain', 'gemini-brain', 'google/gemini-2.5-pro'];
+    let cloudPick = null;
+    for (const pref of cloudPrefs) {
+      cloudPick = opts.find((m) => m.id === pref && m.id !== localPick.id);
+      if (cloudPick) break;
+    }
+    if (!cloudPick) {
+      cloudPick = opts.find((m) => m.id !== localPick.id && !isLocalModelId(m.id)) || opts.find((m) => m.id !== localPick.id) || localPick;
+    }
+    const pair = {a: localPick.id, b: cloudPick.id};
+    setPair(pair);
+    const note = localStrict
+      ? ('Armed: ' + pair.a + ' (local/free) vs ' + pair.b + ' (cloud)')
+      : ('Armed: ' + pair.a + ' (open-weight) vs ' + pair.b + ' (cloud)');
+    VIEWS.forEach((q) => {
+      const st = el(q + 'PresetStatus');
+      if (st) {
+        st.textContent = note;
+        st.className = 'text-[10px] font-mono ' + (localStrict ? 'text-[#107a47] font-semibold' : 'text-[#4a4a4a]');
+      }
+    });
+    return pair;
+  };
+
   async function loadModels() {
     let data = null;
     try {
@@ -226,13 +458,13 @@ ARENA_DUEL_SCRIPT = r"""
     const box = el(p + 'Files' + side);
     if (!box) return;
     const files = data.files || [];
-    if (!files.length) { box.innerHTML = '<div class="text-slate-500">No files yet. Upload, paste or import some.</div>'; return; }
+    if (!files.length) { box.innerHTML = '<div class="text-[#5c5c5c]">No files yet. Upload, paste or import some.</div>'; return; }
     box.innerHTML = files.map((f) => {
-      const stale = f.source === 'drive' && f.drive_available === false ? ' <span class="text-amber-400" title="Drive mirror is off; using the last copy">(snapshot)</span>' : '';
+      const stale = f.source === 'drive' && f.drive_available === false ? ' <span class="text-[#8a1c1c]" title="Drive mirror is off; using the last copy">(snapshot)</span>' : '';
       return '<div class="flex items-center gap-1 group" data-ctx-file="' + esc(f.path) + '">' +
-        '<button type="button" class="flex-1 min-w-0 text-left truncate hover:text-white" data-act="view">' + esc(f.path) + '</button>' +
-        '<span class="text-slate-500 shrink-0">' + esc(f.source) + ' · ' + esc(f.chunk_count) + 'ch</span>' + stale +
-        '<button type="button" class="text-rose-400 hover:text-rose-300 shrink-0 px-1" data-act="del" title="Remove from this brain">✕</button></div>';
+        '<button type="button" class="flex-1 min-w-0 text-left truncate text-[#111111] hover:underline" data-act="view">' + esc(f.path) + '</button>' +
+        '<span class="text-[#5c5c5c] shrink-0">' + esc(f.source) + ' · ' + esc(f.chunk_count) + 'ch</span>' + stale +
+        '<button type="button" class="text-[#8a1c1c] hover:underline shrink-0 px-1 font-semibold" data-act="del" title="Remove from this brain">✕</button></div>';
     }).join('');
     box.querySelectorAll('[data-ctx-file]').forEach((row) => {
       const path = row.getAttribute('data-ctx-file');
@@ -246,11 +478,11 @@ ARENA_DUEL_SCRIPT = r"""
     if (!box) return;
     const ctx = (sideResult && sideResult.context) || null;
     if (!ctx) { box.textContent = 'No duel yet.'; return; }
-    if (!ctx.enabled) { box.innerHTML = '<div class="text-slate-500">Files were switched off for this answer.</div>'; return; }
+    if (!ctx.enabled) { box.innerHTML = '<div class="text-[#5c5c5c]">Files were switched off for this answer.</div>'; return; }
     const snips = ctx.snippets || [];
-    if (!snips.length) { box.innerHTML = '<div class="text-slate-500">No file in this brain matched the prompt.</div>'; return; }
-    box.innerHTML = '<div class="text-slate-500">' + esc(ctx.files.length) + ' file(s), ' + esc(snips.length) + ' snippet(s), ~' + esc(ctx.tokens) + ' tokens</div>' +
-      snips.map((s) => '<details class="arena-snippet border border-slate-800 rounded px-1.5 py-1"><summary class="cursor-pointer truncate"><span class="text-slate-200">' + esc(s.path) + '</span> <span class="text-slate-500">#' + esc(s.chunk) + ' · ' + esc(s.source) + ' · score ' + esc(s.score) + '</span></summary><div class="whitespace-pre-wrap text-[10px] text-slate-300 pt-1">' + esc(s.text) + '</div></details>').join('');
+    if (!snips.length) { box.innerHTML = '<div class="text-[#5c5c5c]">No file in this brain matched the prompt.</div>'; return; }
+    box.innerHTML = '<div class="text-[#5c5c5c]">' + esc(ctx.files.length) + ' file(s), ' + esc(snips.length) + ' snippet(s), ~' + esc(ctx.tokens) + ' tokens</div>' +
+      snips.map((s) => '<details class="arena-snippet border border-[#111111]/20 bg-[#ffffff] rounded px-1.5 py-1"><summary class="cursor-pointer truncate"><span class="text-[#111111] font-semibold">' + esc(s.path) + '</span> <span class="text-[#5c5c5c]">#' + esc(s.chunk) + ' · ' + esc(s.source) + ' · score ' + esc(s.score) + '</span></summary><div class="whitespace-pre-wrap text-[10px] text-[#111111] pt-1">' + esc(s.text) + '</div></details>').join('');
   }
 
   async function refresh(p, side) {
@@ -258,6 +490,13 @@ ARENA_DUEL_SCRIPT = r"""
     try {
       const data = await api('/api/arena/context/files?agent_id=' + encodeURIComponent(agent));
       renderFiles(p, side, data);
+      ragStats[p] = ragStats[p] || {};
+      ragStats[p][side] = {
+        count: Number(data.count || 0),
+        chunks: Number(data.chunk_count || 0),
+        firstPath: (data.files && data.files[0] && data.files[0].path) || '',
+      };
+      updateRagBadge(p);
       msg(p, side, data.count + ' file(s) · ' + data.chunk_count + ' chunk(s) in ' + agent);
     } catch (e) {
       const box = el(p + 'Files' + side); if (box) box.innerHTML = '';
@@ -357,16 +596,26 @@ ARENA_DUEL_SCRIPT = r"""
     try {
       const s = await api('/api/arena/context/status');
       driveAllowed = !!(s.drive_mirror && s.drive_mirror.allowed_here);
+      lastTokenBalance = (s.account && s.account.token_balance != null) ? Number(s.account.token_balance) : null;
       VIEWS.forEach((p) => {
         const a = el(p + 'Account');
-        if (a) a.textContent = 'Billed to ' + (s.account.username || s.account.peer_id) + ' · ' + s.account.token_balance + ' tokens';
+        if (a) {
+          a.textContent = 'Billed to ' + (s.account.username || s.account.peer_id) + ' · ' + s.account.token_balance + ' tokens';
+          a.className = 'cursor-pointer text-[11px] font-mono text-[#111111] bg-[#ffffff] border border-[#111111] hover:bg-[#111111] hover:text-[#ecf1e6] px-2.5 py-1 rounded-full transition';
+        }
+        window.arenaUpdatePreAuthCap(p);
         SIDES.forEach((side) => { const b = el(p + 'DriveBtn' + side); if (b) b.classList.toggle('hidden', !driveAllowed); });
       });
       VIEWS.forEach((p) => SIDES.forEach((side) => refresh(p, side)));
     } catch (e) {
+      lastTokenBalance = null;
       VIEWS.forEach((p) => {
         const a = el(p + 'Account');
-        if (a) a.textContent = e.status === 401 || e.status === 403 ? 'Sign in to duel' : 'Arena offline';
+        if (a) {
+          a.textContent = e.status === 401 || e.status === 403 ? 'Sign in to duel' : 'Arena offline';
+          a.className = 'cursor-pointer text-[11px] font-mono bg-[#ffffff] border px-2.5 py-1 rounded-full transition ' + (e.status === 401 || e.status === 403 ? 'text-[#111111] border-[#111111] hover:bg-[#111111] hover:text-[#ecf1e6]' : 'text-[#8a1c1c] border-[#8a1c1c]');
+        }
+        window.arenaUpdatePreAuthCap(p);
         SIDES.forEach((side) => msg(p, side, e.message, true));
       });
       if (promptSignIn === true && (e.status === 401 || e.status === 403) && typeof openAccountModal === 'function') { try { openAccountModal(false); } catch (x) {} }
@@ -380,13 +629,20 @@ ARENA_DUEL_SCRIPT = r"""
     if (typeof initAudio === 'function') { try { initAudio(); } catch (e) {} }
     const prompt = (el(p + 'PromptInput').value || '').trim();
     if (!prompt) return;
+    window.arenaUpdatePreAuthCap(p);
     const btn = el(p + 'RunBtn');
     if (btn) btn.disabled = true;
     lastDuel[p] = null;
     const models = {A: modelOf(p, 'A'), B: modelOf(p, 'B')};
+    const telemetry = {A: null, B: null};
     SIDES.forEach((side) => {
       el(p + 'Result' + side).textContent = 'Brain ' + side + ' (' + models[side] + ') is reading ' + agentOf(p, side) + '…';
       el(p + 'Bill' + side).textContent = '';
+      const sav = el(p + 'Savings' + side);
+      if (sav) {
+        sav.className = 'text-[10px] font-mono text-[#4a4a4a] bg-[#ffffff] border border-[#111111]/25 rounded-lg px-2 py-1 min-h-[22px] flex items-center justify-between gap-2';
+        sav.textContent = 'Running telemetry…';
+      }
       if (typeof spawnPacketFlight === 'function') { try { spawnPacketFlight(peer(), models[side], 'ai_prompt', models[side]); } catch (e) {} }
     });
     try {
@@ -400,27 +656,64 @@ ARENA_DUEL_SCRIPT = r"""
           if (typeof openAccountModal === 'function') { try { openAccountModal(false); } catch (x) {} }
         } else if (e.status === 402) {
           sayBoth(p, (e.message || 'Not enough tokens for this duel.') + ' Top up or watch a sponsor ad to continue.');
+          const cap = el(p + 'PreAuthCap');
+          if (cap) {
+            cap.textContent = 'PRE-AUTH CAP: EXCEEDED (402)';
+            cap.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#ecf1e6] text-[#8a1c1c] border border-[#8a1c1c] text-[10px] font-mono font-semibold';
+          }
         } else {
           sayBoth(p, 'Battle error: ' + e.message);
         }
+        SIDES.forEach((side) => {
+          const sav = el(p + 'Savings' + side);
+          if (sav) {
+            sav.className = 'text-[10px] font-mono text-[#8a1c1c] bg-[#ffffff] border border-[#8a1c1c] rounded-lg px-2 py-1 min-h-[22px] flex items-center justify-between gap-2 font-semibold';
+            sav.textContent = '● ' + (e.status === 402 ? 'CAP ALERT · ' : 'ERROR · ') + e.message;
+          }
+        });
         return;
       }
       const results = {};
+      let matchedFiles = 0;
+      let matchedTokens = 0;
       // Sequential on purpose: side B is checked against the balance left after side A.
       for (const side of SIDES) {
+        const startedAt = nowMs();
         try {
           results[side] = await api('/api/chat', {body: {
             model: models[side], prompt, arena: true, match_id: match.match_id, arena_side: side,
             agent_id: agentOf(p, side), use_context: !!(el(p + 'UseCtx' + side) || {}).checked,
           }});
           const r = results[side];
+          const elapsedSec = Math.max(0.01, (nowMs() - startedAt) / 1000);
+          const ttft = (r && r.ttft_s != null) ? Number(r.ttft_s) : (r && r.latency_ms != null ? Number(r.latency_ms) / 1000 : elapsedSec);
           el(p + 'Result' + side).textContent = (r.choices && r.choices[0] && r.choices[0].message && r.choices[0].message.content) || r.text || '(empty answer)';
           const b = r.billing;
-          el(p + 'Bill' + side).textContent = b ? ('Billed to you: ' + b.tokens_billed + ' tokens · $' + Number(b.cost_usd || 0).toFixed(6) + (String(r.id || '').indexOf('sim-') === 0 ? ' · simulated (no API key)' : '')) : '';
+          telemetry[side] = {cost: b ? Number(b.cost_usd || 0) : 0, tokens: b ? Number(b.tokens_billed || 0) : 0, ttft: ttft, model: models[side], simulated: String(r.id || '').indexOf('sim-') === 0};
+          renderSavingsDelta(p, telemetry);
           renderUsed(p, side, {context: r.arena_context});
+          if (r.arena_context) {
+            matchedFiles += Number((r.arena_context.files || []).length);
+            matchedTokens += Number(r.arena_context.tokens || 0);
+          }
         } catch (e) {
           el(p + 'Result' + side).textContent = e.status === 402 ? ((e.message || 'Not enough tokens for this side.') + ' Top up to continue.') : ('Brain ' + side + ' error: ' + e.message);
+          const sav = el(p + 'Savings' + side);
+          if (sav) {
+            sav.className = 'text-[10px] font-mono text-[#8a1c1c] bg-[#ffffff] border border-[#8a1c1c] rounded-lg px-2 py-1 min-h-[22px] flex items-center justify-between gap-2 font-semibold';
+            sav.textContent = '● ' + (e.status === 402 ? 'CAP ALERT · ' : 'ERROR · ') + e.message;
+          }
+          if (e.status === 402) {
+            const cap = el(p + 'PreAuthCap');
+            if (cap) {
+              cap.textContent = 'PRE-AUTH CAP: EXCEEDED (402)';
+              cap.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#ecf1e6] text-[#8a1c1c] border border-[#8a1c1c] text-[10px] font-mono font-semibold';
+            }
+          }
         }
+      }
+      if (matchedFiles > 0 || matchedTokens > 0) {
+        updateRagBadge(p, {files: matchedFiles, tokens: matchedTokens});
       }
       if (results.A && results.B) {
         lastDuel[p] = {a: models.A, b: models.B, prompt, match_id: match.match_id};
@@ -476,13 +769,16 @@ ARENA_DUEL_SCRIPT = r"""
 
   function boot() {
     loadSettings();
+    VIEWS.forEach((p) => window.arenaUpdatePreAuthCap(p));
     loadModels();
     status();
     // Re-check after sign-in / account creation in another tab or the account modal.
-    window.addEventListener('focus', () => status());
-    window.addEventListener('storage', (ev) => { if (ev.key && ev.key.indexOf('tincan_') === 0) status(); });
+    if (typeof window.addEventListener === 'function') {
+      window.addEventListener('focus', () => status());
+      window.addEventListener('storage', (ev) => { if (ev.key && ev.key.indexOf('tincan_') === 0) status(); });
+    }
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+  if (document.readyState === 'loading' && typeof document.addEventListener === 'function') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
 </script>
 """

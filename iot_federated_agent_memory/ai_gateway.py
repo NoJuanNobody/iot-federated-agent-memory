@@ -9,10 +9,68 @@ import struct
 import subprocess
 import threading
 import time
+import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from dataclasses import dataclass, asdict
 from typing import Any, Dict, List, Optional
+
+
+DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/v1"
+OWLCHAT_BASE_URL = "https://chat.hpc.fau.edu/openai"
+TRUSSED_AI_BASE_URL = "https://trussed.ai.hpc.fau.edu/provider/generic"
+
+
+def normalize_openai_compat_base_url(base_url: str, *, default_v1: bool = False) -> str:
+    """Normalize an OpenAI-compatible base URL, stripping trailing endpoint paths."""
+    cleaned = (base_url or "").strip().rstrip("/")
+    if not cleaned:
+        return DEFAULT_OLLAMA_BASE_URL if default_v1 else ""
+    if "://" not in cleaned:
+        cleaned = f"http://{cleaned}"
+    for suffix in ("/chat/completions", "/models"):
+        if cleaned.endswith(suffix):
+            cleaned = cleaned[: -len(suffix)].rstrip("/")
+            break
+    if default_v1:
+        parsed = urllib.parse.urlparse(cleaned)
+        if not parsed.path or parsed.path == "/":
+            cleaned = f"{cleaned}/v1"
+    return cleaned
+
+
+def build_chat_completions_url(base_url: str, *, default_v1: bool = False) -> str:
+    """Return the /chat/completions endpoint URL for an OpenAI-compatible base URL."""
+    base = normalize_openai_compat_base_url(base_url, default_v1=default_v1)
+    return f"{base}/chat/completions"
+
+
+def build_models_url(base_url: str, *, default_v1: bool = False) -> str:
+    """Return the /models endpoint URL for an OpenAI-compatible base URL."""
+    base = normalize_openai_compat_base_url(base_url, default_v1=default_v1)
+    return f"{base}/models"
+
+
+def resolve_ollama_base_url(override: Optional[str] = None) -> str:
+    """Resolve the local Ollama OpenAI-compatible /v1 base URL."""
+    raw = override or os.environ.get("TINCAN_OLLAMA_BASE_URL") or os.environ.get("OLLAMA_HOST") or DEFAULT_OLLAMA_BASE_URL
+    return normalize_openai_compat_base_url(raw, default_v1=True)
+
+
+def resolve_owlchat_key(explicit: Optional[str] = None) -> Optional[str]:
+    """Resolve an FAU OwlChat API key from explicit input or environment."""
+    return explicit or os.environ.get("OWLCHAT_API_KEY") or os.environ.get("FAU_OWLCHAT_API_KEY") or os.environ.get("OPENAI_API_KEY")
+
+
+def resolve_trussed_key(explicit: Optional[str] = None) -> Optional[str]:
+    """Resolve an FAU Trussed AI API key from explicit input or environment."""
+    return explicit or os.environ.get("TRUSSED_AI_API_KEY") or os.environ.get("OWLCHAT_API_KEY") or os.environ.get("OPENAI_API_KEY")
+
+
+def resolve_local_compat_key(explicit: Optional[str] = None) -> Optional[str]:
+    """Resolve an optional API key for a local or custom OpenAI-compatible server."""
+    return explicit or os.environ.get("TINCAN_AI_API_KEY") or os.environ.get("OLLAMA_API_KEY") or os.environ.get("OPENAI_API_KEY")
 
 
 def _resolve_openrouter_key_fallback() -> Optional[str]:
@@ -508,6 +566,13 @@ class DynamicAIGatewayRouter:
     RODIN_BALANCE_URL = "https://api.hyper3d.com/api/v2/check_balance"
     RODIN_TIER_COSTS = {"Regular": 0.50, "Sketch": 0.25, "Detail": 1.00, "Smooth": 0.75}
 
+    # Local & OpenAI-Compatible Institutional Endpoints
+    DEFAULT_OLLAMA_BASE_URL = DEFAULT_OLLAMA_BASE_URL
+    OWLCHAT_BASE_URL = OWLCHAT_BASE_URL
+    TRUSSED_AI_BASE_URL = TRUSSED_AI_BASE_URL
+    _OPENAI_COMPAT_GATEWAYS = ("ollama", "owlchat", "trussed", "local")
+    _COMPAT_PREFIXES = ("ollama/", "owlchat/", "trussed/", "local/", "openai-compat/")
+
     DEFAULT_LABS = {
         "claude-brain": LabProviderConfig(
             lab_id="anthropic",
@@ -571,10 +636,22 @@ class DynamicAIGatewayRouter:
         openrouter_key: Optional[str] = None,
         hyper3d_key: Optional[str] = None,
         nanogpt_key: Optional[str] = None,
+        *,
+        ollama_base_url: Optional[str] = None,
+        local_base_url: Optional[str] = None,
+        local_api_key: Optional[str] = None,
+        owlchat_key: Optional[str] = None,
+        trussed_key: Optional[str] = None,
     ):
         self.openrouter_key = openrouter_key if openrouter_key is not None else os.environ.get("OPENROUTER_API_KEY")
         self.hyper3d_key = hyper3d_key if hyper3d_key is not None else _resolve_hyper3d_key_fallback()
         self.nanogpt_key = nanogpt_key if nanogpt_key is not None else os.environ.get("NANOGPT_API_KEY")
+        self.ollama_base_url = resolve_ollama_base_url(ollama_base_url)
+        raw_local_base = local_base_url or os.environ.get("TINCAN_AI_BASE_URL") or os.environ.get("OPENAI_BASE_URL")
+        self.local_base_url = normalize_openai_compat_base_url(raw_local_base) if raw_local_base else None
+        self.local_api_key = local_api_key
+        self.owlchat_key = owlchat_key
+        self.trussed_key = trussed_key
         self.providers: Dict[str, LabProviderConfig] = {
             k: LabProviderConfig(**asdict(v)) for k, v in self.DEFAULT_LABS.items()
         }
@@ -613,6 +690,112 @@ class DynamicAIGatewayRouter:
     @staticmethod
     def _strip_nanogpt_prefix(model_id: str) -> str:
         return model_id[len("nanogpt/"):] if model_id.startswith("nanogpt/") else model_id
+
+    @classmethod
+    def _strip_compat_prefix(cls, model_id: str) -> str:
+        for prefix in cls._COMPAT_PREFIXES:
+            if model_id.startswith(prefix):
+                return model_id[len(prefix):]
+        return model_id
+
+    def _detect_compat_gateway(
+        self,
+        alias_or_model: str,
+        gateway: Optional[str] = None,
+        base_url: Optional[str] = None,
+    ) -> Optional[str]:
+        """Identify whether a model/gateway targets Ollama, FAU OwlChat, Trussed AI, or custom OpenAI-compat."""
+        gw = (gateway or "").strip().lower()
+        if gw in ("openrouter", "nanogpt", "ronin", "hyper3d"):
+            return None
+        if gw == "openai-compat":
+            return "local"
+        if gw in self._OPENAI_COMPAT_GATEWAYS:
+            return gw
+        m = (alias_or_model or "").strip()
+        if m.startswith("ollama/") or m == "ollama-brain":
+            return "ollama"
+        if m.startswith("owlchat/") or m == "owlchat-brain":
+            return "owlchat"
+        if m.startswith("trussed/") or m == "trussed-brain":
+            return "trussed"
+        if m.startswith(("local/", "openai-compat/")) or m == "local-brain":
+            return "local"
+        if base_url:
+            low_u = base_url.lower()
+            if "chat.hpc.fau.edu" in low_u:
+                return "owlchat"
+            if "trussed.ai.hpc.fau.edu" in low_u:
+                return "trussed"
+            if ":11434" in low_u:
+                return "ollama"
+            return "local"
+        return None
+
+    def _resolve_compat_spec(self, gw: str, base_url: Optional[str] = None) -> tuple[str, str, str]:
+        """Return (chat_completions_endpoint, api_key_env, display_label) for a compat gateway."""
+        table = {
+            "ollama": (
+                build_chat_completions_url(base_url or self.ollama_base_url, default_v1=True),
+                "OLLAMA_API_KEY",
+                "Ollama (Local)",
+            ),
+            "owlchat": (
+                build_chat_completions_url(base_url or self.OWLCHAT_BASE_URL),
+                "OWLCHAT_API_KEY",
+                "FAU OwlChat",
+            ),
+            "trussed": (
+                build_chat_completions_url(base_url or self.TRUSSED_AI_BASE_URL),
+                "TRUSSED_AI_API_KEY",
+                "FAU Trussed AI",
+            ),
+            "local": (
+                build_chat_completions_url(base_url or self.local_base_url or self.ollama_base_url, default_v1=False),
+                "TINCAN_AI_API_KEY",
+                "Local / OpenAI-Compatible",
+            ),
+        }
+        return table[gw]
+
+    def _build_compat_config(
+        self,
+        alias_or_model: str,
+        gw: str,
+        *,
+        base_url: Optional[str] = None,
+        display_name: Optional[str] = None,
+    ) -> LabProviderConfig:
+        endpoint, key_env, label = self._resolve_compat_spec(gw, base_url=base_url)
+        clean_model = self._strip_compat_prefix(alias_or_model)
+        return LabProviderConfig(
+            lab_id=gw,
+            display_name=display_name or f"{label}: {clean_model}",
+            model_alias=alias_or_model,
+            endpoint=endpoint,
+            api_key_env=key_env,
+            available_credits=1000.0,
+            is_active=True,
+            input_cost_per_1m=0.0,
+            output_cost_per_1m=0.0,
+        )
+
+    def _provider_gateway(self, p: LabProviderConfig) -> str:
+        if p.api_key_env == "NANOGPT_API_KEY" or p.endpoint == self.NANOGPT_ENDPOINT:
+            return "nanogpt"
+        if p.api_key_env == "HYPER3D_API_KEY":
+            return "hyper3d"
+        if p.lab_id in self._OPENAI_COMPAT_GATEWAYS:
+            return p.lab_id
+        if p.api_key_env == "OLLAMA_API_KEY":
+            return "ollama"
+        if p.api_key_env == "OWLCHAT_API_KEY":
+            return "owlchat"
+        if p.api_key_env == "TRUSSED_AI_API_KEY":
+            return "trussed"
+        if p.api_key_env == "TINCAN_AI_API_KEY":
+            return "local"
+        return "openrouter"
 
     def _is_nanogpt_model(self, model_id: str) -> bool:
         if not model_id or not isinstance(model_id, str):
@@ -762,6 +945,97 @@ class DynamicAIGatewayRouter:
         self._available_models_cached_at = now
         return models
 
+    def get_openai_compat_models(
+        self,
+        base_url: str,
+        *,
+        api_key: Optional[str] = None,
+        gateway_name: str = "local",
+        prefix: str = "local",
+        timeout: float = 5.0,
+    ) -> List[Dict[str, Any]]:
+        """Query an OpenAI-compatible /models endpoint (OwlChat, vLLM, LM Studio, Ollama /v1)."""
+        models_url = build_models_url(base_url, default_v1=(gateway_name == "ollama"))
+        headers = {"Accept": "application/json", "User-Agent": "TinCan-Mesh-OS/2.2"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        out: List[Dict[str, Any]] = []
+        try:
+            req = urllib.request.Request(models_url, headers=headers, method="GET")
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except Exception:
+            return out
+        raw_list = data.get("data", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+        for item in raw_list:
+            if not isinstance(item, dict):
+                continue
+            raw_id = item.get("id") or item.get("name")
+            if not raw_id:
+                continue
+            prefixed_id = raw_id if raw_id.startswith(f"{prefix}/") else f"{prefix}/{raw_id}"
+            out.append({
+                "id": prefixed_id,
+                "upstream_id": raw_id,
+                "name": item.get("name") or raw_id,
+                "provider": gateway_name.capitalize(),
+                "gateway": gateway_name,
+                "description": item.get("description") or f"OpenAI-compatible model via {base_url}",
+                "context_length": item.get("context_length", 8192),
+                "category": "FAU OwlChat" if gateway_name == "owlchat" else "Local / Open-Weight",
+                "open_weights": True,
+                "pricing": {"prompt": "0", "completion": "0", "prompt_per_1m": 0.0, "completion_per_1m": 0.0},
+            })
+        return out
+
+    def get_ollama_models(
+        self,
+        base_url: Optional[str] = None,
+        timeout: float = 2.0,
+    ) -> List[Dict[str, Any]]:
+        """Discover models pulled on a local/tunneled Ollama instance without failing if stopped."""
+        resolved = resolve_ollama_base_url(base_url or self.ollama_base_url)
+        origin = resolved[:-3] if resolved.endswith("/v1") else resolved
+        tags_url = f"{origin}/api/tags"
+        try:
+            req = urllib.request.Request(tags_url, headers={"Accept": "application/json"}, method="GET")
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            models_raw = data.get("models") if isinstance(data, dict) else None
+            if isinstance(models_raw, list):
+                out: List[Dict[str, Any]] = []
+                for item in models_raw:
+                    name = item.get("name") or item.get("model")
+                    if not name:
+                        continue
+                    details = item.get("details") or {}
+                    param_size = details.get("parameter_size", "")
+                    quant = details.get("quantization_level", "")
+                    meta = " ".join(x for x in (param_size, quant) if x).strip()
+                    desc = f"Local Ollama model ({meta})" if meta else "Local Ollama model"
+                    out.append({
+                        "id": f"ollama/{name}",
+                        "upstream_id": name,
+                        "name": name,
+                        "provider": "Ollama (Local)",
+                        "gateway": "ollama",
+                        "description": desc,
+                        "context_length": 32768,
+                        "category": "Local / Open-Weight",
+                        "open_weights": True,
+                        "pricing": {"prompt": "0", "completion": "0", "prompt_per_1m": 0.0, "completion_per_1m": 0.0},
+                    })
+                return out
+        except Exception:
+            pass
+        return self.get_openai_compat_models(
+            resolved,
+            api_key=resolve_local_compat_key(self.local_api_key),
+            gateway_name="ollama",
+            prefix="ollama",
+            timeout=timeout,
+        )
+
     # Default AI Brain Arena match-up: the two configured brains the duel always used.
     ARENA_DEFAULT_PAIR = ("gemini-brain", "claude-brain")
     _NON_CHAT_PREFIXES = ("ronin/", "rodin/", "hyper3d/")
@@ -831,11 +1105,31 @@ class DynamicAIGatewayRouter:
             b = next((i for i in ids if i != a), b)
         return {"a": a, "b": b}
 
-    def route_request(self, requested_alias: str, estimated_cost: float = 0.02) -> LabProviderConfig:
+    def route_request(
+        self,
+        requested_alias: str,
+        estimated_cost: float = 0.02,
+        *,
+        gateway: Optional[str] = None,
+        base_url: Optional[str] = None,
+    ) -> LabProviderConfig:
         """Route request to the target lab, or fallback if credit pool is exhausted."""
+        compat_gw = self._detect_compat_gateway(requested_alias, gateway=gateway, base_url=base_url)
+        if compat_gw and (base_url is not None or gateway is not None):
+            ephemeral = self._build_compat_config(requested_alias, compat_gw, base_url=base_url)
+            self.routing_log.append({
+                "timestamp": time.time(),
+                "alias": requested_alias,
+                "lab": ephemeral.lab_id,
+                "model": ephemeral.model_alias,
+                "cost": 0.0,
+                "status": "routed",
+            })
+            return ephemeral
+
         primary = self.providers.get(requested_alias)
         if not primary:
-            # Dynamically register custom model alias (Ronin 3D, NanoGPT, or OpenRouter)
+            # Dynamically register custom model alias (Ronin 3D, local/compat, NanoGPT, or OpenRouter)
             if requested_alias.startswith(("ronin/", "rodin/", "hyper3d/")):
                 tier = "Regular"
                 if "sketch" in requested_alias.lower():
@@ -853,6 +1147,8 @@ class DynamicAIGatewayRouter:
                     available_credits=100.0,
                     is_active=True,
                 )
+            elif compat_gw:
+                primary = self._build_compat_config(requested_alias, compat_gw, base_url=base_url)
             elif self._is_nanogpt_model(requested_alias):
                 upstream = self._strip_nanogpt_prefix(requested_alias)
                 rates = self._lookup_catalog_rates(requested_alias)
@@ -920,8 +1216,22 @@ class DynamicAIGatewayRouter:
         if alias in self.providers:
             cfg = self.providers[alias]
             cfg.model_alias = new_model
+            compat_gw = self._detect_compat_gateway(new_model, base_url=new_endpoint)
             if new_endpoint:
                 cfg.endpoint = new_endpoint
+                if compat_gw:
+                    _, key_env, _ = self._resolve_compat_spec(compat_gw, base_url=new_endpoint)
+                    cfg.lab_id = compat_gw
+                    cfg.api_key_env = key_env
+                    cfg.input_cost_per_1m = 0.0
+                    cfg.output_cost_per_1m = 0.0
+            elif compat_gw:
+                endpoint, key_env, _ = self._resolve_compat_spec(compat_gw)
+                cfg.lab_id = compat_gw
+                cfg.endpoint = endpoint
+                cfg.api_key_env = key_env
+                cfg.input_cost_per_1m = 0.0
+                cfg.output_cost_per_1m = 0.0
             elif self._is_nanogpt_model(new_model):
                 cfg.endpoint = self.NANOGPT_ENDPOINT
                 cfg.api_key_env = "NANOGPT_API_KEY"
@@ -936,8 +1246,26 @@ class DynamicAIGatewayRouter:
         new_model: str,
         display_name: Optional[str] = None,
         gateway: Optional[str] = None,
+        base_url: Optional[str] = None,
     ) -> LabProviderConfig:
         """Set or update model name (and gateway endpoint if applicable) for a provider alias."""
+        compat_gw = self._detect_compat_gateway(new_model, gateway=gateway, base_url=base_url)
+        if compat_gw:
+            built = self._build_compat_config(new_model, compat_gw, base_url=base_url, display_name=display_name or alias)
+            if alias not in self.providers:
+                self.providers[alias] = built
+            else:
+                cfg = self.providers[alias]
+                cfg.lab_id = built.lab_id
+                cfg.model_alias = built.model_alias
+                cfg.endpoint = built.endpoint
+                cfg.api_key_env = built.api_key_env
+                cfg.input_cost_per_1m = 0.0
+                cfg.output_cost_per_1m = 0.0
+                if display_name:
+                    cfg.display_name = display_name
+            return self.providers[alias]
+
         use_nanogpt = (
             gateway == "nanogpt"
             or self._is_nanogpt_model(new_model)
@@ -1436,8 +1764,8 @@ class DynamicAIGatewayRouter:
 
         providers_out: Dict[str, Any] = {}
         for k, p in self.providers.items():
-            is_nano = p.api_key_env == "NANOGPT_API_KEY" or p.endpoint == self.NANOGPT_ENDPOINT
-            gw_billing = nanogpt_billing if is_nano else billing
+            gw_name = self._provider_gateway(p)
+            gw_billing = nanogpt_billing if gw_name == "nanogpt" else (billing if gw_name == "openrouter" else {})
             rem_credits = (
                 gw_billing.get("account_remaining_balance_usd", p.available_credits)
                 if gw_billing.get("connected")
@@ -1446,7 +1774,7 @@ class DynamicAIGatewayRouter:
             providers_out[k] = {
                 "display_name": p.display_name,
                 "model": p.model_alias,
-                "gateway": "nanogpt" if is_nano else ("hyper3d" if p.api_key_env == "HYPER3D_API_KEY" else "openrouter"),
+                "gateway": gw_name,
                 "input_cost_per_1m_usd": p.input_cost_per_1m,
                 "output_cost_per_1m_usd": p.output_cost_per_1m,
                 "est_cost_per_1k_prompt_usd": round((p.input_cost_per_1m * 0.5 + p.output_cost_per_1m * 0.5) / 1000.0, 6),
@@ -1470,14 +1798,99 @@ class DynamicAIGatewayRouter:
             "recent_routing_log": self.routing_log[-20:],
         }
 
+    def _resolve_dispatch_params(
+        self,
+        config: LabProviderConfig,
+        *,
+        gateway_override: Optional[str] = None,
+        explicit_api_key: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Resolve upstream model ID, auth key, headers, fallback policy, and timeout uniformly."""
+        gw = gateway_override if gateway_override in self._OPENAI_COMPAT_GATEWAYS else self._provider_gateway(config)
+        if gw == "nanogpt":
+            api_key = explicit_api_key or (self.nanogpt_key if self.nanogpt_key is not None else _resolve_nanogpt_key_fallback())
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "x-api-key": api_key or "",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "User-Agent": "TinCan-Mesh-OS/2.2",
+            }
+            return {
+                "gateway": "nanogpt",
+                "router_label": "NanoGPT",
+                "api_key": api_key,
+                "requires_key": True,
+                "upstream_model": self._strip_nanogpt_prefix(config.model_alias),
+                "fallback_model": "auto-model",
+                "headers": headers,
+                "timeout": 30.0,
+            }
+
+        if gw in self._OPENAI_COMPAT_GATEWAYS:
+            key_resolvers = {
+                "owlchat": lambda: resolve_owlchat_key(explicit_api_key or self.owlchat_key),
+                "trussed": lambda: resolve_trussed_key(explicit_api_key or self.trussed_key),
+                "ollama": lambda: resolve_local_compat_key(explicit_api_key or self.local_api_key),
+                "local": lambda: resolve_local_compat_key(explicit_api_key or self.local_api_key),
+            }
+            labels = {
+                "ollama": "Ollama",
+                "owlchat": "FAU OwlChat",
+                "trussed": "FAU Trussed AI",
+                "local": "OpenAI-Compatible",
+            }
+            api_key = key_resolvers[gw]()
+            requires_key = gw in ("owlchat", "trussed")
+            headers = {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "User-Agent": "TinCan-Mesh-OS/2.2",
+            }
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
+            return {
+                "gateway": gw,
+                "router_label": labels[gw],
+                "api_key": api_key,
+                "requires_key": requires_key,
+                "upstream_model": self._strip_compat_prefix(config.model_alias),
+                "fallback_model": None,
+                "headers": headers,
+                "timeout": float(os.environ.get("TINCAN_AI_TIMEOUT", "120")),
+            }
+
+        api_key = explicit_api_key or (self.openrouter_key if self.openrouter_key is not None else os.environ.get("OPENROUTER_API_KEY"))
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://github.com/NoJuanNobody/tin-can",
+            "X-Title": "TinCan 2 / IoT Federated Agent Memory",
+        }
+        return {
+            "gateway": "openrouter",
+            "router_label": "OpenRouter",
+            "api_key": api_key,
+            "requires_key": True,
+            "upstream_model": config.model_alias,
+            "fallback_model": "google/gemini-2.5-flash",
+            "headers": headers,
+            "timeout": 30.0,
+        }
+
     def dispatch_completion(
         self,
         alias: str,
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 1024,
+        *,
+        base_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        gateway: Optional[str] = None,
+        timeout: Optional[float] = None,
     ) -> Dict[str, Any]:
-        """Dispatch chat completion to OpenRouter, NanoGPT, Ronin 3D, or simulated fallback."""
+        """Dispatch chat completion to OpenRouter, NanoGPT, Ollama/local OpenAI-compat, FAU OwlChat, or Ronin 3D."""
         if alias.startswith(("ronin/", "rodin/", "hyper3d/")) or alias in ("ronin", "rodin", "hyper3d"):
             prompt_text = " ".join([m.get("content", "") for m in messages if m.get("role") != "system"]).strip()
             if not prompt_text:
@@ -1521,26 +1934,26 @@ class DynamicAIGatewayRouter:
                 "rodin_asset": rodin_res,
             }
 
-        config = self.route_request(alias)
-        is_nanogpt = config.api_key_env == "NANOGPT_API_KEY" or config.endpoint == self.NANOGPT_ENDPOINT
-        if is_nanogpt:
-            api_key = self.nanogpt_key if self.nanogpt_key is not None else _resolve_nanogpt_key_fallback()
-            router_label = "NanoGPT"
-            upstream_model = self._strip_nanogpt_prefix(config.model_alias)
-            fallback_model = "auto-model"
-        else:
-            api_key = self.openrouter_key if self.openrouter_key is not None else os.environ.get("OPENROUTER_API_KEY")
-            router_label = "OpenRouter"
-            upstream_model = config.model_alias
-            fallback_model = "google/gemini-2.5-flash"
+        config = self.route_request(alias, gateway=gateway, base_url=base_url)
+        spec = self._resolve_dispatch_params(
+            config,
+            gateway_override=gateway,
+            explicit_api_key=api_key,
+        )
+        gw = spec["gateway"]
+        router_label = spec["router_label"]
+        upstream_model = spec["upstream_model"]
+        fallback_model = spec["fallback_model"]
+        headers = spec["headers"]
+        req_timeout = timeout if timeout is not None else spec["timeout"]
 
-        if not api_key:
+        if spec["requires_key"] and not spec["api_key"]:
             # Simulated offline response if no API key is injected
             self.record_usage(alias, 10, 32, 42, 0.0)
             return {
                 "id": f"sim-{alias}",
                 "model": config.model_alias,
-                "gateway": "nanogpt" if is_nanogpt else "openrouter",
+                "gateway": gw,
                 "choices": [{
                     "message": {
                         "role": "assistant",
@@ -1548,22 +1961,6 @@ class DynamicAIGatewayRouter:
                     }
                 }],
                 "usage": {"total_tokens": 42},
-            }
-
-        if is_nanogpt:
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "x-api-key": api_key,
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-                "User-Agent": "TinCan-Mesh-OS/2.2",
-            }
-        else:
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://github.com/NoJuanNobody/tin-can",
-                "X-Title": "TinCan 2 / IoT Federated Agent Memory",
             }
 
         payload = {
@@ -1580,11 +1977,11 @@ class DynamicAIGatewayRouter:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=req_timeout) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as http_err:
             # If a configured model alias is unavailable (400/404), retry with the gateway's default model.
-            if http_err.code in (400, 404) and payload.get("model") != fallback_model:
+            if fallback_model and http_err.code in (400, 404) and payload.get("model") != fallback_model:
                 fallback_payload = dict(payload, model=fallback_model)
                 req_fb = urllib.request.Request(
                     config.endpoint,
@@ -1592,8 +1989,17 @@ class DynamicAIGatewayRouter:
                     headers=headers,
                     method="POST",
                 )
-                with urllib.request.urlopen(req_fb, timeout=30) as resp:
+                with urllib.request.urlopen(req_fb, timeout=req_timeout) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
+            elif gw in self._OPENAI_COMPAT_GATEWAYS:
+                detail = ""
+                try:
+                    raw_err = http_err.read().decode("utf-8", errors="replace").strip()
+                    if raw_err:
+                        detail = f" — {raw_err[:300]}"
+                except Exception:
+                    pass
+                raise RuntimeError(f"{router_label} HTTP {http_err.code} at {config.endpoint}{detail}") from http_err
             else:
                 raise
         usage = data.get("usage", {})
@@ -1601,11 +2007,15 @@ class DynamicAIGatewayRouter:
         comp_toks = int(usage.get("completion_tokens", 0))
         total_toks = int(usage.get("total_tokens", prompt_toks + comp_toks))
         cost = float(usage.get("cost") or 0.0)
-        if cost <= 0.0 and is_nanogpt and (prompt_toks > 0 or comp_toks > 0):
+        if cost <= 0.0 and gw == "nanogpt" and (prompt_toks > 0 or comp_toks > 0):
             cost = (
                 (prompt_toks / 1_000_000.0) * config.input_cost_per_1m
                 + (comp_toks / 1_000_000.0) * config.output_cost_per_1m
             )
             data.setdefault("cost_usd", round(cost, 8))
+        elif gw in self._OPENAI_COMPAT_GATEWAYS:
+            data.setdefault("cost_usd", 0.0)
+        data.setdefault("gateway", gw)
+        data.setdefault("endpoint", config.endpoint)
         self.record_usage(alias, prompt_toks, comp_toks, total_toks, cost)
         return data

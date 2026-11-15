@@ -5,9 +5,16 @@ from __future__ import annotations
 import json
 import os
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Dict, List, Optional
+
+from .ai_gateway import (
+    DynamicAIGatewayRouter,
+    OWLCHAT_BASE_URL,
+    normalize_openai_compat_base_url,
+)
 
 SYSTEM_PROMPT = """You are TinCan Agent, an autonomous assistant embedded inside the TinCan 2 / IoT Federated Mesh CLI.
 You have access to the mesh network, peer addresses, encrypted communication, and OpenRouter multi-lab models.
@@ -15,25 +22,109 @@ Keep your answers sharp, technical, and concise. Help the user interact with pee
 
 
 class TinCanAgentChat:
-    """Agentic REPL loop supporting natural queries, commands, and live model completions."""
+    """Agentic REPL loop supporting natural queries, commands, and live or local model completions."""
 
     def __init__(
         self,
         relay_url: str,
-        model_alias: str = "gemini-brain",
+        model_alias: Optional[str] = "gemini-brain",
         thread_id: Optional[str] = None,
         peer_id: Optional[str] = None,
+        *,
+        local: bool = False,
+        base_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        gateway: Optional[str] = None,
+        router: Optional[DynamicAIGatewayRouter] = None,
     ):
         self.relay_url = relay_url.rstrip("/")
-        self.model_alias = model_alias
         self.thread_id = thread_id
         self.peer_id = peer_id
+        self.local = bool(local or os.environ.get("TINCAN_LOCAL", "").lower() in ("1", "true", "yes"))
+        raw_base = base_url or os.environ.get("TINCAN_AI_BASE_URL") or os.environ.get("OPENAI_BASE_URL")
+        self.base_url: Optional[str] = normalize_openai_compat_base_url(raw_base) if raw_base else None
+        self.api_key = api_key
+        gw_norm = (gateway or "").strip().lower()
+        self.gateway: Optional[str] = None if gw_norm in ("", "auto") else gw_norm
+        self._router = router
+        self.model_alias = self._resolve_initial_model(model_alias)
         self.history: List[Dict[str, str]] = [
             {"role": "system", "content": SYSTEM_PROMPT}
         ]
 
+    def _get_router(self) -> DynamicAIGatewayRouter:
+        if self._router is None:
+            self._router = DynamicAIGatewayRouter(
+                local_base_url=self.base_url,
+                local_api_key=self.api_key,
+            )
+        return self._router
+
+    def _resolve_initial_model(self, model_alias: Optional[str]) -> str:
+        if model_alias:
+            return model_alias
+        env_model = os.environ.get("TINCAN_LOCAL_MODEL") or os.environ.get("OLLAMA_MODEL")
+        if self.gateway == "owlchat" or (self.base_url and "chat.hpc.fau.edu" in self.base_url.lower()):
+            return env_model or "owlchat/Gemma4-vibe"
+        if self.base_url:
+            if env_model:
+                return env_model
+            discovered = self._get_router().get_openai_compat_models(
+                self.base_url,
+                api_key=self.api_key,
+                gateway_name=self.gateway or "local",
+                prefix="local",
+                timeout=2.0,
+            )
+            return discovered[0]["id"] if discovered else "local/default"
+        if self.local or self.gateway == "ollama":
+            if env_model:
+                return env_model if env_model.startswith("ollama/") else f"ollama/{env_model}"
+            installed = self._get_router().get_ollama_models()
+            return installed[0]["id"] if installed else "ollama/llama3.1:8b"
+        if self.gateway == "local":
+            return env_model or "local/default"
+        return "gemini-brain"
+
+    def is_direct_mode(self) -> bool:
+        """True when completions bypass the relay and call Ollama/local/OwlChat directly."""
+        if self.gateway == "relay" and not self.local and not self.base_url:
+            return False
+        if self.local or self.base_url or self.gateway in ("ollama", "owlchat", "trussed", "local", "openai-compat"):
+            return True
+        return self._get_router()._detect_compat_gateway(self.model_alias, gateway=self.gateway, base_url=self.base_url) is not None
+
+    def _direct_target_label(self) -> str:
+        router = self._get_router()
+        gw = router._detect_compat_gateway(self.model_alias, gateway=self.gateway, base_url=self.base_url) or "local"
+        endpoint, _, label = router._resolve_compat_spec(gw, base_url=self.base_url)
+        return f"{label} ({endpoint})"
+
     def ask(self, user_text: str) -> str:
         self.history.append({"role": "user", "content": user_text})
+        if self.is_direct_mode():
+            try:
+                router = self._get_router()
+                gw_hint = "ollama" if (self.local and not self.gateway and not self.base_url and "/" not in self.model_alias) else self.gateway
+                data = router.dispatch_completion(
+                    self.model_alias,
+                    self.history,
+                    temperature=0.7,
+                    max_tokens=1024,
+                    base_url=self.base_url,
+                    api_key=self.api_key,
+                    gateway=gw_hint,
+                )
+                reply = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                if not reply:
+                    reply = "[No response returned from model]"
+                self.history.append({"role": "assistant", "content": reply})
+                return reply
+            except urllib.error.URLError as e:
+                return f"[TinCan Local/Direct Error ({self._direct_target_label()}): {e.reason}]"
+            except Exception as e:
+                return f"[TinCan Agent Error: {e}]"
+
         payload = {
             "model": self.model_alias,
             "messages": self.history,
@@ -68,9 +159,12 @@ class TinCanAgentChat:
     def run_repl(self) -> None:
         print("\033[1;36m==========================================================")
         print("  ⚡ TinCan 2 — Agentic Chat & Mesh Intelligence REPL")
-        print("  Connected to:", self.relay_url)
+        if self.is_direct_mode():
+            print("  Direct Target:", self._direct_target_label())
+        else:
+            print("  Connected to:", self.relay_url)
         print("  Model Target:", self.model_alias)
-        print("  Type '/model <alias>' to switch, '/help' for tools, 'exit' to quit")
+        print("  Type '/model <alias>' to switch, '/local [model]' for Ollama, '/help' for tools, 'exit' to quit")
         print("==========================================================\033[0m\n")
 
         while True:
@@ -93,9 +187,47 @@ class TinCanAgentChat:
                 if cmd == "/model":
                     if arg:
                         self.model_alias = arg.strip()
-                        print(f"[+] Switched model target to: {self.model_alias}")
+                        mode_tag = f"direct -> {self._direct_target_label()}" if self.is_direct_mode() else f"relay -> {self.relay_url}"
+                        print(f"[+] Switched model target to: {self.model_alias} ({mode_tag})")
                     else:
                         print(f"Current model: {self.model_alias}")
+                    continue
+                elif cmd == "/local":
+                    self.local = True
+                    self.gateway = "ollama"
+                    self.base_url = None
+                    if arg.strip():
+                        m_name = arg.strip()
+                        self.model_alias = m_name if m_name.startswith("ollama/") else f"ollama/{m_name}"
+                    else:
+                        self.model_alias = self._resolve_initial_model(None)
+                    print(f"[+] Switched to local Ollama: {self.model_alias} ({self._direct_target_label()})")
+                    continue
+                elif cmd == "/endpoint":
+                    if arg.strip():
+                        self.base_url = normalize_openai_compat_base_url(arg.strip())
+                        self.gateway = None
+                        self.local = True
+                        print(f"[+] Direct OpenAI-compatible base URL set to: {self.base_url}")
+                    else:
+                        print(f"Current endpoint: {self._direct_target_label() if self.is_direct_mode() else self.relay_url}")
+                    continue
+                elif cmd == "/owlchat":
+                    self.base_url = OWLCHAT_BASE_URL
+                    self.gateway = "owlchat"
+                    self.local = False
+                    self.model_alias = f"owlchat/{arg.strip()}" if arg.strip() else "owlchat/Gemma4-vibe"
+                    print(f"[+] Switched to FAU OwlChat: {self.model_alias} ({self._direct_target_label()})")
+                    continue
+                elif cmd == "/relay":
+                    self.local = False
+                    self.base_url = None
+                    self.gateway = "relay"
+                    if arg.strip():
+                        self.model_alias = arg.strip()
+                    elif self._get_router()._detect_compat_gateway(self.model_alias):
+                        self.model_alias = "gemini-brain"
+                    print(f"[+] Switched to Relay mode: {self.model_alias} ({self.relay_url})")
                     continue
                 elif cmd in ("/rodin", "/ronin"):
                     if not arg:
@@ -198,12 +330,16 @@ class TinCanAgentChat:
                     continue
                 elif cmd == "/help":
                     print("Commands:")
-                    print("  /model <alias>   Switch active model (e.g. claude-brain, grok-brain, gemini-brain, openai-brain)")
-                    print("  /rodin <prompt>  Generate 3D mesh via Hyper3D Rodin and save to space (alias /ronin)")
-                    print("  /space <cmd>     Manage .space VFS (ls, read, write, run, agent)")
-                    print("  /clear           Reset conversation memory")
-                    print("  /help            Show this help text")
-                    print("  exit / quit      Exit the agent REPL")
+                    print("  /model <alias>     Switch active model (e.g. ollama/qwen2.5:3b, owlchat/Gemma4-vibe, gemini-brain)")
+                    print("  /local [model]     Switch to local Ollama (auto-detects installed model if omitted)")
+                    print("  /owlchat [model]   Switch to FAU OwlChat OpenAI API (default: Gemma4-vibe)")
+                    print("  /endpoint <url>    Set a custom OpenAI-compatible base URL (e.g. http://localhost:8000/v1)")
+                    print("  /relay [model]     Return to TinCan Relay mode")
+                    print("  /rodin <prompt>    Generate 3D mesh via Hyper3D Rodin and save to space (alias /ronin)")
+                    print("  /space <cmd>       Manage .space VFS (ls, read, write, run, agent)")
+                    print("  /clear             Reset conversation memory")
+                    print("  /help              Show this help text")
+                    print("  exit / quit        Exit the agent REPL")
                     continue
                 else:
                     print(f"[-] Unknown command: {cmd}")
