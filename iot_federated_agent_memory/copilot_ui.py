@@ -433,12 +433,163 @@ COPILOT_CSS = r"""
 #win-copilot .cp-ctx-remove:hover { color: var(--cp-danger); }
 #win-copilot .cp-attach-drawer {
   border-top: var(--cp-hair-soft);
-  padding-top: 6px;
+  padding-top: 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+#win-copilot .cp-inv-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+#win-copilot .cp-inv-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: var(--cp-hair-soft);
+  border-radius: 9999px;
+  background: var(--cp-paper);
+  color: var(--cp-ink);
+  font-family: var(--cp-mono);
+  font-size: 10px;
+  padding: 3px 8px;
+  outline: none;
+}
+#win-copilot .cp-inv-search:focus { border-color: var(--cp-ink); }
+#win-copilot .cp-inv-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+#win-copilot .cp-inv-tab {
+  padding: 2px 7px;
+  border: var(--cp-hair-soft);
+  border-radius: 9999px;
+  background: var(--cp-paper);
+  color: var(--cp-ink);
+  font-family: var(--cp-mono);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+#win-copilot .cp-inv-tab.is-active {
+  background: var(--cp-ink);
+  color: var(--cp-paper);
+  border-color: var(--cp-ink);
+}
+#win-copilot .cp-inv-list {
+  max-height: 168px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 132px;
-  overflow-y: auto;
+}
+#win-copilot .cp-inv-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px 7px;
+  border: var(--cp-hair-soft);
+  border-radius: 8px;
+  background: var(--cp-paper);
+  font-family: var(--cp-mono);
+  font-size: 10px;
+}
+#win-copilot .cp-inv-row.is-attached {
+  border-color: var(--cp-pos);
+  background: var(--cp-pos-bg);
+}
+#win-copilot .cp-inv-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  min-width: 0;
+}
+#win-copilot .cp-inv-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+#win-copilot .cp-inv-pill {
+  padding: 1px 6px;
+  border: var(--cp-hair-soft);
+  border-radius: 9999px;
+  background: var(--cp-card);
+  color: var(--cp-ink);
+  font-family: var(--cp-mono);
+  font-size: 9px;
+  font-weight: 600;
+  cursor: pointer;
+}
+#win-copilot .cp-inv-pill:hover {
+  background: var(--cp-ink);
+  color: var(--cp-paper);
+}
+#win-copilot .cp-inv-pill--pos {
+  border-color: var(--cp-pos);
+  background: var(--cp-pos-bg);
+  color: var(--cp-pos);
+}
+#win-copilot .cp-inspector {
+  background: var(--cp-paper);
+  border: var(--cp-hair);
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+#win-copilot .cp-insp-field {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: var(--cp-hair-soft);
+  border-radius: 6px;
+  background: var(--cp-card);
+  color: var(--cp-ink);
+  font-family: var(--cp-mono);
+  font-size: 10px;
+  padding: 4px 6px;
+  outline: none;
+}
+#win-copilot .cp-insp-field:focus {
+  border-color: var(--cp-ink);
+  background: var(--cp-paper);
+}
+#win-copilot .cp-insp-meta {
+  background: var(--cp-card);
+  border: var(--cp-hair-soft);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-family: var(--cp-mono);
+  font-size: 9px;
+  line-height: 1.4;
+  color: var(--cp-muted);
+  word-break: break-word;
+}
+#win-copilot .cp-insp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+#win-copilot .cp-btn--pos {
+  border-color: var(--cp-pos);
+  background: var(--cp-pos);
+  color: var(--cp-paper);
+}
+#win-copilot .cp-btn--pos:hover { opacity: 0.88; }
+#win-copilot .cp-btn--danger {
+  border-color: var(--cp-danger);
+  background: var(--cp-paper);
+  color: var(--cp-danger);
+}
+#win-copilot .cp-btn--danger:hover {
+  background: var(--cp-danger);
+  color: var(--cp-paper);
 }
 #win-copilot .cp-attach-pick {
   display: flex;
@@ -626,6 +777,62 @@ COPILOT_CSS = r"""
   flex-direction: column;
   gap: 8px;
 }
+#win-copilot .cp-capsules {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  padding-bottom: 6px;
+  border-bottom: var(--cp-hair-soft);
+}
+#win-copilot .cp-capsule-summary {
+  font-family: var(--cp-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--cp-faint);
+  letter-spacing: 0.03em;
+}
+#win-copilot .cp-capsule-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  border: 1px solid var(--cp-pos);
+  background: var(--cp-pos-bg);
+  color: var(--cp-pos);
+  font-family: var(--cp-mono);
+  font-size: 10px;
+  font-weight: 600;
+  max-width: 100%;
+}
+#win-copilot .cp-capsule-chip--file {
+  border: var(--cp-hair-soft);
+  background: var(--cp-card);
+  color: var(--cp-ink);
+}
+#win-copilot .cp-capsule-btn {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+#win-copilot .cp-capsule-rm {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: var(--cp-mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0 2px;
+  cursor: pointer;
+  line-height: 1;
+}
+#win-copilot .cp-capsule-rm:hover { color: var(--cp-danger); }
 #win-copilot .cp-textarea {
   width: 100%;
   min-width: 0;
@@ -794,6 +1001,27 @@ def _build_copilot_script() -> str:
     spaceFiles: [],
     driveFiles: [],
     palaceNodes: [],
+    inventoryItems: [],
+    inventoryFetched: false,
+    inventoryTab: 'all',
+    inventoryQuery: '',
+    renderedInventory: [],
+    inspector: {
+      open: false,
+      mode: 'create',
+      nodeId: '',
+      canonical_name: '',
+      category: 'router_memory',
+      summary: '',
+      value: '',
+      valid_from: '',
+      edges: [],
+      updated_at: 0,
+      tokens_est: 0,
+      original: null,
+      statusNote: '',
+      statusError: false
+    },
     attachedFiles: [
       { path: '/ai_gateway.py', source: 'space', tag: 'PY', estTokens: 2140, rag: false },
       { path: '/tincan_agent.py', source: 'space', tag: 'PY', estTokens: 1080, rag: false },
@@ -1063,6 +1291,38 @@ def _build_copilot_script() -> str:
     updatePreflightBadge();
   }
 
+  function renderActiveCapsules() {
+    const bar = el('copilotActiveCapsules');
+    if (!bar) return;
+    let totalTok = 0;
+    state.attachedFiles.forEach((f) => { totalTok += Number((f && f.estTokens) || 0); });
+    const summaryHtml = '<span class="cp-capsule-summary">Active Capsules (' + totalTok.toLocaleString() + 't):</span>';
+    if (!state.attachedFiles.length) {
+      bar.innerHTML = summaryHtml + '<span class="cp-mono-xs cp-muted">none attached</span>';
+      return;
+    }
+    const chipsHtml = state.attachedFiles.map((f, idx) => {
+      const isPalace = f.source === 'palace';
+      const prefix = isPalace ? 'Palace' : (f.source === 'drive' ? 'Drive' : '.space');
+      const shortName = isPalace
+        ? String(f.path || '').replace(/^\/palace\//, '')
+        : String(f.path || '').replace(/^\/+/, '');
+      const tok = Number(f.estTokens || 0);
+      const chipCls = isPalace ? 'cp-capsule-chip' : 'cp-capsule-chip cp-capsule-chip--file';
+      const labelHtml = isPalace
+        ? '<button type="button" class="cp-capsule-btn" title="Inspect in Context Inspector" onclick="window.TinCanCopilot && window.TinCanCopilot.openPalaceInspector(\'' + esc(f.nodeId || shortName).replace(/'/g, '\\\'') + '\')">' + esc(prefix + ': ' + shortName + ' (' + tok + 't)') + '</button>'
+        : '<span>' + esc(prefix + ': ' + shortName + ' (' + tok + 't)') + '</span>';
+      return (
+        '<span class="' + chipCls + '" data-copilot-capsule="' + esc(f.path) + '">' +
+        labelHtml +
+        '<button type="button" class="cp-capsule-rm" aria-label="Detach ' + esc(shortName) + '" title="Detach capsule" ' +
+        'onclick="window.TinCanCopilot && window.TinCanCopilot.removeContextFile(' + idx + ')">&#x00D7;</button>' +
+        '</span>'
+      );
+    }).join('');
+    bar.innerHTML = summaryHtml + chipsHtml;
+  }
+
   function renderContextFiles() {
     const box = el('copilotContextFiles');
     if (box) {
@@ -1083,7 +1343,118 @@ def _build_copilot_script() -> str:
         }).join('');
       }
     }
+    renderActiveCapsules();
     renderAttachDrawer();
+  }
+
+  function getNormalizedInventoryItems() {
+    const palaceById = new Map();
+    const palaceByName = new Map();
+    state.palaceNodes.forEach((n) => {
+      if (!n) return;
+      if (n.node_id) palaceById.set(n.node_id, n);
+      if (n.canonical_name) palaceByName.set(n.canonical_name, n);
+    });
+
+    const out = [];
+    const seen = new Set();
+
+    function pushItem(it) {
+      if (!it || !it.path) return;
+      const src = it.source || 'space';
+      const key = src + ':' + (it.nodeId || it.path);
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(it);
+    }
+
+    if (state.inventoryFetched && Array.isArray(state.inventoryItems)) {
+      state.inventoryItems.forEach((it) => {
+        if (!it) return;
+        const sg = String(it.source_group || it.source || it.kind || '').toLowerCase();
+        const isPalace = sg === 'palace' || it.kind === 'palace';
+        const src = isPalace ? 'palace' : (sg === 'drive' ? 'drive' : (sg === 'space' ? 'space' : (it.source || 'space')));
+        const pNode = isPalace ? (palaceById.get(it.node_id || it.id) || palaceByName.get(it.title || '')) : null;
+        const val = (pNode && (pNode.value || pNode.active_value)) || it.value || '';
+        const estTokens = Number(
+          it.tokens_est || (pNode && pNode.tokens_est) || Math.max(12, Math.ceil(String(val || it.size_bytes || '').length / 4 || Number(it.size_bytes || 0) / 4))
+        );
+        pushItem({
+          path: it.path || (isPalace ? ('/palace/' + (it.title || it.node_id || 'concept')) : ''),
+          title: it.title || it.canonical_name || it.path,
+          category: it.category || (pNode && pNode.category) || '',
+          desc: it.description || (pNode && pNode.summary) || '',
+          value: val,
+          source: src,
+          sourceGroup: isPalace ? 'palace' : (sg === 'drive' ? 'drive' : (sg === 'space' ? 'space' : 'brains')),
+          kind: it.kind || src,
+          nodeId: it.node_id || (isPalace ? it.id : '') || '',
+          tokensEst: estTokens,
+          size: Number(it.size_bytes || String(val).length || 0),
+          validFrom: (pNode && pNode.valid_from) || it.valid_from || '',
+          edges: (pNode && pNode.edges) || it.edges || [],
+          updatedAt: (pNode && pNode.updated_at) || it.updated_at || 0
+        });
+      });
+    }
+
+    state.palaceNodes.forEach((n) => {
+      if (!n || !n.canonical_name) return;
+      const val = String(n.value || n.active_value || '');
+      pushItem({
+        path: '/palace/' + n.canonical_name,
+        title: n.canonical_name,
+        category: n.category || '',
+        desc: n.summary || '',
+        value: val,
+        source: 'palace',
+        sourceGroup: 'palace',
+        kind: 'palace',
+        nodeId: n.node_id || '',
+        tokensEst: Number(n.tokens_est || Math.max(12, Math.ceil(val.length / 4))),
+        size: val.length,
+        validFrom: n.valid_from || '',
+        edges: n.edges || [],
+        updatedAt: n.updated_at || 0
+      });
+    });
+    state.spaceFiles.forEach((f) => {
+      if (!f || !f.path) return;
+      const sz = Number(f.size_bytes || 0);
+      pushItem({
+        path: f.path,
+        title: f.path,
+        category: '',
+        desc: f.description || '',
+        value: '',
+        source: 'space',
+        sourceGroup: 'space',
+        kind: 'space',
+        nodeId: '',
+        tokensEst: Math.max(12, Math.ceil(sz / 4)),
+        size: sz
+      });
+    });
+    state.driveFiles.forEach((f) => {
+      const p = typeof f === 'string' ? f : (f && (f.path || f.name));
+      if (!p) return;
+      const sz = Number((f && f.size_bytes) || 0);
+      pushItem({
+        path: p,
+        title: p,
+        category: '',
+        desc: (f && f.description) || 'Local Drive Mirror',
+        value: '',
+        source: 'drive',
+        sourceGroup: 'drive',
+        kind: 'drive',
+        nodeId: '',
+        tokensEst: Math.max(12, Math.ceil(sz / 4)),
+        size: sz
+      });
+    });
+
+    return out;
   }
 
   function renderAttachDrawer() {
@@ -1092,47 +1463,82 @@ def _build_copilot_script() -> str:
     drawer.classList.toggle('hidden', !state.attachDrawerOpen);
     if (!state.attachDrawerOpen) return;
 
-    const candidates = [];
-    state.palaceNodes.forEach((n) => {
-      if (n && n.canonical_name) {
-        candidates.push({
-          path: '/palace/' + n.canonical_name,
-          label: n.canonical_name + (n.category ? (' [' + n.category + ']') : ''),
-          desc: n.summary || '',
-          source: 'palace',
-          nodeId: n.node_id,
-          size: String(n.value || '').length
-        });
+    const searchInp = el('copilotInventorySearch');
+    if (searchInp && searchInp.value !== state.inventoryQuery) {
+      searchInp.value = state.inventoryQuery;
+    }
+
+    const allItems = getNormalizedInventoryItems();
+    const counts = {
+      all: allItems.length,
+      palace: allItems.filter((i) => i.source === 'palace').length,
+      space: allItems.filter((i) => i.source === 'space').length,
+      drive: allItems.filter((i) => i.source === 'drive').length
+    };
+    const tabLabels = {
+      all: 'All (' + counts.all + ')',
+      palace: 'Palace (' + counts.palace + ')',
+      space: '.space (' + counts.space + ')',
+      drive: 'Drive (' + counts.drive + ')'
+    };
+    ['all', 'palace', 'space', 'drive'].forEach((tabKey) => {
+      const tbtn = el('copilotInvTab-' + tabKey);
+      if (tbtn) {
+        const active = state.inventoryTab === tabKey;
+        tbtn.classList.toggle('is-active', active);
+        tbtn.setAttribute('aria-selected', active ? 'true' : 'false');
+        tbtn.textContent = tabLabels[tabKey];
       }
     });
-    state.spaceFiles.forEach((f) => {
-      if (f && f.path) candidates.push({ path: f.path, label: f.path, source: 'space', size: Number(f.size_bytes || 0) });
-    });
-    state.driveFiles.forEach((f) => {
-      const p = typeof f === 'string' ? f : (f && (f.path || f.name));
-      if (p) candidates.push({ path: p, label: p, source: 'drive', size: Number((f && f.size_bytes) || 0) });
-    });
 
-    const palaceActions =
-      '<div style="display:flex;gap:4px;margin-bottom:4px;flex-wrap:wrap;">' +
-      '<button type="button" id="copilotPalaceNewBtn" class="cp-btn cp-btn--sm" onclick="window.TinCanCopilot && window.TinCanCopilot.promptCreatePalaceConcept()">+ Palace Concept</button>' +
-      '<button type="button" id="copilotPalaceToArenaBtn" class="cp-btn cp-btn--sm" onclick="window.TinCanCopilot && window.TinCanCopilot.sendPalaceToArenaBoth()">→ Arena Both Brains</button>' +
-      '</div>';
+    const q = String(state.inventoryQuery || '').trim().toLowerCase();
+    const qTerms = q ? q.split(/\s+/).filter(Boolean) : [];
+    const filtered = allItems.filter((it) => {
+      if (state.inventoryTab !== 'all' && it.source !== state.inventoryTab) return false;
+      if (!qTerms.length) return true;
+      const hay = [it.title, it.path, it.category, it.desc, it.value].join(' ').toLowerCase();
+      return qTerms.every((t) => hay.indexOf(t) !== -1);
+    });
+    state.renderedInventory = filtered.slice(0, 36);
 
-    if (!candidates.length) {
-      drawer.innerHTML = palaceActions + '<div class="cp-mono-xs cp-muted">No extra .space, Drive, or Context Palace items found yet.</div>';
+    const sumEl = el('copilotInventorySummary');
+    if (sumEl) {
+      sumEl.textContent = filtered.length + ' shown · ' + allItems.length + ' total';
+    }
+
+    const listEl = el('copilotInventoryList');
+    if (!listEl) return;
+
+    if (!state.renderedInventory.length) {
+      listEl.innerHTML = '<div class="cp-mono-xs cp-muted">No matching Palace, .space, or Drive items found.</div>';
       return;
     }
+
     const attachedSet = new Set(state.attachedFiles.map((a) => a.path));
-    drawer.innerHTML = palaceActions + candidates.slice(0, 28).map((c) => {
+    listEl.innerHTML = state.renderedInventory.map((c, idx) => {
       const isAtt = attachedSet.has(c.path);
+      const kindTag = c.source === 'palace' ? 'PALACE' : (c.source === 'drive' ? 'DRIVE' : '.SPACE');
+      const catBadge = c.category ? (' · ' + c.category) : '';
+      const tokBadge = Number(c.tokensEst || 0) + 't';
+      const editBtn = c.source === 'palace'
+        ? '<button type="button" class="cp-inv-pill" data-palace-edit-idx="' + idx + '" onclick="window.TinCanCopilot && window.TinCanCopilot._invEdit(' + idx + ')">Edit &#x270E;</button>'
+        : '';
+      const arenaBtn = c.source === 'palace'
+        ? '<button type="button" class="cp-inv-pill" onclick="window.TinCanCopilot && window.TinCanCopilot._invToArena(' + idx + ')">&#x2192; Both</button>'
+        : '';
       return (
-        '<button type="button" class="cp-attach-pick' + (isAtt ? ' is-attached' : '') + '" ' +
-        (c.desc ? ('title="' + esc(c.desc) + '" ') : '') +
-        'onclick="window.TinCanCopilot && window.TinCanCopilot.attachContextFile(\'' + esc(c.path).replace(/'/g, '\\\'') + '\', \'' + esc(c.source) + '\')">' +
-        '<span class="cp-truncate">' + esc(c.label || c.path) + '</span>' +
-        '<span>' + esc(isAtt ? 'ATTACHED' : c.source.toUpperCase()) + '</span>' +
-        '</button>'
+        '<div class="cp-inv-row' + (isAtt ? ' is-attached' : '') + '" data-inv-source="' + esc(c.source) + '" data-inv-path="' + esc(c.path) + '">' +
+          '<div class="cp-inv-row-top">' +
+            '<span class="cp-truncate">[' + esc(kindTag) + '] ' + esc(c.title || c.path) + esc(catBadge) + '</span>' +
+            '<span class="cp-muted" style="flex:0 0 auto;">' + esc(tokBadge) + '</span>' +
+          '</div>' +
+          (c.desc ? '<div class="cp-truncate cp-muted" style="font-size:9px;">' + esc(c.desc) + '</div>' : '') +
+          '<div class="cp-inv-row-actions">' +
+            '<button type="button" class="cp-inv-pill' + (isAtt ? ' cp-inv-pill--pos' : '') + '" onclick="window.TinCanCopilot && window.TinCanCopilot._invAttach(' + idx + ')">' + (isAtt ? 'Attached &#x2713;' : '+ Router') + '</button>' +
+            editBtn +
+            arenaBtn +
+          '</div>' +
+        '</div>'
       );
     }).join('');
   }
@@ -1278,15 +1684,50 @@ def _build_copilot_script() -> str:
     renderContextFiles();
   }
 
-  function toggleAttachDrawer() {
-    state.attachDrawerOpen = !state.attachDrawerOpen;
+  function toggleAttachDrawer(tabOverride) {
+    if (typeof tabOverride === 'string' && tabOverride) {
+      if (state.attachDrawerOpen && state.inventoryTab === tabOverride) {
+        state.attachDrawerOpen = false;
+      } else {
+        state.inventoryTab = tabOverride;
+        state.attachDrawerOpen = true;
+      }
+    } else {
+      state.attachDrawerOpen = !state.attachDrawerOpen;
+    }
     renderAttachDrawer();
     if (state.attachDrawerOpen) {
       refreshSpaceAndDrive();
     }
   }
 
-  function attachContextFile(path, source) {
+  function setInventoryTab(tabKey) {
+    const allowed = { all: true, palace: true, space: true, drive: true };
+    if (!allowed[tabKey]) return;
+    state.inventoryTab = tabKey;
+    state.attachDrawerOpen = true;
+    renderAttachDrawer();
+  }
+
+  function setInventoryQuery(q) {
+    state.inventoryQuery = String(q == null ? '' : q);
+    state.attachDrawerOpen = true;
+    renderAttachDrawer();
+    if (typeof fetch === 'function') {
+      refreshInventory(state.inventoryQuery);
+    }
+  }
+
+  function _findInventoryItemMeta(path, source) {
+    const cleanName = String(path || '').replace(/^\/palace\//, '');
+    if (source === 'palace') {
+      const pNode = state.palaceNodes.find((n) => n && (n.canonical_name === cleanName || ('/palace/' + n.canonical_name) === path));
+      if (pNode) return pNode;
+    }
+    return state.inventoryItems.find((it) => it && (it.path === path || it.title === cleanName)) || null;
+  }
+
+  function attachContextFile(path, source, itemMeta) {
     if (!path) return;
     const existingIdx = state.attachedFiles.findIndex((f) => f.path === path);
     if (existingIdx !== -1) {
@@ -1295,54 +1736,541 @@ def _build_copilot_script() -> str:
       return;
     }
     if (source === 'palace') {
-      const name = String(path).replace(/^\/palace\//, '');
-      const hit = state.palaceNodes.find((n) => n.canonical_name === name || ('/palace/' + n.canonical_name) === path);
-      const val = hit ? String(hit.value || hit.summary || '') : '';
+      const hit = itemMeta || _findInventoryItemMeta(path, 'palace');
+      const val = hit ? String(hit.value || hit.active_value || hit.summary || hit.description || '') : '';
+      const est = Number((hit && hit.tokens_est) || (hit && hit.tokensEst) || Math.max(12, Math.ceil(val.length / 4)));
       state.attachedFiles.push({
         path,
         source: 'palace',
-        nodeId: hit ? hit.node_id : '',
+        nodeId: (hit && (hit.node_id || hit.nodeId || hit.id)) || '',
         palaceContent: val,
         tag: 'PALACE',
-        estTokens: Math.max(12, Math.ceil(val.length / 4)),
+        estTokens: est,
         rag: true
       });
       renderContextFiles();
       return;
     }
     const ext = (String(path).split('.').pop() || 'TXT').toUpperCase().slice(0, 4);
-    const spaceHit = state.spaceFiles.find((f) => f.path === path);
-    const size = spaceHit ? Number(spaceHit.size_bytes || 0) : 512;
+    const spaceHit = itemMeta || state.spaceFiles.find((f) => f.path === path) || _findInventoryItemMeta(path, source);
+    const size = spaceHit ? Number(spaceHit.size_bytes || spaceHit.size || 0) : 512;
     state.attachedFiles.push({
       path,
       source: source || 'space',
       tag: ext,
-      estTokens: Math.max(12, Math.ceil(size / 4)),
+      estTokens: Number((spaceHit && (spaceHit.tokens_est || spaceHit.tokensEst)) || Math.max(12, Math.ceil(size / 4))),
       rag: ext === 'MD' || ext === 'TXT'
     });
     renderContextFiles();
   }
 
-  async function promptCreatePalaceConcept() {
-    const title = typeof window.prompt === 'function' ? window.prompt('Context Palace concept name / key:', '') : '';
-    if (!title || !title.trim()) return;
-    const value = typeof window.prompt === 'function' ? window.prompt('Knowledge / memory value for "' + title.trim() + '":', '') : '';
-    if (!value || !value.trim()) return;
+  function ensurePalaceAttached(concept) {
+    if (!concept || !concept.canonical_name) return;
+    const path = '/palace/' + concept.canonical_name;
+    const val = String(concept.value || concept.active_value || concept.summary || '');
+    const est = Number(concept.tokens_est || Math.max(12, Math.ceil(val.length / 4)));
+    const idx = state.attachedFiles.findIndex((f) =>
+      f.source === 'palace' && ((concept.node_id && f.nodeId === concept.node_id) || f.path === path)
+    );
+    const entry = {
+      path,
+      source: 'palace',
+      nodeId: concept.node_id || '',
+      palaceContent: val,
+      tag: 'PALACE',
+      estTokens: est,
+      rag: true
+    };
+    if (idx !== -1) {
+      state.attachedFiles[idx] = entry;
+    } else {
+      state.attachedFiles.push(entry);
+    }
+    renderContextFiles();
+  }
+
+  function _formatTimestamp(ts) {
+    if (ts == null || ts === '') return '';
+    if (typeof ts === 'string' && isNaN(Number(ts))) return ts;
+    const num = Number(ts);
+    if (!Number.isFinite(num) || num <= 0) return '';
+    try {
+      const ms = num > 1e12 ? num : num * 1000;
+      return new Date(ms).toISOString().replace('.000Z', 'Z');
+    } catch (e) {
+      return String(ts);
+    }
+  }
+
+  function _formatEdgesText(edges) {
+    if (!Array.isArray(edges) || !edges.length) return '';
+    return edges.slice(0, 4).map((edge) => {
+      if (typeof edge === 'string') return edge;
+      if (!edge || typeof edge !== 'object') return '';
+      const rel = edge.relation_type || edge.rel || '';
+      const tgt = edge.target_name || edge.target_id || edge.target || '';
+      return (rel ? (rel + ' ') : '') + '-> ' + tgt;
+    }).filter(Boolean).join(', ');
+  }
+
+  function _formatInspectorMeta(insp) {
+    if (insp.mode !== 'edit' && !insp.nodeId) {
+      return 'new concept · unsaved (Context Palace)';
+    }
+    const parts = [];
+    const vf = _formatTimestamp(insp.valid_from || insp.updated_at);
+    if (insp.valid_from) {
+      parts.push('valid_from: ' + vf);
+    } else if (vf) {
+      parts.push('updated: ' + vf);
+    }
+    const edgesStr = _formatEdgesText(insp.edges);
+    if (edgesStr) {
+      parts.push('edges: ' + edgesStr);
+    } else if (Array.isArray(insp.edges)) {
+      parts.push('edges: 0');
+    }
+    if (insp.nodeId) parts.push('id: ' + insp.nodeId);
+    const tok = insp.tokens_est || Math.max(1, Math.ceil(String(insp.value || '').length / 4));
+    parts.push(tok + ' tok');
+    return parts.join(' | ');
+  }
+
+  function _findPalaceConcept(nodeOrId) {
+    if (!nodeOrId) return null;
+    if (typeof nodeOrId === 'object') return nodeOrId;
+    const key = String(nodeOrId).trim();
+    const clean = key.replace(/^\/palace\//, '');
+    const fromPalace = state.palaceNodes.find((n) => n && (n.node_id === key || n.canonical_name === clean || ('/palace/' + n.canonical_name) === key));
+    if (fromPalace) return fromPalace;
+    const fromInv = state.inventoryItems.find((it) =>
+      it && (it.source_group === 'palace' || it.kind === 'palace') &&
+      (it.node_id === key || it.id === key || it.title === clean || it.path === key)
+    );
+    if (fromInv) {
+      return {
+        node_id: fromInv.node_id || fromInv.id || '',
+        canonical_name: fromInv.title || clean,
+        category: fromInv.category || 'router_memory',
+        summary: fromInv.description || '',
+        value: fromInv.value || fromInv.active_value || '',
+        valid_from: fromInv.valid_from || '',
+        edges: fromInv.edges || [],
+        updated_at: fromInv.updated_at || 0,
+        tokens_est: fromInv.tokens_est || 0
+      };
+    }
+    return null;
+  }
+
+  function _upsertPalaceConcept(concept, previousName) {
+    if (!concept) return;
+    const nid = concept.node_id || '';
+    const idx = state.palaceNodes.findIndex((n) =>
+      n && ((nid && n.node_id === nid) || (previousName && n.canonical_name === previousName) || n.canonical_name === concept.canonical_name)
+    );
+    if (idx !== -1) {
+      state.palaceNodes[idx] = Object.assign({}, state.palaceNodes[idx], concept);
+    } else {
+      state.palaceNodes.unshift(concept);
+    }
+    if (Array.isArray(state.inventoryItems)) {
+      const invIdx = state.inventoryItems.findIndex((it) =>
+        it && (it.source_group === 'palace' || it.kind === 'palace') &&
+        ((nid && (it.node_id === nid || it.id === nid)) || (previousName && it.title === previousName))
+      );
+      const invRec = {
+        kind: 'palace',
+        source_group: 'palace',
+        id: nid || concept.canonical_name,
+        node_id: nid,
+        path: '/palace/' + concept.canonical_name,
+        title: concept.canonical_name,
+        category: concept.category || 'router_memory',
+        description: concept.summary || '',
+        value: concept.value || concept.active_value || '',
+        tokens_est: concept.tokens_est || Math.max(12, Math.ceil(String(concept.value || '').length / 4)),
+        valid_from: concept.valid_from || '',
+        edges: concept.edges || [],
+        updated_at: concept.updated_at || 0
+      };
+      if (invIdx !== -1) state.inventoryItems[invIdx] = Object.assign({}, state.inventoryItems[invIdx], invRec);
+      else if (state.inventoryFetched) state.inventoryItems.unshift(invRec);
+    }
+    const oldPath = previousName ? ('/palace/' + previousName) : '';
+    const newPath = '/palace/' + concept.canonical_name;
+    const val = String(concept.value || concept.active_value || '');
+    state.attachedFiles = state.attachedFiles.map((f) => {
+      if (f.source === 'palace' && ((nid && f.nodeId === nid) || (oldPath && f.path === oldPath) || f.path === newPath)) {
+        return Object.assign({}, f, {
+          path: newPath,
+          nodeId: nid || f.nodeId,
+          palaceContent: val,
+          estTokens: Number(concept.tokens_est || Math.max(12, Math.ceil(val.length / 4)))
+        });
+      }
+      return f;
+    });
+  }
+
+  function _removePalaceConceptFromState(nodeId, canonicalName) {
+    const oldPath = canonicalName ? ('/palace/' + canonicalName) : '';
+    state.palaceNodes = state.palaceNodes.filter((n) =>
+      n && !(nodeId && n.node_id === nodeId) && !(canonicalName && n.canonical_name === canonicalName)
+    );
+    state.inventoryItems = state.inventoryItems.filter((it) =>
+      it && !(nodeId && (it.node_id === nodeId || it.id === nodeId)) && !(oldPath && it.path === oldPath)
+    );
+    state.attachedFiles = state.attachedFiles.filter((f) =>
+      !(f.source === 'palace' && ((nodeId && f.nodeId === nodeId) || (oldPath && f.path === oldPath)))
+    );
+  }
+
+  function renderInspector(syncInputs) {
+    const panel = el('copilotContextInspector');
+    if (panel) panel.classList.toggle('hidden', !state.inspector.open);
+    const titleEl = el('copilotInspectorTitle');
+    if (titleEl) {
+      titleEl.textContent = state.inspector.mode === 'edit'
+        ? 'CONTEXT INSPECTOR · EDIT'
+        : 'CONTEXT INSPECTOR · NEW NODE';
+    }
+    if (syncInputs) {
+      const nEl = el('copilotInspectorName');
+      const cEl = el('copilotInspectorCategory');
+      const dEl = el('copilotInspectorDesc');
+      const vEl = el('copilotInspectorValue');
+      if (nEl) nEl.value = state.inspector.canonical_name || '';
+      if (cEl) cEl.value = state.inspector.category || 'router_memory';
+      if (dEl) dEl.value = state.inspector.summary || '';
+      if (vEl) vEl.value = state.inspector.value || '';
+    }
+    const metaEl = el('copilotInspectorMeta');
+    if (metaEl) metaEl.textContent = _formatInspectorMeta(state.inspector);
+    const delBtn = el('copilotInspectorDeleteBtn');
+    if (delBtn) delBtn.disabled = !(state.inspector.mode === 'edit' && state.inspector.nodeId);
+    const stEl = el('copilotInspectorStatus');
+    if (stEl) {
+      stEl.textContent = state.inspector.statusNote || '';
+      stEl.className = 'cp-mono-xs ' + (state.inspector.statusError ? 'cp-danger' : (state.inspector.statusNote ? 'cp-pos' : 'cp-muted'));
+    }
+  }
+
+  function openPalaceInspector(nodeOrId) {
+    const hit = _findPalaceConcept(nodeOrId);
+    if (hit) {
+      const snap = {
+        nodeId: hit.node_id || '',
+        canonical_name: hit.canonical_name || hit.title || '',
+        category: hit.category || 'router_memory',
+        summary: hit.summary || hit.description || '',
+        value: hit.value != null ? String(hit.value) : String(hit.active_value || ''),
+        valid_from: hit.valid_from || '',
+        edges: Array.isArray(hit.edges) ? hit.edges.slice() : [],
+        updated_at: hit.updated_at || 0,
+        tokens_est: hit.tokens_est || 0
+      };
+      state.inspector = Object.assign({
+        open: true,
+        mode: snap.nodeId ? 'edit' : 'create',
+        original: Object.assign({}, snap),
+        statusNote: 'Inspecting ' + snap.canonical_name,
+        statusError: false
+      }, snap);
+    } else {
+      const emptySnap = {
+        nodeId: '',
+        canonical_name: '',
+        category: 'router_memory',
+        summary: '',
+        value: '',
+        valid_from: '',
+        edges: [],
+        updated_at: 0,
+        tokens_est: 0
+      };
+      state.inspector = Object.assign({
+        open: true,
+        mode: 'create',
+        original: Object.assign({}, emptySnap),
+        statusNote: 'Create a new Context Palace ConceptNode.',
+        statusError: false
+      }, emptySnap);
+    }
+    renderInspector(true);
+    const nameEl = el('copilotInspectorName');
+    if (nameEl && typeof nameEl.focus === 'function') nameEl.focus();
+  }
+
+  function closePalaceInspector() {
+    state.inspector.open = false;
+    state.inspector.statusNote = '';
+    state.inspector.statusError = false;
+    renderInspector(false);
+  }
+
+  async function readPalaceConcept(nodeIdOrName) {
+    if (!nodeIdOrName) return null;
+    try {
+      const res = await apiJson('/api/arena/context/palace/crud', {
+        method: 'POST',
+        body: { action: 'read', node_id: String(nodeIdOrName) }
+      });
+      if (res && res.concept) {
+        _upsertPalaceConcept(res.concept);
+        openPalaceInspector(res.concept);
+        return res.concept;
+      }
+    } catch (err) {
+      state.inspector.statusNote = 'Read failed: ' + (err && err.message ? err.message : 'offline');
+      state.inspector.statusError = true;
+      renderInspector(false);
+    }
+    return null;
+  }
+
+  async function savePalaceInspector() {
+    const name = ((el('copilotInspectorName') && el('copilotInspectorName').value) || '').trim();
+    const category = ((el('copilotInspectorCategory') && el('copilotInspectorCategory').value) || 'router_memory').trim() || 'router_memory';
+    const summary = ((el('copilotInspectorDesc') && el('copilotInspectorDesc').value) || '').trim();
+    const value = ((el('copilotInspectorValue') && el('copilotInspectorValue').value) || '').trim();
+    if (!name || !value) {
+      state.inspector.statusNote = 'Concept name and value are required.';
+      state.inspector.statusError = true;
+      renderInspector(false);
+      return null;
+    }
+    const isEdit = state.inspector.mode === 'edit' && Boolean(state.inspector.nodeId);
+    const action = isEdit ? 'update' : 'create';
+    const prevName = state.inspector.original ? state.inspector.original.canonical_name : '';
+    const payload = {
+      action,
+      canonical_name: name,
+      category,
+      summary,
+      description: summary,
+      value
+    };
+    if (isEdit) payload.node_id = state.inspector.nodeId;
+    try {
+      const res = await apiJson('/api/arena/context/palace/crud', {
+        method: 'POST',
+        body: payload
+      });
+      const concept = (res && res.concept) || Object.assign({}, payload, {
+        node_id: state.inspector.nodeId || ('pal-' + Date.now().toString(36)),
+        tokens_est: Math.max(12, Math.ceil(value.length / 4))
+      });
+      _upsertPalaceConcept(concept, prevName);
+      openPalaceInspector(concept);
+      state.inspector.statusNote = (action === 'update' ? 'Updated "' : 'Created "') + concept.canonical_name + '".';
+      state.inspector.statusError = false;
+      renderInspector(false);
+      renderContextFiles();
+      notify('Context Palace ' + action + ': ' + concept.canonical_name, false);
+      refreshSpaceAndDrive().catch(() => {});
+      return concept;
+    } catch (err) {
+      state.inspector.statusNote = 'Save failed: ' + (err && err.message ? err.message : 'sign in first');
+      state.inspector.statusError = true;
+      renderInspector(false);
+      notify('Context Palace save failed: ' + (err && err.message ? err.message : 'failed'), true);
+      return null;
+    }
+  }
+
+  function revertPalaceInspector() {
+    const orig = state.inspector.original;
+    if (orig) {
+      state.inspector.nodeId = orig.nodeId || '';
+      state.inspector.canonical_name = orig.canonical_name || '';
+      state.inspector.category = orig.category || 'router_memory';
+      state.inspector.summary = orig.summary || '';
+      state.inspector.value = orig.value || '';
+      state.inspector.valid_from = orig.valid_from || '';
+      state.inspector.edges = Array.isArray(orig.edges) ? orig.edges.slice() : [];
+      state.inspector.updated_at = orig.updated_at || 0;
+      state.inspector.tokens_est = orig.tokens_est || 0;
+    }
+    state.inspector.statusNote = 'Reverted unsaved changes.';
+    state.inspector.statusError = false;
+    renderInspector(true);
+  }
+
+  async function deletePalaceInspector() {
+    const nodeId = state.inspector.nodeId;
+    const name = state.inspector.canonical_name || (state.inspector.original && state.inspector.original.canonical_name) || '';
+    if (!nodeId) {
+      state.inspector.statusNote = 'Nothing to delete (unsaved concept).';
+      state.inspector.statusError = true;
+      renderInspector(false);
+      return false;
+    }
     try {
       await apiJson('/api/arena/context/palace/crud', {
         method: 'POST',
+        body: { action: 'delete', node_id: nodeId }
+      });
+      _removePalaceConceptFromState(nodeId, name);
+      state.inspector.open = false;
+      state.inspector.mode = 'create';
+      state.inspector.nodeId = '';
+      state.inspector.canonical_name = '';
+      state.inspector.summary = '';
+      state.inspector.value = '';
+      state.inspector.original = null;
+      state.inspector.statusNote = 'Deleted "' + (name || nodeId) + '".';
+      state.inspector.statusError = false;
+      renderInspector(true);
+      renderContextFiles();
+      notify('Deleted "' + (name || nodeId) + '" from Context Palace.', false);
+      refreshSpaceAndDrive().catch(() => {});
+      return true;
+    } catch (err) {
+      state.inspector.statusNote = 'Delete failed: ' + (err && err.message ? err.message : 'failed');
+      state.inspector.statusError = true;
+      renderInspector(false);
+      return false;
+    }
+  }
+
+  async function sendInspectorToRouter() {
+    let nodeId = state.inspector.nodeId;
+    const name = ((el('copilotInspectorName') && el('copilotInspectorName').value) || state.inspector.canonical_name || '').trim();
+    const category = ((el('copilotInspectorCategory') && el('copilotInspectorCategory').value) || state.inspector.category || 'router_memory').trim();
+    const summary = ((el('copilotInspectorDesc') && el('copilotInspectorDesc').value) || state.inspector.summary || '').trim();
+    const value = ((el('copilotInspectorValue') && el('copilotInspectorValue').value) || state.inspector.value || '').trim();
+
+    if (!nodeId && name && value && typeof fetch === 'function') {
+      const created = await savePalaceInspector();
+      if (created) {
+        ensurePalaceAttached(created);
+        state.inspector.statusNote = 'Created & attached "' + created.canonical_name + '" to Router.';
+        state.inspector.statusError = false;
+        renderInspector(false);
+        return created;
+      }
+      return null;
+    }
+    if (!name) {
+      state.inspector.statusNote = 'Enter or select a ConceptNode before attaching to Router.';
+      state.inspector.statusError = true;
+      renderInspector(false);
+      return null;
+    }
+    const concept = {
+      node_id: nodeId || '',
+      canonical_name: name,
+      category,
+      summary,
+      value: value || summary,
+      tokens_est: state.inspector.tokens_est || Math.max(12, Math.ceil((value || summary).length / 4))
+    };
+    _upsertPalaceConcept(concept);
+    ensurePalaceAttached(concept);
+    state.inspector.statusNote = 'Injected "' + name + '" into Router active capsules.';
+    state.inspector.statusError = false;
+    renderInspector(false);
+    notify('Attached Palace capsule "' + name + '" to AI Brain Router.', false);
+    return concept;
+  }
+
+  async function sendInspectorToArenaBoth() {
+    let nodeId = state.inspector.nodeId;
+    if (!nodeId) {
+      const created = await savePalaceInspector();
+      if (!created || !created.node_id) return null;
+      nodeId = created.node_id;
+    }
+    try {
+      const res = await apiJson('/api/arena/context/palace/import', {
+        method: 'POST',
+        body: { agent_id: 'both', node_ids: [nodeId] }
+      });
+      state.inspector.statusNote = 'Sent to Arena Brain A & Brain B!';
+      state.inspector.statusError = false;
+      renderInspector(false);
+      notify('Imported ConceptNode to Brain A & Brain B!', false);
+      if (typeof window.arenaCtxRefresh === 'function') {
+        window.arenaCtxRefresh('arenaWin', 'A');
+        window.arenaCtxRefresh('arenaWin', 'B');
+      }
+      return res;
+    } catch (err) {
+      state.inspector.statusNote = 'Arena import failed: ' + (err && err.message ? err.message : 'sign in first');
+      state.inspector.statusError = true;
+      renderInspector(false);
+      return null;
+    }
+  }
+
+  function _invAttach(idx) {
+    const it = state.renderedInventory[idx];
+    if (!it) return;
+    attachContextFile(it.path, it.source, it);
+  }
+
+  function _invEdit(idx) {
+    const it = state.renderedInventory[idx];
+    if (!it) return;
+    openPalaceInspector(it.nodeId || it.title || it.path);
+  }
+
+  async function _invToArena(idx) {
+    const it = state.renderedInventory[idx];
+    if (!it || !it.nodeId) {
+      await sendPalaceToArenaBoth();
+      return;
+    }
+    try {
+      const res = await apiJson('/api/arena/context/palace/import', {
+        method: 'POST',
+        body: { agent_id: 'both', node_ids: [it.nodeId] }
+      });
+      notify('Imported "' + (it.title || it.nodeId) + '" to Brain A & Brain B!', false);
+      if (typeof window.arenaCtxRefresh === 'function') {
+        window.arenaCtxRefresh('arenaWin', 'A');
+        window.arenaCtxRefresh('arenaWin', 'B');
+      }
+      return res;
+    } catch (err) {
+      notify('Could not import Palace to Arena: ' + (err && err.message ? err.message : 'sign in first'), true);
+    }
+  }
+
+  async function promptCreatePalaceConcept(titleArg, valueArg, opts) {
+    // Interactive UI flow opens the inline Context Inspector & Editor without browser prompt dialogs.
+    if (typeof titleArg !== 'string' || !titleArg.trim() || typeof valueArg !== 'string' || !valueArg.trim()) {
+      openPalaceInspector(null);
+      return null;
+    }
+    const extra = opts || {};
+    try {
+      const res = await apiJson('/api/arena/context/palace/crud', {
+        method: 'POST',
         body: {
           action: 'create',
-          canonical_name: title.trim(),
-          category: 'router_memory',
-          value: value.trim()
+          canonical_name: titleArg.trim(),
+          category: String(extra.category || 'router_memory'),
+          summary: String(extra.summary || extra.description || ''),
+          value: valueArg.trim()
         }
       });
-      await refreshSpaceAndDrive();
-      attachContextFile('/palace/' + title.trim(), 'palace');
-      notify('Added "' + title.trim() + '" to Context Palace & attached to Copilot.', false);
+      const concept = (res && res.concept) || {
+        node_id: '',
+        canonical_name: titleArg.trim(),
+        category: String(extra.category || 'router_memory'),
+        summary: String(extra.summary || extra.description || ''),
+        value: valueArg.trim()
+      };
+      _upsertPalaceConcept(concept);
+      ensurePalaceAttached(concept);
+      notify('Added "' + titleArg.trim() + '" to Context Palace & attached to Copilot.', false);
+      refreshSpaceAndDrive().catch(() => {});
+      return concept;
     } catch (err) {
       notify('Context Palace save requires sign-in: ' + (err && err.message ? err.message : 'failed'), true);
+      return null;
     }
   }
 
@@ -1449,6 +2377,24 @@ def _build_copilot_script() -> str:
     renderModelSelect();
   }
 
+  async function refreshInventory(queryOverride) {
+    const q = typeof queryOverride === 'string' ? queryOverride : state.inventoryQuery;
+    try {
+      const inv = await apiJson(
+        '/api/arena/context/inventory?q=' + encodeURIComponent(q || ''),
+        { channel: 'inventoryLs' }
+      );
+      if (inv && Array.isArray(inv.items)) {
+        state.inventoryItems = inv.items;
+        state.inventoryFetched = true;
+      }
+      if (inv && inv.palace && Array.isArray(inv.palace.concepts)) {
+        state.palaceNodes = inv.palace.concepts;
+      }
+      renderAttachDrawer();
+    } catch (e) {}
+  }
+
   async function refreshSpaceAndDrive() {
     resolveSpaceContext();
     try {
@@ -1468,9 +2414,12 @@ def _build_copilot_script() -> str:
     } catch (e) {}
     try {
       const pl = await apiJson('/api/arena/context/palace?limit=40', { channel: 'palaceLs' });
-      state.palaceNodes = Array.isArray(pl.concepts) ? pl.concepts : [];
+      if (Array.isArray(pl.concepts)) {
+        state.palaceNodes = pl.concepts;
+      }
       renderAttachDrawer();
     } catch (e) {}
+    await refreshInventory(state.inventoryQuery);
   }
 
   async function refresh() {
@@ -1480,11 +2429,11 @@ def _build_copilot_script() -> str:
   async function gatherAttachedContextSnippets() {
     resolveSpaceContext();
     const snippets = [];
-    for (let i = 0; i < state.attachedFiles.length && i < 4; i++) {
+    for (let i = 0; i < state.attachedFiles.length && i < 8; i++) {
       const f = state.attachedFiles[i];
       if (f.source === 'palace') {
         const hit = state.palaceNodes.find((n) => n.node_id === f.nodeId || ('/palace/' + n.canonical_name) === f.path);
-        const body = String((hit && hit.value) || f.palaceContent || '').slice(0, 1500);
+        const body = String((hit && (hit.value || hit.active_value)) || f.palaceContent || '').slice(0, 1500);
         if (body) snippets.push('[' + f.path + ' · Context Palace]\n' + body);
         continue;
       }
@@ -1818,6 +2767,7 @@ def _build_copilot_script() -> str:
     renderPriorityUI();
     renderModelSelect();
     renderContextFiles();
+    renderInspector(false);
     renderArbitrageStats();
     renderThreadLog();
     wireDomEvents();
@@ -1827,6 +2777,7 @@ def _build_copilot_script() -> str:
     version: 1,
     init,
     refresh,
+    refreshInventory,
     setPriority,
     selectModel,
     estimatePreflight,
@@ -1834,13 +2785,26 @@ def _build_copilot_script() -> str:
     newThread,
     exportMarkdown,
     toggleAttachDrawer,
+    setInventoryTab,
+    setInventoryQuery,
     attachContextFile,
     removeContextFile,
+    openPalaceInspector,
+    closePalaceInspector,
+    readPalaceConcept,
+    savePalaceInspector,
+    revertPalaceInspector,
+    deletePalaceInspector,
+    sendInspectorToRouter,
+    sendInspectorToArenaBoth,
     promptCreatePalaceConcept,
     sendPalaceToArenaBoth,
     applyPatch,
     duelInArena,
     runPytestInSpace,
+    _invAttach,
+    _invEdit,
+    _invToArena,
     getState: () => Object.assign({}, state)
   };
 
@@ -1908,9 +2872,47 @@ def render_copilot_window_html(include_css: bool = True, include_js: bool = True
                   <span class="cp-pos">RAG ON</span>
                 </div>
               </div>
-              <div id="copilotAttachDrawer" class="cp-attach-drawer hidden" aria-label="Available Space, Drive, and Context Palace items"></div>
+              <div id="copilotAttachDrawer" class="cp-attach-drawer hidden" aria-label="Available Space, Drive, and Context Palace items">
+                <div class="cp-inv-toolbar">
+                  <input id="copilotInventorySearch" type="search" class="cp-inv-search" placeholder="Search Palace, .space, Drive..." aria-label="Search Universal Context Inventory" oninput="window.TinCanCopilot && window.TinCanCopilot.setInventoryQuery(this.value)" />
+                  <button type="button" id="copilotPalaceNewBtn" class="cp-btn cp-btn--sm cp-btn--solid" onclick="window.TinCanCopilot && window.TinCanCopilot.openPalaceInspector()">+ New Node</button>
+                </div>
+                <div id="copilotInventoryTabs" class="cp-inv-tabs" role="tablist" aria-label="Context inventory source filter">
+                  <button type="button" id="copilotInvTab-all" role="tab" aria-selected="true" class="cp-inv-tab is-active" onclick="window.TinCanCopilot && window.TinCanCopilot.setInventoryTab('all')">All</button>
+                  <button type="button" id="copilotInvTab-palace" role="tab" aria-selected="false" class="cp-inv-tab" onclick="window.TinCanCopilot && window.TinCanCopilot.setInventoryTab('palace')">Palace</button>
+                  <button type="button" id="copilotInvTab-space" role="tab" aria-selected="false" class="cp-inv-tab" onclick="window.TinCanCopilot && window.TinCanCopilot.setInventoryTab('space')">.space</button>
+                  <button type="button" id="copilotInvTab-drive" role="tab" aria-selected="false" class="cp-inv-tab" onclick="window.TinCanCopilot && window.TinCanCopilot.setInventoryTab('drive')">Drive</button>
+                </div>
+                <div class="cp-inv-toolbar" style="justify-content: space-between;">
+                  <span id="copilotInventorySummary" class="cp-mono-xs cp-muted">0 items</span>
+                  <button type="button" id="copilotPalaceToArenaBtn" class="cp-btn cp-btn--sm" onclick="window.TinCanCopilot && window.TinCanCopilot.sendPalaceToArenaBoth()">&#x2192; Arena Both</button>
+                </div>
+                <div id="copilotInventoryList" class="cp-inv-list"></div>
+              </div>
               <button id="copilotAttachCtxBtn" type="button" class="cp-btn cp-btn--full" onclick="window.TinCanCopilot && window.TinCanCopilot.toggleAttachDrawer()">+ Attach .space / Drive Files</button>
-              <button id="copilotAttachPalaceBtn" type="button" class="cp-btn cp-btn--sm cp-btn--full" style="margin-top:4px;" onclick="window.TinCanCopilot && window.TinCanCopilot.toggleAttachDrawer()">🏛️ Import Context Palace → Router &amp; Arena</button>
+              <button id="copilotAttachPalaceBtn" type="button" class="cp-btn cp-btn--sm cp-btn--full" style="margin-top:4px;" onclick="window.TinCanCopilot && window.TinCanCopilot.toggleAttachDrawer('palace')">🏛️ Import Context Palace → Router &amp; Arena</button>
+            </section>
+
+            <section id="copilotContextInspector" class="cp-card cp-inspector hidden" aria-label="Context Palace Inspector and Editor">
+              <div class="cp-sec-head">
+                <span id="copilotInspectorTitle" class="cp-sec-label">CONTEXT INSPECTOR &amp; EDITOR</span>
+                <button id="copilotInspectorCloseBtn" type="button" class="cp-ctx-remove" aria-label="Close context inspector" onclick="window.TinCanCopilot && window.TinCanCopilot.closePalaceInspector()">&#x2715;</button>
+              </div>
+              <div class="cp-insp-actions">
+                <button id="copilotInspectorSaveBtn" type="button" class="cp-btn cp-btn--sm cp-btn--pos" onclick="window.TinCanCopilot && window.TinCanCopilot.savePalaceInspector()">Save Edit</button>
+                <button id="copilotInspectorRevertBtn" type="button" class="cp-btn cp-btn--sm" onclick="window.TinCanCopilot && window.TinCanCopilot.revertPalaceInspector()">Revert</button>
+                <button id="copilotInspectorDeleteBtn" type="button" class="cp-btn cp-btn--sm cp-btn--danger" onclick="window.TinCanCopilot && window.TinCanCopilot.deletePalaceInspector()">Delete</button>
+              </div>
+              <input id="copilotInspectorName" type="text" class="cp-insp-field" placeholder="Concept name (e.g. bitemporal-crdt-sync)" aria-label="Concept name" />
+              <input id="copilotInspectorCategory" type="text" class="cp-insp-field" placeholder="Category (e.g. router_memory)" aria-label="Concept category" />
+              <input id="copilotInspectorDesc" type="text" class="cp-insp-field" placeholder="Description / summary..." aria-label="Concept description" />
+              <div id="copilotInspectorMeta" class="cp-insp-meta">new concept · unsaved (Context Palace)</div>
+              <textarea id="copilotInspectorValue" rows="3" class="cp-insp-field" placeholder="Concept value / memory rules..." aria-label="Concept value"></textarea>
+              <div class="cp-insp-actions">
+                <button id="copilotInspectorToRouterBtn" type="button" class="cp-btn cp-btn--sm" onclick="window.TinCanCopilot && window.TinCanCopilot.sendInspectorToRouter()">&#x2192; Router</button>
+                <button id="copilotInspectorToArenaBtn" type="button" class="cp-btn cp-btn--sm cp-btn--solid" onclick="window.TinCanCopilot && window.TinCanCopilot.sendInspectorToArenaBoth()">&#x2192; Arena Both</button>
+              </div>
+              <div id="copilotInspectorStatus" class="cp-mono-xs cp-muted" aria-live="polite"></div>
             </section>
 
             <section class="cp-card">
@@ -1963,6 +2965,12 @@ def render_copilot_window_html(include_css: bool = True, include_js: bool = True
             </div>
 
             <div class="cp-composer">
+              <div id="copilotActiveCapsules" class="cp-capsules" aria-label="Active attached Context Palace and Space capsules">
+                <span class="cp-capsule-summary">Active Capsules (4,080t):</span>
+                <span class="cp-capsule-chip cp-capsule-chip--file" data-copilot-capsule="/ai_gateway.py"><span>.space: ai_gateway.py (2140t)</span><button type="button" class="cp-capsule-rm" aria-label="Detach ai_gateway.py" onclick="window.TinCanCopilot && window.TinCanCopilot.removeContextFile(0)">&#x00D7;</button></span>
+                <span class="cp-capsule-chip cp-capsule-chip--file" data-copilot-capsule="/tincan_agent.py"><span>.space: tincan_agent.py (1080t)</span><button type="button" class="cp-capsule-rm" aria-label="Detach tincan_agent.py" onclick="window.TinCanCopilot && window.TinCanCopilot.removeContextFile(1)">&#x00D7;</button></span>
+                <span class="cp-capsule-chip cp-capsule-chip--file" data-copilot-capsule="/Vault/FAU-Thesis.md"><span>Drive: Vault/FAU-Thesis.md (860t)</span><button type="button" class="cp-capsule-rm" aria-label="Detach Vault/FAU-Thesis.md" onclick="window.TinCanCopilot && window.TinCanCopilot.removeContextFile(2)">&#x00D7;</button></span>
+              </div>
               <textarea id="copilotPromptInput" rows="2" class="cp-textarea" placeholder="Ask TinCan Copilot, attach .space files, or request a unified diff..."></textarea>
               <div class="cp-composer-bar">
                 <select id="copilotModelSelect" class="cp-select" aria-label="Select Copilot model">
