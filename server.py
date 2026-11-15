@@ -25,6 +25,8 @@ from urllib.parse import urlparse, parse_qs
 from iot_federated_agent_memory.scale import IoTFederatedMemoryScale
 from iot_federated_agent_memory.webrtc_relay import WebRTCSignalingRelay
 from iot_federated_agent_memory.ai_gateway import DynamicAIGatewayRouter, filter_gateway_models
+from iot_federated_agent_memory.ai_gateway_telemetry import collect_gateway_telemetry, estimate_preflight
+from iot_federated_agent_memory.token_ledger import build_token_summary
 from iot_federated_agent_memory.space_notes import EditPlanError, SpaceNotesEditor
 from iot_federated_agent_memory.tincan_relay import TinCanBlindRelay
 from iot_federated_agent_memory.video_playlist import RelayVideoPlaylist
@@ -863,7 +865,7 @@ HTML_UI = MESH_OS_HTML_UI
 # Paths that open the shell straight into one window (mesh_os_ui.py maps each to its window id;
 # zen_shell.py keeps the classic desktop for them). Keep the three lists in sync.
 SINGLE_WINDOW_ROUTES = frozenset({
-    "/tv", "/call", "/comms", "/chat", "/arena", "/terminal", "/billing", "/tokens",
+    "/tv", "/call", "/comms", "/chat", "/copilot", "/ai", "/home", "/arena", "/terminal", "/billing", "/tokens",
     "/board", "/cyberspace", "/space", "/files", "/finder", "/agentspace",
     "/quests", "/rewards", "/network", "/workstation",
 })
@@ -3211,6 +3213,46 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             self._send_json(router.get_analytics()["providers"])
         elif parsed.path == "/api/models/analytics":
             self._send_json(router.get_analytics())
+        elif parsed.path == "/api/gateway/telemetry":
+            query = parse_qs(parsed.query)
+            scope, owner_id = self._resolve_space_query(query)
+            sm = _get_space_manager()
+            try:
+                sp = sm.get_or_create_space(scope, owner_id)
+            except Exception:
+                sp = None
+            telemetry = collect_gateway_telemetry(router, space_owner=owner_id, vfs=sp)
+            model_q = (query.get("model", [""])[0] or "").strip()
+            if model_q:
+                try:
+                    prompt_chars = int(query.get("prompt_chars", ["0"])[0] or "0")
+                except ValueError:
+                    prompt_chars = 0
+                telemetry["preflight"] = estimate_preflight(model_q, prompt_chars=prompt_chars, router=router)
+            self._send_json(telemetry, 200)
+        elif parsed.path == "/api/tokens/summary":
+            query = parse_qs(parsed.query)
+            session_acc = self._session_account()
+            req_peer = (query.get("peer_id", [None])[0] or "").strip()
+            acct_summary = None
+            if req_peer:
+                candidate = account_registry.get_billing_summary(req_peer)
+                if isinstance(candidate, dict) and "error" not in candidate:
+                    acct_summary = candidate
+            if acct_summary is None and session_acc:
+                sid = session_acc.get("peer_id")
+                candidate = account_registry.get_billing_summary(sid) if sid else None
+                acct_summary = candidate if (isinstance(candidate, dict) and "error" not in candidate) else session_acc
+            analytics_data = router.get_analytics(include_live_billing=False) if hasattr(router, "get_analytics") else {}
+            sponsor_state = sponsor_manager.get_state() if hasattr(sponsor_manager, "get_state") else {}
+            payload = build_token_summary(
+                account=acct_summary,
+                analytics=analytics_data,
+                sponsor_state=sponsor_state,
+                daily_ad_cap=AD_DAILY_REWARD_CAP,
+            )
+            payload["rodin"] = _get_hyper3d_billing(router)
+            self._send_json(payload, 200)
         elif parsed.path == "/api/tincan/inbox":
             query = parse_qs(parsed.query)
             address = query.get("address", query.get("addr", [None]))[0]

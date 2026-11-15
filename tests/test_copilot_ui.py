@@ -342,8 +342,13 @@ def test_copilot_widgets_gateways_hooks_and_unique_ids() -> None:
     assert len(cp_ids) == len(set(cp_ids))
 
     mesh_counts = Counter(re.findall(r'(?<![\w-])id="([^"]+)"', MESH_OS_HTML_UI))
-    collisions = [eid for eid in cp_ids if mesh_counts[eid] > 0]
-    assert collisions == []
+    # tc-copilot-css and copilotUiScript are only emitted in standalone include_css/include_js mode;
+    # when mounted into MESH_OS_HTML_UI via /*TC_COPILOT_CSS*/ and /*TC_COPILOT_JS*/, check DOM widget IDs once.
+    dom_ids = [eid for eid in cp_ids if eid not in ("tc-copilot-css", "copilotUiScript")]
+    collisions = {eid: mesh_counts[eid] for eid in dom_ids if mesh_counts[eid] != 1}
+    assert collisions == {}, f"Expected every #win-copilot ID once in MESH_OS_HTML_UI: {collisions}"
+    assert "/*TC_COPILOT_CSS_MOUNTED*/" in MESH_OS_HTML_UI
+    assert "/*TC_COPILOT_JS_MOUNTED*/" in MESH_OS_HTML_UI
 
 
 def test_apply_copilot_ui_marker_replacement_and_idempotency() -> None:

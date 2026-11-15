@@ -54,6 +54,8 @@ def test_mesh_os_ui_zen_windows_attributes():
         "win-board",
         "win-network",
         "win-agentspace",
+        "win-copilot",
+        "win-ai-home",
     ]
     for win_id in expected_windows:
         assert f'id="{win_id}"' in html, f"Window {win_id} missing from HTML"

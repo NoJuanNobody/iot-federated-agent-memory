@@ -14,6 +14,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     /*TC_SHELL_CSS*/
+    /*TC_COPILOT_CSS*/
+    /*TC_TOKEN_VAULT_CSS*/
+    /*TC_AI_HOME_CSS*/
     /* Ranger VFS: resizable split + read-only viewer */
     @media (min-width: 768px) {
       #rangerListPane { width: var(--ranger-list-w, 38%); min-width: 180px; }
@@ -1692,194 +1695,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- ===================================================================== -->
     <!-- Window 7: Token Billing, Top-Up & Sponsored Ads.app -->
     <!-- ===================================================================== -->
-    <div id="win-billing" class="mesh-window w-[620px]" data-zen-window="true" data-window-id="win-billing" style="top: 140px; left: 120px; z-index: 26;">
-      <!--TC_TITLEBAR {"id": "win-billing", "icon": "💳", "title": "Token Store & Sponsor Ads", "badge": "Cost subsidy"}-->
-      <div class="window-body p-4 space-y-4 max-h-[720px] overflow-y-auto text-xs font-sans">
-        <!-- Live Balance Banner -->
-        <div class="p-3 bg-slate-900/80 rounded-xl border border-emerald-500/40 flex items-center justify-between">
-          <div>
-            <div class="text-[11px] text-slate-400 font-mono">Connected Peer Token Balance</div>
-            <div class="flex items-baseline gap-2 mt-0.5">
-              <span id="billingWindowTokens" class="text-2xl font-bold font-mono text-emerald-400">10</span>
-              <span class="text-slate-400 text-xs font-mono">credits</span>
-              <span class="text-slate-600">|</span>
-              <span id="billingWindowCredits" class="text-sm font-mono text-cyan-300 font-bold">$0.10 USD</span>
-            </div>
-          </div>
-          <button onclick="refreshBillingWindow()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-mono flex items-center gap-1 active:scale-95">
-            🔄 Refresh
-          </button>
-        </div>
-
-        <!-- Section 1: Sponsored Ads (Subsidize Costs with Ads) -->
-        <div class="p-3 bg-gradient-to-r from-amber-950/40 to-slate-900/80 rounded-xl border border-amber-600/40 space-y-3">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="text-amber-400 text-sm">📺</span>
-              <span class="font-bold text-amber-300 font-mono">Watch Sponsored Ads (Earn Free Tokens)</span>
-            </div>
-            <div class="flex items-center gap-1.5">
-              <button type="button" onclick="fetchNextSponsor()" title="Rotate to next sponsor" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-mono border border-slate-700 active:scale-95 transition">⟳ Next Sponsor</button>
-              <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono border border-amber-500/30 font-bold">+5 CREDITS</span>
-            </div>
-          </div>
-          <p class="text-[11px] text-slate-300">
-            Advertisers fund your AI compute! Watch an interactive 10-second sponsor video or visit our developer partners to cover API token costs without paying out-of-pocket.
-          </p>
-
-          <!-- Interactive Sponsor Ad Card -->
-          <div id="sponsorAdContainer" class="p-3 bg-slate-950/80 rounded-lg border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-            <div class="flex items-center gap-3 min-w-0 flex-1">
-              <div id="adSponsorIcon" class="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center text-white text-xl shrink-0 shadow-md">
-                ⚡
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
-                  <span id="adSponsorName" class="font-bold text-white text-xs truncate">Vercel AI SDK &amp; MicroVMs</span>
-                  <span id="adSponsorBadge" class="text-[9px] px-1 rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase">Sponsored</span>
-                </div>
-                <div id="adSponsorTagline" class="text-[11px] text-slate-400 truncate">Deploy durable agent sandboxes and AI gateways with zero server management.</div>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 shrink-0 w-full md:w-auto justify-end">
-              <a id="adSponsorCtaBtn" href="https://sdk.vercel.ai?utm_source=tincan-mesh" target="_blank" rel="noopener noreferrer" onclick="trackSponsorClick()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-mono rounded border border-slate-700 transition">
-                Visit Partner ↗
-              </a>
-              <button id="watchAdBtn" onclick="watchSponsoredAd()" class="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:brightness-110 text-slate-950 font-bold font-mono text-xs rounded-lg transition active:scale-95 shadow-md">
-                ▶ Watch Video (10s)
-              </button>
-            </div>
-          </div>
-
-          <!-- Video Player Container (Active when watching) -->
-          <div id="adVideoContainer" class="hidden space-y-2 p-2.5 bg-slate-950 rounded-lg border border-amber-500/40">
-            <div class="relative bg-black rounded overflow-hidden aspect-video flex items-center justify-center">
-              <video id="adVideoPlayer" playsinline preload="auto" class="w-full h-full object-contain"></video>
-              <div id="adVideoOverlay" class="absolute top-2 left-2 px-2 py-0.5 bg-black/80 rounded border border-slate-700 text-[10px] font-mono text-amber-300">
-                Sponsor Clip: <span id="adVideoTitle">Partner Ad</span>
-              </div>
-            </div>
-            <div id="adProgressWrap" class="space-y-1">
-              <div class="flex justify-between text-[10px] font-mono text-amber-300">
-                <span id="adProgressText">Streaming verified sponsor video...</span>
-                <span id="adTimerText">10s remaining</span>
-              </div>
-              <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                <div id="adProgressBar" class="bg-amber-400 h-full w-0 transition-all duration-300 ease-linear"></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Advertising Network & Community Partner Info -->
-          <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono px-1">
-            <span>Direct Partner Ads • EthicalAds • Google AdSense • Community Ads</span>
-            <div class="flex items-center gap-2">
-              <button type="button" onclick="openSponsorInfoModal()" class="text-amber-400 hover:underline">How to Advertise ℹ</button>
-              <button type="button" id="billingAdminSponsorBtn" onclick="openAdminSponsorStudio()" class="hidden px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-600 hover:bg-amber-900 transition">🛡️ Admin Studio</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Section 2: Direct Token Top-Up Packages -->
-        <div class="space-y-2">
-          <div class="flex items-center justify-between">
-            <span class="font-bold text-white font-mono">💳 Or Buy Token Credits Directly</span>
-            <span class="text-[10px] text-slate-400 font-mono">Instant mesh deposit</span>
-          </div>
-          <div class="grid grid-cols-3 gap-2.5">
-            <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800 hover:border-emerald-500/60 transition flex flex-col justify-between">
-              <div>
-                <div class="text-xs font-bold text-white">Starter Pack</div>
-                <div class="text-lg font-bold font-mono text-emerald-400 mt-1">$1.00</div>
-                <div class="text-[11px] text-slate-400 mt-0.5">120 Credits</div>
-              </div>
-              <button onclick="buyTokens(1.00, 120)" class="mt-3 w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95">
-                Pay $1.00
-              </button>
-            </div>
-            <div class="p-3 bg-slate-900/90 rounded-xl border border-emerald-500/80 shadow-md hover:border-emerald-400 transition flex flex-col justify-between relative overflow-hidden">
-              <div class="absolute top-0 right-0 bg-emerald-500 text-slate-950 font-bold text-[9px] px-1.5 py-0.2 rounded-bl uppercase">Popular</div>
-              <div>
-                <div class="text-xs font-bold text-white">Developer Pack</div>
-                <div class="text-lg font-bold font-mono text-emerald-400 mt-1">$5.00</div>
-                <div class="text-[11px] text-slate-400 mt-0.5">650 Credits <span class="text-emerald-400 font-semibold">(+8%)</span></div>
-              </div>
-              <button onclick="buyTokens(5.00, 650)" class="mt-3 w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95">
-                Pay $5.00
-              </button>
-            </div>
-            <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800 hover:border-cyan-500/60 transition flex flex-col justify-between">
-              <div>
-                <div class="text-xs font-bold text-white">Fleet Pro Pack</div>
-                <div class="text-lg font-bold font-mono text-cyan-400 mt-1">$20.00</div>
-                <div class="text-[11px] text-slate-400 mt-0.5">2,800 Credits <span class="text-cyan-400 font-semibold">(+17%)</span></div>
-              </div>
-              <button onclick="buyTokens(20.00, 2800)" class="mt-3 w-full py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs font-semibold rounded-lg transition active:scale-95">
-                Pay $20.00
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Section 3: Recent Invoices & Consumption -->
-        <div class="space-y-1.5">
-          <div class="flex items-center justify-between text-[11px] font-mono text-slate-400">
-            <span>Recent Token Invoices &amp; Deductions</span>
-            <span id="billingTotalUsedText" class="text-slate-300">Total used: 0 tokens</span>
-          </div>
-          <div class="bg-slate-950 rounded-lg border border-slate-800 p-2 max-h-36 overflow-y-auto font-mono text-[10px]">
-            <table class="w-full text-left">
-              <thead>
-                <tr class="text-slate-500 border-b border-slate-800 pb-1">
-                  <th>Model</th>
-                  <th>Tokens</th>
-                  <th>Cost (USD)</th>
-                  <th class="text-right">Time</th>
-                </tr>
-              </thead>
-              <tbody id="billingLedgerRows" class="divide-y divide-slate-800/40 text-slate-300">
-                <tr><td colspan="4" class="py-2 text-center text-slate-500">No token deductions recorded yet.</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Section 4: Hyper3D Rodin (Ronin) 3D Generative Credit Pool -->
-        <div class="p-3 bg-gradient-to-r from-cyan-950/40 to-slate-900/80 rounded-xl border border-cyan-500/40 space-y-2">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="text-cyan-400 text-sm">🧊</span>
-              <span class="font-bold text-cyan-300 font-mono">Hyper3D Rodin (Ronin) 3D Generative Credit Pool</span>
-            </div>
-            <span id="rodinBillingStatusBadge" class="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-mono border border-cyan-500/40 font-bold">ONLINE / POOLED</span>
-          </div>
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[11px]">
-            <div class="p-2 bg-slate-950/80 rounded border border-slate-800">
-              <span class="text-slate-400 block text-[9px]">CREDITS LEFT</span>
-              <span id="rodinBalanceCredits" class="text-cyan-400 font-bold text-sm">100.0</span>
-            </div>
-            <div class="p-2 bg-slate-950/80 rounded border border-slate-800">
-              <span class="text-slate-400 block text-[9px]">USD BALANCE</span>
-              <span id="rodinBalanceUsd" class="text-emerald-400 font-bold text-sm">$50.00</span>
-            </div>
-            <div class="p-2 bg-slate-950/80 rounded border border-slate-800">
-              <span class="text-slate-400 block text-[9px]">SESSION 3D TASKS</span>
-              <span id="rodinSessionTasks" class="text-white font-bold text-sm">0</span>
-            </div>
-            <div class="p-2 bg-slate-950/80 rounded border border-slate-800">
-              <span class="text-slate-400 block text-[9px]">ACTIVE KEY</span>
-              <span id="rodinKeyLabel" class="text-slate-300 font-semibold text-[10px] truncate block" title="pooled-rodin">pooled-rodin</span>
-            </div>
-          </div>
-          <div class="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[10px] font-mono text-slate-400">
-            <span>Tier Pricing: Regular ($0.50) · Sketch ($0.25) · Detail ($1.00) · Smooth ($0.75)</span>
-            <button onclick="toggleWindow('win-agentspace')" class="px-2 py-1 bg-cyan-900/80 hover:bg-cyan-800 text-cyan-200 rounded text-[10px] font-mono border border-cyan-700 active:scale-95 transition">
-              🧪 Open AgentSpace 3D Studio →
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!--TC_TOKEN_VAULT_WINDOW-->
 
     <!-- ===================================================================== -->
     <!-- Window 8: Cyberspace Discussion Board · GraphRAG + BM25 + @verifier-agent -->
@@ -2783,6 +2599,16 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     <!--TC_WORKSTATION_WINDOW-->
 
+    <!--TC_COPILOT_WINDOW-->
+
+    <!-- Window 10: TinCan AI Command Shell & Hub (Aeonik Home Overlay Window) -->
+    <div id="win-ai-home" class="mesh-window w-[1080px] max-w-[96vw] hidden" data-zen-window="true" data-window-id="win-ai-home" style="top: 64px; left: 72px; z-index: 21;">
+      <!--TC_TITLEBAR {"id": "win-ai-home", "title": "TinCan AI · Terminal Home & AI Command Hub", "badge": "HOME · ROUTER"}-->
+      <div class="window-body p-4 max-h-[780px] overflow-y-auto bg-[#ecf1e6]">
+        <!--TC_AI_HOME_HUB-->
+      </div>
+    </div>
+
   </main>
 
   <!-- Bottom OS Dock -->
@@ -2817,6 +2643,12 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     </button>
     <button id="dockBtn-win-workstation" onclick="toggleWindow('win-workstation')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Workstation · Multi-Model Foundry &amp; Hyper3D Rodin 3D Studio">
       <span>🛠️</span> <span class="hidden md:inline">Workstation</span>
+    </button>
+    <button id="dockBtn-win-ai-home" onclick="toggleWindow('win-ai-home')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="TinCan AI Command Shell &amp; Workflow Hub">
+      <span>⌘</span> <span class="hidden md:inline">AI Hub</span>
+    </button>
+    <button id="dockBtn-win-copilot" onclick="toggleWindow('win-copilot')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="AI Copilot · Multi-Model Router &amp; Space Diffs">
+      <span>✦</span> <span class="hidden md:inline">AI Copilot</span>
     </button>
     <button id="dockBtn-win-billing" onclick="toggleWindow('win-billing')" class="px-2.5 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/80 text-emerald-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95 font-semibold" title="Token Billing, Store &amp; Sponsor Ads">
       <span>💳</span> <span class="hidden md:inline">Tokens &amp; Ads</span>
@@ -2862,6 +2694,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       else if (window.location.pathname === '/board' || window.location.pathname === '/cyberspace') singleWindowParam = 'win-board';
       else if (['/space', '/files', '/finder', '/agentspace'].includes(window.location.pathname)) singleWindowParam = 'win-agentspace';
       else if (window.location.pathname === '/workstation') singleWindowParam = 'win-workstation';
+      else if (window.location.pathname === '/copilot') singleWindowParam = 'win-copilot';
+      else if (window.location.pathname === '/ai' || window.location.pathname === '/home') singleWindowParam = 'win-ai-home';
       else if (window.location.pathname === '/rewards' || window.location.pathname === '/quests') singleWindowParam = 'win-quests';
       else if (window.location.pathname === '/network') singleWindowParam = 'win-network';
     }
@@ -3040,7 +2874,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     // Window Manager: Draggable, Resizable, Focus, Minimize, Maximize, Pop Out
     let highestZ = 30;
-    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-call', 'win-comms', 'win-quests', 'win-moderator', 'win-billing', 'win-board', 'win-network', 'win-agentspace', 'win-workstation'];
+    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-call', 'win-comms', 'win-quests', 'win-moderator', 'win-billing', 'win-board', 'win-network', 'win-agentspace', 'win-workstation', 'win-copilot', 'win-ai-home'];
     const poppedOutWindows = new Set();
 
     function switchNetTab(tabName) {
@@ -8903,6 +8737,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       gatherDriveMirror('session-start');
     }, 2000);
 
+    /*TC_COPILOT_JS*/
+    /*TC_TOKEN_VAULT_JS*/
+    /*TC_AI_HOME_JS*/
     /*TC_SHELL_JS*/
   </script>
 </body>
@@ -8924,6 +8761,13 @@ MESH_OS_HTML_UI = apply_arena_duel(MESH_OS_HTML_UI)
 from .workstation_ui import render_workstation_window_html  # noqa: E402
 
 MESH_OS_HTML_UI = MESH_OS_HTML_UI.replace("<!--TC_WORKSTATION_WINDOW-->", render_workstation_window_html(), 1)
+
+# TinCan Terminal AI components: Home AI Command Hub, Copilot Router, and Token Vault Store.
+from .ai_home_shell import apply_ai_home_shell  # noqa: E402
+from .copilot_ui import apply_copilot_ui  # noqa: E402
+from .token_vault_ui import apply_token_vault_ui  # noqa: E402
+
+MESH_OS_HTML_UI = apply_ai_home_shell(apply_copilot_ui(apply_token_vault_ui(MESH_OS_HTML_UI)))
 
 # Zen startup shell (calm feed + launcher), injected so the classic markup above stays untouched.
 from .zen_shell import apply_zen_shell  # noqa: E402

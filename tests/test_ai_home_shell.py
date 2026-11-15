@@ -198,8 +198,11 @@ def test_unique_ids_and_no_mesh_os_collisions_or_terminal_regressions() -> None:
     assert len(hub_ids) >= 12
     assert len(hub_ids) == len(set(hub_ids))
 
-    mesh_ids = set(re.findall(r'(?<![\w-])id="([^"]+)"', MESH_OS_HTML_UI))
-    assert mesh_ids.intersection(hub_ids) == set()
+    mesh_counts = re.findall(r'(?<![\w-])id="([^"]+)"', MESH_OS_HTML_UI)
+    from collections import Counter
+
+    counts = Counter(mesh_counts)
+    assert all(counts[eid] == 1 for eid in hub_ids), f"Duplicate or missing hub IDs in MESH_OS_HTML_UI: { {eid: counts[eid] for eid in hub_ids if counts[eid] != 1} }"
 
     # Ensure none of the forbidden #win-terminal elements from test_terminal_space_ide.py appear
     for forbidden in ("termTree", "termDriveTree", "termStatFiles", "termRunsTable", "aeonikRecentOutput", "RECENT"):

@@ -188,3 +188,40 @@ def test_mesh_os_http_endpoints(live_mesh_server):
         assert res["status"] == "voted"
         assert res["winner_alias"] == "gemini-brain"
         assert res["xp_awarded"] == 150
+
+
+def test_terminal_ai_redesign_routes_and_telemetry_endpoints(live_mesh_server):
+    # Single-window routes for AI Copilot, AI Home Hub, and Token Vault
+    route_markers = [
+        ("/copilot", 'id="win-copilot"', "singleWindowParam = 'win-copilot'"),
+        ("/ai", 'id="win-ai-home"', "id=\"aiHomeHub\""),
+        ("/home", 'id="win-ai-home"', "id=\"aiHomeHub\""),
+        ("/tokens", 'id="win-billing"', "billingWindowTokens"),
+    ]
+    for route, marker_a, marker_b in route_markers:
+        with urllib.request.urlopen(f"{live_mesh_server}{route}") as resp:
+            assert resp.status == 200
+            html = resp.read().decode("utf-8")
+            assert marker_a in html
+            assert marker_b in html
+
+    # Gateway telemetry + pre-flight local zero-burn endpoint
+    with urllib.request.urlopen(
+        f"{live_mesh_server}/api/gateway/telemetry?model=ollama/qwen2.5:3b&prompt_chars=400"
+    ) as resp:
+        assert resp.status == 200
+        gw_data = json.loads(resp.read().decode("utf-8"))
+        assert "gateways" in gw_data and len(gw_data["gateways"]) >= 4
+        assert "arbitrage" in gw_data
+        assert gw_data["preflight"]["estimated_credits"] == 0
+        assert gw_data["preflight"]["is_zero_burn"] is True
+
+    # Token summary + unit economics ledger endpoint
+    with urllib.request.urlopen(f"{live_mesh_server}/api/tokens/summary") as resp:
+        assert resp.status == 200
+        tok_data = json.loads(resp.read().decode("utf-8"))
+        assert "credits_balance" in tok_data
+        assert "rate_card" in tok_data and len(tok_data["rate_card"]) == 4
+        assert "daily_ad_cap" in tok_data
+        assert "ledger_rows" in tok_data
+        assert "rodin" in tok_data

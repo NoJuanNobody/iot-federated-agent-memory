@@ -21,7 +21,7 @@ ZEN_HEAD = r"""
         history.replaceState(null, '', location.pathname.replace(/\/+$/, '') + location.search + location.hash);
       }
       var q = new URLSearchParams(location.search);
-      var singleRoutes = ['/tv', '/call', '/comms', '/chat', '/arena', '/terminal', '/billing', '/tokens', '/board', '/cyberspace',
+      var singleRoutes = ['/tv', '/call', '/comms', '/chat', '/copilot', '/ai', '/home', '/arena', '/terminal', '/billing', '/tokens', '/board', '/cyberspace',
                           '/space', '/files', '/finder', '/agentspace', '/workstation', '/quests', '/rewards', '/network'];
       if (q.get('classic') === '1' || q.get('window') || singleRoutes.indexOf(location.pathname) !== -1) return;
       document.documentElement.classList.add('zen-boot');
@@ -301,6 +301,7 @@ ZEN_BODY = r"""
   <div id="zenActions" class="zen-chrome zen-feed-only">
     <nav id="zenQuick" aria-label="Quick launch">
       <button class="zen-btn" type="button" data-tool="win-terminal">Terminal</button>
+      <button class="zen-btn zq-extra" type="button" data-tool="win-copilot">Copilot</button>
       <button class="zen-btn zq-extra" type="button" data-tool="win-agentspace">Space</button>
       <button class="zen-btn zq-extra" type="button" data-tool="win-arena">Arena</button>
       <button class="zen-btn zq-extra" type="button" data-tool="win-workstation">Workstation</button>
@@ -353,6 +354,8 @@ ZEN_BODY = r"""
         { id: 'chat', name: 'Talk', desc: 'Room chat, voice and video calls', gate: 'talk in the room' },
         { id: 'win-board', name: 'Board', desc: 'Topics, threads and the knowledge graph', gate: 'open the board' },
         { id: 'win-agentspace', name: 'Space', desc: 'Files, code runs and the notes editor', gate: 'open your space' },
+        { id: 'win-copilot', name: 'AI Copilot', desc: 'Multi-gateway router, .space diffs and cost preview', gate: 'use the AI copilot' },
+        { id: 'win-ai-home', name: 'AI Hub', desc: 'Unified tincan ask command bar and workflow overview', gate: 'open the AI hub' },
         { id: 'win-workstation', name: 'Workstation', desc: 'AI foundry, TEE audits & Hyper3D Rodin 3D', gate: 'open workstation' },
         { id: 'win-terminal', name: 'Terminal', desc: 'Quickstart and commands', gate: 'open the terminal' },
         { id: 'win-arena', name: 'Arena', desc: 'AI models, routing and duels', gate: 'use the AI arena' },
@@ -637,6 +640,9 @@ ZEN_BODY = r"""
       let busy = false;
       const SLASH = [
         { cmd: '/terminal', tool: 'win-terminal', desc: 'Quickstart and commands' },
+        { cmd: '/copilot', tool: 'win-copilot', desc: 'Multi-gateway router, .space diffs and cost preview' },
+        { cmd: '/ai', tool: 'win-ai-home', desc: 'Unified tincan ask command bar and workflow overview' },
+        { cmd: '/home', tool: 'win-ai-home', desc: 'Unified tincan ask command bar and workflow overview' },
         { cmd: '/space', tool: 'win-agentspace', desc: 'Files, code runs and the notes editor' },
         { cmd: '/workstation', tool: 'win-workstation', desc: 'AI foundry, TEE audits and 3D meshes' },
         { cmd: '/arena', tool: 'win-arena', desc: 'AI models, routing and duels' },
@@ -649,7 +655,7 @@ ZEN_BODY = r"""
       const HELP_TEXT = 'Search tools      type a name, enter opens it\n' +
         '@name message     tag someone in the room chat\n' +
         '> command         run a command in your space ($ works too)\n' +
-        '/command          /terminal /space /workstation /arena /board /talk /tokens /quests /help\n' +
+        '/command          /terminal /copilot /ai /space /workstation /arena /board /talk /tokens /quests /help\n' +
         'Tab completes an @name, esc returns to the feed';
 
       // ---- Command bar adapters (one small seam per outside system) ----------------
