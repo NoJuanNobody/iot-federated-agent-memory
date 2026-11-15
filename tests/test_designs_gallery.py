@@ -12,6 +12,7 @@ from iot_federated_agent_memory.designs_gallery import (
     IOS_MOCKUPS,
     CAR_MOCKUPS,
     DESKTOP_MOCKUPS,
+    TERMINAL_AI_MOCKUPS,
 )
 
 
@@ -29,12 +30,30 @@ def test_designs_gallery_html_structure():
     assert len(IOS_MOCKUPS) == 11
     assert len(CAR_MOCKUPS) == 5
     assert len(DESKTOP_MOCKUPS) == 6
+    assert len(TERMINAL_AI_MOCKUPS) == 5
     assert "04 · Mesh OS Windows (6)" in html
+    assert "05 · Terminal AI Redesign (5)" in html
 
     # Check key mockups are referenced
     assert "01-onboarding.png" in html
     assert "sumi-dock-driving.png" in html
     assert "tincan_zen_windows_contact_sheet.png" in html
+
+    # Check Terminal AI Redesign mockups and routes
+    expected_terminal_ai_imgs = (
+        "/assets/designs/tincan_terminal_ai_sheet.png",
+        "/assets/designs/tincan_terminal_01_home.png",
+        "/assets/designs/tincan_terminal_02_copilot.png",
+        "/assets/designs/tincan_terminal_03_arena.png",
+        "/assets/designs/tincan_terminal_04_tokens.png",
+    )
+    for img_path in expected_terminal_ai_imgs:
+        assert img_path in html
+    for route in ("/", "/copilot", "/arena", "/tokens"):
+        assert f'href="{route}"' in html
+
+    tab_html = render_designs_gallery_html("terminal-ai")
+    assert 'id="tab-terminal-ai" class="tab-section active"' in tab_html
 
     # Check Workstation FigCraft designs are registered and linked cleanly
     desktop_ids = {m["id"] for m in DESKTOP_MOCKUPS}
@@ -55,6 +74,11 @@ def test_workstation_design_assets_exist():
         "workstation_studio_design.png",
         "workstation_user_stories.png",
         "workstation_dual_space_desktop.png",
+        "tincan_terminal_ai_sheet.png",
+        "tincan_terminal_01_home.png",
+        "tincan_terminal_02_copilot.png",
+        "tincan_terminal_03_arena.png",
+        "tincan_terminal_04_tokens.png",
     )
     for fname in expected_files:
         fpath = os.path.join(assets_dir, fname)
@@ -108,8 +132,22 @@ def test_server_designs_routes(running_test_server):
         "workstation_studio_design.png",
         "workstation_user_stories.png",
         "workstation_dual_space_desktop.png",
+        "tincan_terminal_ai_sheet.png",
+        "tincan_terminal_01_home.png",
+        "tincan_terminal_02_copilot.png",
+        "tincan_terminal_03_arena.png",
+        "tincan_terminal_04_tokens.png",
     ):
         with urllib.request.urlopen(f"{running_test_server}/assets/designs/{fname}") as resp:
             assert resp.status == 200
             assert resp.headers["Content-Type"] == "image/png"
             assert len(resp.read()) > 1000
+
+    # Test /install.command launcher download
+    with urllib.request.urlopen(f"{running_test_server}/install.command") as resp:
+        assert resp.status == 200
+        assert resp.headers["Content-Type"] == "application/octet-stream"
+        assert 'filename="Install-TinCan.command"' in (resp.headers.get("Content-Disposition") or "")
+        script_body = resp.read().decode("utf-8")
+        assert "tincan" in script_body
+        assert "Press [Enter] to launch tincan" in script_body
