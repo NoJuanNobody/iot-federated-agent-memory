@@ -243,6 +243,11 @@ def render_arena_duel(prefix: str, view_label: str = "") -> str:
             <div id="{p}VoteStatus" class="text-[10px] font-mono text-[#4a4a4a]" aria-live="polite"></div>
           </form>
 
+          <div id="{p}LastVoteBadge" data-arena-last-vote-badge="{p}" class="hidden bg-[#ffffff] border border-[#111111] rounded-xl px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-[#111111]" aria-live="polite">
+            <span id="{p}LastVoteText" class="min-w-0 flex-1 break-words">Duel ready · Cast vote (+150 XP)</span>
+            <button type="button" id="{p}ReopenVoteBtn" onclick="arenaDuelReopenVote('{p}')" class="hidden shrink-0 px-3 py-1 rounded-full bg-[#111111] hover:bg-[#333333] text-[#ecf1e6] text-[10px] font-mono font-semibold border border-[#111111] transition active:scale-95">Re-open Vote Popup</button>
+          </div>
+
           <div id="{p}ProStrip" class="bg-[#ffffff] border border-[#111111] rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
             <div class="min-w-0 space-y-0.5">
               <div id="{p}ProTelemetryTitle" class="text-[10px] font-mono font-bold uppercase tracking-wider text-[#111111]">AD-SUPPORTED AI CREDITS · ZERO SUBSCRIPTIONS</div>
@@ -1000,9 +1005,43 @@ ARENA_DUEL_SCRIPT = r"""
     if (cardB) cardB.className = base + (pickB && pickB.checked ? 'bg-[#111111] text-[#ecf1e6] border-[#111111]' : 'border-[#111111]/40 bg-[#f4f8f0] text-[#111111] hover:border-[#111111]');
   }
 
+  function setHidden(node, hide) {
+    if (!node || !node.classList) return;
+    if (hide) {
+      if (typeof node.classList.add === 'function') node.classList.add('hidden');
+    } else if (typeof node.classList.remove === 'function') {
+      node.classList.remove('hidden');
+    }
+  }
+
+  const BADGE_BASE_CLS = 'rounded-xl px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono ';
+
+  function setLastVoteBadge(p, mode, text) {
+    const badge = el(p + 'LastVoteBadge');
+    const txt = el(p + 'LastVoteText');
+    const reopenBtn = el(p + 'ReopenVoteBtn');
+    if (txt && text !== undefined) txt.textContent = text;
+    if (!badge) return;
+    if (mode === 'dismissed') {
+      badge.className = BADGE_BASE_CLS + 'bg-[#f4f8f0] border border-[#111111] text-[#111111]';
+      setHidden(badge, false);
+      setHidden(reopenBtn, false);
+      return;
+    }
+    if (mode === 'voted') {
+      badge.className = BADGE_BASE_CLS + 'bg-[#ecf1e6] border border-[#107a47] text-[#107a47] font-semibold';
+      setHidden(badge, false);
+      setHidden(reopenBtn, true);
+      return;
+    }
+    badge.className = 'hidden ' + BADGE_BASE_CLS + 'bg-[#ffffff] border border-[#111111] text-[#111111]';
+    setHidden(badge, true);
+    setHidden(reopenBtn, true);
+  }
+
   function closeVoteModal(p) {
     const form = el(p + 'VoteForm');
-    if (form && form.classList && typeof form.classList.add === 'function') form.classList.add('hidden');
+    setHidden(form, true);
   }
 
   function openVoteModal(p, winnerSide) {
@@ -1015,6 +1054,7 @@ ARENA_DUEL_SCRIPT = r"""
     if (pickB) pickB.checked = (winnerSide === 'B');
     syncVoteChoiceStyles(p);
     const duel = lastDuel[p] || {};
+    if (!duel.voted) setLastVoteBadge(p, 'hidden');
     const promptMeta = el(p + 'VoteModalPrompt');
     if (promptMeta) {
       const snippet = (duel.prompt || '').trim();
@@ -1022,13 +1062,30 @@ ARENA_DUEL_SCRIPT = r"""
     }
     const st = el(p + 'VoteStatus');
     if (st) st.textContent = winnerSide ? ('Brain ' + winnerSide + ' selected — optional note & Submit (+150 XP).') : 'Run complete — pick Brain A or Brain B and submit (+150 XP).';
-    if (form.classList && typeof form.classList.remove === 'function') form.classList.remove('hidden');
+    setHidden(form, false);
     const inp = el(p + 'VoteReasonInput');
     if (inp && typeof inp.focus === 'function') inp.focus();
     return true;
   }
 
-  window.arenaDuelCloseVoteModal = function (p) { closeVoteModal(p); };
+  window.arenaDuelCloseVoteModal = function (p) {
+    closeVoteModal(p);
+    const duel = lastDuel[p];
+    if (duel && duel.match_id && !duel.voted) {
+      setLastVoteBadge(p, 'dismissed', 'Duel ready · Cast vote (+150 XP)');
+    }
+  };
+  window.arenaDuelReopenVote = function (p) {
+    const duel = lastDuel[p];
+    if (!duel || !duel.match_id) {
+      if (typeof showQuickNotification === 'function') showQuickNotification('Click "Run Arena" first: votes are recorded after both brains answer.');
+      return false;
+    }
+    const pickA = el(p + 'VotePickA');
+    const pickB = el(p + 'VotePickB');
+    const side = (pickB && pickB.checked) ? 'B' : ((pickA && pickA.checked) ? 'A' : null);
+    return openVoteModal(p, side);
+  };
   window.arenaDuelSelectVoteSide = function (p, side) {
     const pickA = el(p + 'VotePickA');
     const pickB = el(p + 'VotePickB');
@@ -1048,6 +1105,7 @@ ARENA_DUEL_SCRIPT = r"""
     if (btn) btn.disabled = true;
     lastDuel[p] = null;
     closeVoteModal(p);
+    setLastVoteBadge(p, 'hidden', '');
     const models = {A: modelOf(p, 'A'), B: modelOf(p, 'B')};
     const telemetry = {A: null, B: null};
     SIDES.forEach((side) => {
@@ -1185,6 +1243,11 @@ ARENA_DUEL_SCRIPT = r"""
       }});
       const st = el(p + 'VoteStatus');
       if (st) st.textContent = 'Recorded Brain ' + winnerSide + ' (' + winnerModel + ') (+150 XP)' + (feedback ? (' · "' + feedback + '"') : '');
+      duel.voted = true;
+      const fbSnippet = feedback
+        ? (' · "' + feedback.slice(0, 72) + (feedback.length > 72 ? '…' : '') + '"')
+        : '';
+      setLastVoteBadge(p, 'voted', '🏆 Last Vote: Brain ' + winnerSide + ' (' + winnerModel + ') · +150 XP' + fbSnippet);
       closeVoteModal(p);
       if (el(p + 'VoteReasonInput')) el(p + 'VoteReasonInput').value = '';
       if (typeof showQuickNotification === 'function') showQuickNotification('🏆 Vote recorded for ' + winnerModel + ' (' + duel.a + ' vs ' + duel.b + '). +150 XP.');
@@ -1232,8 +1295,31 @@ ARENA_DUEL_SCRIPT = r"""
 """
 
 
+ARENA_DUEL_RESPONSIVE_CSS = r"""
+<style id="arenaDuelResponsiveCss">
+[data-arena-vote-modal].hidden,
+[data-arena-last-vote-badge].hidden {
+  display: none !important;
+}
+@media (max-width: 640px) {
+  [data-arena-vote-modal] {
+    left: 0.75rem !important;
+    right: 0.75rem !important;
+    width: auto !important;
+    max-width: none !important;
+    bottom: 4.5rem !important;
+    box-sizing: border-box !important;
+  }
+  [data-arena-last-vote-badge] {
+    align-items: flex-start !important;
+  }
+}
+</style>
+"""
+
+
 def apply_arena_duel(page: str) -> str:
-    """Replace every ``<!--ARENA_DUEL:prefix-->`` marker and add the script once."""
+    """Replace every ``<!--ARENA_DUEL:prefix-->`` marker and add the CSS & script once."""
     labels = {p: label for p, _win, label in ARENA_VIEWS}
     prefixes = []
 
@@ -1243,9 +1329,15 @@ def apply_arena_duel(page: str) -> str:
         return render_arena_duel(p, labels.get(p, p))
 
     page = _MARKER_RE.sub(_sub, page)
-    if prefixes and 'id="arenaDuelScript"' not in page:
-        import json as _json
-        script = ARENA_DUEL_SCRIPT.replace("__ARENA_VIEWS__", _json.dumps(prefixes))
-        end = page.rfind("</body>")
-        page = page[:end] + script + page[end:] if end != -1 else page + script
+    if prefixes:
+        injections = []
+        if 'id="arenaDuelResponsiveCss"' not in page:
+            injections.append(ARENA_DUEL_RESPONSIVE_CSS)
+        if 'id="arenaDuelScript"' not in page:
+            import json as _json
+            injections.append(ARENA_DUEL_SCRIPT.replace("__ARENA_VIEWS__", _json.dumps(prefixes)))
+        if injections:
+            bundle = "".join(injections)
+            end = page.rfind("</body>")
+            page = page[:end] + bundle + page[end:] if end != -1 else page + bundle
     return page
