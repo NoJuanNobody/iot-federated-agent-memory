@@ -1015,7 +1015,8 @@ def test_arena_run_button_vote_form_and_removed_legacy_buttons():
     arena_html = render_arena_duel("arenaWin", "Arena")
     for text in ("Run Arena", 'id="arenaWinRunBtn"', 'id="arenaWinVoteForm"', 'id="arenaWinVotePickA"',
                  'id="arenaWinVotePickB"', 'id="arenaWinVoteTagSelect"', 'id="arenaWinVoteReasonInput"',
-                 'id="arenaWinVoteSubmitBtn"'):
+                 'id="arenaWinVoteSubmitBtn"', 'role="dialog"', 'fixed bottom-[5.25rem] right-5',
+                 'position:fixed; bottom:5.25rem; right:1.25rem;'):
         assert text in arena_html
 
     for legacy in ("Battle 2 Brains", "Use in Agent Space & Sandbox", "Use in Agent Space"):
@@ -1095,6 +1096,120 @@ def test_arena_run_button_vote_form_and_removed_legacy_buttons():
     assert vote_call["body"]["winner_side"] == "A"
     assert vote_call["body"]["feedback"] == "Better context recall — Cited /uploads/shared.md directly"
     assert "Better context recall" in out["statusText"]
+
+    # Node.js check: completing arenaDuelRun auto-opens bottom-corner popup & hoists to document.body
+    auto_out = _run_node(
+        f"""
+        function makeEl(id, extra) {{
+          const classes = new Set();
+          return Object.assign({{
+            id,
+            value: '',
+            textContent: '',
+            checked: false,
+            disabled: false,
+            parentNode: null,
+            style: {{}},
+            focus() {{}},
+            classList: {{
+              add(c) {{ classes.add(c); }},
+              remove(c) {{ classes.delete(c); }},
+              contains(c) {{ return classes.has(c); }},
+            }},
+          }}, extra || {{}});
+        }}
+        const elems = {{
+          arenaWinPromptInput: makeEl('arenaWinPromptInput', {{ value: 'Compare A and B' }}),
+          arenaWinRunBtn: makeEl('arenaWinRunBtn'),
+          arenaWinModelAInput: makeEl('arenaWinModelAInput', {{ value: 'gemini-brain' }}),
+          arenaWinModelBInput: makeEl('arenaWinModelBInput', {{ value: 'claude-brain' }}),
+          arenaWinAgentA: makeEl('arenaWinAgentA', {{ value: 'brain-a' }}),
+          arenaWinAgentB: makeEl('arenaWinAgentB', {{ value: 'brain-b' }}),
+          arenaWinUseCtxA: makeEl('arenaWinUseCtxA', {{ checked: true }}),
+          arenaWinUseCtxB: makeEl('arenaWinUseCtxB', {{ checked: true }}),
+          arenaWinPreAuthCap: makeEl('arenaWinPreAuthCap'),
+          arenaWinResultA: makeEl('arenaWinResultA'),
+          arenaWinResultB: makeEl('arenaWinResultB'),
+          arenaWinBillA: makeEl('arenaWinBillA'),
+          arenaWinBillB: makeEl('arenaWinBillB'),
+          arenaWinSavingsA: makeEl('arenaWinSavingsA'),
+          arenaWinSavingsB: makeEl('arenaWinSavingsB'),
+          arenaWinVoteForm: makeEl('arenaWinVoteForm'),
+          arenaWinVoteCardA: makeEl('arenaWinVoteCardA'),
+          arenaWinVoteCardB: makeEl('arenaWinVoteCardB'),
+          arenaWinVotePickA: makeEl('arenaWinVotePickA'),
+          arenaWinVotePickB: makeEl('arenaWinVotePickB'),
+          arenaWinVoteModalPrompt: makeEl('arenaWinVoteModalPrompt'),
+          arenaWinVoteTagSelect: makeEl('arenaWinVoteTagSelect', {{ value: 'Faster & cleaner' }}),
+          arenaWinVoteReasonInput: makeEl('arenaWinVoteReasonInput', {{ value: 'Crisp answer' }}),
+          arenaWinVoteStatus: makeEl('arenaWinVoteStatus'),
+        }};
+        elems.arenaWinVoteForm.classList.add('hidden');
+        const bodyChildren = [];
+        const document = {{
+          getElementById: (id) => elems[id] || null,
+          addEventListener() {{}},
+          body: {{
+            appendChild(node) {{
+              node.parentNode = this;
+              bodyChildren.push(node.id);
+            }},
+          }},
+        }};
+        const window = {{}};
+        const localStorage = {{ getItem: () => '', setItem() {{}} }};
+        const currentRoom = 'main';
+        const myPeerId = 'peer-auto';
+        const calls = [];
+        function fetch(url, opts) {{
+          const parsed = JSON.parse((opts && opts.body) || '{{}}');
+          calls.push({{ url, body: parsed }});
+          if (url === '/api/mesh/arena/match') {{
+            return Promise.resolve({{ ok: true, status: 200, json: async () => ({{ match: {{ match_id: 'match_auto_1' }} }}) }});
+          }}
+          if (url === '/api/chat') {{
+            return Promise.resolve({{ ok: true, status: 200, json: async () => ({{
+              id: 'resp-' + parsed.arena_side,
+              choices: [{{ message: {{ content: 'Answer ' + parsed.arena_side }} }}],
+              billing: {{ cost_usd: 0.001, tokens_billed: 50, match_total_cost_usd: 0.002 }},
+            }}) }});
+          }}
+          return Promise.resolve({{ ok: true, status: 200, json: async () => ({{ status: 'voted' }}) }});
+        }}
+        {duel_js}
+        (async () => {{
+          await window.arenaDuelRun('arenaWin');
+          const visibleAfterRun = !elems.arenaWinVoteForm.classList.contains('hidden');
+          const hoistedToBody = elems.arenaWinVoteForm.parentNode === document.body;
+          const neutralBeforePick = !elems.arenaWinVotePickA.checked && !elems.arenaWinVotePickB.checked;
+          await window.arenaDuelSubmitVote('arenaWin');
+          const unpickedGuardStatus = elems.arenaWinVoteStatus.textContent;
+          const voteCountBeforePick = calls.filter((c) => c.url === '/api/mesh/arena/vote').length;
+          window.arenaDuelSelectVoteSide('arenaWin', 'B');
+          await window.arenaDuelSubmitVote('arenaWin');
+          const hiddenAfterSubmit = elems.arenaWinVoteForm.classList.contains('hidden');
+          console.log(JSON.stringify({{
+            visibleAfterRun,
+            hoistedToBody,
+            neutralBeforePick,
+            unpickedGuardStatus,
+            voteCountBeforePick,
+            hiddenAfterSubmit,
+            calls,
+          }}));
+        }})();
+        """
+    )
+    assert auto_out["visibleAfterRun"] is True
+    assert auto_out["hoistedToBody"] is True
+    assert auto_out["neutralBeforePick"] is True
+    assert "Select Brain A or Brain B" in auto_out["unpickedGuardStatus"]
+    assert auto_out["voteCountBeforePick"] == 0
+    assert auto_out["hiddenAfterSubmit"] is True
+    submitted = next(c for c in auto_out["calls"] if c["url"] == "/api/mesh/arena/vote")
+    assert submitted["body"]["match_id"] == "match_auto_1"
+    assert submitted["body"]["winner_side"] == "B"
+    assert submitted["body"]["feedback"] == "Faster & cleaner — Crisp answer"
 
 
 def test_arena_vote_feedback_backend_and_http_persistence(tmp_path, monkeypatch):
