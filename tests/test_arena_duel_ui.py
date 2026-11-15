@@ -10,8 +10,9 @@ from http.server import ThreadingHTTPServer
 import pytest
 
 import server
-from iot_federated_agent_memory.arena_duel_ui import ARENA_VIEWS, render_arena_duel
+from iot_federated_agent_memory.arena_duel_ui import ARENA_DUEL_SCRIPT, ARENA_VIEWS, render_arena_duel
 from iot_federated_agent_memory.mesh_os_ui import MESH_OS_HTML_UI
+from iot_federated_agent_memory.window_chrome import legacy_palette_classes
 
 
 @pytest.fixture(scope="module")
@@ -109,3 +110,205 @@ def test_arena_view_routes_are_served(base, route):
         assert resp.status == 200
         html = resp.read().decode("utf-8")
     assert 'id="arenaWinBattleBox"' in html and 'id="arenaBattleBox"' in html
+
+
+def test_celadon_surfaces_and_zero_legacy_palette_classes():
+    rendered = render_arena_duel("arena", "Quests")
+    assert legacy_palette_classes(rendered) == []
+    assert legacy_palette_classes(ARENA_DUEL_SCRIPT) == []
+    combined = rendered + ARENA_DUEL_SCRIPT
+    for forbidden in ("bg-slate-900", "bg-slate-950", "from-indigo-600", "to-cyan-600", "text-slate-200"):
+        assert forbidden not in combined
+    for token in ("#ecf1e6", "#f4f8f0", "#ffffff", "#111111", "#107a47", "#8a1c1c"):
+        assert token in combined
+
+
+def test_local_vs_cloud_preset_rag_cap_savings_and_pro_strip():
+    for prefix, win_id in (("arenaWin", "win-arena"), ("arena", "win-quests")):
+        win = _window(MESH_OS_HTML_UI, win_id)
+        assert f'id="{prefix}PresetLocalCloudBtn"' in win
+        assert f"arenaPresetLocalVsCloud('{prefix}')" in win
+        assert f'id="{prefix}RagBadge"' in win
+        assert f'id="{prefix}PreAuthCap"' in win
+        assert f'id="{prefix}ProStrip"' in win
+        assert "PRO MONETIZATION TELEMETRY" in win
+        assert "Upgrade Arena Pro" in win
+        assert "toggleWindow('win-billing')" in win
+        for side in "AB":
+            assert f'id="{prefix}Savings{side}"' in win
+            assert f'id="{prefix}TierTag{side}"' in win
+
+    custom = render_arena_duel("customArena")
+    custom_ids = set(re.findall(r'\bid="([^"]+)"', custom))
+    expected_new_ids = {
+        "customArenaPresetLocalCloudBtn",
+        "customArenaPresetStatus",
+        "customArenaRagBadge",
+        "customArenaPreAuthCap",
+        "customArenaSavingsA",
+        "customArenaSavingsB",
+        "customArenaTierTagA",
+        "customArenaTierTagB",
+        "customArenaProStrip",
+        "customArenaProTelemetryTitle",
+        "customArenaProTelemetrySub",
+        "customArenaUpgradeProBtn",
+    }
+    assert expected_new_ids <= custom_ids
+    assert all(eid.startswith("customArena") for eid in custom_ids)
+
+
+def test_arena_preset_preauth_and_zero_burn_savings_js():
+    import json
+    import shutil
+    import subprocess
+
+    node_bin = shutil.which("node")
+    assert node_bin, "node binary required to test arena_duel_ui JS logic"
+    m = re.search(r'<script id="arenaDuelScript">(.*?)</script>', MESH_OS_HTML_UI, flags=re.DOTALL)
+    assert m, "arenaDuelScript must exist in MESH_OS_HTML_UI"
+    script_body = m.group(1)
+
+    harness = r"""
+const store = {};
+const elements = {};
+function makeEl(id, extra) {
+  const el = Object.assign({
+    id,
+    value: '',
+    textContent: '',
+    innerHTML: '',
+    className: '',
+    checked: true,
+    disabled: false,
+    classList: {
+      toggle() {},
+      add() {},
+      remove() {},
+    },
+    querySelectorAll() { return []; },
+  }, extra || {});
+  elements[id] = el;
+  return el;
+}
+for (const p of ['arenaWin', 'arena']) {
+  makeEl(p + 'BattleBox');
+  makeEl(p + 'Account');
+  makeEl(p + 'RagBadge');
+  makeEl(p + 'PreAuthCap');
+  makeEl(p + 'PresetStatus');
+  makeEl(p + 'ModelsNote');
+  makeEl(p + 'PromptInput', { value: 'Summarize what my files say about deploying TinCan.' });
+  makeEl(p + 'ModelAInput', { value: 'gemini-brain', options: [{ value: 'gemini-brain' }, { value: 'claude-brain' }, { value: 'ollama/qwen2.5:3b' }] });
+  makeEl(p + 'ModelBInput', { value: 'claude-brain', options: [{ value: 'gemini-brain' }, { value: 'claude-brain' }, { value: 'ollama/qwen2.5:3b' }] });
+  makeEl(p + 'ProTelemetryTitle');
+  for (const s of ['A', 'B']) {
+    makeEl(p + 'Label' + s);
+    makeEl(p + 'TierTag' + s);
+    makeEl(p + 'Bill' + s);
+    makeEl(p + 'Result' + s);
+    makeEl(p + 'Savings' + s);
+    makeEl(p + 'Agent' + s, { value: 'brain-' + s.toLowerCase() });
+    makeEl(p + 'UseCtx' + s, { checked: true });
+    makeEl(p + 'Files' + s);
+    makeEl(p + 'CtxMsg' + s);
+    makeEl(p + 'DriveBtn' + s);
+  }
+}
+
+global.window = global;
+global.localStorage = {
+  getItem(k) { return Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null; },
+  setItem(k, v) { store[k] = String(v); },
+};
+global.document = {
+  readyState: 'complete',
+  getElementById(id) { return elements[id] || null; },
+};
+global.fetch = async (url) => {
+  if (url === '/api/mesh/arena/models') {
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          models: [
+            { id: 'gemini-brain', name: 'Google Gemini Flash', secondary: 'google/gemini-2.5-flash', provider: 'google', kind: 'configured' },
+            { id: 'claude-brain', name: 'Anthropic Claude Sonnet', secondary: 'anthropic/claude-sonnet-5.5', provider: 'anthropic', kind: 'configured' },
+            { id: 'ollama/qwen2.5:3b', name: 'qwen2.5:3b', secondary: 'ollama/qwen2.5:3b', provider: 'Ollama (Local)', gateway: 'ollama', kind: 'catalog' },
+          ],
+          default: { a: 'gemini-brain', b: 'claude-brain' },
+        };
+      },
+    };
+  }
+  if (url === '/api/arena/context/status') {
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          account: { peer_id: 'acct-1', username: 'alice', token_balance: 300 },
+          drive_mirror: { allowed_here: false },
+        };
+      },
+    };
+  }
+  if (String(url).startsWith('/api/arena/context/files')) {
+    const isA = String(url).includes('agent_id=brain-a');
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return isA
+          ? { files: [{ path: '/uploads/relay.py', source: 'upload', chunk_count: 2 }], count: 1, chunk_count: 2 }
+          : { files: [], count: 0, chunk_count: 0 };
+      },
+    };
+  }
+  return { ok: true, status: 200, async json() { return {}; } };
+};
+""" + script_body + r"""
+(async () => {
+  await new Promise((r) => setTimeout(r, 30));
+  const pair = window.arenaPresetLocalVsCloud('arenaWin');
+  window.arenaUpdatePreAuthCap('arenaWin');
+  window.arenaRenderSavings('arenaWin', {
+    A: { cost: 0, tokens: 312, ttft: 0.42, model: 'ollama/qwen2.5:3b' },
+    B: { cost: 0.018, tokens: 684, ttft: 1.14, model: 'claude-brain' },
+  });
+  process.stdout.write(JSON.stringify({
+    pair,
+    winA: elements['arenaWinModelAInput'].value,
+    winB: elements['arenaWinModelBInput'].value,
+    questA: elements['arenaModelAInput'].value,
+    questB: elements['arenaModelBInput'].value,
+    tierA: elements['arenaWinTierTagA'].textContent,
+    tierACls: elements['arenaWinTierTagA'].className,
+    tierB: elements['arenaWinTierTagB'].textContent,
+    presetStatus: elements['arenaWinPresetStatus'].textContent,
+    preAuthText: elements['arenaWinPreAuthCap'].textContent,
+    preAuthCls: elements['arenaWinPreAuthCap'].className,
+    ragBadge: elements['arenaWinRagBadge'].textContent,
+    savingsA: elements['arenaWinSavingsA'].textContent,
+    savingsACls: elements['arenaWinSavingsA'].className,
+    savingsB: elements['arenaWinSavingsB'].textContent,
+    savingsBCls: elements['arenaWinSavingsB'].className,
+    proTitle: elements['arenaWinProTelemetryTitle'].textContent,
+  }));
+})();
+"""
+    proc = subprocess.run([node_bin, "-e", harness], capture_output=True, text=True, check=True)
+    out = json.loads(proc.stdout)
+    assert out["pair"] == {"a": "ollama/qwen2.5:3b", "b": "claude-brain"}
+    assert out["winA"] == "ollama/qwen2.5:3b" and out["questA"] == "ollama/qwen2.5:3b"
+    assert out["winB"] == "claude-brain" and out["questB"] == "claude-brain"
+    assert out["tierA"] == "LOCAL" and "#107a47" in out["tierACls"]
+    assert out["tierB"] == "CLOUD"
+    assert "ollama/qwen2.5:3b" in out["presetStatus"]
+    assert "533" in out["preAuthText"] and "LOW BAL (300)" in out["preAuthText"]
+    assert "#8a1c1c" in out["preAuthCls"]
+    assert "/uploads/relay.py" in out["ragBadge"]
+    assert "ZERO-BURN FREE" in out["savingsA"] and "0.018000" in out["savingsA"] and "#107a47" in out["savingsACls"]
+    assert "CLOUD BILLED" in out["savingsB"] and "#8a1c1c" in out["savingsBCls"]
+    assert "PRO MONETIZATION TELEMETRY: ZERO-BURN SAVED 100% VS CLOUD" in out["proTitle"]
