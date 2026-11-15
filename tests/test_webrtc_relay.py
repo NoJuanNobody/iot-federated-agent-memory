@@ -156,3 +156,31 @@ def test_tincan_cli_broadcast(tmp_path, monkeypatch, capsys):
     assert '"status": "signaled"' in out
     assert len(called_requests) == 1
     assert "/api/webrtc/signal" in called_requests[0].full_url
+
+
+def test_webrtc_relay_online_heartbeat_and_media_flags():
+    """Peers start with accurate last_seen/is_online/has_live_media flags and expire when stale."""
+    import time
+
+    relay = WebRTCSignalingRelay(stale_after=0.05)
+    assert relay.get_active_streams() == []
+
+    p = relay.register_peer("live-peer-01", "Live Peer", has_video=False, has_audio=False, has_screen=False)
+    streams = relay.get_active_streams()
+    assert len(streams) == 1
+    assert streams[0]["peer_id"] == p.peer_id
+    assert streams[0]["is_online"] is True
+    assert streams[0]["has_live_media"] is False
+
+    # Poll keeps peer fresh before expiry, then exceeding stale_after marks peer offline
+    relay.poll_signals(receiver_id="live-peer-01")
+    assert len(relay.get_active_streams()) == 1
+
+    time.sleep(0.07)
+    assert relay.get_active_streams() == []
+
+    # Re-registering with screen share sets has_live_media=True
+    relay.register_peer("live-peer-02", "Presenter", has_screen=True)
+    streams2 = relay.get_active_streams()
+    assert len(streams2) == 1
+    assert streams2[0]["has_live_media"] is True

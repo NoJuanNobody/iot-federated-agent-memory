@@ -793,6 +793,7 @@ def _build_copilot_script() -> str:
     models: DEFAULT_MODELS.map((m) => Object.assign({}, m)),
     spaceFiles: [],
     driveFiles: [],
+    palaceNodes: [],
     attachedFiles: [
       { path: '/ai_gateway.py', source: 'space', tag: 'PY', estTokens: 2140, rag: false },
       { path: '/tincan_agent.py', source: 'space', tag: 'PY', estTokens: 1080, rag: false },
@@ -1092,25 +1093,44 @@ def _build_copilot_script() -> str:
     if (!state.attachDrawerOpen) return;
 
     const candidates = [];
+    state.palaceNodes.forEach((n) => {
+      if (n && n.canonical_name) {
+        candidates.push({
+          path: '/palace/' + n.canonical_name,
+          label: n.canonical_name + (n.category ? (' [' + n.category + ']') : ''),
+          desc: n.summary || '',
+          source: 'palace',
+          nodeId: n.node_id,
+          size: String(n.value || '').length
+        });
+      }
+    });
     state.spaceFiles.forEach((f) => {
-      if (f && f.path) candidates.push({ path: f.path, source: 'space', size: Number(f.size_bytes || 0) });
+      if (f && f.path) candidates.push({ path: f.path, label: f.path, source: 'space', size: Number(f.size_bytes || 0) });
     });
     state.driveFiles.forEach((f) => {
       const p = typeof f === 'string' ? f : (f && (f.path || f.name));
-      if (p) candidates.push({ path: p, source: 'drive', size: Number((f && f.size_bytes) || 0) });
+      if (p) candidates.push({ path: p, label: p, source: 'drive', size: Number((f && f.size_bytes) || 0) });
     });
 
+    const palaceActions =
+      '<div style="display:flex;gap:4px;margin-bottom:4px;flex-wrap:wrap;">' +
+      '<button type="button" id="copilotPalaceNewBtn" class="cp-btn cp-btn--sm" onclick="window.TinCanCopilot && window.TinCanCopilot.promptCreatePalaceConcept()">+ Palace Concept</button>' +
+      '<button type="button" id="copilotPalaceToArenaBtn" class="cp-btn cp-btn--sm" onclick="window.TinCanCopilot && window.TinCanCopilot.sendPalaceToArenaBoth()">→ Arena Both Brains</button>' +
+      '</div>';
+
     if (!candidates.length) {
-      drawer.innerHTML = '<div class="cp-mono-xs cp-muted">No extra .space or Drive files found yet.</div>';
+      drawer.innerHTML = palaceActions + '<div class="cp-mono-xs cp-muted">No extra .space, Drive, or Context Palace items found yet.</div>';
       return;
     }
     const attachedSet = new Set(state.attachedFiles.map((a) => a.path));
-    drawer.innerHTML = candidates.slice(0, 24).map((c) => {
+    drawer.innerHTML = palaceActions + candidates.slice(0, 28).map((c) => {
       const isAtt = attachedSet.has(c.path);
       return (
         '<button type="button" class="cp-attach-pick' + (isAtt ? ' is-attached' : '') + '" ' +
+        (c.desc ? ('title="' + esc(c.desc) + '" ') : '') +
         'onclick="window.TinCanCopilot && window.TinCanCopilot.attachContextFile(\'' + esc(c.path).replace(/'/g, '\\\'') + '\', \'' + esc(c.source) + '\')">' +
-        '<span class="cp-truncate">' + esc(c.path) + '</span>' +
+        '<span class="cp-truncate">' + esc(c.label || c.path) + '</span>' +
         '<span>' + esc(isAtt ? 'ATTACHED' : c.source.toUpperCase()) + '</span>' +
         '</button>'
       );
@@ -1274,6 +1294,22 @@ def _build_copilot_script() -> str:
       renderContextFiles();
       return;
     }
+    if (source === 'palace') {
+      const name = String(path).replace(/^\/palace\//, '');
+      const hit = state.palaceNodes.find((n) => n.canonical_name === name || ('/palace/' + n.canonical_name) === path);
+      const val = hit ? String(hit.value || hit.summary || '') : '';
+      state.attachedFiles.push({
+        path,
+        source: 'palace',
+        nodeId: hit ? hit.node_id : '',
+        palaceContent: val,
+        tag: 'PALACE',
+        estTokens: Math.max(12, Math.ceil(val.length / 4)),
+        rag: true
+      });
+      renderContextFiles();
+      return;
+    }
     const ext = (String(path).split('.').pop() || 'TXT').toUpperCase().slice(0, 4);
     const spaceHit = state.spaceFiles.find((f) => f.path === path);
     const size = spaceHit ? Number(spaceHit.size_bytes || 0) : 512;
@@ -1285,6 +1321,45 @@ def _build_copilot_script() -> str:
       rag: ext === 'MD' || ext === 'TXT'
     });
     renderContextFiles();
+  }
+
+  async function promptCreatePalaceConcept() {
+    const title = typeof window.prompt === 'function' ? window.prompt('Context Palace concept name / key:', '') : '';
+    if (!title || !title.trim()) return;
+    const value = typeof window.prompt === 'function' ? window.prompt('Knowledge / memory value for "' + title.trim() + '":', '') : '';
+    if (!value || !value.trim()) return;
+    try {
+      await apiJson('/api/arena/context/palace/crud', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          canonical_name: title.trim(),
+          category: 'router_memory',
+          value: value.trim()
+        })
+      });
+      await refreshSpaceAndDrive();
+      attachContextFile('/palace/' + title.trim(), 'palace');
+      notify('Added "' + title.trim() + '" to Context Palace & attached to Copilot.', false);
+    } catch (err) {
+      notify('Context Palace save requires sign-in: ' + (err && err.message ? err.message : 'failed'), true);
+    }
+  }
+
+  async function sendPalaceToArenaBoth() {
+    const palaceAtt = state.attachedFiles.filter((f) => f.source === 'palace' && f.nodeId).map((f) => f.nodeId);
+    try {
+      const res = await apiJson('/api/arena/context/palace/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent_id: 'both', node_ids: palaceAtt.length ? palaceAtt : null })
+      });
+      notify('Imported ' + (res.imported_count || 0) + ' Context Palace item(s) to Brain A & Brain B!', false);
+      if (typeof window.arenaCtxLoad === 'function') window.arenaCtxLoad('duel');
+    } catch (err) {
+      notify('Could not import Palace to Arena: ' + (err && err.message ? err.message : 'sign in first'), true);
+    }
   }
 
   async function refreshAnalytics() {
@@ -1390,6 +1465,11 @@ def _build_copilot_script() -> str:
       state.driveFiles = Array.isArray(dr.files) ? dr.files : [];
       renderAttachDrawer();
     } catch (e) {}
+    try {
+      const pl = await apiJson('/api/arena/context/palace?limit=40', { channel: 'palaceLs' });
+      state.palaceNodes = Array.isArray(pl.concepts) ? pl.concepts : [];
+      renderAttachDrawer();
+    } catch (e) {}
   }
 
   async function refresh() {
@@ -1401,6 +1481,12 @@ def _build_copilot_script() -> str:
     const snippets = [];
     for (let i = 0; i < state.attachedFiles.length && i < 4; i++) {
       const f = state.attachedFiles[i];
+      if (f.source === 'palace') {
+        const hit = state.palaceNodes.find((n) => n.node_id === f.nodeId || ('/palace/' + n.canonical_name) === f.path);
+        const body = String((hit && hit.value) || f.palaceContent || '').slice(0, 1500);
+        if (body) snippets.push('[' + f.path + ' · Context Palace]\n' + body);
+        continue;
+      }
       try {
         const url = f.source === 'drive'
           ? ('/api/drive/file?path=' + encodeURIComponent(f.path))
@@ -1749,6 +1835,8 @@ def _build_copilot_script() -> str:
     toggleAttachDrawer,
     attachContextFile,
     removeContextFile,
+    promptCreatePalaceConcept,
+    sendPalaceToArenaBoth,
     applyPatch,
     duelInArena,
     runPytestInSpace,
@@ -1819,8 +1907,9 @@ def render_copilot_window_html(include_css: bool = True, include_js: bool = True
                   <span class="cp-pos">RAG ON</span>
                 </div>
               </div>
-              <div id="copilotAttachDrawer" class="cp-attach-drawer hidden" aria-label="Available Space and Drive files"></div>
+              <div id="copilotAttachDrawer" class="cp-attach-drawer hidden" aria-label="Available Space, Drive, and Context Palace items"></div>
               <button id="copilotAttachCtxBtn" type="button" class="cp-btn cp-btn--full" onclick="window.TinCanCopilot && window.TinCanCopilot.toggleAttachDrawer()">+ Attach .space / Drive Files</button>
+              <button id="copilotAttachPalaceBtn" type="button" class="cp-btn cp-btn--sm cp-btn--full" style="margin-top:4px;" onclick="window.TinCanCopilot && window.TinCanCopilot.toggleAttachDrawer()">🏛️ Import Context Palace → Router &amp; Arena</button>
             </section>
 
             <section class="cp-card">

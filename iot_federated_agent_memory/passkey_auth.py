@@ -26,7 +26,8 @@ import secrets
 import sqlite3
 import threading
 import time
-from typing import Callable, Dict, List, Optional, Tuple
+from contextlib import contextmanager
+from typing import Callable, Dict, Iterator, List, Optional, Tuple
 from urllib.parse import urlparse
 
 from . import mailer
@@ -144,10 +145,15 @@ class PasskeyAuthService:
         self._init_db()
 
     # ---------------------------------------------------------------- storage
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
         conn = sqlite3.connect(self.db_path, timeout=10)
         conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
 
     def _init_db(self) -> None:
         with self._connect() as conn:

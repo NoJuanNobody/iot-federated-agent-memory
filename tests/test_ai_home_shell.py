@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import inspect
 import os
 import re
@@ -63,15 +64,22 @@ def test_router_chips_and_workflow_cards_contract() -> None:
     assert by_id["aiHomeCardArena"]["window_id"] == "win-arena"
     assert by_id["aiHomeCardArena"]["route"] == "/arena"
 
-    assert by_id["aiHomeCardWorkstation"]["title"] == "Rodin 3D + Space"
-    assert by_id["aiHomeCardWorkstation"]["badge"] == "PRO ASSETS · /workstation"
+    assert by_id["aiHomeCardWorkstation"]["title"] == "3D Studio + Workstation"
+    assert by_id["aiHomeCardWorkstation"]["badge"] == "3D STUDIO · /3dstudio"
     assert by_id["aiHomeCardWorkstation"]["window_id"] == "win-workstation"
+    assert by_id["aiHomeCardWorkstation"]["fallback_window_id"] == "win-agentspace"
     assert by_id["aiHomeCardWorkstation"]["route"] == "/workstation"
+    assert "3D Studio" in by_id["aiHomeCardWorkstation"]["desc"]
+    assert "Ad-Earned" in by_id["aiHomeCardWorkstation"]["metric"]
+    assert by_id["aiHomeCardWorkstation"]["cta"] == "Open 3D Studio \u2192"
 
-    assert by_id["aiHomeCardTokens"]["title"] == "Token Vault + Ads"
-    assert by_id["aiHomeCardTokens"]["badge"] == "MONETIZE · /tokens"
+    assert by_id["aiHomeCardTokens"]["title"] == "Ad Credits & Token Vault"
+    assert by_id["aiHomeCardTokens"]["badge"] == "AD CREDITS · /tokens"
     assert by_id["aiHomeCardTokens"]["window_id"] == "win-billing"
     assert by_id["aiHomeCardTokens"]["route"] == "/tokens"
+    assert "Zero subscriptions" in by_id["aiHomeCardTokens"]["desc"]
+    assert "NO SUBS" in by_id["aiHomeCardTokens"]["metric"]
+    assert by_id["aiHomeCardTokens"]["cta"] == "Watch Ads · Earn Credits \u2192"
 
 
 def test_render_ai_home_hub_html_structure_and_hooks() -> None:
@@ -94,10 +102,12 @@ def test_render_ai_home_hub_html_structure_and_hooks() -> None:
     # All 4 workflow cards and launch targets
     for card in WORKFLOW_CARDS:
         assert f'id="{card["id"]}"' in frag
-        assert card["title"] in frag
-        assert card["badge"] in frag
+        assert html.escape(card["title"]) in frag
+        assert html.escape(card["badge"]) in frag
         assert f'data-window="{card["window_id"]}"' in frag
         assert f'data-route="{card["route"]}"' in frag
+    assert "Ad Credits &amp; Token Vault" in frag
+    assert "Zero subscriptions." in frag
 
     # Monochrome telemetry sparkline strip & .space Merkle status hooks
     assert 'id="aiHomeSparkline"' in frag

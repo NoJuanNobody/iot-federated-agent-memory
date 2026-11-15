@@ -51,15 +51,17 @@ def live_server():
     """Spins up a lightweight background HTTP server on an ephemeral port."""
     # Ensure vending machine has balance for test runs if required by telemetry test
     server.vending_machine.mint_credits("mesh-default", 50.0)
-    test_port = 18099
-    httpd = ThreadingHTTPServer(("127.0.0.1", test_port), server.MeshGatewayHandler)
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.MeshGatewayHandler)
+    port = httpd.server_address[1]
     server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     server_thread.start()
-    base_url = f"http://127.0.0.1:{test_port}"
-    time.sleep(0.3)
-    yield base_url
-    httpd.shutdown()
-    httpd.server_close()
+    base_url = f"http://127.0.0.1:{port}"
+    try:
+        yield base_url
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server_thread.join(timeout=2.0)
 
 
 def run_cli_capture(args: list[str]) -> tuple[int, str]:
@@ -259,7 +261,9 @@ def test_mesh_os_ui_elements():
     # Window and Dock buttons
     assert 'id="win-agentspace"' in MESH_OS_HTML_UI
     assert 'id="dockBtn-win-agentspace"' in MESH_OS_HTML_UI
-    assert "Space · Ranger VFS &amp; Wasm Studio" in MESH_OS_HTML_UI
+    assert '<span class="window-title tc-titlebar__title" title="Workstation">Workstation</span>' in MESH_OS_HTML_UI
+    assert "Workstation · User, Topic &amp; Sandbox VFS + 3D Studio" in MESH_OS_HTML_UI
+    assert 'id="spaceOpenWorkstationBtn"' in MESH_OS_HTML_UI
     # Rodin 3D Generator elements
     assert "Hyper3D Rodin 3D" in MESH_OS_HTML_UI
     assert 'id="generateRodinBtn"' in MESH_OS_HTML_UI

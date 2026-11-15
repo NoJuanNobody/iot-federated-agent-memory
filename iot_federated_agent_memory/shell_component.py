@@ -162,6 +162,8 @@ SHELL_JS = r"""
       'drive         drive mirror status',
       'status        mesh room status',
       'brew <args>   TinCan Homebrew (brew install tincan context-palace)',
+      'harnesses     list coding harnesses (Antigravity, Claude Code, OpenCode, DSX, Codex)',
+      'harness <cmd> inspect or queue best harness / run `<agy|claude|opencode|dsx> <prompt>`',
       'ask <q>       ask the AI gateway',
       'clear         clear the screen',
       'help          this list'
@@ -268,6 +270,16 @@ SHELL_JS = r"""
           if (typeof awardLocalXp === 'function' && cleanBrewCmd.includes('install')) {
             awardLocalXp(35, 'Installed package via TinCan Homebrew');
           }
+          return termDone(r.ok, d.output || (Array.isArray(d.lines) ? d.lines.join('\n') : JSON.stringify(d)));
+        }
+        if (['harnesses', 'harness', 'agy', 'antigravity', 'claude', 'claude-code', 'opencode', 'dsx', 'codex', 'aider', 'goose'].includes(verb)) {
+          progress('Inspecting & routing coding harness...');
+          const r = await fetch('/api/terminal/harness', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ command: cmd, peer_id: (typeof myPeerId !== 'undefined' && myPeerId) || 'aeonik' })
+          });
+          const d = await r.json();
           return termDone(r.ok, d.output || (Array.isArray(d.lines) ? d.lines.join('\n') : JSON.stringify(d)));
         }
         if (verb === 'ask' && !arg) return termDone(false, 'ask: usage: ask <question>');

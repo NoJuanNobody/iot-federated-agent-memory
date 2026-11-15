@@ -42,7 +42,7 @@ def test_render_workstation_window_root_and_titlebar_marker() -> None:
     html = render_workstation_window_html()
     assert isinstance(html, str)
     expected_root = (
-        '<div id="win-workstation" class="mesh-window w-[1080px] max-w-full hidden" '
+        '<div id="win-workstation" class="mesh-window w-[1080px] max-w-full hidden tc-ws-host" '
         'data-zen-window="true" data-window-id="win-workstation" '
         'style="top: 72px; left: 110px; z-index: 36;">'
     )
@@ -52,12 +52,12 @@ def test_render_workstation_window_root_and_titlebar_marker() -> None:
     after_root = html[len(expected_root) :].lstrip()
     expected_titlebar = (
         '<!--TC_TITLEBAR {"id": "win-workstation", '
-        '"title": "Workstation · Multi-Model & 3D Studio", '
+        '"title": "3D Studio", '
         '"badge": "RODIN + NANOGPT"}-->'
     )
     assert after_root.startswith(expected_titlebar)
 
-    assert "Tile w/ Space" in html
+    assert "Dock in Workstation" in html
     assert 'id="wsTileSpaceBtn"' in html
     assert 'id="wsMerkleBadge"' in html
     assert 'id="wsSpaceScopeBadge"' in html
@@ -231,7 +231,7 @@ def test_window_chrome_expands_tc_titlebar_and_applies_celadon() -> None:
     assert "<!--TC_TITLEBAR" not in expanded
     assert 'class="window-header tc-titlebar"' in expanded
     assert 'data-tc-titlebar="win-workstation"' in expanded
-    assert "Workstation · Multi-Model &amp; 3D Studio" in expanded
+    assert '<span class="window-title tc-titlebar__title" title="3D Studio">3D Studio</span>' in expanded
     assert "RODIN + NANOGPT" in expanded
     assert legacy_palette_classes(expanded) == []
 
@@ -391,11 +391,11 @@ def test_mesh_os_html_ui_wires_workstation_and_space_tiling() -> None:
     assert 'id="dockBtn-win-workstation"' in MESH_OS_HTML_UI
     assert 'id="spaceOpenWorkstationBtn"' in MESH_OS_HTML_UI
     assert "'win-agentspace', 'win-workstation'" in MESH_OS_HTML_UI
-    assert "window.location.pathname === '/workstation'" in MESH_OS_HTML_UI
+    assert "window.location.pathname === '/3dstudio'" in MESH_OS_HTML_UI
+    assert "'/workstation'" in MESH_OS_HTML_UI and "singleWindowParam = 'win-agentspace'" in MESH_OS_HTML_UI
     assert "singleWindowParam = 'win-workstation'" in MESH_OS_HTML_UI
-    assert "Workstation · Multi-Model &amp; 3D Studio" in MESH_OS_HTML_UI or (
-        "Workstation · Multi-Model & 3D Studio" in MESH_OS_HTML_UI
-    )
+    assert "toggleDock3dStudio" in MESH_OS_HTML_UI and 'id="finderTab-3dstudio"' in MESH_OS_HTML_UI
+    assert '<span class="window-title tc-titlebar__title" title="3D Studio">3D Studio</span>' in MESH_OS_HTML_UI
 
 
 def test_mesh_os_html_ui_workstation_window_has_zero_legacy_palette_classes() -> None:
@@ -411,9 +411,13 @@ def test_workstation_three_way_route_sync() -> None:
     from iot_federated_agent_memory.designs_gallery import DESKTOP_MOCKUPS
 
     assert "/workstation" in srv.SINGLE_WINDOW_ROUTES
+    assert "/3dstudio" in srv.SINGLE_WINDOW_ROUTES
     assert "'/workstation'" in MESH_OS_HTML_UI
+    assert "'/3dstudio'" in MESH_OS_HTML_UI
+    assert "tool: 'win-agentspace'" in MESH_OS_HTML_UI
     assert "tool: 'win-workstation'" in MESH_OS_HTML_UI
-    assert "window.location.pathname === '/workstation'" in MESH_OS_HTML_UI
+    assert "window.location.pathname === '/3dstudio'" in MESH_OS_HTML_UI
     assert "singleWindowParam = 'win-workstation'" in MESH_OS_HTML_UI
+    assert "singleWindowParam = 'win-agentspace'" in MESH_OS_HTML_UI
     mockup_ids = {m["id"] for m in DESKTOP_MOCKUPS}
     assert {"ws-studio", "ws-stories", "ws-dual"}.issubset(mockup_ids)

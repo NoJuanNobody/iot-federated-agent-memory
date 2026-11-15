@@ -36,6 +36,7 @@ import threading
 import time
 import uuid
 from collections import Counter, defaultdict, deque
+from contextlib import contextmanager
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 try:
@@ -799,7 +800,7 @@ class CyberspaceBoardEngine:
             self._seed_initial_topics_if_empty()
         if self.db_path != ":memory:":
             try:
-                with sqlite3.connect(self.db_path) as conn:
+                with self._connect() as conn:
                     cur = conn.cursor()
                     cur.execute("SELECT topic_id, title, body, author_username, tags_json FROM cyberspace_topics")
                     for row in cur.fetchall():
@@ -814,8 +815,17 @@ class CyberspaceBoardEngine:
                 pass
         self._rebuild_indices()
 
+    @contextmanager
+    def _connect(self, db_path: Optional[str] = None):
+        conn = sqlite3.connect(db_path or self.db_path)
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
+
     def _init_db(self) -> None:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("PRAGMA journal_mode=WAL;")
             cursor.execute("PRAGMA synchronous=NORMAL;")
@@ -850,6 +860,7 @@ class CyberspaceBoardEngine:
             t_cols = {col[1] for col in cursor.fetchall()}
             for col_name, col_def in [
                 ("pinned", "INTEGER DEFAULT 0"),
+                ("curated", "INTEGER DEFAULT 0"),
                 ("locked", "INTEGER DEFAULT 0"),
                 ("resolved", "INTEGER DEFAULT 0"),
                 ("accepted_post_id", "TEXT DEFAULT ''"),
@@ -942,7 +953,7 @@ class CyberspaceBoardEngine:
 
         def _upload():
             try:
-                with sqlite3.connect(self.db_path) as conn:
+                with self._connect() as conn:
                     conn.row_factory = sqlite3.Row
                     cur = conn.cursor()
                     cur.execute("SELECT * FROM cyberspace_topics")
@@ -970,7 +981,7 @@ class CyberspaceBoardEngine:
     def _restore_from_s3_if_empty(self) -> None:
         """Restore persisted Cyberspace Board state from Railway S3 if local SQLite is empty."""
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with self._connect() as conn:
                 cursor = conn.cursor()
                 cursor.execute("SELECT COUNT(*) FROM cyberspace_topics")
                 if cursor.fetchone()[0] > 0:
@@ -980,7 +991,7 @@ class CyberspaceBoardEngine:
             if not data or not isinstance(data, dict):
                 return
 
-            with sqlite3.connect(self.db_path) as conn:
+            with self._connect() as conn:
                 cursor = conn.cursor()
                 for t in data.get("topics", []):
                     cursor.execute(
@@ -1069,7 +1080,7 @@ class CyberspaceBoardEngine:
 
     def _seed_initial_knowledge_base(self) -> None:
         """Seed foundational Cyberspace Knowledge Base topics if database is empty."""
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM cyberspace_topics")
             if cursor.fetchone()[0] > 0:
@@ -1204,7 +1215,7 @@ class CyberspaceBoardEngine:
             },
         ]
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
             for st in seed_topics:
                 parsed = parse_cyberspace_tags(st["body"])
@@ -1284,7 +1295,7 @@ class CyberspaceBoardEngine:
         self._seed_initial_knowledge_base()
 
     def _load_all_topics_from_db(self) -> List[Dict[str, Any]]:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM cyberspace_topics ORDER BY pinned DESC, updated_at DESC")
@@ -1319,6 +1330,7 @@ class CyberspaceBoardEngine:
             )
 
         topics: List[Dict[str, Any]] = []
+        now_ts = time.time()
         for t in topic_rows:
             t_id = t["topic_id"]
             t_posts = posts_by_topic.get(t_id, [])
@@ -1329,6 +1341,18 @@ class CyberspaceBoardEngine:
             all_users = list(dict.fromkeys(user_mentions + [u for p in t_posts for u in p["user_mentions"]]))
             all_agents = list(dict.fromkeys(agent_mentions + [a for p in t_posts for a in p["agent_mentions"]]))
             all_tags = list(dict.fromkeys(tags + [h for p in t_posts for h in p["hashtags"]]))
+            updated_ts = float(t.get("updated_at") or t.get("created_at") or now_ts)
+            age_hours = max(0.0, (now_ts - updated_ts) / 3600.0)
+            recency_boost = round(48.0 / (1.0 + age_hours / 6.0), 2)
+            participants = len({str(t["author_username"]).lower()} | {str(p.get("author_username") or "").lower() for p in t_posts})
+            activity_score = round(
+                len(t_posts) * 12.0
+                + recency_boost
+                + max(0, int(t.get("score") or 0)) * 2.0
+                + participants * 4.0
+                + (15.0 if t.get("curated") else 0.0),
+                2,
+            )
 
             topics.append(
                 {
@@ -1340,12 +1364,14 @@ class CyberspaceBoardEngine:
                     "author_username": t["author_username"],
                     "author_verified": bool(t["author_verified"]),
                     "pinned": bool(t.get("pinned")),
+                    "curated": bool(t.get("curated")),
                     "locked": bool(t.get("locked")),
                     "resolved": bool(t.get("resolved")),
                     "accepted_post_id": t.get("accepted_post_id") or "",
                     "upvotes": int(t.get("upvotes") or 0),
                     "downvotes": int(t.get("downvotes") or 0),
                     "score": int(t.get("score") or 0),
+                    "activity_score": activity_score,
                     "view_count": int(t.get("view_count") or 1),
                     "views": int(t.get("view_count") or 1),
                     "tags": all_tags,
@@ -1497,7 +1523,7 @@ class CyberspaceBoardEngine:
 
         # Standalone SQLite fallback
         now = time.time()
-        with sqlite3.connect(space_file) as conn:
+        with self._connect(space_file) as conn:
             cur = conn.cursor()
             cur.execute("PRAGMA journal_mode=WAL;")
             cur.execute(
@@ -1657,7 +1683,7 @@ class CyberspaceBoardEngine:
             }
 
         try:
-            with sqlite3.connect(space_file) as conn:
+            with self._connect(space_file) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
                 cur.execute("SELECT merkle_root FROM space_meta LIMIT 1")
@@ -1760,7 +1786,7 @@ class CyberspaceBoardEngine:
         c_hash = hashlib.sha256(c_bytes).hexdigest()
         size_bytes = len(c_bytes)
 
-        with sqlite3.connect(space_file) as conn:
+        with self._connect(space_file) as conn:
             cur = conn.cursor()
             cur.execute(
                 """
@@ -1839,7 +1865,7 @@ class CyberspaceBoardEngine:
         if not os.path.exists(space_file):
             raise FileNotFoundError(f"Topic space for '{topic_id}' not found")
 
-        with sqlite3.connect(space_file) as conn:
+        with self._connect(space_file) as conn:
             conn.row_factory = sqlite3.Row
             cur = conn.cursor()
             cur.execute("SELECT path, mime_type, size_bytes, sha256, content_blob, content_text, updated_at, updated_by FROM fs_files WHERE path = ?", (path,))
@@ -1885,7 +1911,7 @@ class CyberspaceBoardEngine:
             ag_name = peer_id.split(":", 1)[1]
             return True, {"peer_id": peer_id, "username": ag_name, "verified": True, "verified_by": "@verifier-agent"}
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute(
@@ -1958,7 +1984,7 @@ class CyberspaceBoardEngine:
         }
 
         with self._lock:
-            with sqlite3.connect(self.db_path) as conn:
+            with self._connect() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
@@ -2099,7 +2125,7 @@ class CyberspaceBoardEngine:
         }
 
         with self._lock:
-            with sqlite3.connect(self.db_path) as conn:
+            with self._connect() as conn:
                 cursor = conn.cursor()
                 if request_id:
                     cursor.execute(
@@ -2188,7 +2214,7 @@ class CyberspaceBoardEngine:
         if not clean_un and profile and profile.get("username"):
             clean_un = str(profile["username"]).strip().lstrip("@").lower()
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             if clean_un:
@@ -2256,7 +2282,7 @@ class CyberspaceBoardEngine:
                 }
 
         pending_requests: List[Dict[str, Any]] = []
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM verification_forms ORDER BY sent_at DESC LIMIT 50")
@@ -2670,7 +2696,7 @@ class CyberspaceBoardEngine:
         now = time.time()
 
         with self._lock:
-            with sqlite3.connect(self.db_path) as conn:
+            with self._connect() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
@@ -2747,6 +2773,7 @@ class CyberspaceBoardEngine:
         category: Optional[str] = None,
         tags: Optional[List[str]] = None,
         pinned: Optional[bool] = None,
+        curated: Optional[bool] = None,
         locked: Optional[bool] = None,
         resolved: Optional[bool] = None,
         is_admin: bool = False,
@@ -2763,6 +2790,7 @@ class CyberspaceBoardEngine:
             new_body = body.strip() if body is not None and body.strip() else existing["body"]
             new_cat = category.strip().lower() if category is not None and category.strip() else existing["category"]
             new_pinned = int(pinned) if pinned is not None else int(existing.get("pinned", False))
+            new_curated = int(curated) if curated is not None else int(existing.get("curated", False))
             new_locked = int(locked) if locked is not None else int(existing.get("locked", False))
             new_resolved = int(resolved) if resolved is not None else int(existing.get("resolved", False))
 
@@ -2771,23 +2799,39 @@ class CyberspaceBoardEngine:
             merged_tags = list(dict.fromkeys(explicit_tags + parsed["hashtags"] + [new_cat]))
             now = time.time()
 
-            with sqlite3.connect(self.db_path) as conn:
+            with self._connect() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
                     UPDATE cyberspace_topics
-                    SET title = ?, body = ?, category = ?, pinned = ?, locked = ?, resolved = ?,
+                    SET title = ?, body = ?, category = ?, pinned = ?, curated = ?, locked = ?, resolved = ?,
                         tags_json = ?, user_mentions_json = ?, agent_mentions_json = ?, updated_at = ?
                     WHERE topic_id = ?
                     """,
                     (
-                        new_title, new_body, new_cat, new_pinned, new_locked, new_resolved,
+                        new_title, new_body, new_cat, new_pinned, new_curated, new_locked, new_resolved,
                         json.dumps(merged_tags), json.dumps(parsed["user_mentions"]),
                         json.dumps(parsed["agent_mentions"]), now, topic_id,
                     ),
                 )
                 conn.commit()
 
+            self._rebuild_indices()
+            self._sync_to_s3_async()
+            return self.get_topic(topic_id)
+
+    def curate_topic(self, topic_id: str, peer_id: str, curated: Optional[bool] = None) -> Dict[str, Any]:
+        """Toggle or set curation status on a Cyberspace Feed topic for any participant/curator."""
+        with self._lock:
+            existing = self.get_topic(topic_id)
+            if not existing:
+                raise ValueError(f"Topic '{topic_id}' not found")
+            target_val = (not bool(existing.get("curated", False))) if curated is None else bool(curated)
+            with self._connect() as conn:
+                conn.execute(
+                    "UPDATE cyberspace_topics SET curated = ? WHERE topic_id = ?",
+                    (int(target_val), topic_id),
+                )
             self._rebuild_indices()
             self._sync_to_s3_async()
             return self.get_topic(topic_id)
@@ -2801,7 +2845,7 @@ class CyberspaceBoardEngine:
             if not is_admin and existing["author_peer_id"] != peer_id:
                 raise PermissionError("Only the topic author or an admin moderator can delete this topic")
 
-            with sqlite3.connect(self.db_path) as conn:
+            with self._connect() as conn:
                 cursor = conn.cursor()
                 cursor.execute("DELETE FROM cyberspace_posts WHERE topic_id = ?", (topic_id,))
                 cursor.execute("DELETE FROM cyberspace_votes WHERE target_type = 'topic' AND target_id = ?", (topic_id,))
@@ -2865,7 +2909,7 @@ class CyberspaceBoardEngine:
         now = time.time()
 
         with self._lock:
-            with sqlite3.connect(self.db_path) as conn:
+            with self._connect() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
@@ -2949,7 +2993,7 @@ class CyberspaceBoardEngine:
     def delete_post(self, post_id: str, peer_id: str, is_admin: bool = False) -> Dict[str, Any]:
         """Delete a reply/post from a topic (author or admin)."""
         with self._lock:
-            with sqlite3.connect(self.db_path) as conn:
+            with self._connect() as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
                 cursor.execute("SELECT * FROM cyberspace_posts WHERE post_id = ?", (post_id,))
@@ -2988,7 +3032,7 @@ class CyberspaceBoardEngine:
         now = time.time()
 
         with self._lock:
-            with sqlite3.connect(self.db_path) as conn:
+            with self._connect() as conn:
                 cursor = conn.cursor()
                 if vote_val == 0:
                     cursor.execute(
@@ -3043,7 +3087,7 @@ class CyberspaceBoardEngine:
             if not is_admin and topic["author_peer_id"] != peer_id:
                 raise PermissionError("Only the topic author or an admin moderator can accept a solution")
 
-            with sqlite3.connect(self.db_path) as conn:
+            with self._connect() as conn:
                 cursor = conn.cursor()
                 cursor.execute("UPDATE cyberspace_posts SET is_accepted_solution = 0 WHERE topic_id = ?", (topic_id,))
                 cursor.execute("UPDATE cyberspace_posts SET is_accepted_solution = 1 WHERE post_id = ? AND topic_id = ?", (post_id, topic_id))
@@ -3058,7 +3102,7 @@ class CyberspaceBoardEngine:
         """Retrieve a single topic with all posts and connected GraphRAG entities."""
         with self._lock:
             if increment_views:
-                with sqlite3.connect(self.db_path) as conn:
+                with self._connect() as conn:
                     conn.execute("UPDATE cyberspace_topics SET view_count = view_count + 1 WHERE topic_id = ?", (topic_id,))
                     conn.commit()
             topics = self._load_all_topics_from_db()
@@ -3087,9 +3131,10 @@ class CyberspaceBoardEngine:
         mentioned_agent: Optional[str] = None,
         sort_by: str = "hot",
         verified_only: bool = False,
+        curated_only: bool = False,
         limit: int = 50,
     ) -> Dict[str, Any]:
-        """List discussion topics with filtering and sorting ('hot', 'new', 'top', 'discussed')."""
+        """List discussion topics with filtering and sorting ('hot', 'new', 'top', 'discussed', 'activity')."""
         with self._lock:
             topics = self._load_all_topics_from_db()
 
@@ -3118,6 +3163,8 @@ class CyberspaceBoardEngine:
             ]
         if verified_only:
             topics = [t for t in topics if t.get("author_verified")]
+        if curated_only:
+            topics = [t for t in topics if t.get("curated") or t.get("pinned")]
 
         sort_mode = (sort_by or "hot").strip().lower()
         if sort_mode == "new":
@@ -3126,6 +3173,15 @@ class CyberspaceBoardEngine:
             topics.sort(key=lambda t: (t.get("pinned", False), t.get("score", 0), t.get("reply_count", 0)), reverse=True)
         elif sort_mode == "discussed":
             topics.sort(key=lambda t: (t.get("pinned", False), t.get("reply_count", 0), t.get("updated_at", 0.0)), reverse=True)
+        elif sort_mode in ("activity", "active"):
+            topics.sort(
+                key=lambda t: (
+                    t.get("activity_score", 0.0),
+                    t.get("reply_count", 0),
+                    t.get("updated_at", 0.0),
+                ),
+                reverse=True,
+            )
         else:
             # 'hot' combines pinned status, score, reply count, and recency
             topics.sort(
@@ -3282,19 +3338,25 @@ class CyberspaceBoardEngine:
 
     @classmethod
     def parse_unified_query(cls, query: str) -> Dict[str, Any]:
-        """Split the single input into slash command, #tags, @mentions, is:verified and free text."""
+        """Split the single input into slash command, #tags, @mentions, is:verified/is:curated and free text."""
         q = (query or "").strip()
         command = "search"
-        m = re.match(r"^/(search|topic)\b\s*", q, re.I)
+        m = re.match(r"^/(search|topic|post|new|thread|curate|feed)\b\s*", q, re.I)
         if m:
             command = m.group(1).lower()
             q = q[m.end():]
         verified = False
+        curated_only = False
         def _verified(mo):
             nonlocal verified
             verified = True
             return " "
+        def _curated(mo):
+            nonlocal curated_only
+            curated_only = True
+            return " "
         q = re.sub(r"(?<!\S)is:verified(?!\S)", _verified, q, flags=re.I)
+        q = re.sub(r"(?<!\S)is:curated(?!\S)", _curated, q, flags=re.I)
         tags, mentions = [], []
         for sigil, name in cls._TOKEN_RE.findall(q):
             (tags if sigil == "#" else mentions).append(name.lower())
@@ -3311,12 +3373,13 @@ class CyberspaceBoardEngine:
             "tags": list(dict.fromkeys(tags)),
             "mentions": list(dict.fromkeys(mentions)),
             "verified_only": verified,
+            "curated_only": curated_only,
             "text": text,
         }
 
     def unified_search(self, query: str, top_k: int = 15, sort_by: str = "hot") -> Dict[str, Any]:
         """One query for the whole board. Hybrid (BM25 + GraphRAG) always runs
-        when there is text or a mention; #tags (or a category) and is:verified
+        when there is text or a mention; #tags (or a category), is:verified and is:curated
         narrow the results. The ranking diagnostics ride along for the
         "how this ranked" disclosure."""
         parsed = self.parse_unified_query(query)
@@ -3330,6 +3393,8 @@ class CyberspaceBoardEngine:
                 if tag not in t_tags and not (tag in cat_ids and tag == cat):
                     return False
             if parsed["verified_only"] and not t.get("author_verified"):
+                return False
+            if parsed.get("curated_only") and not (t.get("curated") or t.get("pinned")):
                 return False
             return True
 
@@ -3351,7 +3416,7 @@ class CyberspaceBoardEngine:
             }
             synthesis = res.get("synthesis", "")
         else:
-            listed = self.list_topics(sort_by=sort_by, limit=500)
+            listed = self.list_topics(sort_by=sort_by, curated_only=bool(parsed.get("curated_only")), limit=500)
             results = [t for t in listed["topics"] if keep(t)][:top_k]
             diagnostics = {"mode": "filter", "query": hybrid_query, "sort_by": listed.get("sort_by")}
             synthesis = ""
@@ -3362,6 +3427,127 @@ class CyberspaceBoardEngine:
             "results": results,
             "synthesis": synthesis,
             "diagnostics": diagnostics,
+        }
+
+    def ai_suggest(self, query: str = "", limit: int = 8) -> Dict[str, Any]:
+        """Generate free-model AI suggestions replacing static Peers/AI Agents buttons."""
+        q_clean = (query or "").strip()
+        q_low = q_clean.lower()
+        roster = self.get_roster_and_profiles()
+        topics_data = self.list_topics(sort_by="activity", limit=12)
+        active_topics = topics_data.get("topics", [])
+
+        free_spec = {"alias": "meta-llama/llama-3.3-70b-instruct:free", "gateway": "openrouter", "is_free": True}
+        if self.ai_router is not None and hasattr(self.ai_router, "resolve_free_model"):
+            free_spec = self.ai_router.resolve_free_model()
+
+        candidates: List[Dict[str, str]] = []
+        # Relevant hashtags from corpus
+        for entry in (roster.get("popular_tags") or [])[:6]:
+            tag = str(entry.get("tag") or "").lstrip("#")
+            if tag:
+                candidates.append({
+                    "token": f"#{tag}",
+                    "kind": "tag",
+                    "reason": f"{entry.get('count', 1)} active topics",
+                    "source": "corpus",
+                })
+        # Active peers & verified users
+        for u in (roster.get("users") or [])[:5]:
+            handle = str(u.get("username") or "").lstrip("@")
+            if handle:
+                candidates.append({
+                    "token": f"@{handle}",
+                    "kind": "peer",
+                    "reason": u.get("role") or "Peer",
+                    "source": "roster",
+                })
+        # High-signal AI agents
+        for agent_key in ("gemini-brain", "claude-brain", "verifier-agent", "rodin-agent"):
+            if agent_key in KNOWN_AI_AGENTS:
+                candidates.append({
+                    "token": f"@{agent_key}",
+                    "kind": "agent",
+                    "reason": KNOWN_AI_AGENTS[agent_key]["specialty"].split(",")[0],
+                    "source": "agent",
+                })
+        # Slash actions matched to omni-bar workflow
+        candidates.extend([
+            {"token": "/search ", "kind": "command", "reason": "BM25 + GraphRAG search", "source": "omni"},
+            {"token": "/thread ", "kind": "command", "reason": "Start or jump to active thread", "source": "omni"},
+            {"token": "/post ", "kind": "command", "reason": "Post new topic from bar", "source": "omni"},
+            {"token": "is:curated", "kind": "filter", "reason": "Curated feed highlights", "source": "omni"},
+        ])
+
+        # Optional live free-model call when OpenRouter/Ollama free inference is configured
+        used_llm = False
+        if (
+            self.ai_router is not None
+            and hasattr(self.ai_router, "free_complete")
+            and (getattr(self.ai_router, "local_base_url", None) or getattr(self.ai_router, "openrouter_key", None) or os.environ.get("OPENROUTER_API_KEY"))
+        ):
+            try:
+                topic_titles = "; ".join(t["title"] for t in active_topics[:5]) or "none"
+                resp = self.ai_router.free_complete(
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "Return ONLY a JSON array of up to 4 short TinCan Board suggestion tokens (#tag, @agent, /search <q>, or /thread <name>).",
+                        },
+                        {
+                            "role": "user",
+                            "content": f"Current input: '{q_clean or 'explore'}'\nActive threads: {topic_titles}",
+                        },
+                    ],
+                    max_tokens=110,
+                )
+                raw = str((resp.get("choices") or [{}])[0].get("message", {}).get("content") or "").strip()
+                if raw and not raw.startswith("[Simulated"):
+                    m_json = re.search(r"\[[\s\S]*\]", raw)
+                    parsed_arr = json.loads(m_json.group(0)) if m_json else []
+                    if isinstance(parsed_arr, list):
+                        for item in reversed(parsed_arr[:4]):
+                            tok = str(item).strip()
+                            if tok and len(tok) <= 42:
+                                candidates.insert(0, {
+                                    "token": tok,
+                                    "kind": "ai",
+                                    "reason": f"Free AI ({free_spec['alias']})",
+                                    "source": "free_model",
+                                })
+                                used_llm = True
+            except Exception:
+                pass
+
+        # Filter/prioritize against typed input
+        if q_low:
+            tokens_q = [w for w in re.split(r"\s+", q_low) if w]
+            candidates.sort(
+                key=lambda c: (
+                    c["source"] == "free_model",
+                    any(c["token"].lower().startswith(w) or w in c["token"].lower() or w in c["reason"].lower() for w in tokens_q),
+                ),
+                reverse=True,
+            )
+
+        deduped: List[Dict[str, str]] = []
+        seen: Set[str] = set()
+        for c in candidates:
+            key = c["token"].strip().lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(c)
+            if len(deduped) >= max(1, min(limit, 14)):
+                break
+
+        return {
+            "model": free_spec["alias"],
+            "gateway": free_spec["gateway"],
+            "is_free": True,
+            "cost_usd": 0.0,
+            "used_live_llm": used_llm,
+            "suggestions": deduped,
         }
 
     # =========================================================================

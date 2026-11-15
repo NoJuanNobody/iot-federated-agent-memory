@@ -35,7 +35,10 @@ def _no_paid_calls(monkeypatch):
 def ctx_registry(tmp_path, monkeypatch):
     reg = ArenaContextRegistry(str(tmp_path / "arena_context"), drive=DriveMirrorSource(module=None))
     monkeypatch.setattr(server.ARENA_CONTEXT_API, "registry", reg)
-    return reg
+    try:
+        yield reg
+    finally:
+        reg.close_all()
 
 
 @pytest.fixture(scope="module")
@@ -43,8 +46,12 @@ def base_url():
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.MeshGatewayHandler)
     t = threading.Thread(target=httpd.serve_forever, daemon=True)
     t.start()
-    yield httpd.server_address
-    httpd.shutdown()
+    try:
+        yield httpd.server_address
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        t.join(timeout=2.0)
 
 
 class Acct(str):
@@ -66,21 +73,23 @@ def call(addr, method, path, body=None, peer=None, headers=None, token=None):
     """``peer`` is an Acct (signed in via its session) or a raw string sent only
     as an untrusted X-TinCan-Peer header / peer_id, which must never authenticate."""
     conn = http.client.HTTPConnection(*addr, timeout=30)
-    h = dict(headers or {})
-    if isinstance(peer, Acct):
-        h["Authorization"] = f"Bearer {peer.token}"
-    elif peer is not None:
-        h["X-TinCan-Peer"] = peer
-    if token is not None:
-        h["Authorization"] = f"Bearer {token}"
-    data = None
-    if body is not None:
-        data = json.dumps(body).encode()
-        h["Content-Type"] = "application/json"
-    conn.request(method, path, body=data, headers=h)
-    resp = conn.getresponse()
-    raw = resp.read()
-    conn.close()
+    try:
+        h = dict(headers or {})
+        if isinstance(peer, Acct):
+            h["Authorization"] = f"Bearer {peer.token}"
+        elif peer is not None:
+            h["X-TinCan-Peer"] = peer
+        if token is not None:
+            h["Authorization"] = f"Bearer {token}"
+        data = None
+        if body is not None:
+            data = json.dumps(body).encode()
+            h["Content-Type"] = "application/json"
+        conn.request(method, path, body=data, headers=h)
+        resp = conn.getresponse()
+        raw = resp.read()
+    finally:
+        conn.close()
     try:
         return resp.status, json.loads(raw.decode() or "{}")
     except ValueError:
@@ -135,9 +144,13 @@ def fake_llm(monkeypatch):
 
 
 def _ledger(peer_id):
-    with sqlite3.connect(server.account_registry.db_path) as conn:
-        return conn.execute("SELECT COUNT(*), COALESCE(SUM(total_tokens),0) FROM token_ledger WHERE peer_id = ?",
-                            (peer_id,)).fetchone()
+    conn = sqlite3.connect(server.account_registry.db_path)
+    try:
+        with conn:
+            return conn.execute("SELECT COUNT(*), COALESCE(SUM(total_tokens),0) FROM token_ledger WHERE peer_id = ?",
+                                (peer_id,)).fetchone()
+    finally:
+        conn.close()
 
 
 # --------------------------------------------------------------------- auth
@@ -299,22 +312,25 @@ def test_drive_link_uses_real_drive_mirror_on_localhost(base_url, tmp_path, monk
         monkeypatch.delenv(k, raising=False)
     reg = ArenaContextRegistry(str(tmp_path / "arena_context"), drive=DriveMirrorSource())
     monkeypatch.setattr(server.ARENA_CONTEXT_API, "registry", reg)
-    me = _account()
+    try:
+        me = _account()
 
-    status, data = call(base_url, "POST", "/api/arena/context/drive/link",
-                        {"agent_id": "brain-a", "drive_path": "/dev/plan.md"}, peer=me,
-                        headers={"X-Forwarded-For": "203.0.113.9"})
-    assert status == 403 and data["code"] == "drive_mirror_unavailable"
+        status, data = call(base_url, "POST", "/api/arena/context/drive/link",
+                            {"agent_id": "brain-a", "drive_path": "/dev/plan.md"}, peer=me,
+                            headers={"X-Forwarded-For": "203.0.113.9"})
+        assert status == 403 and data["code"] == "drive_mirror_unavailable"
 
-    status, data = call(base_url, "POST", "/api/arena/context/drive/link",
-                        {"agent_id": "brain-a", "drive_path": "/dev/plan.md"}, peer=me)
-    assert status == 200, data
-    status, data = call(base_url, "GET", "/api/arena/context/search?" + q(agent_id="brain-a", q="launch plan arena"),
-                        peer=me)
-    assert data["files"] == ["/drive/dev/plan.md"]
-    status, data = call(base_url, "POST", "/api/arena/context/drive/link",
-                        {"agent_id": "brain-a", "drive_path": "/../../etc/passwd"}, peer=me)
-    assert status in (400, 403)
+        status, data = call(base_url, "POST", "/api/arena/context/drive/link",
+                            {"agent_id": "brain-a", "drive_path": "/dev/plan.md"}, peer=me)
+        assert status == 200, data
+        status, data = call(base_url, "GET", "/api/arena/context/search?" + q(agent_id="brain-a", q="launch plan arena"),
+                            peer=me)
+        assert data["files"] == ["/drive/dev/plan.md"]
+        status, data = call(base_url, "POST", "/api/arena/context/drive/link",
+                            {"agent_id": "brain-a", "drive_path": "/../../etc/passwd"}, peer=me)
+        assert status in (400, 403)
+    finally:
+        reg.close_all()
 
 
 # ------------------------------------------------------------------- duel

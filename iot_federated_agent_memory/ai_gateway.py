@@ -411,6 +411,24 @@ DEFAULT_OPENROUTER_MODELS: List[Dict[str, Any]] = [
         "context_length": 131072,
         "pricing": {"prompt": "0.000002", "completion": "0.00001"},
     },
+    {
+        "id": "meta-llama/llama-3.3-70b-instruct:free",
+        "name": "Llama 3.3 70B Instruct (:free)",
+        "provider": "Meta · OpenRouter Free",
+        "description": "Zero-cost OpenRouter :free tier model ideal for instant board suggestions and routing hints.",
+        "category": "Free",
+        "context_length": 131072,
+        "pricing": {"prompt": "0.0", "completion": "0.0"},
+    },
+    {
+        "id": "qwen/qwen-2.5-72b-instruct:free",
+        "name": "Qwen 2.5 72B Instruct (:free)",
+        "provider": "Qwen · OpenRouter Free",
+        "description": "Zero-cost OpenRouter :free tier model for structured suggestions and tag completion.",
+        "category": "Free",
+        "context_length": 32768,
+        "pricing": {"prompt": "0.0", "completion": "0.0"},
+    },
 ]
 
 
@@ -1877,6 +1895,38 @@ class DynamicAIGatewayRouter:
             "headers": headers,
             "timeout": 30.0,
         }
+
+    def resolve_free_model(self) -> Dict[str, Any]:
+        """Pick the best zero-cost model alias (local Ollama first if configured, else OpenRouter :free)."""
+        if self.local_base_url:
+            return {"alias": "ollama/llama3.2", "gateway": "ollama", "is_free": True}
+        env_free = os.environ.get("TINCAN_FREE_SUGGEST_MODEL", "").strip()
+        if env_free:
+            gw = "ollama" if env_free.startswith("ollama/") else "openrouter"
+            return {"alias": env_free, "gateway": gw, "is_free": True}
+        return {
+            "alias": "meta-llama/llama-3.3-70b-instruct:free",
+            "gateway": "openrouter",
+            "is_free": True,
+        }
+
+    def free_complete(
+        self,
+        messages: List[Dict[str, str]],
+        *,
+        max_tokens: int = 160,
+        temperature: float = 0.2,
+    ) -> Dict[str, Any]:
+        """Run a zero-cost completion via the resolved free model with safe offline handling."""
+        spec = self.resolve_free_model()
+        return self.dispatch_completion(
+            alias=spec["alias"],
+            gateway=spec["gateway"],
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            timeout=6.0,
+        )
 
     def dispatch_completion(
         self,

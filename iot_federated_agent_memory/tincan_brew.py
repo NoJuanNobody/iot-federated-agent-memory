@@ -192,6 +192,84 @@ BREW_CATALOG: Dict[str, Dict[str, Any]] = {
         "bottle_size": "54.2MB",
         "files_count": 94,
     },
+    "antigravity": {
+        "name": "antigravity",
+        "full_name": "google/tap/antigravity",
+        "tap": "NoJuanNobody/tap",
+        "version": "2.0.0",
+        "kind": "formula",
+        "desc": "Google Antigravity (agy) autonomous coding & multi-agent swarm harness",
+        "homepage": "https://antigravity.google/",
+        "license": "Apache-2.0",
+        "dependencies": ["node", "git"],
+        "bottle_size": "18.4MB",
+        "files_count": 48,
+    },
+    "claude-code": {
+        "name": "claude-code",
+        "full_name": "@anthropic-ai/claude-code",
+        "tap": "homebrew/core",
+        "version": "2.1.0",
+        "kind": "formula",
+        "desc": "Anthropic Claude Code agentic terminal coding harness",
+        "homepage": "https://docs.anthropic.com/en/docs/claude-code",
+        "license": "Proprietary",
+        "dependencies": ["node", "ripgrep"],
+        "bottle_size": "14.2MB",
+        "files_count": 32,
+    },
+    "opencode": {
+        "name": "opencode",
+        "full_name": "anomalyco/tap/opencode",
+        "tap": "homebrew/core",
+        "version": "2.0.32",
+        "kind": "formula",
+        "desc": "OpenCode multi-provider agentic terminal coding harness (TypeScript + Bun)",
+        "homepage": "https://opencode.ai/",
+        "license": "MIT",
+        "dependencies": ["bun", "ripgrep"],
+        "bottle_size": "22.1MB",
+        "files_count": 64,
+    },
+    "dsx": {
+        "name": "dsx",
+        "full_name": "NoJuanNobody/dsx",
+        "tap": "NoJuanNobody/tap",
+        "version": "0.1.0",
+        "kind": "formula",
+        "desc": "DSX Claude-Code-style OpenRouter + Ink coding harness (github.com/NoJuanNobody/dsx)",
+        "homepage": "https://github.com/NoJuanNobody/dsx",
+        "license": "MIT",
+        "dependencies": ["node"],
+        "bottle_size": "4.6MB",
+        "files_count": 29,
+    },
+    "codex": {
+        "name": "codex",
+        "full_name": "@openai/codex",
+        "tap": "homebrew/core",
+        "version": "0.45.0",
+        "kind": "formula",
+        "desc": "OpenAI Codex lightweight coding agent CLI harness",
+        "homepage": "https://github.com/openai/codex",
+        "license": "Apache-2.0",
+        "dependencies": ["node"],
+        "bottle_size": "11.5MB",
+        "files_count": 26,
+    },
+    "aider": {
+        "name": "aider",
+        "full_name": "aider-chat",
+        "tap": "homebrew/core",
+        "version": "0.82.0",
+        "kind": "formula",
+        "desc": "Aider git-aware AI pair-programming terminal harness",
+        "homepage": "https://aider.chat/",
+        "license": "Apache-2.0",
+        "dependencies": ["python@3.13", "git"],
+        "bottle_size": "9.1MB",
+        "files_count": 51,
+    },
 }
 
 # Aliases mapping common package names to canonical catalog keys
@@ -206,6 +284,14 @@ PACKAGE_ALIASES: Dict[str, str] = {
     "kokoro-say": "kokoro-tts",
     "artcraft": "artcraft-launcher",
     "rg": "ripgrep",
+    "agy": "antigravity",
+    "agy-cli": "antigravity",
+    "claude": "claude-code",
+    "claudecode": "claude-code",
+    "open-code": "opencode",
+    "open_code": "opencode",
+    "nojuannobody/dsx": "dsx",
+    "nobody-public/dsx": "dsx",
 }
 
 
@@ -692,4 +778,315 @@ def handle_brew_command(
         "subcommand": sub,
         "output": msg,
         "lines": [msg],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Coding Agent Harnesses (Antigravity, Claude Code, OpenCode, DSX, General)
+# ---------------------------------------------------------------------------
+HARNESS_CATALOG: List[Dict[str, Any]] = [
+    {
+        "id": "antigravity",
+        "cli": "agy",
+        "aliases": ["agy", "antigravity", "agy-cli"],
+        "name": "Antigravity",
+        "vendor": "Google DeepMind",
+        "tier": 1,
+        "recommended": True,
+        "print_flag": "chat --print",
+        "install_cmd": "npm i -g @google/antigravity || brew install antigravity",
+        "repo": "https://antigravity.google/",
+        "capabilities": ["multi-agent-swarm", "subagents", "mcp", "skills", "workflows"],
+        "local_paths": [
+            "/Applications/Antigravity.app",
+            "~/.gemini/antigravity-cli",
+        ],
+        "desc": "First-class Antigravity (agy) coding harness with swarm orchestration, MCP & Context Palace.",
+    },
+    {
+        "id": "claude-code",
+        "cli": "claude",
+        "aliases": ["claude", "claude-code", "claudecode"],
+        "name": "Claude Code",
+        "vendor": "Anthropic",
+        "tier": 1,
+        "recommended": True,
+        "print_flag": "-p",
+        "install_cmd": "npm install -g @anthropic-ai/claude-code",
+        "repo": "https://github.com/anthropics/claude-code",
+        "capabilities": ["tool-loop", "mcp", "hooks", "worktrees", "skills"],
+        "local_paths": ["~/.claude"],
+        "desc": "Anthropic Claude Code agentic terminal coding harness.",
+    },
+    {
+        "id": "opencode",
+        "cli": "opencode",
+        "aliases": ["opencode", "open-code", "open_code"],
+        "name": "OpenCode",
+        "vendor": "OpenCode",
+        "tier": 1,
+        "recommended": True,
+        "print_flag": "run",
+        "install_cmd": "brew install opencode || npm install -g opencode-ai",
+        "repo": "https://github.com/anomalyco/opencode",
+        "capabilities": ["multi-provider", "tui", "mcp", "lsp", "skills"],
+        "local_paths": ["~/dev/opencode/package.json"],
+        "desc": "Open-source multi-provider coding harness (supports OpenRouter, Ollama, Anthropic, OpenAI).",
+    },
+    {
+        "id": "dsx",
+        "cli": "dsx",
+        "aliases": ["dsx", "nobody-public", "nojuannobody/dsx"],
+        "name": "DSX",
+        "vendor": "NoJuanNobody (Fallback)",
+        "tier": 2,
+        "recommended": False,
+        "fallback": True,
+        "print_flag": "-p",
+        "install_cmd": "git clone https://github.com/NoJuanNobody/dsx ~/dev/harness && cd ~/dev/harness && npm install && npm run build",
+        "repo": "https://github.com/NoJuanNobody/dsx",
+        "capabilities": ["openrouter", "ink-tui", "mcp", "skills", "nyx"],
+        "local_paths": ["~/dev/harness/dist/index.js", "~/dev/harness/src/index.tsx"],
+        "desc": "Lightweight Ink + OpenRouter terminal agent harness on GitHub (NoJuanNobody/dsx).",
+    },
+    {
+        "id": "codex",
+        "cli": "codex",
+        "aliases": ["codex", "openai-codex"],
+        "name": "Codex CLI",
+        "vendor": "OpenAI",
+        "tier": 2,
+        "recommended": False,
+        "print_flag": "exec",
+        "install_cmd": "npm install -g @openai/codex",
+        "repo": "https://github.com/openai/codex",
+        "capabilities": ["sandbox", "tool-loop", "mcp"],
+        "local_paths": ["~/.codex"],
+        "desc": "OpenAI Codex lightweight sandboxed terminal coding harness.",
+    },
+    {
+        "id": "gemini-cli",
+        "cli": "gemini",
+        "aliases": ["gemini-cli", "gemini"],
+        "name": "Gemini CLI",
+        "vendor": "Google",
+        "tier": 2,
+        "recommended": False,
+        "print_flag": "-p",
+        "install_cmd": "npm install -g @google/gemini-cli",
+        "repo": "https://github.com/google-gemini/gemini-cli",
+        "capabilities": ["1m-context", "mcp", "grounding"],
+        "local_paths": ["~/.gemini/settings.json"],
+        "desc": "Google Gemini CLI agentic terminal harness.",
+    },
+    {
+        "id": "aider",
+        "cli": "aider",
+        "aliases": ["aider"],
+        "name": "Aider",
+        "vendor": "Paul Gauthier",
+        "tier": 3,
+        "recommended": False,
+        "print_flag": "--message",
+        "install_cmd": "pip install aider-chat",
+        "repo": "https://github.com/Aider-AI/aider",
+        "capabilities": ["git-commits", "repo-map", "multi-model"],
+        "local_paths": [],
+        "desc": "Git-aware AI pair-programming terminal harness.",
+    },
+    {
+        "id": "goose",
+        "cli": "goose",
+        "aliases": ["goose"],
+        "name": "Goose",
+        "vendor": "Block",
+        "tier": 3,
+        "recommended": False,
+        "print_flag": "run -t",
+        "install_cmd": "brew install block-goose-cli",
+        "repo": "https://github.com/block/goose",
+        "capabilities": ["mcp", "tool-loop"],
+        "local_paths": [],
+        "desc": "Extensible open-source developer agent harness by Block.",
+    },
+]
+
+
+def discover_harnesses(workspace_dir: Optional[str] = None) -> Dict[str, Any]:
+    """Detect locally installed coding harnesses and pick the highest-ranked available harness."""
+    cellar = load_cellar_state()
+    installed_kegs = cellar.get("installed", {}) if isinstance(cellar, dict) else {}
+    entries: List[Dict[str, Any]] = []
+    for item in HARNESS_CATALOG:
+        bin_path = shutil.which(item["cli"])
+        detected_local = []
+        for raw_p in item.get("local_paths", []):
+            expanded = os.path.expanduser(raw_p)
+            if os.path.exists(expanded):
+                detected_local.append(expanded)
+        in_cellar = item["id"] in installed_kegs or item["cli"] in installed_kegs
+        installed_on_host = bool(bin_path or detected_local)
+        entries.append({
+            **item,
+            "installed_on_host": installed_on_host,
+            "in_cellar": in_cellar,
+            "available": installed_on_host or in_cellar,
+            "bin_path": bin_path,
+            "detected_local": detected_local,
+        })
+
+    # Prefer top-tier installed harness (Antigravity > Claude Code > OpenCode), else DSX fallback.
+    best = None
+    for candidate in entries:
+        if candidate["available"] and not candidate.get("fallback"):
+            best = candidate
+            break
+    if best is None:
+        for candidate in entries:
+            if candidate["available"]:
+                best = candidate
+                break
+    if best is None:
+        best = entries[0]
+
+    return {
+        "status": "ok",
+        "best_harness": best["id"],
+        "best_cli": best["cli"],
+        "fallback_harness": "dsx",
+        "workspace_dir": os.path.abspath(workspace_dir or os.getcwd()),
+        "harnesses": entries,
+    }
+
+
+def resolve_harness(name_or_cli: str) -> Optional[Dict[str, Any]]:
+    needle = (name_or_cli or "").strip().lower()
+    if not needle:
+        return None
+    snap = discover_harnesses()
+    for h in snap["harnesses"]:
+        if needle == h["id"] or needle == h["cli"] or needle in h.get("aliases", []):
+            return h
+    return None
+
+
+def handle_harness_command(
+    cmd_str: str,
+    peer_id: str = "aeonik",
+    config_dir: Optional[str] = None,
+    queue_hitl: bool = True,
+) -> Dict[str, Any]:
+    """Handle `harnesses`, `harness ...`, or direct `agy|claude|opencode|dsx|codex|aider|goose ...` CLI lines."""
+    raw = (cmd_str or "").strip()
+    tokens = [t for t in re.split(r"\s+", raw) if t]
+    snap = discover_harnesses()
+    by_id = {h["id"]: h for h in snap["harnesses"]}
+
+    def _fmt_table() -> List[str]:
+        lines = [
+            f"Coding Agent Harnesses (Best active: {by_id[snap['best_harness']]['name']} `{snap['best_cli']}` · Fallback: `dsx` GitHub NoJuanNobody/dsx):",
+        ]
+        for h in snap["harnesses"]:
+            tag = "READY" if h["installed_on_host"] else ("CELLAR" if h["in_cellar"] else "INSTALL")
+            badge = " [BEST]" if h["id"] == snap["best_harness"] else (" [FALLBACK]" if h.get("fallback") else "")
+            loc = h["bin_path"] or (h["detected_local"][0] if h["detected_local"] else h["install_cmd"])
+            lines.append(f"  {h['cli']:<10} {h['name']:<13} [{tag}]{badge}  caps={','.join(h['capabilities'][:3])}  ({loc})")
+        lines.append("Usage: `harnesses`, `harness best`, `harness inspect <name>`, `harness run <name> <prompt>`, or `<agy|claude|opencode|dsx> <prompt>`")
+        return lines
+
+    if not tokens or tokens[0].lower() in ("harnesses", "harness") and len(tokens) == 1:
+        lines = _fmt_table()
+        return {**snap, "output": "\n".join(lines), "lines": lines}
+
+    first = tokens[0].lower()
+    if first == "harness":
+        sub = tokens[1].lower() if len(tokens) > 1 else "list"
+        rest = tokens[2:]
+        if sub in ("list", "ls", "status"):
+            lines = _fmt_table()
+            return {**snap, "output": "\n".join(lines), "lines": lines}
+        if sub in ("best", "auto", "doctor"):
+            best = by_id[snap["best_harness"]]
+            lines = [
+                f"Best harness selected: {best['name']} (`{best['cli']}`)",
+                f"  Capabilities: {', '.join(best['capabilities'])}",
+                f"  Print mode:   {best['cli']} {best['print_flag']} \"<task>\"",
+                f"  Fallback:     dsx (NoJuanNobody/dsx -> node ~/dev/harness/dist/index.js)",
+                f"  Repo:         {best['repo']}",
+            ]
+            return {**snap, "harness": best, "output": "\n".join(lines), "lines": lines}
+        if sub in ("inspect", "info"):
+            target = resolve_harness(rest[0]) if rest else by_id[snap["best_harness"]]
+            if not target:
+                msg = f"harness: unknown harness '{rest[0]}'. Try: harnesses"
+                return {"status": "error", "output": msg, "lines": [msg]}
+            lines = [
+                f"{target['name']} (`{target['cli']}`) — {target['vendor']}",
+                f"  Description:  {target['desc']}",
+                f"  Available:    {'yes (' + (target['bin_path'] or ', '.join(target['detected_local'])) + ')' if target['installed_on_host'] else 'not on PATH (installable)'}",
+                f"  Capabilities: {', '.join(target['capabilities'])}",
+                f"  Install:      {target['install_cmd']}",
+                f"  Repo:         {target['repo']}",
+            ]
+            return {"status": "ok", "harness": target, "output": "\n".join(lines), "lines": lines}
+        if sub == "install" and rest:
+            target = resolve_harness(rest[0])
+            if not target:
+                return handle_brew_command(f"brew install {rest[0]}", peer_id=peer_id, config_dir=config_dir, queue_hitl=queue_hitl)
+            brew_res = handle_brew_command(f"brew install {target['id']}", peer_id=peer_id, config_dir=config_dir, queue_hitl=queue_hitl)
+            return {**brew_res, "harness": target}
+        if sub in ("run", "exec", "launch") and rest:
+            target = resolve_harness(rest[0])
+            task_args = " ".join(rest[1:]).strip()
+            if not target:
+                target = by_id[snap["best_harness"]]
+                task_args = " ".join(rest).strip()
+        else:
+            target = resolve_harness(sub)
+            task_args = " ".join(rest).strip()
+            if not target:
+                msg = f"harness: unknown subcommand '{sub}'. Run `harnesses` to list all coding harnesses."
+                return {"status": "error", "output": msg, "lines": [msg]}
+    else:
+        target = resolve_harness(first)
+        if not target:
+            msg = f"Unknown harness '{first}'. Run `harnesses` to list Antigravity, Claude Code, OpenCode, DSX, and others."
+            return {"status": "error", "output": msg, "lines": [msg]}
+        task_args = " ".join(tokens[1:]).strip()
+
+    if target["id"] == "dsx" and target["detected_local"] and target["detected_local"][0].endswith("dist/index.js"):
+        launch_cmd = f"node {target['detected_local'][0]}"
+    else:
+        launch_cmd = target["cli"]
+    full_cmd = f"{launch_cmd} {task_args}".strip()
+    if task_args and not task_args.startswith("-"):
+        full_cmd = f"{launch_cmd} {target['print_flag']} {json.dumps(task_args)}"
+
+    queued = None
+    if queue_hitl:
+        try:
+            queued = queue_action(
+                action_type="harness",
+                command=full_cmd,
+                sender_peer_id=peer_id,
+                source="mesh_os_terminal_harness",
+                summary=f"Run {target['name']} coding harness on host",
+                config_dir=config_dir,
+            )
+        except Exception:
+            queued = None
+
+    lines = [
+        f"[{target['name']} · `{target['cli']}`] {'installed at ' + (target['bin_path'] or ', '.join(target['detected_local'])) if target['installed_on_host'] else 'not found on PATH — install: ' + target['install_cmd']}",
+        f"Command: {full_cmd}",
+    ]
+    if queued:
+        lines.append(f"HITL Gate Queued (#{queued['seq']}): run `tincan trigger {queued['seq']}` locally to execute on host Mac.")
+    return {
+        "status": "ok",
+        "harness": target,
+        "command": full_cmd,
+        "queued_action": queued,
+        "output": "\n".join(lines),
+        "lines": lines,
     }

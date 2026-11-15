@@ -376,7 +376,7 @@ class SponsorAdManager:
                             badge="Community Sponsor",
                             video_url=it.get("embed_url", f"/videos/{it.get('video_id')}.mp4"),
                             video_id=it.get("video_id", "ad"),
-                            duration_seconds=int(it.get("duration_seconds", 10)),
+                            duration_seconds=min(10, max(1, int(it.get("duration_seconds", 10)))),
                             reward_tokens=5000,
                             reward_usd=0.05,
                             category="community_video",

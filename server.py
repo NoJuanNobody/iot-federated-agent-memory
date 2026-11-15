@@ -149,6 +149,9 @@ AD_DAILY_REWARD_CAP = int(os.environ.get("TINCAN_AD_DAILY_CAP", "5"))
 AD_MIN_WATCH_FRACTION = 0.9
 _ad_views = {}  # view_token -> {peer_id, sponsor_id, started, duration, reward_tokens, reward_usd}
 _ad_views_lock = threading.Lock()
+SIGNON_QUEST_KEYS = ("sealed_courier", "brain_arena_match", "arena_vote", "coop_action", "sandboxed_run")
+_mint_requests: List[Dict[str, Any]] = []
+_mint_requests_lock = threading.Lock()
 
 
 def verify_stripe_signature(payload: bytes, sig_header: str, secret: str, tolerance: int = 300) -> bool:
@@ -848,10 +851,6 @@ space_manager = _get_space_manager()
 # Brain Arena: one context store per (account, brain), see arena_context.py.
 arena_context = ArenaContextRegistry()
 
-# Register seed peers for live dashboard (IP addresses redacted, peripherals OFF by default)
-relay.register_peer("peer-primary-mac", "Mac Studio (M1 Chip)", "redacted", 50004, has_video=False, has_audio=False, has_screen=False)
-relay.register_peer("peer-secondary-node", "Collaborator Node", "redacted", 50006, has_video=False, has_audio=False, has_screen=False)
-
 # Moderator registry for space/mesh bans & reported digital artifacts
 banned_peers: Dict[str, Dict[str, Any]] = {}
 reported_artifacts: List[Dict[str, Any]] = []
@@ -867,7 +866,7 @@ HTML_UI = MESH_OS_HTML_UI
 SINGLE_WINDOW_ROUTES = frozenset({
     "/tv", "/call", "/comms", "/chat", "/copilot", "/ai", "/home", "/arena", "/terminal", "/billing", "/tokens",
     "/board", "/cyberspace", "/space", "/files", "/finder", "/agentspace",
-    "/quests", "/rewards", "/network", "/workstation",
+    "/quests", "/rewards", "/network", "/workstation", "/3dstudio",
 })
 
 
@@ -1236,6 +1235,11 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         """
         token = self._session_token()
         return account_registry.resolve_session(token) if token else None
+
+    def _is_admin_request(self) -> bool:
+        """Verify X-Admin-Key header using constant-time digest comparison."""
+        admin_key = self.headers.get("X-Admin-Key", "")
+        return bool(TINCAN_ADMIN_KEY and admin_key and hmac.compare_digest(admin_key, TINCAN_ADMIN_KEY))
 
     def _session_cookie_headers(self, account_peer_id: str):
         token = account_registry.create_session(account_peer_id)
@@ -1809,18 +1813,27 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 data = json.loads(post_data.decode("utf-8")) if post_data else {}
                 peer_id = data.get("peer_id") or "peer"
                 action_key = data.get("action_key") or "sealed_courier"
+                is_signon = action_key in SIGNON_QUEST_KEYS
                 award = mesh_os.award_xp(
                     peer_id=peer_id,
                     action_key=action_key,
                     display_name=data.get("display_name"),
+                    once_per_peer=is_signon,
                 )
-                flight = mesh_os.record_flight(
-                    from_node=data.get("from_node") or peer_id,
-                    to_node=data.get("to_node") or "relay",
-                    kind=action_key,
-                    label=action_key,
-                )
-                self._send_json({"status": "awarded", "award": award, "flight": flight}, 200)
+                flight = None
+                if not award.get("already_completed"):
+                    flight = mesh_os.record_flight(
+                        from_node=data.get("from_node") or peer_id,
+                        to_node=data.get("to_node") or "relay",
+                        kind=action_key,
+                        label=action_key,
+                    )
+                self._send_json({
+                    "status": "already_completed" if award.get("already_completed") else "awarded",
+                    "signon_only": is_signon,
+                    "award": award,
+                    "flight": flight,
+                }, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
         elif parsed.path == "/api/mesh/arena/match":
@@ -1845,6 +1858,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             post_data = self.rfile.read(content_length)
             try:
                 data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                feedback = str(data.get("feedback") or data.get("reason") or "").strip()[:500]
                 if data.get("match_id"):
                     # A billed duel: the match record (not the client) says who played and what it cost.
                     account = self._arena_account_or_401()
@@ -1852,7 +1866,8 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                         return
                     try:
                         match = account_registry.record_arena_vote(
-                            account["peer_id"], str(data.get("match_id")), str(data.get("winner_side") or ""))
+                            account["peer_id"], str(data.get("match_id")), str(data.get("winner_side") or ""),
+                            feedback=feedback)
                     except ArenaBillingError as ae:
                         self._arena_error(ae)
                         return
@@ -1867,6 +1882,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                         match_id=match["match_id"],
                         cost_usd=match["total_cost_usd"],
                         tokens=match["total_tokens"],
+                        feedback=feedback,
                     )
                     self._send_json({"status": "voted", **res, "match": match}, 200)
                     return
@@ -1892,6 +1908,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     model_a=model_a,
                     model_b=model_b,
                     winner_side=winner_side,
+                    feedback=feedback,
                 )
                 self._send_json({"status": "voted", **res}, 200)
             except Exception as e:
@@ -2055,8 +2072,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             # Operator-only manual grant. Clients can no longer credit themselves here.
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
-            admin_key = self.headers.get("X-Admin-Key", "")
-            if not TINCAN_ADMIN_KEY or not hmac.compare_digest(admin_key, TINCAN_ADMIN_KEY):
+            if not self._is_admin_request():
                 self._send_json({"error": "Forbidden: top-ups go through /api/billing/checkout"}, 403)
                 return
             try:
@@ -2067,6 +2083,97 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     tokens=int(data.get("tokens", 0)), amount_usd=float(data.get("amount_usd", 0.0)),
                 )
                 self._send_json({"status": "topup_success", "account": result["account"]}, 200)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/tokens/mint-request":
+            # Regular users submit a $TINCAN mint / credit-grant request for admin approval (or Add Money via Stripe).
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                session_acc = self._session_account()
+                peer_id = (data.get("peer_id") or (session_acc.get("peer_id") if session_acc else "")).strip()
+                acc = account_registry.get_account_by_peer(peer_id) if peer_id else None
+                if not acc:
+                    self._send_json({"error": "Register an account before requesting $TINCAN mint"}, 400)
+                    return
+                target_peer_id = (data.get("target_peer_id") or peer_id).strip()
+                if not account_registry.get_account_by_peer(target_peer_id):
+                    target_peer_id = peer_id
+                try:
+                    req_tokens = int(data.get("tokens", 10))
+                except (TypeError, ValueError):
+                    req_tokens = 10
+                req_tokens = max(1, min(100000, req_tokens))
+                reason = (data.get("reason") or "Onboarding / mesh operator credit request").strip()[:240]
+                rec = {
+                    "id": f"mreq-{secrets.token_hex(6)}",
+                    "peer_id": peer_id,
+                    "username": acc.get("username") or acc.get("full_name") or peer_id,
+                    "full_name": acc.get("full_name") or peer_id,
+                    "target_peer_id": target_peer_id,
+                    "tokens": req_tokens,
+                    "reason": reason,
+                    "status": "pending",
+                    "created_at": time.time(),
+                    "resolved_at": None,
+                    "resolved_by": None,
+                }
+                with _mint_requests_lock:
+                    _mint_requests.append(rec)
+                    if len(_mint_requests) > 200:
+                        del _mint_requests[:-200]
+                self._send_json({"status": "pending_admin_approval", "request": rec}, 201)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/tokens/mint-requests/resolve":
+            # Operator-only resolution: approves a queued mint request and credits target customer peer.
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            if not self._is_admin_request():
+                self._send_json({"error": "Forbidden: admin key required to mint or route $TINCAN"}, 403)
+                return
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                req_id = (data.get("request_id") or "").strip()
+                decision = (data.get("decision") or "approve").strip().lower()
+                if decision not in ("approve", "reject"):
+                    self._send_json({"error": "Decision must be 'approve' or 'reject'"}, 400)
+                    return
+                with _mint_requests_lock:
+                    rec = next((r for r in _mint_requests if r["id"] == req_id), None)
+                    if not rec:
+                        self._send_json({"error": "Mint request not found"}, 404)
+                        return
+                    if rec["status"] != "pending":
+                        self._send_json({"status": rec["status"], "request": rec}, 200)
+                        return
+                    target_peer = (data.get("target_peer_id") or rec["target_peer_id"] or rec["peer_id"]).strip()
+                    grant_tokens = int(data.get("tokens", rec["tokens"]))
+                    grant_usd = float(data.get("amount_usd", 0.0))
+                if decision == "approve":
+                    result = account_registry.credit_once(
+                        ref=f"mintreq:{req_id}",
+                        peer_id=target_peer,
+                        kind="admin_grant",
+                        tokens=grant_tokens,
+                        amount_usd=grant_usd,
+                    )
+                    with _mint_requests_lock:
+                        rec["status"] = "approved"
+                        rec["target_peer_id"] = target_peer
+                        rec["tokens"] = grant_tokens
+                        rec["resolved_at"] = time.time()
+                        rec["resolved_by"] = "admin"
+                    self._send_json({"status": "approved", "request": rec, "account": result["account"]}, 200)
+                else:
+                    with _mint_requests_lock:
+                        rec["status"] = "rejected"
+                        rec["resolved_at"] = time.time()
+                        rec["resolved_by"] = "admin"
+                    self._send_json({"status": "rejected", "request": rec}, 200)
             except ValueError as ve:
                 self._send_json({"error": str(ve)}, 400)
             except Exception as e:
@@ -2129,8 +2236,22 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             try:
                 data = json.loads(post_data.decode("utf-8")) if post_data else {}
                 peer_id = (data.get("peer_id") or "").strip()
-                sponsor_id = data.get("sponsor_id") or ""
-                creative = next((s for s in sponsor_manager.sponsors if s.id == sponsor_id), None)
+                sponsor_id = (data.get("sponsor_id") or "").strip()
+                def _match_sponsor(sid: str):
+                    if not sid:
+                        return None
+                    return next(
+                        (
+                            s
+                            for s in sponsor_manager.sponsors
+                            if s.id == sid or s.video_id == sid or s.id == f"video-{sid}"
+                        ),
+                        None,
+                    )
+                creative = _match_sponsor(sponsor_id)
+                if not creative:
+                    sponsor_manager.sync_from_playlist([asdict(it) for it in playlist.items])
+                    creative = _match_sponsor(sponsor_id)
                 if not creative:
                     self._send_json({"error": "Unknown sponsor"}, 400)
                     return
@@ -2242,8 +2363,38 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     category=data.get("category"),
                     tags=tags,
                     pinned=data.get("pinned"),
+                    curated=data.get("curated"),
                     locked=data.get("locked"),
                     resolved=data.get("resolved"),
+                    is_admin=bool(data.get("is_admin")),
+                )
+                self._send_json(result, 200)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/board/curate":
+            try:
+                data = self._read_json_body()
+                curated_val = data.get("curated")
+                if curated_val is not None:
+                    curated_val = bool(curated_val)
+                result = cyberspace_board.curate_topic(
+                    topic_id=str(data.get("topic_id") or "").strip(),
+                    peer_id=str(data.get("peer_id") or data.get("curator_id") or "local-peer").strip(),
+                    curated=curated_val,
+                )
+                self._send_json(result, 200)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/board/ai-suggest":
+            try:
+                data = self._read_json_body()
+                result = cyberspace_board.ai_suggest(
+                    query=str(data.get("query") or ""),
+                    limit=int(data.get("limit") or 6),
                 )
                 self._send_json(result, 200)
             except ValueError as ve:
@@ -2565,6 +2716,19 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 peer_id = (data.get("peer_id") or data.get("owner_id") or "aeonik").strip()
                 out = handle_brew_command(cmd, peer_id=peer_id, queue_hitl=True, execute_native=False)
                 self._send_json(out, 200)
+            except Exception as e:
+                self._send_json({"status": "error", "error": str(e), "output": f"Error: {e}", "lines": [f"Error: {e}"]}, 500)
+        elif parsed.path == "/api/terminal/harness":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                from iot_federated_agent_memory.tincan_brew import handle_harness_command
+
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                cmd = (data.get("command") or data.get("cmd") or "harnesses").strip()
+                peer_id = (data.get("peer_id") or data.get("owner_id") or "aeonik").strip()
+                out = handle_harness_command(cmd, peer_id=peer_id, queue_hitl=True)
+                self._send_json(out, 200 if out.get("status") != "error" else 400)
             except Exception as e:
                 self._send_json({"status": "error", "error": str(e), "output": f"Error: {e}", "lines": [f"Error: {e}"]}, 500)
         elif parsed.path == "/api/space/agent":
@@ -3105,6 +3269,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             agent = query.get("agent", [None])[0]
             sort_by = query.get("sort_by", query.get("sort", ["hot"]))[0]
             verified_only = query.get("verified_only", ["0"])[0] in ("1", "true", "yes")
+            curated_only = query.get("curated_only", ["0"])[0] in ("1", "true", "yes")
             limit = int(query.get("limit", ["50"])[0])
             res = cyberspace_board.list_topics(
                 category=category,
@@ -3113,6 +3278,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 mentioned_agent=agent,
                 sort_by=sort_by,
                 verified_only=verified_only,
+                curated_only=curated_only,
                 limit=limit,
             )
             self._send_json(res, 200)
@@ -3153,6 +3319,13 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             except ValueError:
                 limit = 6
             self._send_json(cyberspace_board.suggest(query.get("q", [""])[0], limit=limit), 200)
+        elif parsed.path == "/api/board/ai-suggest":
+            query = parse_qs(parsed.query)
+            try:
+                limit = int(query.get("limit", ["8"])[0])
+            except ValueError:
+                limit = 8
+            self._send_json(cyberspace_board.ai_suggest(query.get("q", [""])[0], limit=limit), 200)
         elif parsed.path == "/api/board/trending":
             query = parse_qs(parsed.query)
             try:
@@ -3253,6 +3426,30 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             )
             payload["rodin"] = _get_hyper3d_billing(router)
             self._send_json(payload, 200)
+        elif parsed.path == "/api/tokens/mint-requests":
+            query = parse_qs(parsed.query)
+            peer_filter = (query.get("peer_id", [None])[0] or "").strip()
+            status_filter = (query.get("status", [None])[0] or "").strip().lower()
+            is_admin = self._is_admin_request()
+            session_acc = self._session_account()
+            with _mint_requests_lock:
+                items = list(reversed(_mint_requests))
+            if peer_filter:
+                items = [r for r in items if r["peer_id"] == peer_filter or r["target_peer_id"] == peer_filter]
+            elif not is_admin:
+                if session_acc:
+                    sid = session_acc.get("peer_id")
+                    items = [r for r in items if r["peer_id"] == sid or r["target_peer_id"] == sid]
+                else:
+                    items = []
+            if status_filter:
+                items = [r for r in items if r["status"].lower() == status_filter]
+            pending_count = sum(1 for r in items if r["status"] == "pending")
+            self._send_json({
+                "requests": items,
+                "pending_count": pending_count,
+                "admin_authenticated": is_admin,
+            }, 200)
         elif parsed.path == "/api/tincan/inbox":
             query = parse_qs(parsed.query)
             address = query.get("address", query.get("addr", [None]))[0]
@@ -3475,6 +3672,10 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 },
                 200,
             )
+        elif parsed.path == "/api/terminal/harnesses":
+            from iot_federated_agent_memory.tincan_brew import discover_harnesses
+
+            self._send_json(discover_harnesses(), 200)
         elif parsed.path in ("/Formula/tincan.rb", "/Formula/context-palace.rb", "/tincan.rb"):
             from iot_federated_agent_memory.tincan_brew import generate_homebrew_formula
 

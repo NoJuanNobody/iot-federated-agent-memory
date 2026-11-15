@@ -22,7 +22,7 @@ ZEN_HEAD = r"""
       }
       var q = new URLSearchParams(location.search);
       var singleRoutes = ['/tv', '/call', '/comms', '/chat', '/copilot', '/ai', '/home', '/arena', '/terminal', '/billing', '/tokens', '/board', '/cyberspace',
-                          '/space', '/files', '/finder', '/agentspace', '/workstation', '/quests', '/rewards', '/network'];
+                          '/space', '/files', '/finder', '/agentspace', '/workstation', '/3dstudio', '/quests', '/rewards', '/network'];
       if (q.get('classic') === '1' || q.get('window') || singleRoutes.indexOf(location.pathname) !== -1) return;
       document.documentElement.classList.add('zen-boot');
     })();
@@ -302,9 +302,10 @@ ZEN_BODY = r"""
     <nav id="zenQuick" aria-label="Quick launch">
       <button class="zen-btn" type="button" data-tool="win-terminal">Terminal</button>
       <button class="zen-btn zq-extra" type="button" data-tool="win-copilot">Copilot</button>
-      <button class="zen-btn zq-extra" type="button" data-tool="win-agentspace">Space</button>
+      <button class="zen-btn zq-extra" type="button" data-tool="win-agentspace">Workstation</button>
       <button class="zen-btn zq-extra" type="button" data-tool="win-arena">Arena</button>
-      <button class="zen-btn zq-extra" type="button" data-tool="win-workstation">Workstation</button>
+      <button class="zen-btn zq-extra" type="button" data-tool="win-workstation">3D Studio</button>
+      <button class="zen-btn zq-extra" type="button" id="zenWatchAdQuickBtn" data-action="watch-ad" title="Watch Home Screen sponsor ads to earn tokens &amp; AI credits (zero subscriptions)">Watch Ad +CR</button>
       <button class="zen-btn" type="button" data-tool="all" aria-haspopup="dialog" aria-controls="zenLauncher">All tools<kbd>⌘K</kbd></button>
     </nav>
     <button id="zenSound" class="zen-btn" type="button" aria-pressed="false">
@@ -347,21 +348,18 @@ ZEN_BODY = r"""
 
       // ---- Tools ---------------------------------------------------------------
       const TOOLS = [
-        { id: 'win-mockups', name: 'Design Mockups', desc: 'Updated iOS App & Car UI mockups, contact sheets, and specs', gate: 'view mockups', url: '/designs' },
-        { id: 'win-ios', name: 'iOS App Simulator', desc: '9-screen native TinCan 2.2 iOS interactive simulator', gate: 'launch iOS simulator', url: '/ios' },
-        { id: 'win-car', name: 'Car Head-Unit', desc: '1280x720 Sumi-Dock aftermarket dashboard UI', gate: 'launch car head-unit', url: '/car' },
         { id: 'win-tv', name: 'Watch party', desc: 'The collection together, with reactions', gate: 'join a watch party' },
-        { id: 'chat', name: 'Talk', desc: 'Room chat, voice and video calls', gate: 'talk in the room' },
-        { id: 'win-board', name: 'Board', desc: 'Topics, threads and the knowledge graph', gate: 'open the board' },
-        { id: 'win-agentspace', name: 'Space', desc: 'Files, code runs and the notes editor', gate: 'open your space' },
-        { id: 'win-copilot', name: 'AI Copilot', desc: 'Multi-gateway router, .space diffs and cost preview', gate: 'use the AI copilot' },
-        { id: 'win-ai-home', name: 'AI Hub', desc: 'Unified tincan ask command bar and workflow overview', gate: 'open the AI hub' },
-        { id: 'win-workstation', name: 'Workstation', desc: 'AI foundry, TEE audits & Hyper3D Rodin 3D', gate: 'open workstation' },
-        { id: 'win-terminal', name: 'Terminal', desc: 'Quickstart and commands', gate: 'open the terminal' },
-        { id: 'win-arena', name: 'Arena', desc: 'AI models, routing and duels', gate: 'use the AI arena' },
+        { id: 'chat', name: 'Talk', desc: 'Room chat, channels, people & video calls', gate: 'talk in the room' },
+        { id: 'win-board', name: 'Board', desc: 'Omni-bar, AI suggestions, curated feed & activity threads', gate: 'open the board' },
+        { id: 'win-agentspace', name: 'Workstation', desc: 'User, Topic & Sandbox VFS workspace, code runs & 3D Studio', gate: 'open your workstation' },
+        { id: 'win-copilot', name: 'AI Copilot', desc: 'Multi-gateway router, Context Palace & .space diffs', gate: 'use the AI copilot' },
+        { id: 'win-ai-home', name: 'AI Hub', desc: 'Unified tincan ask command bar, ad credits & workflow overview', gate: 'open the AI hub' },
+        { id: 'win-workstation', name: '3D Studio', desc: 'Hyper3D Rodin 3D meshes, TEE audits & Workstation bridge', gate: 'open 3D studio' },
+        { id: 'win-terminal', name: 'Terminal', desc: 'Quickstart and coding agent harnesses (agy, claude, opencode, dsx)', gate: 'open the terminal' },
+        { id: 'win-arena', name: 'Arena', desc: 'Run Arena, vote A/B & Context Palace universal inventory', gate: 'use the AI arena' },
         { id: 'win-network', name: 'Network', desc: "Who's here, peers and the leaderboard", gate: 'see the network' },
         { id: 'win-quests', name: 'Quests', desc: 'Quests, XP and rankings', gate: 'start quests' },
-        { id: 'win-billing', name: 'Tokens', desc: 'Balance, store and sponsors', gate: 'manage tokens' },
+        { id: 'win-billing', name: 'Tokens & Ads', desc: 'Watch Home Screen ads to earn AI deliverable credits (no subscriptions)', gate: 'earn AI credits' },
         { id: 'win-moderator', name: 'Moderate', desc: 'Admin controls', gate: 'moderate', admin: true },
       ];
       const isAdmin = () => {
@@ -419,8 +417,14 @@ ZEN_BODY = r"""
       function syncWorking() {
         const working = anyWindowOpen();
         body.classList.toggle('zen-working', working);
-        if (working) video.pause();
-        else if (!body.classList.contains('zen-launcher')) playQuietly();
+        if (working) {
+          video.pause();
+        } else if (!body.classList.contains('zen-launcher')) {
+          playQuietly();
+          if (clips[index] && !zenAdCreditedForClip && !zenActiveAdToken) {
+            startHomeSponsoredAd(clips[index]);
+          }
+        }
       }
       const classicSync = window.syncDockIndicators;
       if (typeof classicSync === 'function') {
@@ -471,9 +475,79 @@ ZEN_BODY = r"""
       let switching = false;
       let zenAdWatchCompleted = false;
       let zenAdMaxWatched = 0;
+      let zenActiveAdToken = null;
+      let zenAdMinSeconds = 10;
+      let zenAdCreditedForClip = false;
+      let zenAdTimer = null;
 
       // This clip is a screen recording of the Aleploi voice app, so label it as that.
       const FALLBACK = [{ embed_url: '/videos/7705677376465767711.mp4', title: 'Aleploi Voice demo (screen recording)', creator: '@nojuannobody' }];
+
+      function currentZenPeerId() {
+        return (typeof myPeerId !== 'undefined' && myPeerId) || localStorage.getItem('tincan_peer_id') || '';
+      }
+
+      async function completeHomeSponsoredAd(clip) {
+        if (!zenActiveAdToken || zenAdCreditedForClip || body.classList.contains('zen-working')) return;
+        const pid = currentZenPeerId();
+        if (!pid) return;
+        const tok = zenActiveAdToken;
+        try {
+          const resp = await fetch('/api/ads/view/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ peer_id: pid, view_token: tok })
+          });
+          const data = await resp.json().catch(() => ({}));
+          if (resp.ok) {
+            zenAdCreditedForClip = true;
+            zenActiveAdToken = null;
+            const reward = Number(data.reward_tokens || 0);
+            const meta = $('zenMeta');
+            if (meta && clip) {
+              meta.textContent = [clip.creator, `+${reward.toLocaleString()} CR credited to Credit Pool`].filter(Boolean).join(' · ');
+            }
+            if (typeof refreshBillingWindow === 'function') refreshBillingWindow();
+            if (window.TinCanTokenVault && typeof window.TinCanTokenVault.refresh === 'function') {
+              window.TinCanTokenVault.refresh();
+            }
+            if (typeof showQuickNotification === 'function') {
+              showQuickNotification(`🪙 Sponsored clip watched · +${reward.toLocaleString()} CR added to your Credit Pool`);
+            }
+          } else if (resp.status === 400 && data && data.error === 'View not complete yet') {
+            zenAdTimer = setTimeout(() => completeHomeSponsoredAd(clip), 1000);
+          } else {
+            zenActiveAdToken = null;
+          }
+        } catch (e) {}
+      }
+
+      function startHomeSponsoredAd(clip) {
+        if (zenAdTimer) { clearTimeout(zenAdTimer); zenAdTimer = null; }
+        zenActiveAdToken = null;
+        zenAdCreditedForClip = false;
+        const isAd = clip && (clip.category === 'ad' || clip.category === 'community_video');
+        if (!isAd) return;
+        const pid = currentZenPeerId();
+        if (!pid) return;
+        const sponsorId = clip.sponsor_id || (clip.video_id ? `video-${clip.video_id}` : (clip.id || ''));
+        if (!sponsorId) return;
+        fetch('/api/ads/view/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ peer_id: pid, sponsor_id: sponsorId })
+        })
+          .then((r) => r.json().then((d) => ({ ok: r.ok, data: d })).catch(() => ({ ok: false, data: {} })))
+          .then(({ ok, data }) => {
+            if (!ok || !data || !data.view_token) return;
+            if (clips[index] !== clip) return;
+            zenActiveAdToken = data.view_token;
+            zenAdMinSeconds = Math.max(1, Number(data.min_seconds || clip.duration_seconds || 10));
+            const waitMs = Math.ceil(zenAdMinSeconds * 0.92 * 1000) + 150;
+            zenAdTimer = setTimeout(() => completeHomeSponsoredAd(clip), waitMs);
+          })
+          .catch(() => {});
+      }
 
       function playQuietly() {
         if (!video.src || body.classList.contains('zen-working')) return;
@@ -508,7 +582,7 @@ ZEN_BODY = r"""
         $('zenClipTag').textContent = '\u25B6\uFE0E Clip ' + (i + 1) + '/' + clips.length + (c.creator ? ' · ' + c.creator : '');
         const meta = [
           c.creator,
-          isAd ? (isAdmin() ? '🛡️ Intelligence Gathering · Ad View Required' : 'Sponsored') : ''
+          isAd ? (isAdmin() ? '🛡️ Intelligence Gathering · Ad View Required' : 'Sponsored · Auto-earning credits') : ''
         ].filter(Boolean).join(' · ');
         $('zenMeta').textContent = meta;
         document.querySelectorAll('#zenTicks button').forEach((b, j) => {
@@ -522,6 +596,7 @@ ZEN_BODY = r"""
           }
         });
         playQuietly();
+        startHomeSponsoredAd(c);
       }
 
       function canSkipZenClip() {
@@ -587,9 +662,12 @@ ZEN_BODY = r"""
           }
         }
       });
-      video.addEventListener('ended', () => {
+      video.addEventListener('ended', async () => {
         const c = clips[index];
         const isAd = c && (c.category === 'ad' || c.category === 'community_video');
+        if (isAd && zenActiveAdToken && !zenAdCreditedForClip) {
+          await completeHomeSponsoredAd(c);
+        }
         if (isAdmin() && isAd) {
           zenAdWatchCompleted = true;
           document.querySelectorAll('#zenTicks button').forEach((b) => {
@@ -643,8 +721,9 @@ ZEN_BODY = r"""
         { cmd: '/copilot', tool: 'win-copilot', desc: 'Multi-gateway router, .space diffs and cost preview' },
         { cmd: '/ai', tool: 'win-ai-home', desc: 'Unified tincan ask command bar and workflow overview' },
         { cmd: '/home', tool: 'win-ai-home', desc: 'Unified tincan ask command bar and workflow overview' },
-        { cmd: '/space', tool: 'win-agentspace', desc: 'Files, code runs and the notes editor' },
-        { cmd: '/workstation', tool: 'win-workstation', desc: 'AI foundry, TEE audits and 3D meshes' },
+        { cmd: '/workstation', tool: 'win-agentspace', desc: 'Workstation files, code runs, topic & sandbox facets' },
+        { cmd: '/3dstudio', tool: 'win-workstation', desc: '3D Studio: Hyper3D Rodin 3D meshes, TEE audits & Foundry' },
+        { cmd: '/space', tool: 'win-agentspace', desc: 'Alias for Workstation (.space VFS & Sandbox)' },
         { cmd: '/arena', tool: 'win-arena', desc: 'AI models, routing and duels' },
         { cmd: '/board', tool: 'win-board', desc: 'Topics, threads and the knowledge graph' },
         { cmd: '/talk', tool: 'chat', desc: 'Room chat, voice and video calls' },
@@ -655,7 +734,7 @@ ZEN_BODY = r"""
       const HELP_TEXT = 'Search tools      type a name, enter opens it\n' +
         '@name message     tag someone in the room chat\n' +
         '> command         run a command in your space ($ works too)\n' +
-        '/command          /terminal /copilot /ai /space /workstation /arena /board /talk /tokens /quests /help\n' +
+        '/command          /terminal /copilot /ai /workstation /3dstudio /arena /board /talk /tokens /quests /help\n' +
         'Tab completes an @name, esc returns to the feed';
 
       // ---- Command bar adapters (one small seam per outside system) ----------------
@@ -925,7 +1004,15 @@ ZEN_BODY = r"""
       }
       $('zenMark').addEventListener('click', () => (body.classList.contains('zen-launcher') ? closeLauncher() : openLauncher()));
       $('zenLauncher').addEventListener('click', (e) => { if (e.target === $('zenLauncher')) closeLauncher(); });
+      window.zenWatchHomeAd = function () {
+        const billingTool = TOOLS.find((t) => t.id === 'win-billing');
+        if (billingTool) openTool(billingTool);
+        setTimeout(() => {
+          if (typeof window.watchSponsoredAd === 'function') window.watchSponsoredAd();
+        }, 120);
+      };
       document.querySelectorAll('#zenQuick button').forEach((b) => b.addEventListener('click', () => {
+        if (b.dataset.action === 'watch-ad') { window.zenWatchHomeAd(); return; }
         const id = b.dataset.tool;
         if (id === 'all') { openLauncher(); return; }
         const tool = TOOLS.find((t) => t.id === id);

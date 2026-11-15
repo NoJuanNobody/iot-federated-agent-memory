@@ -13,6 +13,7 @@ import secrets
 import sqlite3
 import time
 import uuid
+from contextlib import contextmanager
 from typing import Dict, List, Optional
 
 
@@ -64,8 +65,17 @@ class PeerAccountRegistry:
         self.db_path = db_path
         self._init_db()
 
+    @contextmanager
+    def _connect(self, **kwargs):
+        conn = sqlite3.connect(self.db_path, **kwargs)
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
+
     def _init_db(self):
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("PRAGMA journal_mode=WAL;")
             cursor.execute("PRAGMA synchronous=NORMAL;")
@@ -188,6 +198,7 @@ class PeerAccountRegistry:
                     winner_side TEXT,
                     winner_alias TEXT,
                     voted_at REAL,
+                    vote_feedback TEXT NOT NULL DEFAULT '',
                     FOREIGN KEY(account_peer_id) REFERENCES accounts(peer_id)
                 )
                 """
@@ -201,6 +212,9 @@ class PeerAccountRegistry:
             ):
                 if col not in ledger_cols:
                     cursor.execute(ddl)
+            match_cols = {r[1] for r in cursor.execute("PRAGMA table_info(arena_matches)").fetchall()}
+            if "vote_feedback" not in match_cols:
+                cursor.execute("ALTER TABLE arena_matches ADD COLUMN vote_feedback TEXT NOT NULL DEFAULT ''")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_token_ledger_match ON token_ledger(match_id)")
             conn.commit()
 
@@ -252,7 +266,7 @@ class PeerAccountRegistry:
         peer_id = self.resolve_account_peer_id(peer_id)
 
         now = time.time()
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
             owner = cursor.execute(
                 "SELECT peer_id FROM accounts WHERE email = ? AND peer_id != ?",
@@ -313,7 +327,7 @@ class PeerAccountRegistry:
         peer_id = (peer_id or "").strip()
         if not peer_id:
             return peer_id
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             row = conn.execute(
                 "SELECT account_peer_id FROM account_peer_links WHERE peer_id = ?", (peer_id,)
             ).fetchone()
@@ -325,7 +339,7 @@ class PeerAccountRegistry:
         account_peer_id = self.resolve_account_peer_id(account_peer_id)
         if not peer_id:
             raise ValueError("peer_id is required")
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             if not conn.execute("SELECT 1 FROM accounts WHERE peer_id = ?", (account_peer_id,)).fetchone():
                 raise ValueError("Account not found")
             if peer_id != account_peer_id:
@@ -344,7 +358,7 @@ class PeerAccountRegistry:
         return self.get_account_by_peer(account_peer_id)
 
     def list_linked_peers(self, account_peer_id: str) -> List[str]:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             rows = conn.execute(
                 "SELECT peer_id FROM account_peer_links WHERE account_peer_id = ? ORDER BY linked_at",
                 (account_peer_id.strip(),),
@@ -355,14 +369,14 @@ class PeerAccountRegistry:
         email = (email or "").strip().lower()
         if not email:
             return None
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             row = conn.execute("SELECT * FROM accounts WHERE email = ?", (email,)).fetchone()
             return dict(row) if row else None
 
     def get_account_by_peer(self, peer_id: str) -> Optional[Dict]:
         peer_id = self.resolve_account_peer_id(peer_id)
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM accounts WHERE peer_id = ?", (peer_id,))
@@ -370,7 +384,7 @@ class PeerAccountRegistry:
             return dict(row) if row else None
 
     def list_accounts(self) -> List[Dict]:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM accounts ORDER BY created_at DESC")
@@ -383,7 +397,7 @@ class PeerAccountRegistry:
         if not account:
             raise ValueError(f"Account for peer '{peer_id}' not found. Please register first.")
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -406,7 +420,7 @@ class PeerAccountRegistry:
         peer_id = self.resolve_account_peer_id(peer_id)
         if not self.get_account_by_peer(peer_id):
             raise ValueError(f"Account for peer '{peer_id}' not found. Please register first.")
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
             try:
                 cursor.execute(
@@ -423,7 +437,7 @@ class PeerAccountRegistry:
         return {"applied": True, "account": self.get_account_by_peer(peer_id)}
 
     def count_credit_events(self, peer_id: str, kind: str, since_ts: float) -> int:
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             row = conn.execute(
                 "SELECT COUNT(*) FROM credit_events WHERE peer_id = ? AND kind = ? AND timestamp >= ?",
                 (self.resolve_account_peer_id(peer_id), kind, since_ts),
@@ -480,7 +494,7 @@ class PeerAccountRegistry:
         new_total_billed = round(account["total_billed_usd"] + cost_usd, 6)
         now = time.time()
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -537,7 +551,7 @@ class PeerAccountRegistry:
         token = secrets.token_urlsafe(32)
         now = time.time()
         ttl = int(ttl_seconds or self.SESSION_TTL_SECONDS)
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.execute(
                 "INSERT INTO account_sessions (session_hash, account_peer_id, created_at, expires_at, last_seen_at) "
                 "VALUES (?, ?, ?, ?, ?)",
@@ -551,7 +565,7 @@ class PeerAccountRegistry:
         if not token or not isinstance(token, str) or len(token) > 256:
             return None
         now = time.time()
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             row = conn.execute(
                 "SELECT account_peer_id, expires_at, revoked FROM account_sessions WHERE session_hash = ?",
                 (self._session_hash(token),),
@@ -568,7 +582,7 @@ class PeerAccountRegistry:
     def revoke_session(self, token: str) -> bool:
         if not token:
             return False
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             cur = conn.execute(
                 "UPDATE account_sessions SET revoked = 1 WHERE session_hash = ?", (self._session_hash(token),)
             )
@@ -597,7 +611,7 @@ class PeerAccountRegistry:
             )
         match_id = "arena_" + uuid.uuid4().hex
         now = time.time()
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.execute(
                 "INSERT INTO arena_matches (match_id, account_peer_id, model_a, model_b, prompt_preview, created_at) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
@@ -609,7 +623,7 @@ class PeerAccountRegistry:
     def get_arena_match(self, match_id: str) -> Optional[Dict]:
         if not match_id:
             return None
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             row = conn.execute("SELECT * FROM arena_matches WHERE match_id = ?", (match_id,)).fetchone()
             return dict(row) if row else None
@@ -653,7 +667,7 @@ class PeerAccountRegistry:
         now = time.time()
         total_tokens = max(0, int(total_tokens))
         cost_usd = max(0.0, float(cost_usd or 0.0))
-        with sqlite3.connect(self.db_path, isolation_level=None) as conn:
+        with self._connect(isolation_level=None) as conn:
             conn.row_factory = sqlite3.Row
             conn.execute("BEGIN IMMEDIATE")
             try:
@@ -715,7 +729,7 @@ class PeerAccountRegistry:
             "match_total_cost_usd": updated["total_cost_usd"],
         }
 
-    def record_arena_vote(self, account_peer_id: str, match_id: str, winner_side: str) -> Dict:
+    def record_arena_vote(self, account_peer_id: str, match_id: str, winner_side: str, feedback: str = "") -> Dict:
         account_peer_id = self.resolve_account_peer_id(account_peer_id)
         winner_side = (winner_side or "").upper()
         if winner_side not in ("A", "B"):
@@ -730,12 +744,12 @@ class PeerAccountRegistry:
         if match["winner_side"]:
             raise ArenaBillingError("already_voted", "This match already has a vote.", 409)
         winner_alias = match["model_a"] if winner_side == "A" else match["model_b"]
-        with sqlite3.connect(self.db_path) as conn:
+        clean_feedback = str(feedback or "").strip()[:500]
+        with self._connect() as conn:
             conn.execute(
-                "UPDATE arena_matches SET winner_side = ?, winner_alias = ?, voted_at = ? WHERE match_id = ?",
-                (winner_side, winner_alias, time.time(), match_id),
+                "UPDATE arena_matches SET winner_side = ?, winner_alias = ?, voted_at = ?, vote_feedback = ? WHERE match_id = ?",
+                (winner_side, winner_alias, time.time(), clean_feedback, match_id),
             )
-            conn.commit()
         return self.get_arena_match(match_id)
 
     def get_billing_summary(self, peer_id: str, limit: int = 10) -> Dict:
@@ -745,7 +759,7 @@ class PeerAccountRegistry:
         if not account:
             return {"error": "Account not found", "peer_id": peer_id}
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute(

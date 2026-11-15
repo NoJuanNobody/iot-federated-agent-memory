@@ -46,7 +46,7 @@ def _brain_column(p: str, side: str, color: str, model: str, agent: str) -> str:
                 </div>
                 <div id="{p}Bill{side}" class="text-[10px] font-mono text-[#4a4a4a] min-h-[12px] text-right"></div>
               </div>
-              <div id="{p}Result{side}" class="text-xs font-mono text-[#111111] min-h-[96px] max-h-[210px] overflow-y-auto whitespace-pre-wrap bg-[#f4f8f0] border border-[#111111]/20 p-2.5 rounded-lg" aria-live="polite">Click "Battle 2 Brains" to send the prompt to both brains.</div>
+              <div id="{p}Result{side}" class="text-xs font-mono text-[#111111] min-h-[96px] max-h-[210px] overflow-y-auto whitespace-pre-wrap bg-[#f4f8f0] border border-[#111111]/20 p-2.5 rounded-lg" aria-live="polite">Click "Run Arena" to send the prompt to both brains.</div>
               <div id="{p}Savings{side}" class="text-[10px] font-mono text-[#4a4a4a] bg-[#ffffff] border border-[#111111]/25 rounded-lg px-2 py-1 min-h-[22px] flex items-center justify-between gap-2">Awaiting duel telemetry · cost delta &amp; TTFT</div>
 
               <div class="arena-ctx rounded-lg border border-[#111111]/25 bg-[#f4f8f0] p-2.5 space-y-2" id="{p}Ctx{side}">
@@ -61,17 +61,27 @@ def _brain_column(p: str, side: str, color: str, model: str, agent: str) -> str:
                   <input id="{p}Agent{side}" value="{agent}" maxlength="48" onchange="arenaCtxAgentChanged('{p}','{side}')" class="flex-1 min-w-0 bg-[#ffffff] border border-[#111111]/40 rounded px-1.5 py-0.5 text-[11px] text-[#111111] font-mono" aria-label="Brain {side} store id">
                   <button type="button" onclick="arenaCtxRefresh('{p}','{side}')" class="px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111]/40 text-[10px] font-mono transition" title="Reload this brain's files">↻</button>
                 </div>
-                <div id="{p}Files{side}" class="max-h-[120px] overflow-y-auto text-[11px] font-mono text-[#111111] space-y-0.5"></div>
-                <div id="{p}Viewer{side}" class="hidden max-h-[160px] overflow-y-auto whitespace-pre-wrap text-[10px] font-mono text-[#111111] bg-[#ffffff] p-2 rounded border border-[#111111]/30"></div>
+                <div id="{p}Files{side}" class="max-h-[140px] overflow-y-auto text-[11px] font-mono text-[#111111] space-y-1"></div>
+                <div id="{p}Viewer{side}" class="hidden max-h-[190px] overflow-y-auto text-[10px] font-mono text-[#111111] bg-[#ffffff] p-2 rounded border border-[#111111]/30 space-y-1.5"></div>
+                <div id="{p}EditBox{side}" class="hidden space-y-1.5 bg-[#ffffff] border border-[#111111]/40 rounded p-2">
+                  <div class="flex items-center justify-between gap-2">
+                    <span id="{p}EditPathLabel{side}" class="text-[10px] font-mono font-bold text-[#111111] truncate">/path</span>
+                    <button type="button" onclick="arenaCtxCancelEdit('{p}','{side}')" class="text-[10px] font-mono text-[#5c5c5c] hover:text-[#111111]">Cancel</button>
+                  </div>
+                  <input id="{p}EditDesc{side}" placeholder="Context description / summary..." maxlength="280" class="w-full bg-[#f4f8f0] border border-[#111111]/40 rounded px-1.5 py-0.5 text-[11px] text-[#111111] font-mono">
+                  <textarea id="{p}EditText{side}" rows="4" placeholder="Edit file content..." class="w-full bg-[#f4f8f0] border border-[#111111]/40 rounded px-1.5 py-1 text-[11px] text-[#111111] font-mono"></textarea>
+                  <button type="button" onclick="arenaCtxSaveEdit('{p}','{side}')" class="w-full py-1 bg-[#111111] hover:bg-[#333333] text-[#ecf1e6] rounded-full text-[10px] font-mono font-semibold">Save Context Update</button>
+                </div>
 
                 <div class="flex flex-wrap gap-1 text-[10px] font-mono">
                   <label class="px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111]/40 cursor-pointer transition">⬆ Upload<input type="file" multiple class="hidden" id="{p}Upload{side}" onchange="arenaCtxUpload('{p}','{side}', this)"></label>
                   <button type="button" onclick="arenaCtxTogglePaste('{p}','{side}')" class="px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111]/40 transition">✎ Paste</button>
-                  <button type="button" onclick="arenaCtxImportSpace('{p}','{side}')" class="px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111]/40 transition" title="Copy the files in your own Agent Space into this brain">⇣ Import my Space</button>
+                  <button type="button" onclick="arenaCtxImportSpace('{p}','{side}')" class="px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111]/40 transition" title="Copy the files in your own Workstation Space into this brain">⇣ Import Space</button>
                   <button type="button" id="{p}DriveBtn{side}" onclick="arenaCtxToggleDrive('{p}','{side}')" class="hidden px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111]/40 transition" title="Link files from your local drive mirror">⌂ Link drive</button>
                 </div>
                 <div id="{p}PasteBox{side}" class="hidden space-y-1">
                   <input id="{p}PasteName{side}" placeholder="notes.md" maxlength="120" class="w-full bg-[#ffffff] border border-[#111111]/40 rounded px-1.5 py-0.5 text-[11px] text-[#111111] font-mono">
+                  <input id="{p}PasteDesc{side}" placeholder="Short description (optional)" maxlength="280" class="w-full bg-[#ffffff] border border-[#111111]/40 rounded px-1.5 py-0.5 text-[11px] text-[#111111] font-mono">
                   <textarea id="{p}PasteText{side}" rows="4" placeholder="Paste text this brain should know..." class="w-full bg-[#ffffff] border border-[#111111]/40 rounded px-1.5 py-1 text-[11px] text-[#111111] font-mono"></textarea>
                   <button type="button" onclick="arenaCtxPaste('{p}','{side}')" class="w-full py-1 bg-[#111111] hover:bg-[#333333] text-[#ecf1e6] rounded-full text-[10px] font-mono font-semibold">Add to Brain {side}</button>
                 </div>
@@ -82,9 +92,8 @@ def _brain_column(p: str, side: str, color: str, model: str, agent: str) -> str:
                 <div id="{p}CtxMsg{side}" class="text-[10px] font-mono text-[#4a4a4a] min-h-[12px]" aria-live="polite"></div>
               </div>
 
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+              <div class="pt-1">
                 <button type="button" id="{p}VoteBtn{side}" onclick="arenaDuelVote('{p}','{side}')" class="w-full py-1.5 px-3 bg-[#111111] hover:bg-[#333333] text-[#ecf1e6] font-semibold rounded-full text-xs transition active:scale-95 font-mono border border-[#111111]">🏆 Vote Brain {side} (+150 XP)</button>
-                <button type="button" id="{p}UseSpaceBtn{side}" onclick="arenaDuelToSpace('{p}','{side}')" class="w-full py-1.5 px-3 bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] rounded-full text-[10px] font-mono flex items-center justify-center gap-1 border border-[#111111] transition active:scale-95" title="Copy this answer to your Agent Space and sandbox">🚀 Use in Agent Space &amp; Sandbox</button>
               </div>
             </div>"""
 
@@ -101,16 +110,16 @@ def render_arena_duel(prefix: str, view_label: str = "") -> str:
               <div class="flex flex-wrap items-center gap-2">
                 <h3 class="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center gap-1.5"><span>⚔️</span> AI Brain Arena · Blind Multi-Model Duel</h3>
                 <span class="px-2 py-0.5 rounded-full bg-[#111111] text-[#ecf1e6] text-[10px] font-mono font-semibold uppercase tracking-wider">BLIND DUEL</span>
-                <span class="text-[11px] font-mono text-[#4a4a4a]">+150 XP per blind vote · local vs cloud</span>
+                <span class="text-[11px] font-mono text-[#4a4a4a]">+150 XP per vote · ad-supported credits</span>
               </div>
-              <p class="text-[11px] text-[#4a4a4a]">Pick two chat models the router supports. Each brain answers with the files in its own store, and both sides are billed to your signed-in account. Vote for the better answer (+150 XP).</p>
+              <p class="text-[11px] text-[#4a4a4a]">Pick two chat models, load shared or per-brain context (Workspace Space, Drive, or Context Palace), click Run Arena, then Vote Brain A or Vote Brain B (+150 XP).</p>
             </div>
             <span id="{p}Account" role="button" tabindex="0" onclick="arenaCtxStatus(true)" title="Refresh sign-in and files" class="cursor-pointer text-[11px] font-mono text-[#111111] bg-[#ffffff] border border-[#111111] hover:bg-[#111111] hover:text-[#ecf1e6] px-2.5 py-1 rounded-full transition">Checking sign-in…</span>
           </div>
 
           <div class="bg-[#ffffff] border border-[#111111] rounded-xl p-3 space-y-2.5">
             <div class="flex flex-wrap items-center justify-between gap-2">
-              <span class="text-[10px] font-mono uppercase tracking-wider text-[#4a4a4a] font-semibold">ARENA DUEL PROMPT &amp; VAULT RAG CONTEXT</span>
+              <span class="text-[10px] font-mono uppercase tracking-wider text-[#4a4a4a] font-semibold">ARENA PROMPT, CONTEXT INVENTORY &amp; PALACE</span>
               <div class="flex flex-wrap items-center gap-1.5">
                 <span id="{p}RagBadge" class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#ecf1e6] text-[#111111] border border-[#111111] text-[10px] font-mono">RAG: .space (ready)</span>
                 <span id="{p}PreAuthCap" class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#ecf1e6] text-[#107a47] border border-[#107a47] text-[10px] font-mono font-semibold">PRE-AUTH CAP: 533 TOK/SIDE MAX</span>
@@ -118,24 +127,76 @@ def render_arena_duel(prefix: str, view_label: str = "") -> str:
             </div>
 
             <div class="flex flex-wrap items-center justify-between gap-2">
-              <div class="flex flex-wrap items-center gap-2">
+              <div class="flex flex-wrap items-center gap-1.5">
                 <button type="button" id="{p}PresetLocalCloudBtn" onclick="arenaPresetLocalVsCloud('{p}')" class="px-3 py-1 rounded-full bg-[#ecf1e6] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111] text-[10px] font-mono font-semibold transition active:scale-95" title="Arm a zero-burn local or open-weight model on Brain A against a frontier cloud model on Brain B">⚡ Local vs Cloud Preset</button>
-                <span id="{p}PresetStatus" class="text-[10px] font-mono text-[#4a4a4a]">Compare local Ollama / open-weight vs frontier cloud</span>
+                <button type="button" id="{p}BothToggleBtn" onclick="arenaCtxToggleBoth('{p}')" class="px-2.5 py-1 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111] text-[10px] font-mono font-semibold transition">➕ Add Context to Both</button>
+                <button type="button" id="{p}InventoryBtn" onclick="arenaCtxToggleInventory('{p}')" class="px-2.5 py-1 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111] text-[10px] font-mono font-semibold transition">📦 Universal Inventory</button>
+                <button type="button" id="{p}PalaceBtn" onclick="arenaCtxTogglePalace('{p}')" class="px-2.5 py-1 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111] text-[10px] font-mono font-semibold transition">🏛️ Context Palace</button>
+                <button type="button" id="{p}ImportBothBtn" onclick="arenaCtxImportBoth('{p}')" class="px-2.5 py-1 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111] text-[10px] font-mono transition" title="Copy Workstation Space files to BOTH Brain A and Brain B">⇣ Space → Both</button>
+              </div>
+              <span id="{p}PresetStatus" class="text-[10px] font-mono text-[#4a4a4a]">Compare local Ollama / open-weight vs frontier cloud</span>
+            </div>
+
+            <div id="{p}BothBox" class="hidden rounded-lg border border-[#111111]/40 bg-[#f4f8f0] p-2.5 space-y-1.5">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="text-[10px] font-mono font-bold uppercase tracking-wider text-[#111111]">Add Context to Both Brain A &amp; Brain B at Once</span>
+                <label class="px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111] text-[10px] font-mono cursor-pointer transition">⬆ Upload File(s) to Both<input type="file" multiple class="hidden" id="{p}BothUpload" onchange="arenaCtxUploadBoth('{p}', this)"></label>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                <input id="{p}BothName" placeholder="/shared/context.md" maxlength="120" class="w-full bg-[#ffffff] border border-[#111111]/40 rounded px-2 py-1 text-[11px] text-[#111111] font-mono">
+                <input id="{p}BothDesc" placeholder="Short description (what is in this context)" maxlength="280" class="w-full bg-[#ffffff] border border-[#111111]/40 rounded px-2 py-1 text-[11px] text-[#111111] font-mono">
+              </div>
+              <textarea id="{p}BothText" rows="3" placeholder="Paste context document or notes to inject into BOTH brains simultaneously..." class="w-full bg-[#ffffff] border border-[#111111]/40 rounded px-2 py-1 text-[11px] text-[#111111] font-mono"></textarea>
+              <div class="flex items-center justify-between gap-2">
+                <span id="{p}BothMsg" class="text-[10px] font-mono text-[#4a4a4a]"></span>
+                <button type="button" id="{p}BothSaveBtn" onclick="arenaCtxPasteBoth('{p}')" class="px-3 py-1 bg-[#111111] hover:bg-[#333333] text-[#ecf1e6] rounded-full text-[10px] font-mono font-semibold">Add to Both Brains</button>
               </div>
             </div>
 
-            <!-- Model A & Model B pickers: filled from /api/mesh/arena/models (what the AI router actually supports) -->
-            <div class="aeonik-scope flex flex-col md:flex-row items-stretch md:items-center gap-2">
-              <div class="flex-1 min-w-0 bg-[#f4f8f0] border border-[#111111] rounded-lg p-2 flex items-center gap-2">
+            <div id="{p}InventoryBox" class="hidden rounded-lg border border-[#111111]/40 bg-[#f4f8f0] p-2.5 space-y-2">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="text-[10px] font-mono font-bold uppercase tracking-wider text-[#111111]">Universal System Context Inventory</span>
+                <div class="flex items-center gap-1.5">
+                  <input id="{p}InvSearch" placeholder="Filter inventory by path or description..." oninput="arenaCtxLoadInventory('{p}')" class="w-48 sm:w-64 bg-[#ffffff] border border-[#111111]/40 rounded px-2 py-0.5 text-[11px] text-[#111111] font-mono">
+                  <button type="button" onclick="arenaCtxLoadInventory('{p}')" class="px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] border border-[#111111]/40 text-[10px] font-mono">↻</button>
+                </div>
+              </div>
+              <div id="{p}InvStats" class="text-[10px] font-mono text-[#4a4a4a]">Click ↻ to load Brain A, Brain B, Workstation .space, Context Palace &amp; Drive Mirror items.</div>
+              <div id="{p}InvList" class="max-h-[180px] overflow-y-auto space-y-1 text-[11px] font-mono"></div>
+            </div>
+
+            <div id="{p}PalaceBox" class="hidden rounded-lg border border-[#111111]/40 bg-[#f4f8f0] p-2.5 space-y-2">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="text-[10px] font-mono font-bold uppercase tracking-wider text-[#111111]">Context Palace Memory Lake (CRUD + Import)</span>
+                <div class="flex items-center gap-1.5">
+                  <input id="{p}PalaceSearch" placeholder="Search Palace concepts..." oninput="arenaCtxLoadPalace('{p}')" class="w-44 bg-[#ffffff] border border-[#111111]/40 rounded px-2 py-0.5 text-[11px] text-[#111111] font-mono">
+                  <button type="button" onclick="arenaCtxImportPalace('{p}', 'both')" class="px-2.5 py-0.5 rounded-full bg-[#111111] hover:bg-[#333333] text-[#ecf1e6] text-[10px] font-mono font-semibold">Import All → Both</button>
+                </div>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                <input id="{p}PalaceName" placeholder="Concept title (e.g. FAU Architecture)" class="bg-[#ffffff] border border-[#111111]/40 rounded px-2 py-0.5 text-[11px] text-[#111111] font-mono">
+                <input id="{p}PalaceCategory" placeholder="Category (knowledge)" class="bg-[#ffffff] border border-[#111111]/40 rounded px-2 py-0.5 text-[11px] text-[#111111] font-mono">
+                <input id="{p}PalaceSummary" placeholder="Short summary..." class="bg-[#ffffff] border border-[#111111]/40 rounded px-2 py-0.5 text-[11px] text-[#111111] font-mono">
+              </div>
+              <div class="flex gap-1.5">
+                <input id="{p}PalaceValue" placeholder="Concept value / memory text..." class="flex-1 min-w-0 bg-[#ffffff] border border-[#111111]/40 rounded px-2 py-0.5 text-[11px] text-[#111111] font-mono">
+                <button type="button" onclick="arenaCtxPalaceSave('{p}')" class="px-3 py-0.5 rounded-full bg-[#111111] hover:bg-[#333333] text-[#ecf1e6] text-[10px] font-mono font-semibold shrink-0">+ Save Concept</button>
+              </div>
+              <div id="{p}PalaceList" class="max-h-[160px] overflow-y-auto space-y-1 text-[11px] font-mono"></div>
+            </div>
+
+            <!-- Model A & Model B pickers: locked 3-track CSS grid so dropdowns never clip or overlap -->
+            <div class="aeonik-scope w-full" style="display:grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items:center; gap:0.5rem;">
+              <div class="min-w-0 overflow-hidden bg-[#f4f8f0] border border-[#111111] rounded-lg p-2 flex items-center gap-2">
                 <label for="{p}Model{sa}Input" class="text-[11px] font-mono text-[#111111] font-bold shrink-0">Model {sa}:</label>
-                <select id="{p}Model{sa}Input" data-arena-picker="{sa}" onchange="arenaDuelModelChange('{p}')" class="flex-1 min-w-0 bg-[#ffffff] border border-[#111111] rounded px-2 py-1 text-xs text-[#111111] font-mono focus:outline-none">
+                <select id="{p}Model{sa}Input" data-arena-picker="{sa}" onchange="arenaDuelModelChange('{p}')" class="flex-1 min-w-0 w-full max-w-full bg-[#ffffff] border border-[#111111] rounded px-2 py-1 text-xs text-[#111111] font-mono focus:outline-none" style="width:100%; min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis;">
                   <option value="{ma}">{ma}</option>
                 </select>
               </div>
-              <button type="button" id="{p}SwapBtn" onclick="arenaDuelSwap('{p}')" title="Swap left and right models" aria-label="Swap models" class="self-center px-2.5 py-1 bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111] rounded-full font-mono text-xs transition active:scale-95">⇄</button>
-              <div class="flex-1 min-w-0 bg-[#f4f8f0] border border-[#111111] rounded-lg p-2 flex items-center gap-2">
+              <button type="button" id="{p}SwapBtn" onclick="arenaDuelSwap('{p}')" title="Swap left and right models" aria-label="Swap models" class="shrink-0 px-2.5 py-1 bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111] rounded-full font-mono text-xs transition active:scale-95">⇄</button>
+              <div class="min-w-0 overflow-hidden bg-[#f4f8f0] border border-[#111111] rounded-lg p-2 flex items-center gap-2">
                 <label for="{p}Model{sb}Input" class="text-[11px] font-mono text-[#111111] font-bold shrink-0">Model {sb}:</label>
-                <select id="{p}Model{sb}Input" data-arena-picker="{sb}" onchange="arenaDuelModelChange('{p}')" class="flex-1 min-w-0 bg-[#ffffff] border border-[#111111] rounded px-2 py-1 text-xs text-[#111111] font-mono focus:outline-none">
+                <select id="{p}Model{sb}Input" data-arena-picker="{sb}" onchange="arenaDuelModelChange('{p}')" class="flex-1 min-w-0 w-full max-w-full bg-[#ffffff] border border-[#111111] rounded px-2 py-1 text-xs text-[#111111] font-mono focus:outline-none" style="width:100%; min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis;">
                   <option value="{mb}">{mb}</option>
                 </select>
               </div>
@@ -144,19 +205,41 @@ def render_arena_duel(prefix: str, view_label: str = "") -> str:
 
             <div class="flex flex-col sm:flex-row gap-2">
               <input id="{p}PromptInput" type="text" value="Summarize what my files say about deploying TinCan." class="flex-1 min-w-0 bg-[#f4f8f0] border border-[#111111] rounded-lg px-3 py-1.5 text-xs text-[#111111] font-mono placeholder:text-[#5c5c5c]" aria-label="Duel prompt" oninput="if(typeof arenaUpdatePreAuthCap==='function')arenaUpdatePreAuthCap('{p}')" onkeydown="if(event.key==='Enter')arenaDuelRun('{p}')">
-              <button type="button" id="{p}RunBtn" onclick="arenaDuelRun('{p}')" class="px-4 py-1.5 bg-[#111111] hover:bg-[#333333] text-[#ecf1e6] font-semibold rounded-full text-xs transition active:scale-95 shrink-0 flex items-center justify-center gap-1.5 border border-[#111111]"><span>⚔️</span> <span>Battle 2 Brains</span></button>
+              <button type="button" id="{p}RunBtn" onclick="arenaDuelRun('{p}')" class="px-4 py-1.5 bg-[#111111] hover:bg-[#333333] text-[#ecf1e6] font-semibold rounded-full text-xs transition active:scale-95 shrink-0 flex items-center justify-center gap-1.5 border border-[#111111]"><span>⚔️</span> <span>Run Arena</span></button>
             </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">{columns}
           </div>
 
+          <form id="{p}VoteForm" onsubmit="event.preventDefault(); arenaDuelSubmitVote('{p}');" class="hidden bg-[#ffffff] border border-[#111111] rounded-xl p-3 space-y-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2 text-xs font-mono font-bold text-[#111111]">
+                <span>📝 Short Vote Feedback · Winner:</span>
+                <label class="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="{p}VoteWinner" id="{p}VotePickA" value="A" class="accent-[#111111]"> Brain A</label>
+                <label class="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="{p}VoteWinner" id="{p}VotePickB" value="B" class="accent-[#111111]"> Brain B</label>
+              </div>
+              <button type="button" onclick="var f=document.getElementById('{p}VoteForm');if(f)f.classList.add('hidden')" class="text-[10px] font-mono text-[#5c5c5c] hover:text-[#111111]">Close ✕</button>
+            </div>
+            <div class="flex flex-wrap gap-1.5 text-[10px] font-mono">
+              <select id="{p}VoteTagSelect" class="bg-[#f4f8f0] border border-[#111111]/40 rounded px-2 py-1 text-[11px] text-[#111111] font-mono">
+                <option value="More accurate">More accurate</option>
+                <option value="Better context recall">Better context recall</option>
+                <option value="Faster &amp; cleaner">Faster &amp; cleaner</option>
+                <option value="More helpful code/reasoning">More helpful code/reasoning</option>
+              </select>
+              <input id="{p}VoteReasonInput" type="text" maxlength="400" placeholder="Which one did you like and why was it better?" class="flex-1 min-w-[200px] bg-[#f4f8f0] border border-[#111111]/40 rounded px-2.5 py-1 text-xs text-[#111111] font-mono">
+              <button type="submit" id="{p}VoteSubmitBtn" class="px-4 py-1 bg-[#111111] hover:bg-[#333333] text-[#ecf1e6] font-semibold rounded-full text-xs font-mono border border-[#111111]">Submit Vote (+150 XP)</button>
+            </div>
+            <div id="{p}VoteStatus" class="text-[10px] font-mono text-[#4a4a4a]"></div>
+          </form>
+
           <div id="{p}ProStrip" class="bg-[#ffffff] border border-[#111111] rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
             <div class="min-w-0 space-y-0.5">
-              <div id="{p}ProTelemetryTitle" class="text-[10px] font-mono font-bold uppercase tracking-wider text-[#111111]">PRO MONETIZATION TELEMETRY</div>
-              <p id="{p}ProTelemetrySub" class="text-[11px] text-[#4a4a4a]">Bundle 4-Model Round-Robin Tournaments + Automated Vault RAG Evaluation Suites or run zero-burn via local Ollama.</p>
+              <div id="{p}ProTelemetryTitle" class="text-[10px] font-mono font-bold uppercase tracking-wider text-[#111111]">AD-SUPPORTED AI CREDITS · ZERO SUBSCRIPTIONS</div>
+              <p id="{p}ProTelemetrySub" class="text-[11px] text-[#4a4a4a]">No subscriptions. Watch sponsor ads on the Home Screen to earn AI credits and tokens for AI deliverables, or run zero-burn via local Ollama.</p>
             </div>
-            <button type="button" id="{p}UpgradeProBtn" onclick="if(typeof toggleWindow==='function')toggleWindow('win-billing')" class="px-4 py-1.5 bg-[#111111] hover:bg-[#333333] text-[#ecf1e6] font-semibold rounded-full text-xs font-mono transition active:scale-95 shrink-0 border border-[#111111]">Upgrade Arena Pro →</button>
+            <button type="button" id="{p}UpgradeProBtn" onclick="if(typeof zenWatchHomeAd==='function')zenWatchHomeAd();else if(typeof toggleWindow==='function')toggleWindow('win-ai-home')" class="px-4 py-1.5 bg-[#111111] hover:bg-[#333333] text-[#ecf1e6] font-semibold rounded-full text-xs font-mono transition active:scale-95 shrink-0 border border-[#111111]">Watch Home Screen Ads →</button>
           </div>
         </div>"""
 
@@ -328,16 +411,16 @@ ARENA_DUEL_SCRIPT = r"""
       if ((ca <= 0 && cb > 0) || (cb <= 0 && ca > 0)) {
         const paid = Math.max(ca, cb);
         proTitle.className = 'text-[10px] font-mono font-bold uppercase tracking-wider text-[#107a47]';
-        proTitle.textContent = 'PRO MONETIZATION TELEMETRY: ZERO-BURN SAVED 100% VS CLOUD ($' + paid.toFixed(6) + '/DUEL)';
+        proTitle.textContent = 'AD-SUPPORTED CREDITS: ZERO-BURN SAVED 100% VS CLOUD ($' + paid.toFixed(6) + '/DUEL)';
       } else if (ca !== cb && Math.max(ca, cb) > 0) {
         const hi = Math.max(ca, cb);
         const lo = Math.min(ca, cb);
         const pct = Math.round(((hi - lo) / hi) * 100);
         proTitle.className = 'text-[10px] font-mono font-bold uppercase tracking-wider text-[#107a47]';
-        proTitle.textContent = 'PRO MONETIZATION TELEMETRY: SAVED $' + (hi - lo).toFixed(6) + ' (' + pct + '%) ON LOWER-COST MODEL';
+        proTitle.textContent = 'AD-SUPPORTED CREDITS: SAVED $' + (hi - lo).toFixed(6) + ' (' + pct + '%) ON LOWER-COST MODEL';
       } else {
         proTitle.className = 'text-[10px] font-mono font-bold uppercase tracking-wider text-[#111111]';
-        proTitle.textContent = 'PRO MONETIZATION TELEMETRY: DUEL COST $' + (ca + cb).toFixed(6) + ' (' + totalTok + ' TOK)';
+        proTitle.textContent = 'AD-SUPPORTED CREDITS: DUEL COST $' + (ca + cb).toFixed(6) + ' (' + totalTok + ' TOK)';
       }
     }
   }
@@ -458,17 +541,22 @@ ARENA_DUEL_SCRIPT = r"""
     const box = el(p + 'Files' + side);
     if (!box) return;
     const files = data.files || [];
-    if (!files.length) { box.innerHTML = '<div class="text-[#5c5c5c]">No files yet. Upload, paste or import some.</div>'; return; }
+    if (!files.length) { box.innerHTML = '<div class="text-[#5c5c5c]">No files yet. Upload, paste, import from Space/Palace, or add to Both Brains.</div>'; return; }
     box.innerHTML = files.map((f) => {
       const stale = f.source === 'drive' && f.drive_available === false ? ' <span class="text-[#8a1c1c]" title="Drive mirror is off; using the last copy">(snapshot)</span>' : '';
-      return '<div class="flex items-center gap-1 group" data-ctx-file="' + esc(f.path) + '">' +
-        '<button type="button" class="flex-1 min-w-0 text-left truncate text-[#111111] hover:underline" data-act="view">' + esc(f.path) + '</button>' +
-        '<span class="text-[#5c5c5c] shrink-0">' + esc(f.source) + ' · ' + esc(f.chunk_count) + 'ch</span>' + stale +
-        '<button type="button" class="text-[#8a1c1c] hover:underline shrink-0 px-1 font-semibold" data-act="del" title="Remove from this brain">✕</button></div>';
+      const descLine = f.description ? ('<div class="text-[10px] text-[#5c5c5c] truncate pl-1">' + esc(f.description) + '</div>') : '';
+      return '<div class="border-b border-[#111111]/10 pb-0.5" data-ctx-file="' + esc(f.path) + '">' +
+        '<div class="flex items-center gap-1 group">' +
+        '<button type="button" class="flex-1 min-w-0 text-left truncate text-[#111111] hover:underline font-semibold" data-act="view" title="' + esc(f.description || f.path) + '">' + esc(f.path) + '</button>' +
+        '<span class="text-[#5c5c5c] shrink-0 text-[10px]">' + esc(f.source) + ' · ' + esc(f.chunk_count) + 'ch</span>' + stale +
+        '<button type="button" class="text-[#111111] hover:underline shrink-0 px-1 text-[10px]" data-act="edit" title="Edit content & description">✎</button>' +
+        '<button type="button" class="text-[#8a1c1c] hover:underline shrink-0 px-1 font-semibold" data-act="del" title="Remove from this brain">✕</button></div>' +
+        descLine + '</div>';
     }).join('');
     box.querySelectorAll('[data-ctx-file]').forEach((row) => {
       const path = row.getAttribute('data-ctx-file');
       row.querySelector('[data-act="view"]').onclick = () => window.arenaCtxView(p, side, path);
+      row.querySelector('[data-act="edit"]').onclick = () => window.arenaCtxEdit(p, side, path);
       row.querySelector('[data-act="del"]').onclick = () => window.arenaCtxDelete(p, side, path);
     });
   }
@@ -515,12 +603,61 @@ ARENA_DUEL_SCRIPT = r"""
     VIEWS.forEach((q) => refresh(q, side));
   };
 
+  const editTarget = {};
+  let editingPalaceId = '';
+
   window.arenaCtxView = async function (p, side, path) {
     const v = el(p + 'Viewer' + side);
+    if (!v) return;
     try {
       const f = await api('/api/arena/context/file?agent_id=' + encodeURIComponent(agentOf(p, side)) + '&path=' + encodeURIComponent(path));
-      v.textContent = f.path + '  (' + f.size_bytes + ' bytes, ' + f.chunk_count + ' chunks)\n\n' + (f.content || '');
+      const desc = f.description ? ('<div class="text-[10px] text-[#4a4a4a] border-b border-[#111111]/15 pb-1"><strong>About:</strong> ' + esc(f.description) + '</div>') : '';
+      v.innerHTML = '<div class="flex items-center justify-between gap-2 border-b border-[#111111]/20 pb-1">' +
+        '<span class="font-bold truncate">' + esc(f.path) + ' (' + esc(f.size_bytes) + ' B · ' + esc(f.chunk_count) + ' ch)</span>' +
+        '<span class="flex items-center gap-1 shrink-0">' +
+        '<button type="button" class="px-1.5 py-0.5 rounded bg-[#ecf1e6] border border-[#111111]/40 text-[10px]" data-viewer-edit="1">✎ Edit</button>' +
+        '<button type="button" class="px-1.5 py-0.5 rounded bg-[#f4f8f0] border border-[#111111]/30 text-[10px]" data-viewer-close="1">✕</button>' +
+        '</span></div>' + desc +
+        '<pre class="whitespace-pre-wrap text-[10px] font-mono text-[#111111] pt-1">' + esc(f.content || '') + '</pre>';
+      const editBtn = v.querySelector('[data-viewer-edit]');
+      if (editBtn) editBtn.onclick = () => window.arenaCtxEdit(p, side, path);
+      const closeBtn = v.querySelector('[data-viewer-close]');
+      if (closeBtn) closeBtn.onclick = () => v.classList.add('hidden');
       v.classList.remove('hidden');
+    } catch (e) { msg(p, side, e.message, true); }
+  };
+
+  window.arenaCtxEdit = async function (p, side, path) {
+    const box = el(p + 'EditBox' + side);
+    if (!box) return;
+    try {
+      const f = await api('/api/arena/context/file?agent_id=' + encodeURIComponent(agentOf(p, side)) + '&path=' + encodeURIComponent(path));
+      editTarget[p + ':' + side] = f.path;
+      const lbl = el(p + 'EditPathLabel' + side);
+      if (lbl) lbl.textContent = f.path;
+      if (el(p + 'EditDesc' + side)) el(p + 'EditDesc' + side).value = f.description || '';
+      if (el(p + 'EditText' + side)) el(p + 'EditText' + side).value = f.content || '';
+      box.classList.remove('hidden');
+    } catch (e) { msg(p, side, e.message, true); }
+  };
+
+  window.arenaCtxCancelEdit = function (p, side) {
+    delete editTarget[p + ':' + side];
+    const box = el(p + 'EditBox' + side);
+    if (box) box.classList.add('hidden');
+  };
+
+  window.arenaCtxSaveEdit = async function (p, side) {
+    const path = editTarget[p + ':' + side];
+    if (!path) return;
+    const description = el(p + 'EditDesc' + side) ? el(p + 'EditDesc' + side).value : '';
+    const content = el(p + 'EditText' + side) ? el(p + 'EditText' + side).value : '';
+    try {
+      await api('/api/arena/context/update', {body: {agent_id: agentOf(p, side), path, description, content}});
+      window.arenaCtxCancelEdit(p, side);
+      msg(p, side, 'Updated ' + path);
+      refreshEverywhere(side, agentOf(p, side));
+      window.arenaCtxView(p, side, path);
     } catch (e) { msg(p, side, e.message, true); }
   };
 
@@ -529,6 +666,7 @@ ARENA_DUEL_SCRIPT = r"""
     try {
       await api('/api/arena/context/delete', {body: {agent_id: agentOf(p, side), path}});
       const v = el(p + 'Viewer' + side); if (v) v.classList.add('hidden');
+      window.arenaCtxCancelEdit(p, side);
       refreshEverywhere(side, agentOf(p, side));
     } catch (e) { msg(p, side, e.message, true); }
   };
@@ -570,13 +708,222 @@ ARENA_DUEL_SCRIPT = r"""
 
   window.arenaCtxPaste = async function (p, side) {
     const name = (el(p + 'PasteName' + side).value || '').trim() || ('note-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.md');
+    const description = el(p + 'PasteDesc' + side) ? (el(p + 'PasteDesc' + side).value || '').trim() : '';
     const text = el(p + 'PasteText' + side).value || '';
     if (!text.trim()) { msg(p, side, 'Paste some text first.', true); return; }
     try {
-      const data = await api('/api/arena/context/ingest', {body: {agent_id: agentOf(p, side), files: [{name, content: text, source: 'paste'}]}});
+      const data = await api('/api/arena/context/ingest', {body: {agent_id: agentOf(p, side), files: [{name, description, content: text, source: 'paste'}]}});
       el(p + 'PasteText' + side).value = '';
+      if (el(p + 'PasteDesc' + side)) el(p + 'PasteDesc' + side).value = '';
       reportIngest(p, side, data);
     } catch (e) { msg(p, side, e.message + (e.data && e.data.errors ? ' · ' + e.data.errors.map((x) => x.error).join('; ') : ''), true); }
+  };
+
+  window.arenaCtxToggleBoth = function (p) {
+    const b = el(p + 'BothBox');
+    if (b) b.classList.toggle('hidden');
+  };
+
+  function bothMsg(p, text, isErr) {
+    const m = el(p + 'BothMsg');
+    if (m) { m.textContent = text || ''; m.className = 'text-[10px] font-mono ' + (isErr ? 'text-[#8a1c1c] font-semibold' : 'text-[#107a47]'); }
+  }
+
+  window.arenaCtxPasteBoth = async function (p) {
+    const name = (el(p + 'BothName') && el(p + 'BothName').value || '').trim() || ('shared-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.md');
+    const description = el(p + 'BothDesc') ? (el(p + 'BothDesc').value || '').trim() : '';
+    const content = el(p + 'BothText') ? (el(p + 'BothText').value || '') : '';
+    if (!content.trim()) { bothMsg(p, 'Enter text to add to both brains.', true); return; }
+    try {
+      const res = await api('/api/arena/context/ingest', {
+        body: {agent_id: 'both', agent_ids: [agentOf(p, 'A'), agentOf(p, 'B')], files: [{name, description, content, source: 'paste'}]}
+      });
+      if (el(p + 'BothText')) el(p + 'BothText').value = '';
+      if (el(p + 'BothDesc')) el(p + 'BothDesc').value = '';
+      bothMsg(p, 'Added ' + name + ' to Brain A & Brain B (' + (res.added || []).length + ' total entries).');
+      SIDES.forEach((s) => refreshEverywhere(s, agentOf(p, s)));
+    } catch (e) { bothMsg(p, e.message, true); }
+  };
+
+  window.arenaCtxUploadBoth = async function (p, input) {
+    const files = Array.from(input.files || []);
+    input.value = '';
+    if (!files.length) return;
+    bothMsg(p, 'Uploading ' + files.length + ' file(s) to Brain A & Brain B…');
+    try {
+      const payload = [];
+      for (const f of files.slice(0, 50)) {
+        if (f.size > 16 * 1024 * 1024) continue;
+        payload.push({name: f.name, content_b64: await fileToB64(f), source: 'upload'});
+      }
+      if (!payload.length) return;
+      await api('/api/arena/context/ingest', {body: {agent_id: 'both', agent_ids: [agentOf(p, 'A'), agentOf(p, 'B')], files: payload}});
+      bothMsg(p, 'Uploaded ' + payload.length + ' file(s) to BOTH Brain A & Brain B.');
+      SIDES.forEach((s) => refreshEverywhere(s, agentOf(p, s)));
+    } catch (e) { bothMsg(p, e.message, true); }
+  };
+
+  window.arenaCtxImportBoth = async function (p) {
+    try {
+      const res = await api('/api/arena/context/import', {
+        body: {agent_id: 'both', agent_ids: [agentOf(p, 'A'), agentOf(p, 'B')], space_owner: peer()}
+      });
+      bothMsg(p, 'Imported Workstation Space into Brain A & Brain B (' + (res.added || []).length + ' entries).');
+      SIDES.forEach((s) => refreshEverywhere(s, agentOf(p, s)));
+      if (typeof showQuickNotification === 'function') showQuickNotification('Imported .space into BOTH brains!');
+    } catch (e) { bothMsg(p, e.message, true); }
+  };
+
+  window.arenaCtxToggleInventory = function (p) {
+    const box = el(p + 'InventoryBox');
+    if (!box) return;
+    box.classList.toggle('hidden');
+    if (!box.classList.contains('hidden')) window.arenaCtxLoadInventory(p);
+  };
+
+  window.arenaCtxLoadInventory = async function (p) {
+    const listEl = el(p + 'InvList');
+    const statsEl = el(p + 'InvStats');
+    if (!listEl) return;
+    const q = el(p + 'InvSearch') ? (el(p + 'InvSearch').value || '').trim() : '';
+    try {
+      const data = await api('/api/arena/context/inventory?agent_a=' + encodeURIComponent(agentOf(p, 'A')) +
+        '&agent_b=' + encodeURIComponent(agentOf(p, 'B')) + '&q=' + encodeURIComponent(q));
+      const c = data.counts || {};
+      if (statsEl) {
+        statsEl.textContent = 'A: ' + (c.brain_a || 0) + ' · B: ' + (c.brain_b || 0) + ' · Shared: ' + (c.shared || 0) +
+          ' · Space: ' + (c.space || 0) + ' · Palace: ' + (c.palace || 0) + ' · Drive: ' + (c.drive || 0);
+      }
+      const items = data.items || [];
+      if (!items.length) {
+        listEl.innerHTML = '<div class="text-[#5c5c5c]">No inventory items match. Add files, Space docs, or Context Palace concepts.</div>';
+        return;
+      }
+      listEl.innerHTML = items.map((it, idx) => {
+        const kindBadge = String(it.kind || '').toUpperCase();
+        return '<div class="bg-[#ffffff] border border-[#111111]/25 rounded p-1.5 flex flex-wrap items-center justify-between gap-2" data-inv-idx="' + idx + '">' +
+          '<div class="min-w-0 flex-1">' +
+          '<div class="flex items-center gap-1.5"><span class="px-1.5 py-0.5 rounded bg-[#ecf1e6] border border-[#111111]/30 text-[9px] font-bold">' + esc(kindBadge) + '</span>' +
+          '<span class="font-semibold truncate text-[#111111]">' + esc(it.title || it.path) + '</span></div>' +
+          '<div class="text-[10px] text-[#5c5c5c] truncate">' + esc(it.description || it.path) + '</div></div>' +
+          '<div class="flex items-center gap-1 shrink-0 text-[10px]">' +
+          '<button type="button" class="px-2 py-0.5 rounded-full bg-[#ecf1e6] hover:bg-[#111111] hover:text-[#ecf1e6] border border-[#111111]/40" data-inv-both="1">→ Both Brains</button>' +
+          (it.kind === 'palace' ? '<button type="button" class="px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] border border-[#111111]/40" data-inv-palace-edit="1">✎</button>' : '') +
+          '</div></div>';
+      }).join('');
+      listEl.querySelectorAll('[data-inv-idx]').forEach((row) => {
+        const it = items[Number(row.getAttribute('data-inv-idx'))];
+        const btnBoth = row.querySelector('[data-inv-both]');
+        if (btnBoth) {
+          btnBoth.onclick = async () => {
+            try {
+              if (it.source_group === 'palace') {
+                await api('/api/arena/context/palace/import', {body: {agent_id: 'both', node_ids: [it.node_id || it.id]}});
+              } else if (it.source_group === 'space') {
+                await api('/api/arena/context/import', {body: {agent_id: 'both', space_owner: peer(), paths: [it.path]}});
+              } else if (it.source_group === 'drive') {
+                await api('/api/arena/context/drive/link', {body: {agent_id: 'both', drive_path: it.path}});
+              } else {
+                const srcAgent = it.in_a ? agentOf(p, 'A') : agentOf(p, 'B');
+                const rec = await api('/api/arena/context/file?agent_id=' + encodeURIComponent(srcAgent) + '&path=' + encodeURIComponent(it.path));
+                await api('/api/arena/context/ingest', {
+                  body: {agent_id: 'both', files: [{path: it.path, description: rec.description || it.description, content: rec.content || '', source: 'import'}]}
+                });
+              }
+              SIDES.forEach((s) => refreshEverywhere(s, agentOf(p, s)));
+              window.arenaCtxLoadInventory(p);
+            } catch (err) { if (statsEl) statsEl.textContent = 'Copy error: ' + err.message; }
+          };
+        }
+        const btnEdit = row.querySelector('[data-inv-palace-edit]');
+        if (btnEdit && it.source_group === 'palace') {
+          btnEdit.onclick = () => window.arenaCtxPalaceEdit(p, it);
+        }
+      });
+    } catch (e) {
+      if (statsEl) statsEl.textContent = e.message;
+    }
+  };
+
+  window.arenaCtxTogglePalace = function (p) {
+    const box = el(p + 'PalaceBox');
+    if (!box) return;
+    box.classList.toggle('hidden');
+    if (!box.classList.contains('hidden')) window.arenaCtxLoadPalace(p);
+  };
+
+  window.arenaCtxLoadPalace = async function (p) {
+    const listEl = el(p + 'PalaceList');
+    if (!listEl) return;
+    const q = el(p + 'PalaceSearch') ? (el(p + 'PalaceSearch').value || '').trim() : '';
+    try {
+      const data = await api('/api/arena/context/palace?q=' + encodeURIComponent(q) + '&limit=60');
+      const concepts = data.concepts || [];
+      if (!concepts.length) {
+        listEl.innerHTML = '<div class="text-[#5c5c5c]">No Context Palace concepts yet. Add one above to store reusable memory across Router &amp; Arena.</div>';
+        return;
+      }
+      listEl.innerHTML = concepts.map((c, idx) =>
+        '<div class="bg-[#ffffff] border border-[#111111]/25 rounded p-1.5 flex flex-wrap items-center justify-between gap-2" data-pal-idx="' + idx + '">' +
+        '<div class="min-w-0 flex-1">' +
+        '<div class="flex items-center gap-1.5"><span class="px-1.5 py-0.5 rounded bg-[#ecf1e6] border border-[#111111]/30 text-[9px]">' + esc(c.category) + '</span>' +
+        '<span class="font-bold text-[#111111] truncate">' + esc(c.canonical_name) + '</span></div>' +
+        '<div class="text-[10px] text-[#5c5c5c] truncate">' + esc(c.summary || c.value) + '</div></div>' +
+        '<div class="flex items-center gap-1 shrink-0 text-[10px]">' +
+        '<button type="button" class="px-2 py-0.5 rounded-full bg-[#111111] text-[#ecf1e6]" data-pal-both="1">→ Both</button>' +
+        '<button type="button" class="px-2 py-0.5 rounded-full bg-[#ffffff] border border-[#111111]/40" data-pal-edit="1">✎</button>' +
+        '<button type="button" class="px-2 py-0.5 rounded-full bg-[#ffffff] border border-[#8a1c1c]/40 text-[#8a1c1c]" data-pal-del="1">✕</button>' +
+        '</div></div>'
+      ).join('');
+      listEl.querySelectorAll('[data-pal-idx]').forEach((row) => {
+        const c = concepts[Number(row.getAttribute('data-pal-idx'))];
+        row.querySelector('[data-pal-both]').onclick = () => window.arenaCtxImportPalace(p, 'both', [c.node_id]);
+        row.querySelector('[data-pal-edit]').onclick = () => window.arenaCtxPalaceEdit(p, c);
+        row.querySelector('[data-pal-del]').onclick = () => window.arenaCtxPalaceDelete(p, c.node_id);
+      });
+    } catch (e) { listEl.innerHTML = '<div class="text-[#8a1c1c]">' + esc(e.message) + '</div>'; }
+  };
+
+  window.arenaCtxPalaceEdit = function (p, c) {
+    const box = el(p + 'PalaceBox');
+    if (box) box.classList.remove('hidden');
+    editingPalaceId = c.node_id || '';
+    if (el(p + 'PalaceName')) el(p + 'PalaceName').value = c.canonical_name || c.title || '';
+    if (el(p + 'PalaceCategory')) el(p + 'PalaceCategory').value = c.category || 'knowledge';
+    if (el(p + 'PalaceSummary')) el(p + 'PalaceSummary').value = c.summary || c.description || '';
+    if (el(p + 'PalaceValue')) el(p + 'PalaceValue').value = c.value || c.active_value || '';
+  };
+
+  window.arenaCtxPalaceSave = async function (p) {
+    const canonical_name = (el(p + 'PalaceName') && el(p + 'PalaceName').value || '').trim();
+    const category = (el(p + 'PalaceCategory') && el(p + 'PalaceCategory').value || 'knowledge').trim() || 'knowledge';
+    const summary = (el(p + 'PalaceSummary') && el(p + 'PalaceSummary').value || '').trim();
+    const value = (el(p + 'PalaceValue') && el(p + 'PalaceValue').value || '').trim();
+    if (!canonical_name || !value) return;
+    const action = editingPalaceId ? 'update' : 'create';
+    await api('/api/arena/context/palace/crud', {
+      body: {action, node_id: editingPalaceId || undefined, canonical_name, category, summary, value}
+    });
+    editingPalaceId = '';
+    if (el(p + 'PalaceName')) el(p + 'PalaceName').value = '';
+    if (el(p + 'PalaceSummary')) el(p + 'PalaceSummary').value = '';
+    if (el(p + 'PalaceValue')) el(p + 'PalaceValue').value = '';
+    await window.arenaCtxLoadPalace(p);
+  };
+
+  window.arenaCtxPalaceDelete = async function (p, nodeId) {
+    if (!confirm('Delete Context Palace node ' + nodeId + '?')) return;
+    await api('/api/arena/context/palace/crud', {body: {action: 'delete', node_id: nodeId}});
+    await window.arenaCtxLoadPalace(p);
+  };
+
+  window.arenaCtxImportPalace = async function (p, targetAgentId, nodeIds) {
+    const q = el(p + 'PalaceSearch') ? (el(p + 'PalaceSearch').value || '').trim() : '';
+    await api('/api/arena/context/palace/import', {
+      body: {agent_id: targetAgentId || 'both', node_ids: nodeIds || null, query: q}
+    });
+    SIDES.forEach((s) => refreshEverywhere(s, agentOf(p, s)));
+    if (typeof showQuickNotification === 'function') showQuickNotification('Imported Context Palace into Brain A & Brain B!');
   };
 
   window.arenaCtxImportSpace = async function (p, side) {
@@ -726,24 +1073,57 @@ ARENA_DUEL_SCRIPT = r"""
     }
   };
 
-  window.arenaDuelVote = async function (p, side) {
+  window.arenaDuelVote = async function (p, side, opts) {
     if (typeof initAudio === 'function') { try { initAudio(); } catch (e) {} }
     const duel = lastDuel[p];
     if (!duel || !duel.match_id) {
-      if (typeof showQuickNotification === 'function') showQuickNotification('Run a duel first: votes are recorded against a billed match.');
+      if (typeof showQuickNotification === 'function') showQuickNotification('Click "Run Arena" first: votes are recorded after both brains answer.');
       return;
     }
     const winnerSide = side === 'B' ? 'B' : 'A';
+    const form = el(p + 'VoteForm');
+    if (form && !(opts && opts.immediate)) {
+      const pickA = el(p + 'VotePickA');
+      const pickB = el(p + 'VotePickB');
+      if (pickA) pickA.checked = (winnerSide === 'A');
+      if (pickB) pickB.checked = (winnerSide === 'B');
+      form.classList.remove('hidden');
+      const inp = el(p + 'VoteReasonInput');
+      if (inp && typeof inp.focus === 'function') inp.focus();
+      return;
+    }
+    return window.arenaDuelSubmitVote(p, winnerSide);
+  };
+
+  window.arenaDuelSubmitVote = async function (p, explicitSide) {
+    const duel = lastDuel[p];
+    if (!duel || !duel.match_id) {
+      if (typeof showQuickNotification === 'function') showQuickNotification('Click "Run Arena" first before submitting a vote.');
+      return;
+    }
+    const pickB = el(p + 'VotePickB');
+    const winnerSide = explicitSide || ((pickB && pickB.checked) ? 'B' : 'A');
     const winnerModel = winnerSide === 'A' ? duel.a : duel.b;
+    const tag = (el(p + 'VoteTagSelect') && el(p + 'VoteTagSelect').value) || '';
+    const note = (el(p + 'VoteReasonInput') && el(p + 'VoteReasonInput').value || '').trim();
+    const feedback = [tag, note].filter(Boolean).join(' — ');
     if (typeof playXpChime === 'function') { try { playXpChime(); } catch (e) {} }
     try {
       await api('/api/mesh/arena/vote', {body: {
-        match_id: duel.match_id, winner_side: winnerSide, prompt_preview: (duel.prompt || '').substring(0, 40),
+        match_id: duel.match_id, winner_side: winnerSide, feedback,
+        prompt_preview: (duel.prompt || '').substring(0, 40),
         display_name: peer(), room: (typeof currentRoom !== 'undefined' ? currentRoom : 'main'),
       }});
+      const st = el(p + 'VoteStatus');
+      if (st) st.textContent = 'Recorded Brain ' + winnerSide + ' (' + winnerModel + ') (+150 XP)' + (feedback ? (' · "' + feedback + '"') : '');
+      const form = el(p + 'VoteForm');
+      if (form) form.classList.add('hidden');
+      if (el(p + 'VoteReasonInput')) el(p + 'VoteReasonInput').value = '';
       if (typeof showQuickNotification === 'function') showQuickNotification('🏆 Vote recorded for ' + winnerModel + ' (' + duel.a + ' vs ' + duel.b + '). +150 XP.');
       if (typeof pollMeshState === 'function') pollMeshState();
     } catch (e) {
+      const st = el(p + 'VoteStatus');
+      if (st) st.textContent = 'Vote error: ' + e.message;
       if (typeof showQuickNotification === 'function') showQuickNotification('Vote error: ' + e.message);
     }
   };
@@ -755,7 +1135,7 @@ ARENA_DUEL_SCRIPT = r"""
     if (editor) editor.value = content;
     if (typeof setViewerEditMode === 'function') { try { setViewerEditMode(); } catch (e) {} }
     if (typeof toggleWindow === 'function') toggleWindow('win-agentspace');
-    if (typeof showQuickNotification === 'function') showQuickNotification('Sent Brain ' + side + ' output to your Agent Space');
+    if (typeof showQuickNotification === 'function') showQuickNotification('Sent Brain ' + side + ' output to Workstation');
   };
 
   // Backward-compatible entry points (the win-quests markup and older code used these names).

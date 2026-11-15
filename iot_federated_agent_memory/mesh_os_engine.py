@@ -260,6 +260,7 @@ class TinCanMeshOSEngine:
         custom_xp: Optional[int] = None,
         display_name: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        once_per_peer: bool = False,
     ) -> Dict[str, Any]:
         """Award XP to a peer, update quest completion, badges, and stats."""
         meta = metadata or {}
@@ -286,12 +287,27 @@ class TinCanMeshOSEngine:
                     "votes_cast": 0,
                     "reactions_sent": 0,
                     "badges": [],
+                    "completed_quests": [],
                     "last_active": now,
                 }
             elif display_name:
                 self.peers[peer_id]["display_name"] = display_name
 
             peer = self.peers[peer_id]
+            completed_list = peer.setdefault("completed_quests", [])
+            if once_per_peer and action_key in completed_list:
+                peer["last_active"] = now
+                return {
+                    "awarded_xp": 0,
+                    "already_completed": True,
+                    "total_xp": self.total_xp,
+                    "tier": self.get_tier_info(),
+                    "peer": copy.deepcopy(peer),
+                }
+
+            if action_key not in completed_list:
+                completed_list.append(action_key)
+
             peer["xp"] += awarded
             peer["actions_count"] += 1
             peer["last_active"] = now
@@ -445,6 +461,7 @@ class TinCanMeshOSEngine:
         match_id: Optional[str] = None,
         cost_usd: Optional[float] = None,
         tokens: Optional[int] = None,
+        feedback: str = "",
     ) -> Dict[str, Any]:
         """Increment votes for winner, award brain_arena_match XP, and record flight.
 
@@ -454,6 +471,7 @@ class TinCanMeshOSEngine:
         ``model_a``/``model_b`` are the two models that were compared and
         ``winner_side`` is "A" or "B"; they are stored with the match record.
         """
+        clean_feedback = str(feedback or "").strip()[:500]
         with self._lock:
             self.arena_votes[winner_alias] = self.arena_votes.get(winner_alias, 0) + 1
             match = {
@@ -466,6 +484,7 @@ class TinCanMeshOSEngine:
                 "match_id": match_id,
                 "cost_usd": cost_usd,
                 "tokens": tokens,
+                "feedback": clean_feedback,
                 "timestamp": time.time(),
             }
             self.arena_matches.append(match)
@@ -476,7 +495,8 @@ class TinCanMeshOSEngine:
                 action_key="brain_arena_match",
                 display_name=display_name,
                 metadata={"winner_alias": winner_alias, "prompt_preview": prompt_preview,
-                          "model_a": model_a, "model_b": model_b, "winner_side": winner_side},
+                          "model_a": model_a, "model_b": model_b, "winner_side": winner_side,
+                          "feedback": clean_feedback},
             )
             flight = self.record_flight(
                 from_node=peer_id,
@@ -495,6 +515,7 @@ class TinCanMeshOSEngine:
                 "match_id": match_id,
                 "cost_usd": cost_usd,
                 "tokens": tokens,
+                "feedback": clean_feedback,
                 "flight": flight,
                 "xp_awarded": award_res["awarded_xp"],
                 "total_xp": self.total_xp,

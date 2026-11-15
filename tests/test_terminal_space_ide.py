@@ -53,7 +53,8 @@ def test_terminal_window_is_install_card_plus_shell_only():
 
 def test_space_window_is_a_vscode_style_ide():
     space = _window("win-agentspace")
-    assert "Space · Ranger VFS &amp; Wasm Studio" in space
+    assert '<span class="window-title tc-titlebar__title" title="Workstation">Workstation</span>' in space
+    assert '<span class="tc-titlebar__badge" title="VFS · 3D">VFS · 3D</span>' in space
     # explorer (existing ranger list + places), editor with tabs, integrated terminal, status bar
     assert 'id="rangerListPane"' in space and 'id="spaceFileList"' in space and 'id="drivePlacesList"' in space
     assert 'id="ideTabs"' in space and 'id="agentspaceEditor"' in space

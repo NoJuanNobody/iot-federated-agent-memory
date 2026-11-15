@@ -22,7 +22,8 @@ def test_parse_unified_query():
     P = CyberspaceBoardEngine.parse_unified_query
     assert P("crdt #Architecture @gemini-brain is:verified") == {
         "command": "search", "tags": ["architecture"], "mentions": ["gemini-brain"],
-        "verified_only": True, "text": "crdt"}
+        "verified_only": True, "curated_only": False, "text": "crdt"}
+    assert P("is:curated #architecture")["curated_only"] is True
     assert P("/topic graph rag")["tags"] == ["graph-rag"]
     assert P("/topic graph rag")["text"] == "" and P("/topic bm25")["command"] == "topic"
     assert P("/search webrtc mesh")["text"] == "webrtc mesh"
@@ -102,6 +103,28 @@ def test_endpoints(live):
     assert s["groups"][0]["items"][0]["token"] == "@gemini-brain"
     t = _get(f"{live}/api/board/trending?days=7&limit=3")
     assert len(t["items"]) <= 3 and t["window"] in ("7d", "all")
+
+    topics = _get(f"{live}/api/board/topics")["topics"]
+    tid = topics[0]["topic_id"]
+    req_curate = urllib.request.Request(
+        f"{live}/api/board/curate",
+        data=json.dumps({"topic_id": tid, "peer_id": "p1", "curated": True}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req_curate, timeout=15) as r:
+        assert r.status == 200
+        assert json.loads(r.read())["curated"] is True
+
+    req_suggest = urllib.request.Request(
+        f"{live}/api/board/ai-suggest",
+        data=json.dumps({"query": "/post", "limit": 4}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req_suggest, timeout=15) as r:
+        assert r.status == 200
+        assert isinstance(json.loads(r.read())["suggestions"], list)
 
 
 def test_ui_has_one_search_input_and_no_old_form():

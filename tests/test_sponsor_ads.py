@@ -279,3 +279,54 @@ def test_admin_ad_intelligence_gathering_telemetry(live_server):
         assert data["telemetry"]["admin_intel_count"] >= 1
 
 
+def test_home_screen_sponsored_playlist_video_id_matches_view_start(live_server, tmp_path, monkeypatch):
+    """Home screen clips with category='ad' resolve via raw video_id on /api/ads/view/start."""
+    import time
+    from iot_federated_agent_memory.account_registry import PeerAccountRegistry
+
+    monkeypatch.setattr(server, "account_registry", PeerAccountRegistry(db_path=str(tmp_path / "accounts.db")))
+    peer_id = "peer-home-ad-auto"
+    reg_req = urllib.request.Request(
+        f"{live_server}/api/account/register",
+        data=json.dumps({
+            "peer_id": peer_id,
+            "full_name": "Home Auto Earn Tester",
+            "email": f"{peer_id}@fau.edu",
+            "phone_number": "+15615559988",
+        }).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(reg_req) as resp:
+        assert resp.status == 201
+
+    # Sync /api/ads/view/start with playlist video_id 'ad-artcraft-studio'
+    start_req = urllib.request.Request(
+        f"{live_server}/api/ads/view/start",
+        data=json.dumps({"peer_id": peer_id, "sponsor_id": "ad-artcraft-studio"}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(start_req) as resp:
+        assert resp.status == 200
+        start_data = json.loads(resp.read().decode("utf-8"))
+        assert start_data["view_token"]
+        assert 1 <= start_data["min_seconds"] <= 10
+
+    # Simulate short duration credit check using monkeypatched _ad_views started time
+    with server._ad_views_lock:
+        server._ad_views[start_data["view_token"]]["started"] = time.time() - 12.0
+
+    done_req = urllib.request.Request(
+        f"{live_server}/api/ads/view/complete",
+        data=json.dumps({"peer_id": peer_id, "view_token": start_data["view_token"]}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(done_req) as resp:
+        assert resp.status == 200
+        done_data = json.loads(resp.read().decode("utf-8"))
+        assert done_data["status"] == "credited"
+        assert done_data["reward_tokens"] == 5000
+
+

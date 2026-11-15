@@ -131,9 +131,11 @@ def test_local_vs_cloud_preset_rag_cap_savings_and_pro_strip():
         assert f'id="{prefix}RagBadge"' in win
         assert f'id="{prefix}PreAuthCap"' in win
         assert f'id="{prefix}ProStrip"' in win
-        assert "PRO MONETIZATION TELEMETRY" in win
-        assert "Upgrade Arena Pro" in win
-        assert "toggleWindow('win-billing')" in win
+        assert "AD-SUPPORTED AI CREDITS" in win
+        assert "Watch Home Screen Ads" in win
+        assert "zenWatchHomeAd" in win
+        assert "toggleWindow('win-ai-home')" in win
+        assert "Run Arena" in win
         for side in "AB":
             assert f'id="{prefix}Savings{side}"' in win
             assert f'id="{prefix}TierTag{side}"' in win
@@ -311,4 +313,4 @@ global.fetch = async (url) => {
     assert "/uploads/relay.py" in out["ragBadge"]
     assert "ZERO-BURN FREE" in out["savingsA"] and "0.018000" in out["savingsA"] and "#107a47" in out["savingsACls"]
     assert "CLOUD BILLED" in out["savingsB"] and "#8a1c1c" in out["savingsBCls"]
-    assert "PRO MONETIZATION TELEMETRY: ZERO-BURN SAVED 100% VS CLOUD" in out["proTitle"]
+    assert "AD-SUPPORTED CREDITS: ZERO-BURN SAVED 100% VS CLOUD" in out["proTitle"]

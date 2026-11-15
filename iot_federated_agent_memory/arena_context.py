@@ -42,6 +42,7 @@ import sqlite3
 import tempfile
 import threading
 import time
+from contextlib import contextmanager
 from typing import Any, Dict, List, Optional, Tuple
 
 from . import drive_mirror
@@ -92,6 +93,45 @@ def validate_agent_id(agent_id: Any) -> str:
         raise ContextStoreError(
             "agent_id must be 1-48 characters: lowercase letters, digits, '-' or '_'.", 400, "bad_agent_id")
     return aid
+
+
+def resolve_agent_ids(raw_agent_id: Any, agent_ids: Optional[List[Any]] = None) -> List[str]:
+    """Resolve single agent_id, explicit list, or 'both'/'all' -> ['brain-a', 'brain-b']."""
+    if isinstance(agent_ids, list) and agent_ids:
+        out: List[str] = []
+        for item in agent_ids:
+            aid = validate_agent_id(item)
+            if aid not in out:
+                out.append(aid)
+        return out
+    raw = str(raw_agent_id or "").strip().lower()
+    if raw in ("both", "all", "*"):
+        return ["brain-a", "brain-b"]
+    return [validate_agent_id(raw_agent_id)]
+
+
+def default_context_palace_path() -> str:
+    env = (os.environ.get("CONTEXT_PALACE_DB") or os.environ.get("TINCAN_CONTEXT_PALACE_DB") or "").strip()
+    if env:
+        return os.path.abspath(os.path.expanduser(env))
+    return os.path.abspath(os.path.join(os.path.expanduser("~"), ".context_palace", "context_lake.db"))
+
+
+def derive_description(path: str, text: str, explicit: Optional[str] = None) -> str:
+    """Return user-provided description or a clean 1-line summary extracted from text."""
+    if explicit is not None:
+        cleaned = " ".join(str(explicit).split()).strip()
+        if cleaned:
+            return cleaned[:280]
+    for line in (text or "").splitlines():
+        s = line.strip()
+        if not s or s.startswith("<!--"):
+            continue
+        s = re.sub(r"^[#*>\-\s`]+", "", s).strip()
+        if s:
+            return s[:180]
+    base = posixpath.basename(str(path or "").strip())
+    return f"Context document: {base}" if base else "Context document"
 
 
 def normalize_context_path(path: Any, default_dir: str = "/uploads") -> str:
@@ -249,6 +289,7 @@ CREATE TABLE IF NOT EXISTS ctx_files (
     path TEXT PRIMARY KEY,
     source TEXT NOT NULL,
     origin TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
     sha256 TEXT NOT NULL,
     size_bytes INTEGER NOT NULL,
     mime_type TEXT NOT NULL DEFAULT 'text/plain',
@@ -281,22 +322,42 @@ class AgentContextStore:
         self.lake_path = os.path.join(self.dir, "lake.db")
         self.lake = ContextLake(self.lake_path)
         self.retriever = DualDirectionRetriever(self.lake)
-        with self._db() as conn:
+        with self._db_tx() as conn:
             conn.executescript(_FILES_SCHEMA)
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(ctx_files)").fetchall()}
+            if "description" not in cols:
+                conn.execute("ALTER TABLE ctx_files ADD COLUMN description TEXT NOT NULL DEFAULT ''")
 
     def _db(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.lake_path, check_same_thread=False, timeout=10)
         conn.row_factory = sqlite3.Row
         return conn
 
+    @contextmanager
+    def _db_tx(self):
+        conn = self._db()
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
+
+    def close(self) -> None:
+        conn = getattr(self.lake, "_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
     # ------------------------------------------------------------ bookkeeping
     def _indexed(self) -> Dict[str, Dict[str, Any]]:
-        with self._db() as conn:
+        with self._db_tx() as conn:
             return {r["path"]: dict(r) for r in conn.execute("SELECT * FROM ctx_files")}
 
     def _chunk_ids(self, path: str) -> List[str]:
         prefix = path + "#"
-        with self._db() as conn:
+        with self._db_tx() as conn:
             rows = conn.execute(
                 "SELECT node_id FROM concept_nodes WHERE substr(canonical_name, 1, ?) = ?",
                 (len(prefix), prefix),
@@ -308,7 +369,7 @@ class AgentContextStore:
             self.lake.delete_concept(node_id, hard=True)
 
     def _index(self, path: str, text: str, source: str, origin: str, sha: str, size: int,
-               mime: str, added_by: str) -> int:
+               mime: str, added_by: str, description: Optional[str] = None) -> int:
         self._drop_chunks(path)
         chunks = chunk_text(text)
         prev_id = None
@@ -327,18 +388,25 @@ class AgentContextStore:
                 self.lake.add_edge(prev_id, node.node_id, "next_chunk", source_agent_id=self.agent_id)
             prev_id = node.node_id
         now = time.time()
-        with self._db() as conn:
-            existing = conn.execute("SELECT added_at, added_by FROM ctx_files WHERE path = ?", (path,)).fetchone()
+        with self._db_tx() as conn:
+            existing = conn.execute(
+                "SELECT added_at, added_by, description FROM ctx_files WHERE path = ?", (path,)
+            ).fetchone()
+            desc = derive_description(
+                path,
+                text,
+                explicit=description if description is not None else (existing["description"] if existing else None),
+            )
             conn.execute(
                 """
-                INSERT INTO ctx_files (path, source, origin, sha256, size_bytes, mime_type, chunk_count,
+                INSERT INTO ctx_files (path, source, origin, description, sha256, size_bytes, mime_type, chunk_count,
                                        added_by, added_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(path) DO UPDATE SET source=excluded.source, origin=excluded.origin,
-                    sha256=excluded.sha256, size_bytes=excluded.size_bytes, mime_type=excluded.mime_type,
-                    chunk_count=excluded.chunk_count, updated_at=excluded.updated_at
+                    description=excluded.description, sha256=excluded.sha256, size_bytes=excluded.size_bytes,
+                    mime_type=excluded.mime_type, chunk_count=excluded.chunk_count, updated_at=excluded.updated_at
                 """,
-                (path, source, origin, sha, size, mime, len(chunks),
+                (path, source, origin, desc, sha, size, mime, len(chunks),
                  existing["added_by"] if existing else added_by,
                  existing["added_at"] if existing else now, now),
             )
@@ -346,7 +414,7 @@ class AgentContextStore:
 
     def _forget(self, path: str) -> None:
         self._drop_chunks(path)
-        with self._db() as conn:
+        with self._db_tx() as conn:
             conn.execute("DELETE FROM ctx_files WHERE path = ?", (path,))
 
     def _space_user_files(self) -> List[Dict[str, Any]]:
@@ -418,7 +486,7 @@ class AgentContextStore:
             raise ContextStoreError("This brain's store is full (16 MB).", 413, "store_full")
 
     def ingest_text(self, path: Any, text: str, source: str = "upload", added_by: str = "user",
-                    origin: str = "") -> Dict[str, Any]:
+                    origin: str = "", description: Optional[str] = None) -> Dict[str, Any]:
         if source not in ("upload", "paste", "import"):
             raise ContextStoreError("source must be upload, paste or import.", 400, "bad_source")
         norm = normalize_context_path(path, default_dir="/pasted" if source == "paste" else "/uploads")
@@ -429,18 +497,20 @@ class AgentContextStore:
             self._check_quota(norm, len(raw))
             rec = self.space.write_file(norm, raw, updated_by=added_by[:64] or "user")
             chunks = self._index(norm, text, source, origin, rec["sha256"], rec["size_bytes"],
-                                 rec.get("mime_type") or "text/plain", added_by)
-        return {"path": norm, "source": source, "size_bytes": rec["size_bytes"], "sha256": rec["sha256"],
-                "chunks": chunks}
+                                 rec.get("mime_type") or "text/plain", added_by, description=description)
+        desc = derive_description(norm, text, description)
+        return {"path": norm, "source": source, "origin": origin, "description": desc,
+                "size_bytes": rec["size_bytes"], "sha256": rec["sha256"], "chunks": chunks}
 
-    def ingest_bytes(self, name: Any, raw: bytes, source: str = "upload", added_by: str = "user") -> List[Dict[str, Any]]:
+    def ingest_bytes(self, name: Any, raw: bytes, source: str = "upload", added_by: str = "user",
+                     description: Optional[str] = None) -> List[Dict[str, Any]]:
         """Ingest an uploaded file. A .space container is unpacked file by file."""
         if raw.startswith(SQLITE_MAGIC):
             return self.import_space_container(raw, added_by=added_by)
         text = decode_text(raw)
         if text is None:
             raise ContextStoreError(f"{name} is not a UTF-8 text file.", 415, "not_text")
-        return [self.ingest_text(name, text, source=source, added_by=added_by)]
+        return [self.ingest_text(name, text, source=source, added_by=added_by, description=description)]
 
     def import_space_container(self, raw: bytes, added_by: str = "user", prefix: str = "/imported") -> List[Dict[str, Any]]:
         if len(raw) > MAX_AGENT_BYTES:
@@ -525,6 +595,38 @@ class AgentContextStore:
             out.append({"path": dest, "source": "drive", "origin": rec["path"], "size_bytes": len(raw),
                         "chunks": chunks})
         return out
+
+    def update_file(self, path: Any, content: Optional[str] = None, description: Optional[str] = None,
+                    added_by: str = "user") -> Dict[str, Any]:
+        """Full CRUD update: edit content and/or description of an indexed context file."""
+        norm = normalize_context_path(path)
+        with self._lock:
+            self.sync()
+            row = self._indexed().get(norm)
+            if not row:
+                raise ContextStoreError("File not found in this brain's store.", 404, "not_found")
+            if content is not None:
+                if not isinstance(content, str):
+                    raise ContextStoreError("content must be text.", 400, "bad_content")
+                raw = content.encode("utf-8")
+                self._check_quota(norm, len(raw))
+                rec = self.space.write_file(norm, raw, updated_by=added_by[:64] or "user")
+                new_source = "paste" if row["source"] == "drive" else row["source"]
+                self._index(
+                    norm, content, new_source, row["origin"],
+                    rec["sha256"], rec["size_bytes"], rec.get("mime_type") or "text/plain",
+                    added_by, description=description,
+                )
+            elif description is not None:
+                clean_desc = " ".join(str(description).split()).strip()[:280]
+                with self._db_tx() as conn:
+                    conn.execute(
+                        "UPDATE ctx_files SET description = ?, updated_at = ? WHERE path = ?",
+                        (clean_desc, time.time(), norm),
+                    )
+            else:
+                raise ContextStoreError("Provide content and/or description to update.", 400, "nothing_to_update")
+        return self.read_file(norm)
 
     def delete(self, path: Any) -> bool:
         norm = normalize_context_path(path)
@@ -666,15 +768,37 @@ def build_context_messages(agent_id: str, model: str, context: Dict[str, Any]) -
 
 
 # ----------------------------------------------------------------- registry
-class ArenaContextRegistry:
-    """Caches one AgentContextStore per (account, agent)."""
+def _serialize_palace_node(node: Any) -> Dict[str, Any]:
+    return {
+        "node_id": node.node_id,
+        "canonical_name": node.canonical_name,
+        "category": node.category,
+        "value": node.active_value,
+        "active_value": node.active_value,
+        "summary": node.summary or derive_description(node.canonical_name, node.active_value),
+        "confidence": float(node.confidence),
+        "pinned": bool(node.pinned),
+        "source_agent_id": node.source_agent_id,
+        "created_at": float(node.created_at),
+        "updated_at": float(node.updated_at),
+        "tokens_est": estimate_tokens(node.active_value),
+    }
 
-    def __init__(self, root_dir: Optional[str] = None, drive: Optional[DriveMirrorSource] = None):
+
+class ArenaContextRegistry:
+    """Caches one AgentContextStore per (account, agent) and bridges Context Palace + Universal Inventory."""
+
+    def __init__(self, root_dir: Optional[str] = None, drive: Optional[DriveMirrorSource] = None,
+                 palace_db_path: Optional[str] = None):
         self.root_dir = os.path.abspath(root_dir or default_context_root())
         os.makedirs(self.root_dir, exist_ok=True)
         self.drive = drive or DriveMirrorSource()
+        self.palace_db_path = os.path.abspath(os.path.expanduser(palace_db_path)) if palace_db_path else None
         self._stores: Dict[Tuple[str, str], AgentContextStore] = {}
         self._lock = threading.Lock()
+
+    def palace_path(self) -> str:
+        return self.palace_db_path or default_context_palace_path()
 
     def store(self, account_peer_id: str, agent_id: Any) -> AgentContextStore:
         if not account_peer_id:
@@ -693,6 +817,13 @@ class ArenaContextRegistry:
                 self._stores[key] = st
             return st
 
+    def close_all(self) -> None:
+        with self._lock:
+            stores = list(self._stores.values())
+            self._stores.clear()
+        for st in stores:
+            st.close()
+
     def list_agents(self, account_peer_id: str) -> List[Dict[str, Any]]:
         base = os.path.join(self.root_dir, account_dir_name(account_peer_id))
         if not os.path.isdir(base):
@@ -702,3 +833,293 @@ class ArenaContextRegistry:
             if AGENT_ID_RE.match(name) and os.path.isdir(os.path.join(base, name)):
                 out.append(self.store(account_peer_id, name).summary())
         return out
+
+    # ---------------------------------------------------- Context Palace bridge
+    def list_palace_concepts(self, query: str = "", category: Optional[str] = None,
+                             limit: int = 80) -> Dict[str, Any]:
+        db_path = self.palace_path()
+        if not os.path.exists(db_path):
+            return {"db_path": db_path, "exists": False, "concepts": [], "count": 0}
+        lake = ContextLake(db_path)
+        try:
+            nodes = lake.list_concepts(include_tombstoned=False, category=category or None)
+        finally:
+            lake._conn.close()
+        q = str(query or "").strip().lower()
+        terms = [t for t in q.split() if t]
+        filtered = []
+        for n in nodes:
+            if terms:
+                hay = f"{n.canonical_name} {n.category} {n.summary} {n.active_value}".lower()
+                if not all(t in hay for t in terms):
+                    continue
+            filtered.append(_serialize_palace_node(n))
+        cap = max(1, min(int(limit or 80), 200))
+        sliced = filtered[:cap]
+        return {"db_path": db_path, "exists": True, "concepts": sliced, "count": len(filtered)}
+
+    def palace_crud(self, action: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        act = str(action or "list").strip().lower()
+        payload = data or {}
+        if act == "list":
+            return self.list_palace_concepts(
+                query=str(payload.get("q") or payload.get("query") or ""),
+                category=payload.get("category"),
+                limit=int(payload.get("limit") or 80),
+            )
+        db_path = self.palace_path()
+        if act == "read" and not os.path.exists(db_path):
+            raise ContextStoreError("Context Palace concept not found.", 404, "palace_not_found")
+        lake = ContextLake(db_path)
+        try:
+            if act == "read":
+                key = str(payload.get("node_id") or payload.get("id") or payload.get("canonical_name") or "").strip()
+                node = lake.get_concept(key)
+                if not node:
+                    raise ContextStoreError(f"Context Palace concept not found: {key}", 404, "palace_not_found")
+                return {"action": "read", "concept": _serialize_palace_node(node), "db_path": db_path}
+            if act == "create":
+                name = str(payload.get("canonical_name") or payload.get("name") or payload.get("title") or "").strip()
+                val = payload.get("value") if payload.get("value") is not None else payload.get("content")
+                if not name or val is None or not str(val).strip():
+                    raise ContextStoreError("canonical_name and value are required.", 400, "missing_fields")
+                cat = str(payload.get("category") or "knowledge").strip() or "knowledge"
+                summary = str(payload.get("summary") or payload.get("description") or "").strip()
+                node = lake.create_concept(
+                    canonical_name=name,
+                    category=cat,
+                    value=str(val),
+                    summary=summary,
+                    confidence=float(payload.get("confidence") or 0.9),
+                    source_agent_id=str(payload.get("source_agent_id") or "operator"),
+                    provenance_type="operator_crud",
+                    pinned=bool(payload.get("pinned", False)),
+                )
+                return {"action": "create", "concept": _serialize_palace_node(node), "db_path": db_path}
+            if act == "update":
+                key = str(payload.get("node_id") or payload.get("id") or payload.get("canonical_name") or "").strip()
+                existing = lake.get_concept(key, include_tombstoned=True)
+                if not existing:
+                    raise ContextStoreError(f"Context Palace concept not found: {key}", 404, "palace_not_found")
+                new_val = payload.get("value")
+                if new_val is None:
+                    new_val = payload.get("content")
+                if new_val is None:
+                    new_val = existing.active_value
+                summary = payload.get("summary") if payload.get("summary") is not None else payload.get("description")
+                if summary is None:
+                    summary = existing.summary
+                node = lake.update_concept(
+                    existing.node_id,
+                    new_value=str(new_val),
+                    summary=str(summary),
+                    confidence=float(payload.get("confidence") or existing.confidence),
+                    source_agent_id=str(payload.get("source_agent_id") or "operator"),
+                    pinned=payload.get("pinned") if "pinned" in payload else None,
+                    category=payload.get("category"),
+                    canonical_name=payload.get("canonical_name") or payload.get("name"),
+                )
+                return {"action": "update", "concept": _serialize_palace_node(node), "db_path": db_path}
+            if act == "pin":
+                key = str(payload.get("node_id") or payload.get("id") or payload.get("canonical_name") or "").strip()
+                node = lake.pin_concept(key, pinned=bool(payload.get("pinned", True)))
+                if not node:
+                    raise ContextStoreError(f"Context Palace concept not found: {key}", 404, "palace_not_found")
+                return {"action": "pin", "concept": _serialize_palace_node(node), "db_path": db_path}
+            if act == "delete":
+                key = str(payload.get("node_id") or payload.get("id") or payload.get("canonical_name") or "").strip()
+                ok = lake.delete_concept(key, hard=bool(payload.get("hard", False)))
+                if not ok:
+                    raise ContextStoreError(f"Context Palace concept not found: {key}", 404, "palace_not_found")
+                return {"action": "delete", "deleted": key, "db_path": db_path}
+            raise ContextStoreError(
+                "action must be list, read, create, update, pin, or delete.", 400, "bad_palace_action")
+        finally:
+            lake._conn.close()
+
+    def import_from_palace(self, account_peer_id: str, agent_id: Any, node_ids: Optional[List[str]] = None,
+                           query: str = "", added_by: str = "user") -> Dict[str, Any]:
+        db_path = self.palace_path()
+        if not os.path.exists(db_path):
+            raise ContextStoreError("No Context Palace database found on this machine.", 404, "palace_empty")
+        lake = ContextLake(db_path)
+        try:
+            all_nodes = lake.list_concepts(include_tombstoned=False)
+        finally:
+            lake._conn.close()
+        wanted = {str(n).strip() for n in (node_ids or []) if str(n).strip()}
+        q = str(query or "").strip().lower()
+        chosen = []
+        for n in all_nodes:
+            if wanted:
+                if n.node_id in wanted or n.canonical_name in wanted:
+                    chosen.append(n)
+            elif q:
+                if q in f"{n.canonical_name} {n.category} {n.summary} {n.active_value}".lower():
+                    chosen.append(n)
+            else:
+                chosen.append(n)
+        if not wanted:
+            chosen = chosen[:12]
+        if not chosen:
+            raise ContextStoreError("No matching Context Palace concepts to import.", 404, "palace_no_match")
+        targets = resolve_agent_ids(agent_id)
+        results = []
+        for aid in targets:
+            st = self.store(account_peer_id, aid)
+            added = []
+            for n in chosen:
+                slug = re.sub(r"[^a-zA-Z0-9._-]+", "-", n.canonical_name.lower()).strip("-") or n.node_id
+                dest = normalize_context_path(f"/palace/{slug[:80]}.md")
+                body = f"# {n.canonical_name}\n\nCategory: {n.category}\n"
+                if n.summary:
+                    body += f"Summary: {n.summary}\n"
+                body += f"\n{n.active_value}\n"
+                added.append(st.ingest_text(
+                    dest, body, source="import", added_by=added_by,
+                    origin=f"palace:{n.node_id}", description=n.summary or n.canonical_name,
+                ))
+            results.append({"agent_id": aid, "added": added, **st.summary()})
+        return {
+            "agent_id": "both" if len(targets) > 1 else targets[0],
+            "agent_ids": targets,
+            "imported_count": len(chosen),
+            "results": results,
+            "added": results[0]["added"] if len(results) == 1 else [item for r in results for item in r["added"]],
+        }
+
+    def get_universal_inventory(self, account_peer_id: str, agent_a: str = "brain-a", agent_b: str = "brain-b",
+                                query: str = "", space_manager: Any = None,
+                                include_palace: bool = True, include_drive: bool = True) -> Dict[str, Any]:
+        """Aggregate every inspectable context source (Brain A, Brain B, User Space, Context Palace, Drive Mirror)."""
+        aid_a = validate_agent_id(agent_a or "brain-a")
+        aid_b = validate_agent_id(agent_b or "brain-b")
+        q = str(query or "").strip().lower()
+
+        def matches(text: str) -> bool:
+            return (not q) or all(tok in text.lower() for tok in q.split())
+
+        files_a = self.store(account_peer_id, aid_a).list_files()
+        files_b = self.store(account_peer_id, aid_b).list_files()
+        map_a = {f["path"]: f for f in files_a}
+        map_b = {f["path"]: f for f in files_b}
+        shared_paths = sorted(set(map_a) & set(map_b))
+
+        items: List[Dict[str, Any]] = []
+        seen_brain_paths = set()
+        for f in files_a + files_b:
+            p = f["path"]
+            if p in seen_brain_paths:
+                continue
+            seen_brain_paths.add(p)
+            in_a = p in map_a
+            in_b = p in map_b
+            desc = f.get("description") or f.get("origin") or f"Context file ({f.get('source', 'upload')})"
+            if not matches(f"{p} {desc} {f.get('source', '')}"):
+                continue
+            items.append({
+                "kind": "both" if (in_a and in_b) else (aid_a if in_a else aid_b),
+                "source_group": "brains",
+                "id": p,
+                "path": p,
+                "title": posixpath.basename(p) or p,
+                "description": desc,
+                "size_bytes": f.get("size_bytes", 0),
+                "source": f.get("source", "upload"),
+                "in_a": in_a,
+                "in_b": in_b,
+                "updated_at": f.get("updated_at", 0),
+            })
+
+        space_items: List[Dict[str, Any]] = []
+        if space_manager is not None:
+            try:
+                sp = space_manager.get_or_create_space("user", account_peer_id)
+                for f in sp.list_files():
+                    if f.get("updated_by") == "system":
+                        continue
+                    p = f["path"]
+                    desc = f"Workstation .space ({f.get('mime_type', 'text')})"
+                    if matches(f"{p} {desc}"):
+                        entry = {
+                            "kind": "space",
+                            "source_group": "space",
+                            "id": p,
+                            "path": p,
+                            "title": posixpath.basename(p) or p,
+                            "description": desc,
+                            "size_bytes": f.get("size_bytes", 0),
+                            "source": "space",
+                            "in_a": ("/my-space/" + p.lstrip("/")) in map_a,
+                            "in_b": ("/my-space/" + p.lstrip("/")) in map_b,
+                            "updated_at": f.get("updated_at", 0),
+                        }
+                        space_items.append(entry)
+                        items.append(entry)
+            except Exception:
+                pass
+
+        palace_info = {"db_path": self.palace_path(), "exists": False, "concepts": [], "count": 0}
+        if include_palace:
+            palace_info = self.list_palace_concepts(query=query, limit=80)
+            for c in palace_info["concepts"]:
+                items.append({
+                    "kind": "palace",
+                    "source_group": "palace",
+                    "id": c["node_id"],
+                    "node_id": c["node_id"],
+                    "path": f"/palace/{c['canonical_name']}",
+                    "title": c["canonical_name"],
+                    "category": c["category"],
+                    "description": c["summary"],
+                    "value": c["value"],
+                    "tokens_est": c["tokens_est"],
+                    "pinned": c["pinned"],
+                    "updated_at": c["updated_at"],
+                })
+
+        drive_items: List[Dict[str, Any]] = []
+        if include_drive and self.drive.enabled():
+            try:
+                for df in self.drive.list_files("/")[:50]:
+                    p = df.get("path") or ""
+                    if not p or not _is_text_name(p):
+                        continue
+                    if not matches(p):
+                        continue
+                    entry = {
+                        "kind": "drive",
+                        "source_group": "drive",
+                        "id": p,
+                        "path": p,
+                        "title": posixpath.basename(p) or p,
+                        "description": "Local Drive Mirror file",
+                        "size_bytes": df.get("size_bytes", 0),
+                        "source": "drive",
+                    }
+                    drive_items.append(entry)
+                    items.append(entry)
+            except Exception:
+                pass
+
+        return {
+            "query": query,
+            "agent_a": aid_a,
+            "agent_b": aid_b,
+            "shared_in_both": shared_paths,
+            "counts": {
+                "brain_a": len(files_a),
+                "brain_b": len(files_b),
+                "shared": len(shared_paths),
+                "space": len(space_items),
+                "palace": palace_info["count"],
+                "drive": len(drive_items),
+                "total": len(items),
+            },
+            "brain_a_files": files_a,
+            "brain_b_files": files_b,
+            "space_files": space_items,
+            "palace": palace_info,
+            "drive_files": drive_items,
+            "items": items,
+        }

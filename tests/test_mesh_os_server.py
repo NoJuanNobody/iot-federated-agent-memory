@@ -2,6 +2,7 @@
 
 import json
 import threading
+import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
 
@@ -225,3 +226,120 @@ def test_terminal_ai_redesign_routes_and_telemetry_endpoints(live_mesh_server):
         assert "daily_ad_cap" in tok_data
         assert "ledger_rows" in tok_data
         assert "rodin" in tok_data
+
+
+def test_network_no_seed_peers_and_quests_admin_mint_and_home_auto_earn(live_mesh_server, monkeypatch):
+    # 1. Server must NOT pre-seed fake Mac Studio / Collaborator Node streams
+    with urllib.request.urlopen(f"{live_mesh_server}/api/mesh/state?room=main") as resp:
+        state = json.loads(resp.read().decode("utf-8"))
+        stream_ids = {p.get("peer_id") for p in state["active_webrtc_streams"]}
+        assert "peer-primary-mac" not in stream_ids
+        assert "peer-secondary-node" not in stream_ids
+
+    # 2. UI merges network tabs/stats cleanly, supports Ping/Message on visitors & peers,
+    # removes hardcoded fallback peer strings, and gently routes Arena & Leaderboard in Quests
+    for marker in (
+        'id="netMessageDrawer"',
+        "pingNetworkPeer(",
+        "openPeerMessage(",
+        'id="mintRequestDrawer"',
+        'id="questsAdminMintCard"',
+        "openAddMoneyFromQuests()",
+        'id="questsArenaDisclosure"',
+        'id="questsLeaderboardDisclosure"',
+        "startHomeSponsoredAd(",
+        "completeHomeSponsoredAd(",
+    ):
+        assert marker in MESH_OS_HTML_UI, f"Missing expected updated marker: {marker}"
+
+    for stale_seed in (
+        "Mac Studio (M1 Max)",
+        "Collaborator MacBook",
+        "Active WebRTC Stream",
+        "24ms RTT",
+        "mintedRewardBalance +=",
+    ):
+        assert stale_seed not in MESH_OS_HTML_UI, f"Found stale hardcoded marker: {stale_seed}"
+
+    # 3. Sign-on onboarding quests award XP at most once per peer
+    q_peer = "peer-signon-once"
+    for expected_status, expected_xp in (("awarded", 100), ("already_completed", 0)):
+        q_req = urllib.request.Request(
+            f"{live_mesh_server}/api/mesh/quest",
+            data=json.dumps({"peer_id": q_peer, "action_key": "sealed_courier"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(q_req) as resp:
+            q_data = json.loads(resp.read().decode("utf-8"))
+            assert q_data["status"] == expected_status
+            assert q_data["signon_only"] is True
+            assert q_data["award"]["awarded_xp"] == expected_xp
+
+    # 4. Mint Request queue + Admin-only credit routing
+    req_peer = "peer-mint-req"
+    cust_peer = "peer-mint-cust"
+    for pid, name in ((req_peer, "Requester Peer"), (cust_peer, "Customer Peer")):
+        reg = urllib.request.Request(
+            f"{live_mesh_server}/api/account/register",
+            data=json.dumps({
+                "peer_id": pid,
+                "full_name": name,
+                "email": f"{pid}@fau.edu",
+                "phone_number": "+15615550101",
+            }).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(reg) as r:
+            assert r.status == 201
+
+    with urllib.request.urlopen(f"{live_mesh_server}/api/account/billing?peer_id={cust_peer}") as resp:
+        bal_initial = json.loads(resp.read().decode("utf-8"))["token_balance"]
+
+    mreq = urllib.request.Request(
+        f"{live_mesh_server}/api/tokens/mint-request",
+        data=json.dumps({
+            "peer_id": req_peer,
+            "target_peer_id": cust_peer,
+            "tokens": 250,
+            "reason": "Route welcome grant to customer",
+        }).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(mreq) as resp:
+        assert resp.status == 201
+        m_data = json.loads(resp.read().decode("utf-8"))
+        assert m_data["status"] == "pending_admin_approval"
+        req_id = m_data["request"]["id"]
+
+    # Requesting mint must NOT change the customer balance before admin approval
+    with urllib.request.urlopen(f"{live_mesh_server}/api/account/billing?peer_id={cust_peer}") as resp:
+        bal_before = json.loads(resp.read().decode("utf-8"))["token_balance"]
+        assert bal_before == bal_initial
+
+    # Non-admin resolution attempt fails 403
+    monkeypatch.setattr(server, "TINCAN_ADMIN_KEY", "test-secret-admin-key")
+    bad_resolve = urllib.request.Request(
+        f"{live_mesh_server}/api/tokens/mint-requests/resolve",
+        data=json.dumps({"request_id": req_id, "decision": "approve"}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with pytest.raises(urllib.error.HTTPError) as exc:
+        urllib.request.urlopen(bad_resolve)
+    assert exc.value.code == 403
+
+    # Valid Admin Key approves & routes tokens to target customer peer
+    good_resolve = urllib.request.Request(
+        f"{live_mesh_server}/api/tokens/mint-requests/resolve",
+        data=json.dumps({"request_id": req_id, "decision": "approve"}).encode("utf-8"),
+        headers={"Content-Type": "application/json", "X-Admin-Key": "test-secret-admin-key"},
+        method="POST",
+    )
+    with urllib.request.urlopen(good_resolve) as resp:
+        assert resp.status == 200
+        res_data = json.loads(resp.read().decode("utf-8"))
+        assert res_data["status"] == "approved"
+        assert res_data["account"]["token_balance"] == bal_initial + 250

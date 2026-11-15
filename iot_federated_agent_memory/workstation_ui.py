@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import html as _html
 import json
+import re as _re
 from typing import Any, Dict, List, Tuple
 
 # (key, label, badge_text, badge_kind, privacy_mode_label)
@@ -184,8 +185,8 @@ def _render_arena_column(side: str, subtitle: str, default_model: str, default_n
 
 
 def _workstation_css() -> str:
-    return r"""      <style id="workstationUiCss">
-        /* TinCan Workstation Studio: Aeonik Celadon & Ink (#ecf1e6 / #f4f8f0 / #ffffff / #111111) */
+    raw = r"""      <style id="workstationUiCss">
+        /* TinCan 3D Studio: Aeonik Celadon & Ink (#ecf1e6 / #f4f8f0 / #ffffff / #111111) */
         #win-workstation {
           --ws-bg: #ecf1e6;
           --ws-card: #f4f8f0;
@@ -422,7 +423,9 @@ def _workstation_css() -> str:
         #win-workstation .ws-select,
         #win-workstation .ws-textarea {
           width: 100%;
+          max-width: 100%;
           min-width: 0;
+          box-sizing: border-box;
           background: var(--ws-paper);
           color: var(--ws-ink);
           border: var(--ws-hair);
@@ -432,6 +435,11 @@ def _workstation_css() -> str:
           font-size: 11px;
           line-height: 1.45;
           outline: none;
+        }
+        #win-workstation .ws-select {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         #win-workstation .ws-textarea { resize: vertical; min-height: 66px; }
         #win-workstation .ws-input:focus,
@@ -828,6 +836,7 @@ def _workstation_css() -> str:
           #win-workstation .ws-arena-grid { grid-template-columns: 1fr; }
         }
       </style>"""
+    return _re.sub(r"#win-workstation(?![A-Za-z0-9_-])", ".tc-ws-host", raw)
 
 
 def _workstation_js() -> str:
@@ -909,10 +918,11 @@ def _workstation_js() -> str:
         }
 
         function resolveSpaceCtx() {
+          const domOwner = (el('spaceOwnerInput') && el('spaceOwnerInput').value) ? String(el('spaceOwnerInput').value).trim() : '';
           const scope = (typeof window.currentSpaceScope !== 'undefined' && window.currentSpaceScope)
             ? String(window.currentSpaceScope) : state.scope;
           const owner = (typeof window.currentSpaceOwner !== 'undefined' && window.currentSpaceOwner)
-            ? String(window.currentSpaceOwner) : resolvePeerId();
+            ? String(window.currentSpaceOwner) : (domOwner || resolvePeerId());
           return { scope: scope || 'user', ownerId: owner || 'default_user' };
         }
 
@@ -2020,6 +2030,11 @@ def _workstation_js() -> str:
         }
 
         function tileWithSpace() {
+          if (typeof window.toggleDock3dStudio === 'function') {
+            window.toggleDock3dStudio();
+            refresh({ immediate: true });
+            return;
+          }
           const wsWin = el('win-workstation');
           const spWin = el('win-agentspace');
           if (!wsWin) return;
@@ -2255,7 +2270,8 @@ def _workstation_js() -> str:
             state.initialized = true;
           }
           const winEl = el('win-workstation');
-          if (isWindowVisible(winEl)) {
+          const mountedInWorkstation = !!(document.getElementById('finderTab-3dstudio')?.querySelector('[data-ws-root="true"]'));
+          if (isWindowVisible(winEl) || mountedInWorkstation) {
             refresh({ immediate: true });
           }
         }
@@ -2298,21 +2314,21 @@ def render_workstation_window_html() -> str:
     css_block = _workstation_css()
     js_block = _workstation_js()
 
-    return f"""<div id="win-workstation" class="mesh-window w-[1080px] max-w-full hidden" data-zen-window="true" data-window-id="win-workstation" style="top: 72px; left: 110px; z-index: 36;">
-      <!--TC_TITLEBAR {{"id": "win-workstation", "title": "Workstation · Multi-Model & 3D Studio", "badge": "RODIN + NANOGPT"}}-->
+    return f"""<div id="win-workstation" class="mesh-window w-[1080px] max-w-full hidden tc-ws-host" data-zen-window="true" data-window-id="win-workstation" style="top: 72px; left: 110px; z-index: 36;">
+      <!--TC_TITLEBAR {{"id": "win-workstation", "title": "3D Studio", "badge": "RODIN + NANOGPT"}}-->
 {css_block}
       <div class="window-body ws-body aeonik-scope" data-ws-root="true">
         <!-- Studio Header Strip -->
         <div class="ws-topbar">
           <div class="ws-top-group">
-            <span class="ws-kicker">Workstation Studio</span>
+            <span class="ws-kicker">3D Studio</span>
             <span id="wsSpaceScopeBadge" class="ws-badge">user:default_user</span>
             <span id="wsMerkleBadge" class="ws-badge" title="Current Space Merkle Root">merkle: --</span>
           </div>
           <div class="ws-top-group">
             <span id="wsStatusPill" class="ws-badge ws-badge--pos">READY</span>
             <button id="wsRefreshBtn" type="button" class="ws-pill" onclick="window.TinCanWorkstation && window.TinCanWorkstation.refresh({{immediate: true}})" title="Refresh status, catalogs, and Space VFS">&#x21BB;&#xFE0E; Refresh</button>
-            <button id="wsTileSpaceBtn" type="button" class="ws-pill" onclick="window.TinCanWorkstation && window.TinCanWorkstation.tileWithSpace()" title="Tile Workstation side-by-side with Space IDE">Tile w/ Space</button>
+            <button id="wsTileSpaceBtn" type="button" class="ws-pill" onclick="window.TinCanWorkstation && window.TinCanWorkstation.tileWithSpace()" title="Dock 3D Studio inside Workstation or open floating window">Dock in Workstation</button>
           </div>
         </div>
 

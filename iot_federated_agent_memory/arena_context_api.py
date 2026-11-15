@@ -23,10 +23,15 @@ Routes::
     GET  /api/arena/context/files?agent_id=            list files
     GET  /api/arena/context/file?agent_id=&path=       read one file
     GET  /api/arena/context/search?agent_id=&q=&k=     ranked snippets
-    POST /api/arena/context/ingest                     upload / paste (.space unpacked)
-    POST /api/arena/context/import                     copy from the user's own Agent Space
-    POST /api/arena/context/drive/link                 link drive-mirror files (local only)
-    POST /api/arena/context/delete                     remove a file
+    GET  /api/arena/context/inventory                  universal inventory across brains, .space, Context Palace, drive
+    GET  /api/arena/context/palace                     search/list Context Palace concepts
+    POST /api/arena/context/ingest                     upload / paste (.space unpacked; supports agent_id='both')
+    POST /api/arena/context/update                     CRUD update content and/or description (supports agent_id='both')
+    POST /api/arena/context/import                     copy from the user's own Agent Space (supports agent_id='both')
+    POST /api/arena/context/drive/link                 link drive-mirror files (local only; supports agent_id='both')
+    POST /api/arena/context/delete                     remove a file (supports agent_id='both')
+    POST /api/arena/context/palace/crud                create/read/update/pin/delete Context Palace concepts
+    POST /api/arena/context/palace/import              import Context Palace concepts into one or both brains
 """
 
 from __future__ import annotations
@@ -41,6 +46,7 @@ from .arena_context import (
     ArenaContextRegistry,
     ContextStoreError,
     build_context_messages,
+    resolve_agent_ids,
     validate_agent_id,
 )
 
@@ -145,6 +151,27 @@ class ArenaContextAPI:
                 except ValueError:
                     k = 6
                 handler._send_json({"agent_id": store.agent_id, **store.search(q("q"), top_k=k)}, 200)
+            elif path == "/api/arena/context/inventory":
+                sm = self.space_manager_getter() if self.space_manager_getter else None
+                handler._send_json(self.registry.get_universal_inventory(
+                    pid,
+                    agent_a=q("agent_a", "brain-a"),
+                    agent_b=q("agent_b", "brain-b"),
+                    query=q("q", ""),
+                    space_manager=sm,
+                    include_palace=q("include_palace", "1").lower() not in ("0", "false"),
+                    include_drive=q("include_drive", "1").lower() not in ("0", "false"),
+                ), 200)
+            elif path == "/api/arena/context/palace":
+                try:
+                    limit = int(q("limit", "80"))
+                except ValueError:
+                    limit = 80
+                handler._send_json(self.registry.list_palace_concepts(
+                    query=q("q", ""),
+                    category=q("category", "") or None,
+                    limit=limit,
+                ), 200)
             else:
                 handler._send_json({"error": "Not found"}, 404)
         except ContextStoreError as err:
@@ -161,8 +188,29 @@ class ArenaContextAPI:
             data = self._read_json(handler)
             account, _via = self.identify(handler, data=data)
             pid = account["peer_id"]
-            store = self.registry.store(pid, data.get("agent_id"))
             who = str(account.get("username") or pid)[:64]
+
+            if path == "/api/arena/context/palace/crud":
+                res = self.registry.palace_crud(str(data.get("action") or "list"), data)
+                handler._send_json(res, 200)
+                return True
+            if path == "/api/arena/context/palace/import":
+                node_ids = data.get("node_ids")
+                if node_ids is None and data.get("node_id"):
+                    node_ids = [str(data.get("node_id"))]
+                res = self.registry.import_from_palace(
+                    pid,
+                    data.get("agent_id") or "both",
+                    node_ids=node_ids,
+                    query=str(data.get("q") or data.get("query") or ""),
+                    added_by=who,
+                )
+                handler._send_json(res, 200)
+                return True
+
+            targets = resolve_agent_ids(data.get("agent_id"), data.get("agent_ids"))
+            stores = [self.registry.store(pid, aid) for aid in targets]
+
             if path == "/api/arena/context/ingest":
                 files = data.get("files")
                 if files is None and ("content" in data or "content_b64" in data):
@@ -171,32 +219,68 @@ class ArenaContextAPI:
                     raise ContextStoreError("Send files: [{name, content}] or [{name, content_b64}].", 400)
                 if len(files) > 50:
                     raise ContextStoreError("Up to 50 files per request.", 400)
-                added, errors = [], []
-                for f in files:
-                    if not isinstance(f, dict):
-                        errors.append({"name": "", "error": "Each file must be an object."})
-                        continue
-                    name = f.get("path") or f.get("name")
-                    source = str(f.get("source") or data.get("source") or "upload")
-                    try:
-                        if f.get("content_b64") is not None:
-                            try:
-                                raw = base64.b64decode(str(f["content_b64"]), validate=True)
-                            except (binascii.Error, ValueError):
-                                raise ContextStoreError("content_b64 is not valid base64.", 400)
-                            added.extend(store.ingest_bytes(name, raw, source=source, added_by=who))
-                        else:
-                            added.append(store.ingest_text(name, f.get("content", ""), source=source, added_by=who))
-                    except ContextStoreError as err:
-                        errors.append({"name": str(name or ""), "error": err.message, "code": err.code})
-                status = 200 if added else 400
-                handler._send_json({"agent_id": store.agent_id, "added": added, "errors": errors,
-                                    **store.summary()}, status)
+                per_store_results = []
+                all_added, all_errors = [], []
+                for store in stores:
+                    added, errors = [], []
+                    for f in files:
+                        if not isinstance(f, dict):
+                            errors.append({"name": "", "error": "Each file must be an object."})
+                            continue
+                        name = f.get("path") or f.get("name")
+                        source = str(f.get("source") or data.get("source") or "upload")
+                        desc = f.get("description") if "description" in f else data.get("description")
+                        try:
+                            if f.get("content_b64") is not None:
+                                try:
+                                    raw = base64.b64decode(str(f["content_b64"]), validate=True)
+                                except (binascii.Error, ValueError):
+                                    raise ContextStoreError("content_b64 is not valid base64.", 400)
+                                added.extend(store.ingest_bytes(name, raw, source=source, added_by=who, description=desc))
+                            else:
+                                added.append(store.ingest_text(
+                                    name, f.get("content", ""), source=source, added_by=who, description=desc))
+                        except ContextStoreError as err:
+                            errors.append({"name": str(name or ""), "error": err.message, "code": err.code})
+                    all_added.extend(added)
+                    all_errors.extend(errors)
+                    per_store_results.append({
+                        "agent_id": store.agent_id, "added": added, "errors": errors, **store.summary(),
+                    })
+                status = 200 if all_added else 400
+                if len(stores) == 1:
+                    handler._send_json(per_store_results[0], status)
+                else:
+                    handler._send_json({
+                        "agent_id": "both",
+                        "agent_ids": [s.agent_id for s in stores],
+                        "added": all_added,
+                        "errors": all_errors,
+                        "results": per_store_results,
+                    }, status)
+            elif path == "/api/arena/context/update":
+                fpath = data.get("path")
+                content = data.get("content") if "content" in data else None
+                desc = data.get("description") if "description" in data else None
+                updated_list = []
+                per_store_results = []
+                for store in stores:
+                    rec = store.update_file(fpath, content=content, description=desc, added_by=who)
+                    updated_list.append(rec)
+                    per_store_results.append({"agent_id": store.agent_id, "updated": rec, **store.summary()})
+                if len(stores) == 1:
+                    handler._send_json(per_store_results[0], 200)
+                else:
+                    handler._send_json({
+                        "agent_id": "both",
+                        "agent_ids": [s.agent_id for s in stores],
+                        "updated": updated_list[0],
+                        "results": per_store_results,
+                    }, 200)
             elif path == "/api/arena/context/import":
                 sm = self.space_manager_getter() if self.space_manager_getter else None
                 if sm is None:
                     raise ContextStoreError("Agent Space is not available on this server.", 503)
-                # Only spaces this account owns: its primary peer_id and its linked devices.
                 owners = {pid}
                 if hasattr(self.accounts, "list_linked_peers"):
                     owners.update(self.accounts.list_linked_peers(pid))
@@ -207,18 +291,55 @@ class ArenaContextAPI:
                 paths = data.get("paths") or None
                 if paths is not None and not isinstance(paths, list):
                     raise ContextStoreError("paths must be a list.", 400)
-                added = store.import_from_space(space, paths=paths, added_by=who)
-                handler._send_json({"agent_id": store.agent_id, "added": added, **store.summary()}, 200)
+                per_store_results, all_added = [], []
+                for store in stores:
+                    added = store.import_from_space(space, paths=paths, added_by=who)
+                    all_added.extend(added)
+                    per_store_results.append({"agent_id": store.agent_id, "added": added, **store.summary()})
+                if len(stores) == 1:
+                    handler._send_json(per_store_results[0], 200)
+                else:
+                    handler._send_json({
+                        "agent_id": "both",
+                        "agent_ids": [s.agent_id for s in stores],
+                        "added": all_added,
+                        "results": per_store_results,
+                    }, 200)
             elif path == "/api/arena/context/drive/link":
                 if not self._drive_allowed(handler):
                     raise ContextStoreError(
                         "Drive files can only be linked from the machine running TinCan, with the drive mirror on.",
                         403, "drive_mirror_unavailable")
-                added = store.link_drive(str(data.get("drive_path") or ""), added_by=who)
-                handler._send_json({"agent_id": store.agent_id, "added": added, **store.summary()}, 200)
+                drive_path = str(data.get("drive_path") or "")
+                per_store_results, all_added = [], []
+                for store in stores:
+                    added = store.link_drive(drive_path, added_by=who)
+                    all_added.extend(added)
+                    per_store_results.append({"agent_id": store.agent_id, "added": added, **store.summary()})
+                if len(stores) == 1:
+                    handler._send_json(per_store_results[0], 200)
+                else:
+                    handler._send_json({
+                        "agent_id": "both",
+                        "agent_ids": [s.agent_id for s in stores],
+                        "added": all_added,
+                        "results": per_store_results,
+                    }, 200)
             elif path == "/api/arena/context/delete":
-                store.delete(data.get("path"))
-                handler._send_json({"agent_id": store.agent_id, "deleted": data.get("path"), **store.summary()}, 200)
+                fpath = data.get("path")
+                per_store_results = []
+                for store in stores:
+                    store.delete(fpath)
+                    per_store_results.append({"agent_id": store.agent_id, "deleted": fpath, **store.summary()})
+                if len(stores) == 1:
+                    handler._send_json(per_store_results[0], 200)
+                else:
+                    handler._send_json({
+                        "agent_id": "both",
+                        "agent_ids": [s.agent_id for s in stores],
+                        "deleted": fpath,
+                        "results": per_store_results,
+                    }, 200)
             else:
                 handler._send_json({"error": "Not found"}, 404)
         except ContextStoreError as err:

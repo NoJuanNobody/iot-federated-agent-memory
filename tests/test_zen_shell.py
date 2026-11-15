@@ -47,7 +47,7 @@ def test_launcher_is_a_command_bar():
     assert "first === '@'" in html
     assert "first === '>' || first === '$'" in html
     assert "first === '/'" in html
-    for cmd in ("/terminal", "/space", "/workstation", "/arena", "/board", "/talk", "/tokens", "/quests", "/help"):
+    for cmd in ("/terminal", "/space", "/workstation", "/3dstudio", "/arena", "/board", "/talk", "/tokens", "/quests", "/help"):
         assert f"cmd: '{cmd}'" in html
     # people come from the existing roster; messages go through the room chat path
     assert "/api/board/roster" in html
@@ -73,14 +73,24 @@ def test_command_bar_shell_adapter_and_identity_gate():
 
 def test_workstation_launcher_and_route_registered():
     html = MESH_OS_HTML_UI
-    # /workstation enters classic single-window mode like /space and /arena
+    # /workstation and /3dstudio enter classic single-window mode like /space and /arena
     assert "'/workstation'" in html
-    # quick-launch pill exists in feed quickbar
-    assert '<button class="zen-btn zq-extra" type="button" data-tool="win-workstation">Workstation</button>' in html
+    assert "'/3dstudio'" in html
+    # quick-launch pills exist in feed quickbar for both Workstation and 3D Studio
+    assert '<button class="zen-btn zq-extra" type="button" data-tool="win-agentspace">Workstation</button>' in html
+    assert '<button class="zen-btn zq-extra" type="button" data-tool="win-workstation">3D Studio</button>' in html
     # TOOLS and SLASH entries plus HELP_TEXT registration
-    assert "id: 'win-workstation'" in html
+    assert "id: 'win-agentspace'" in html
     assert "name: 'Workstation'" in html
-    assert "gate: 'open workstation'" in html
-    assert "cmd: '/workstation', tool: 'win-workstation'" in html
+    assert "gate: 'open your workstation'" in html
+    assert "cmd: '/workstation', tool: 'win-agentspace'" in html
+    assert "id: 'win-workstation'" in html
+    assert "name: '3D Studio'" in html
+    assert "gate: 'open 3D studio'" in html
+    assert "cmd: '/3dstudio', tool: 'win-workstation'" in html
     help_block = html.split("const HELP_TEXT", 1)[1].split(";", 1)[0]
-    assert "/workstation" in help_block
+    assert "/workstation" in help_block and "/3dstudio" in help_block
+    # Command-K TOOLS intentionally removed legacy simulator/mockup entries
+    tools_block = html.split("const TOOLS = [", 1)[1].split("];", 1)[0]
+    for removed in ("win-mockups", "win-ios", "win-car", "/designs", "/ios", "/car"):
+        assert removed not in tools_block

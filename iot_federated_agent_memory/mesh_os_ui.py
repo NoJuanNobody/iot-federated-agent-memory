@@ -700,7 +700,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <div class="flex items-center gap-2">
       <!-- User Account & Token Chip -->
       <button id="hudAccountBtn" onclick="openAccountModal()" class="text-xs font-mono px-2.5 py-1 rounded border border-emerald-600/70 bg-emerald-950/80 text-emerald-300 hover:bg-emerald-900 transition flex items-center gap-1.5 active:scale-95 shadow-sm font-semibold" title="View or manage your mesh account & token billing balance">
-        <span>👤</span> <span id="hudAccountName">Set Username</span> <span id="hudTokenPill" class="px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-bold">10 🪙</span>
+        <span>👤</span> <span id="hudAccountName">Set Username</span> <span id="hudTokenPill" class="px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-bold">0 🪙</span>
       </button>
 
       <!-- Admin Mode Toggle & Mod Panel -->
@@ -716,10 +716,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         <span>💬</span> <span class="font-bold">Chat</span> <span id="hudChatBadge" class="px-1.5 py-0.2 rounded-full bg-cyan-400 text-black text-[10px] font-bold">Live</span>
       </button>
 
-      <!-- Active Peer & Network Pop-Out Launcher ("2 active") -->
-      <button id="osPeerCount" onclick="toggleWindow('win-network')" class="text-xs font-mono px-2.5 py-1 rounded bg-emerald-950/90 border border-emerald-600/90 text-emerald-300 hover:bg-emerald-900 transition flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer font-bold" title="Click to open Active Network Roster, Live Visitors & Leaderboard">
+      <!-- Active Peer & Network Pop-Out Launcher -->
+      <button id="osPeerCount" onclick="toggleWindow('win-network')" class="text-xs font-mono px-2.5 py-1 rounded bg-emerald-950/90 border border-emerald-600/90 text-emerald-300 hover:bg-emerald-900 transition flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer font-bold" title="Click to open Mesh Peers, Web Visitors & Leaderboard">
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span>👥 <span id="osPeerCountNum">2</span> Active ↗</span>
+        <span>👥 <span id="osPeerCountNum">0</span> Active ↗</span>
       </button>
 
       <!-- Layout Tiling Mode Switcher -->
@@ -857,9 +857,20 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           <div class="w-full md:w-[470px] max-w-full min-w-0">
             <!--TC_INSTALL_CARD {"id": "terminal", "compact": true, "shell": "#termShellMount"}-->
           </div>
-          <p class="hidden md:block flex-1 min-w-[180px] text-[11px] leading-relaxed text-neutral-700 pt-1">
-            Your files moved to <button type="button" onclick="toggleWindow('win-agentspace')" class="underline font-semibold text-black">Space</button>, which has its own terminal. This one runs the same commands against your .space.
-          </p>
+          <div class="hidden md:flex flex-1 min-w-[200px] flex-col gap-1.5 pt-1 text-[11px] text-neutral-700">
+            <p class="leading-relaxed">
+              Your files moved to <button type="button" onclick="toggleWindow('win-agentspace')" class="underline font-semibold text-black">Workstation</button>, which has its own terminal. This one runs the same commands against your .space.
+            </p>
+            <div id="termHarnessBar" class="flex flex-wrap items-center gap-1 text-[10px]">
+              <span class="font-bold uppercase tracking-wider text-neutral-800 mr-1">Harnesses:</span>
+              <button type="button" onclick="window.TinCanShell && window.TinCanShell.run('harness best')" class="px-2 py-0.5 rounded-full bg-[#111111] text-[#ecf1e6] font-bold hover:opacity-85" title="Inspect best available coding harness">Auto Best</button>
+              <button type="button" onclick="window.TinCanShell && window.TinCanShell.run('harness inspect antigravity')" class="px-2 py-0.5 rounded-full border border-[#111111] bg-white hover:bg-[#111111] hover:text-[#ecf1e6] transition">Antigravity (agy)</button>
+              <button type="button" onclick="window.TinCanShell && window.TinCanShell.run('harness inspect claude-code')" class="px-2 py-0.5 rounded-full border border-[#111111] bg-white hover:bg-[#111111] hover:text-[#ecf1e6] transition">Claude Code</button>
+              <button type="button" onclick="window.TinCanShell && window.TinCanShell.run('harness inspect opencode')" class="px-2 py-0.5 rounded-full border border-[#111111] bg-white hover:bg-[#111111] hover:text-[#ecf1e6] transition">OpenCode</button>
+              <button type="button" onclick="window.TinCanShell && window.TinCanShell.run('harness inspect dsx')" class="px-2 py-0.5 rounded-full border border-[#111111] bg-[#f4f8f0] hover:bg-[#111111] hover:text-[#ecf1e6] transition" title="Fallback harness: github.com/NoJuanNobody/dsx">DSX (Fallback)</button>
+              <button type="button" onclick="window.TinCanShell && window.TinCanShell.run('harnesses')" class="px-2 py-0.5 rounded-full border border-neutral-500 text-neutral-800 hover:bg-[#111111] hover:text-[#ecf1e6] transition">+ All</button>
+            </div>
+          </div>
         </div>
         <div class="px-3 pb-3" style="flex: 1 1 auto; min-height: 0;">
           <div id="termShellMount" data-tc-shell-mount data-shell-title="Shell" style="height: 100%;"></div>
@@ -1147,17 +1158,12 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- Active UDP Streams -->
+        <!-- Active Room Peers -->
         <div class="pt-2 border-t border-slate-800">
           <div class="text-[11px] font-semibold text-slate-400 mb-1.5">Active Room &amp; UDP Streams</div>
           <div id="roomPeersGrid" class="space-y-1.5 text-xs font-mono">
-            <div class="p-2 bg-slate-800/60 rounded border border-slate-700 flex justify-between items-center">
-              <span class="text-white">Mac Studio (M1 Max)</span>
-              <span class="bg-emerald-900 text-emerald-300 px-1.5 py-0.5 rounded text-[10px]">UDP: 50004</span>
-            </div>
-            <div class="p-2 bg-slate-800/60 rounded border border-slate-700 flex justify-between items-center">
-              <span class="text-white">Collaborator MacBook</span>
-              <span class="bg-cyan-900 text-cyan-300 px-1.5 py-0.5 rounded text-[10px]">UDP: 50006</span>
+            <div class="p-2 bg-slate-800/40 rounded border border-slate-700/60 text-slate-400 text-center">
+              No active peers connected to this room yet.
             </div>
           </div>
         </div>
@@ -1167,7 +1173,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- ===================================================================== -->
     <!-- Window 4B: Encrypted Mesh Chat & Comms.app (Separated from Video) -->
     <!-- ===================================================================== -->
-    <div id="win-comms" class="mesh-window w-[480px]" data-zen-window="true" data-window-id="win-comms" style="top: 720px; left: 620px; z-index: 23;">
+    <div id="win-comms" class="mesh-window w-[680px] max-w-[96vw]" data-zen-window="true" data-window-id="win-comms" style="top: 720px; left: 620px; z-index: 23;">
       <!--TC_TITLEBAR {"id": "win-comms", "icon": "💬", "title": "Encrypted Mesh Chat"}-->
       <div class="window-body p-4 space-y-3 max-h-[620px] overflow-y-auto">
         <div class="flex items-center justify-between">
@@ -1180,28 +1186,57 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           <span id="chatCounterBadge" class="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-800">0 messages</span>
         </div>
 
-        <!-- Chat Filter / Recipient Bar -->
-        <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2 flex items-center gap-2 text-xs font-mono">
-          <span class="text-slate-400 text-[11px]">Channel:</span>
-          <select id="chatChannelSelect" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-cyan-300 text-xs focus:outline-none">
-            <option value="room">🌐 Room Broadcast (main)</option>
-            <option value="direct">👤 Direct Sealed P2P</option>
-          </select>
-          <input id="chatDirectPeerInput" type="text" placeholder="Peer ID (for direct sealed msg)" class="hidden flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
-        </div>
+        <!-- Discord-Style Channels + People Sidebar & Encrypted Message Stream -->
+        <div class="grid grid-cols-1 sm:grid-cols-[185px_minmax(0,1fr)] gap-3 items-stretch">
+          <aside class="bg-slate-950/90 border border-slate-800 rounded-lg p-2.5 flex flex-col gap-3 text-xs font-mono">
+            <div>
+              <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                <span>Channels</span>
+                <button type="button" onclick="promptNewChatChannel()" class="px-1.5 py-0.5 rounded border border-slate-700 text-cyan-300 hover:bg-slate-800" title="Create channel">+</button>
+              </div>
+              <div id="chatChannelsList" class="space-y-1">
+                <button type="button" data-channel="main" onclick="selectChatTarget('channel', 'main', '#main')" class="w-full text-left px-2 py-1 rounded bg-cyan-950/80 border border-cyan-700/70 text-cyan-200 font-bold text-[11px] flex items-center justify-between">#main</button>
+                <button type="button" data-channel="architecture" onclick="selectChatTarget('channel', 'architecture', '#architecture')" class="w-full text-left px-2 py-1 rounded text-slate-300 hover:bg-slate-900 text-[11px] flex items-center justify-between">#architecture</button>
+                <button type="button" data-channel="cyberspace" onclick="selectChatTarget('channel', 'cyberspace', '#cyberspace')" class="w-full text-left px-2 py-1 rounded text-slate-300 hover:bg-slate-900 text-[11px] flex items-center justify-between">#cyberspace</button>
+                <button type="button" data-channel="arena" onclick="selectChatTarget('channel', 'arena', '#arena')" class="w-full text-left px-2 py-1 rounded text-slate-300 hover:bg-slate-900 text-[11px] flex items-center justify-between">#arena</button>
+              </div>
+            </div>
+            <div class="border-t border-slate-800 pt-2 flex-1 min-h-0 flex flex-col">
+              <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                <span>People in Room</span>
+                <button type="button" onclick="refreshCommsPeopleRoster()" class="text-slate-400 hover:text-cyan-300" title="Refresh people roster">↻</button>
+              </div>
+              <div id="chatPeopleList" class="space-y-1 max-h-40 overflow-y-auto">
+                <div class="text-[10px] text-slate-500 italic">Loading room people...</div>
+              </div>
+            </div>
+          </aside>
 
-        <!-- Message stream -->
-        <div id="chatMessagesList" class="h-64 overflow-y-auto p-3 bg-slate-950/90 border border-slate-800 rounded-lg space-y-2 text-xs font-mono">
-          <div class="text-slate-500 text-[11px] italic">No messages yet. Send a broadcast to all active room peers below.</div>
-        </div>
+          <div class="flex flex-col gap-2 min-w-0">
+            <!-- Chat Filter / Recipient Bar -->
+            <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2 flex flex-wrap items-center gap-2 text-xs font-mono">
+              <span id="chatActiveTargetBanner" class="text-[11px] font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-800/80 rounded px-2 py-0.5">#main · Broadcast</span>
+              <select id="chatChannelSelect" onchange="onChatModeSelectChange(this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-cyan-300 text-xs focus:outline-none">
+                <option value="room">🌐 Room Channel</option>
+                <option value="direct">👤 Direct Sealed P2P</option>
+              </select>
+              <input id="chatDirectPeerInput" type="text" placeholder="Peer ID or @handle (for DM)" class="hidden flex-1 min-w-[140px] bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+            </div>
 
-        <!-- Message input -->
-        <div class="flex gap-1.5">
-          <input id="chatInput" type="text" placeholder="Type a message to room peers..." class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" onkeydown="if(event.key==='Enter') sendChatMessage()">
-          <button onclick="sendChatMessage()" class="px-4 py-2 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:brightness-110 text-white rounded-lg text-xs font-bold font-mono transition active:scale-95 shrink-0 flex items-center gap-1 shadow">
-            <span>Send</span>
-            <span>↵</span>
-          </button>
+            <!-- Message stream -->
+            <div id="chatMessagesList" class="h-64 overflow-y-auto p-3 bg-slate-950/90 border border-slate-800 rounded-lg space-y-2 text-xs font-mono">
+              <div class="text-slate-500 text-[11px] italic">No messages yet. Select a #channel or a person on the left to chat.</div>
+            </div>
+
+            <!-- Message input -->
+            <div class="flex gap-1.5">
+              <input id="chatInput" type="text" placeholder="Message #main or type @peer..." class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" onkeydown="if(event.key==='Enter') sendChatMessage()">
+              <button onclick="sendChatMessage()" class="px-4 py-2 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:brightness-110 text-white rounded-lg text-xs font-bold font-mono transition active:scale-95 shrink-0 flex items-center gap-1 shadow">
+                <span>Send</span>
+                <span>↵</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1210,157 +1245,236 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- Window 5: Rewards, Arena & Operator Leaderboard.app -->
     <!-- ===================================================================== -->
     <div id="win-quests" class="mesh-window w-[1100px] max-w-full" data-zen-window="true" data-window-id="win-quests" style="top: 1380px; left: 24px; z-index: 24;">
-      <!--TC_TITLEBAR {"id": "win-quests", "icon": "🪙", "title": "Quests · Rewards & Token Minting"}-->
+      <!--TC_TITLEBAR {"id": "win-quests", "icon": "🪙", "title": "Quests · Onboarding & Credit Requests"}-->
       <div class="window-body p-4 space-y-6 max-h-[750px] overflow-y-auto">
 
-        <!-- Top Section: Utility Token Minting Ledger & Proof-of-Uptime Program -->
+        <!-- Top Section: Admin-Controlled $TINCAN Minting & User Request / Add Money -->
         <div class="space-y-4">
-          <div class="p-4 bg-gradient-to-r from-amber-950/60 via-slate-900/90 to-emerald-950/60 rounded-xl border border-amber-500/50 space-y-3">
+          <div class="p-4 bg-gradient-to-r from-slate-900/95 via-slate-900/90 to-emerald-950/50 rounded-xl border border-emerald-500/40 space-y-3">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div class="flex items-center gap-2.5">
                 <span class="text-2xl">🪙</span>
                 <div>
                   <h2 class="text-sm font-bold text-white font-mono flex items-center gap-2">
-                    <span>$TINCAN Utility Token Minting Program</span>
-                    <span class="px-2 py-0.5 rounded-full bg-emerald-900/80 text-emerald-300 border border-emerald-500 text-[10px] font-bold uppercase tracking-wider animate-pulse">MINTING LIVE</span>
+                    <span>$TINCAN Credit &amp; Minting Program</span>
+                    <span class="px-2 py-0.5 rounded-full bg-slate-900 text-emerald-300 border border-emerald-600/70 text-[10px] font-bold uppercase tracking-wider">ADMIN CONTROLLED</span>
                   </h2>
-                  <p class="text-xs text-slate-300">Decentralized proof-of-uptime, relay operations &amp; dual-model evaluation reward ledger.</p>
+                  <p class="text-xs text-slate-300">Add money via Stripe to auto-mint credits, or request an operator credit grant. Only company admins can mint &amp; route $TINCAN directly.</p>
                 </div>
               </div>
-              <div class="flex items-center gap-2 font-mono">
-                <button onclick="mintTincanRewardTokens(10)" class="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-emerald-500 hover:brightness-110 text-slate-950 font-bold rounded-lg text-xs transition active:scale-95 shadow flex items-center gap-1.5">
-                  <span>🔨</span> <span>Mint 10 $TINCAN</span>
+              <div class="flex flex-wrap items-center gap-2 font-mono">
+                <button onclick="toggleMintRequestDrawer()" id="btnRequestMintDrawer" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-600/70 font-bold rounded-lg text-xs transition active:scale-95 flex items-center gap-1.5">
+                  <span>➕</span> <span>Request $TINCAN</span>
+                </button>
+                <button onclick="openAddMoneyFromQuests()" class="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg text-xs transition active:scale-95 shadow flex items-center gap-1.5">
+                  <span>💳</span> <span>Add Money (Auto-Mint)</span>
                 </button>
               </div>
             </div>
 
-            <!-- Token Ledger KPI Grid -->
+            <!-- User Mint Request Drawer (non-privileged; queued for admin review) -->
+            <div id="mintRequestDrawer" class="hidden p-3 bg-slate-950/90 border border-slate-800 rounded-lg space-y-2.5 font-mono text-xs">
+              <div class="flex items-center justify-between">
+                <span class="text-emerald-300 font-bold">Request Admin $TINCAN Credit Grant</span>
+                <button onclick="toggleMintRequestDrawer()" class="text-slate-400 hover:text-white text-[11px]">✕ Close</button>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div>
+                  <label class="text-[10px] text-slate-400 block mb-0.5">Amount Requested ($TINCAN)</label>
+                  <input id="mintReqAmountInput" type="number" min="1" max="100000" value="100" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                </div>
+                <div class="sm:col-span-2">
+                  <label class="text-[10px] text-slate-400 block mb-0.5">Reason / Workflow Note</label>
+                  <input id="mintReqReasonInput" type="text" placeholder="e.g. Onboarding pilot compute grant or customer credit" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                </div>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <span id="mintRequestStatusBanner" class="text-[11px] text-slate-400">Requests remain pending until approved by an admin.</span>
+                <button onclick="submitMintRequest()" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-[11px] transition active:scale-95">Submit Mint Request</button>
+              </div>
+              <div id="myMintRequestsList" class="space-y-1 text-[11px]"></div>
+            </div>
+
+            <!-- Admin-Only Mint & Customer Routing Console -->
+            <div id="questsAdminMintCard" class="hidden p-3.5 bg-amber-950/25 border border-amber-500/60 rounded-lg space-y-3 font-mono text-xs">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-amber-800/50 pb-2">
+                <div class="text-amber-300 font-bold flex items-center gap-1.5">
+                  <span>🛡️</span> <span>Admin Mint &amp; Route Credits (Internal Only)</span>
+                </div>
+                <span class="text-[10px] text-amber-400/90">Requires valid X-Admin-Key</span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                <div>
+                  <label class="text-[10px] text-slate-400 block mb-0.5">Customer Peer ID *</label>
+                  <input id="adminMintTargetPeer" list="adminMintPeerSuggestions" type="text" placeholder="peer-customer-id" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                  <datalist id="adminMintPeerSuggestions"></datalist>
+                </div>
+                <div>
+                  <label class="text-[10px] text-slate-400 block mb-0.5">Credits ($TINCAN)</label>
+                  <input id="adminMintTokensInput" type="number" min="1" value="500" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                </div>
+                <div>
+                  <label class="text-[10px] text-slate-400 block mb-0.5">USD Book Value</label>
+                  <input id="adminMintUsdInput" type="number" step="0.01" min="0" value="0.00" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                </div>
+                <div>
+                  <label class="text-[10px] text-slate-400 block mb-0.5">Admin Key *</label>
+                  <input id="adminMintKeyInput" type="password" placeholder="TINCAN_ADMIN_KEY" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span id="adminMintFeedback" class="text-[11px] text-slate-300">Route free promotional or customer credits directly to any registered peer.</span>
+                <div class="flex items-center gap-2">
+                  <button onclick="fetchMintRequests(true)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded text-[11px]">⟳ Load Requests</button>
+                  <button onclick="adminMintAndRouteTokens()" class="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded text-[11px] transition active:scale-95">🔨 Mint &amp; Route</button>
+                </div>
+              </div>
+              <div id="adminMintRequestsList" class="space-y-1.5 text-[11px]"></div>
+            </div>
+
+            <!-- Token Ledger KPI Grid (Synced to real account balance) -->
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-center pt-1">
               <div class="p-2 bg-slate-950/80 rounded-lg border border-slate-800">
-                <div class="text-[10px] text-slate-400">Your Minted Balance</div>
-                <div id="rewardsMintedBalance" class="text-base font-bold text-amber-300 mt-0.5">10 $TINCAN</div>
+                <div class="text-[10px] text-slate-400">Verified Balance</div>
+                <div id="rewardsMintedBalance" class="text-base font-bold text-amber-300 mt-0.5">0 $TINCAN</div>
               </div>
               <div class="p-2 bg-slate-950/80 rounded-lg border border-slate-800">
-                <div class="text-[10px] text-slate-400">Mesh Mint Supply</div>
-                <div class="text-base font-bold text-emerald-400 mt-0.5">1,000,000 $TC</div>
+                <div class="text-[10px] text-slate-400">Self-Serve Funding</div>
+                <div class="text-base font-bold text-emerald-400 mt-0.5">Stripe / Ads</div>
               </div>
               <div class="p-2 bg-slate-950/80 rounded-lg border border-slate-800">
-                <div class="text-[10px] text-slate-400">Uptime Reward Rate</div>
-                <div class="text-base font-bold text-cyan-300 mt-0.5">+5 $TC / hr</div>
+                <div class="text-[10px] text-slate-400">Sponsored Clip Auto-Earn</div>
+                <div class="text-base font-bold text-cyan-300 mt-0.5">+5,000 CR</div>
               </div>
               <div class="p-2 bg-slate-950/80 rounded-lg border border-slate-800">
-                <div class="text-[10px] text-slate-400">Arbiter Vote Reward</div>
-                <div class="text-base font-bold text-indigo-300 mt-0.5">+2 $TC / vote</div>
+                <div class="text-[10px] text-slate-400">Sign-On Onboarding</div>
+                <div class="text-base font-bold text-indigo-300 mt-0.5">1x Per Peer</div>
               </div>
             </div>
           </div>
 
-          <!-- Proof-of-Uptime & Activity Deck (Preserving questDeckGrid ID for test invariants) -->
+          <!-- One-Time Sign-On Onboarding Quests (Preserving questDeckGrid ID for test invariants) -->
           <div>
-            <div class="flex items-center justify-between mb-2">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
               <div class="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
-                <span>⚡</span> <span>Active Utility Minting Activities</span>
+                <span>🌱</span> <span>Sign-On Onboarding Walkthroughs</span>
               </div>
-              <span class="text-[11px] font-mono text-amber-400 bg-amber-950/60 border border-amber-800 px-2 py-0.5 rounded">
-                Proof-of-Contribution Pool
+              <span class="text-[11px] font-mono text-amber-300 bg-amber-950/60 border border-amber-800 px-2 py-0.5 rounded">
+                One-Time Sign-On Bonus · No Repeat Drain
               </span>
             </div>
 
             <div id="questDeckGrid" class="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div class="p-3 bg-slate-950/80 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
                 <div>
-                  <div class="flex justify-between items-center">
+                  <div class="flex justify-between items-center gap-1">
                     <span class="font-bold text-xs text-emerald-400 font-mono">1. Sealed Courier Relay</span>
-                    <span class="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-1.5 py-0.5 rounded font-mono">+2 $TINCAN</span>
+                    <span id="questBadge-sealed_courier" class="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-1.5 py-0.5 rounded font-mono">Sign-On 1x</span>
                   </div>
-                  <p class="text-xs text-slate-300 mt-1">Dispatch an Ed25519 sealed envelope through TinCan Blind Relay.</p>
+                  <p class="text-xs text-slate-300 mt-1">First-run walkthrough: dispatch an Ed25519 sealed envelope through TinCan Blind Relay.</p>
                 </div>
-                <button onclick="triggerQuestAction('sealed_courier')" class="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-mono font-semibold transition active:scale-95">
-                  🥫 Relay Packet (+2 $TINCAN)
+                <button id="questBtn-sealed_courier" onclick="triggerQuestAction('sealed_courier')" class="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-mono font-semibold transition active:scale-95">
+                  🥫 Run Sign-On Relay (1x)
                 </button>
               </div>
 
               <div class="p-3 bg-slate-950/80 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
                 <div>
-                  <div class="flex justify-between items-center">
+                  <div class="flex justify-between items-center gap-1">
                     <span class="font-bold text-xs text-indigo-400 font-mono">2. AI Arbiter Duel Vote</span>
-                    <span class="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800 px-1.5 py-0.5 rounded font-mono">+2 $TINCAN</span>
+                    <span id="questBadge-arena_vote" class="text-[10px] bg-indigo-950 text-indigo-300 border border-indigo-800 px-1.5 py-0.5 rounded font-mono">Sign-On 1x</span>
                   </div>
-                  <p class="text-xs text-slate-300 mt-1">Run dual completion duel and vote for winning AI brain.</p>
+                  <p class="text-xs text-slate-300 mt-1">First-run walkthrough: try one dual-model comparison and cast your sign-on vote.</p>
                 </div>
-                <button onclick="triggerQuestAction('arena_vote')" class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-mono font-semibold transition active:scale-95">
-                  🧠 Evaluate Models (+2 $TINCAN)
+                <button id="questBtn-arena_vote" onclick="triggerQuestAction('arena_vote')" class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-mono font-semibold transition active:scale-95">
+                  🧠 Log Sign-On Evaluation (1x)
                 </button>
               </div>
 
               <div class="p-3 bg-slate-950/80 rounded-lg border border-slate-800 flex flex-col justify-between space-y-2">
                 <div>
-                  <div class="flex justify-between items-center">
+                  <div class="flex justify-between items-center gap-1">
                     <span class="font-bold text-xs text-amber-400 font-mono">3. Sandboxed Agent Run</span>
-                    <span class="text-[10px] bg-amber-950 text-amber-300 border border-amber-800 px-1.5 py-0.5 rounded font-mono">+5 $TINCAN</span>
+                    <span id="questBadge-coop_action" class="text-[10px] bg-amber-950 text-amber-300 border border-amber-800 px-1.5 py-0.5 rounded font-mono">Sign-On 1x</span>
                   </div>
-                  <p class="text-xs text-slate-300 mt-1">Execute sandboxed code or dynamic agent run in isolated VFS.</p>
+                  <p class="text-xs text-slate-300 mt-1">First-run walkthrough: test one isolated VFS agent run during initial onboarding.</p>
                 </div>
-                <button onclick="triggerQuestAction('coop_action')" class="w-full py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs font-mono font-semibold transition active:scale-95">
-                  ⚡ Execute Sandbox (+5 $TINCAN)
+                <button id="questBtn-coop_action" onclick="triggerQuestAction('coop_action')" class="w-full py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs font-mono font-semibold transition active:scale-95">
+                  ⚡ Run Sign-On Sandbox (1x)
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Middle Section: Brain Arena duel (shared with win-arena, see arena_duel_ui.py) -->
-        <!--ARENA_DUEL:arena-->
+        <!-- Gentle OS Routing Cards: Route users cleanly to Brain Arena.app or Network.app instead of crowding Quests -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono">
+          <div class="p-3.5 bg-slate-950/75 border border-slate-800 rounded-xl flex items-center justify-between gap-3">
+            <div>
+              <div class="text-xs font-bold text-white flex items-center gap-1.5"><span>🧠</span> <span>Model Comparison Workspace</span></div>
+              <p class="text-[11px] text-slate-400 font-sans mt-0.5">Optional side-by-side prompt evaluation lives in its own OS app window.</p>
+            </div>
+            <button onclick="toggleWindow('win-arena')" class="shrink-0 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 text-[11px] font-bold transition active:scale-95">
+              Open Arena.app ↗
+            </button>
+          </div>
+          <div class="p-3.5 bg-slate-950/75 border border-slate-800 rounded-xl flex items-center justify-between gap-3">
+            <div>
+              <div class="text-xs font-bold text-white flex items-center gap-1.5"><span>👥</span> <span>Directory &amp; Rankings</span></div>
+              <p class="text-[11px] text-slate-400 font-sans mt-0.5">Find online peers, ping visitors, or view optional XP rankings inside Network.</p>
+            </div>
+            <button onclick="toggleWindow('win-network'); switchNetTab('leaderboard');" class="shrink-0 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 text-[11px] font-bold transition active:scale-95">
+              Open Network.app ↗
+            </button>
+          </div>
+        </div>
 
-        <!-- Bottom Section: Live Operator Leaderboard -->
-        <div>
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-              <span>🏆</span> Live Mesh Operator Leaderboard
-            </h3>
-            <div class="flex items-center gap-2">
-              <span class="text-[11px] font-mono text-slate-400">Ranked by Lifetime XP</span>
-              <button onclick="toggleWindow('win-network')" class="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 bg-emerald-950/80 border border-emerald-700/80 px-2 py-0.5 rounded transition flex items-center gap-1 active:scale-95" title="Open standalone window with 2 Active Peers and Live Visitors">
-                <span>👥</span> <span>Standalone 2-Active Window ↗</span>
+        <!-- Collapsed-by-default Disclosure: Keeps inline Brain Arena DOM intact without interrupting OS flow -->
+        <details id="questsArenaDisclosure" class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3">
+          <summary class="cursor-pointer text-xs font-mono text-slate-400 hover:text-slate-200 select-none flex items-center justify-between">
+            <span>▸ Optional: Expand inline Brain Arena duel here</span>
+            <span class="text-[10px] text-slate-500">Opens inside Arena.app by default</span>
+          </summary>
+          <div class="pt-3">
+            <!--ARENA_DUEL:arena-->
+          </div>
+        </details>
+
+        <!-- Collapsed-by-default Disclosure: Keeps Operator Leaderboard DOM intact gently -->
+        <details id="questsLeaderboardDisclosure" class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3">
+          <summary class="cursor-pointer text-xs font-mono text-slate-400 hover:text-slate-200 select-none flex items-center justify-between">
+            <span>▸ Optional: Expand Live Mesh Operator Rankings summary</span>
+            <span class="text-[10px] text-slate-500">Real connected peers only</span>
+          </summary>
+          <div class="pt-3 space-y-2">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <span>🏆</span> Live Mesh Operator Leaderboard
+              </h3>
+              <button onclick="toggleWindow('win-network')" class="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 bg-emerald-950/80 border border-emerald-700/80 px-2 py-0.5 rounded transition flex items-center gap-1 active:scale-95">
+                <span>👥</span> <span>Open Network Window ↗</span>
               </button>
             </div>
+            <div class="bg-slate-950/80 border border-slate-800 rounded-lg overflow-hidden">
+              <table class="w-full text-left text-xs font-mono">
+                <thead class="bg-slate-900 text-slate-400 border-b border-slate-800">
+                  <tr>
+                    <th class="px-3 py-2">Rank</th>
+                    <th class="px-3 py-2">Operator Peer</th>
+                    <th class="px-3 py-2">Readiness Tier</th>
+                    <th class="px-3 py-2">Badges</th>
+                    <th class="px-3 py-2 text-right">Squad XP</th>
+                  </tr>
+                </thead>
+                <tbody id="operatorLeaderboard" class="divide-y divide-slate-800/60">
+                  <tr>
+                    <td colspan="5" class="px-3 py-3 text-center text-slate-500">No operator sessions recorded yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-
-          <div class="bg-slate-950/80 border border-slate-800 rounded-lg overflow-hidden">
-            <table class="w-full text-left text-xs font-mono">
-              <thead class="bg-slate-900 text-slate-400 border-b border-slate-800">
-                <tr>
-                  <th class="px-3 py-2">Rank</th>
-                  <th class="px-3 py-2">Operator Peer</th>
-                  <th class="px-3 py-2">Readiness Tier</th>
-                  <th class="px-3 py-2">Badges</th>
-                  <th class="px-3 py-2 text-right">Squad XP</th>
-                </tr>
-              </thead>
-              <tbody id="operatorLeaderboard" class="divide-y divide-slate-800/60">
-                <tr>
-                  <td class="px-3 py-2 text-amber-400 font-bold">#1</td>
-                  <td class="px-3 py-2 text-white font-bold">Mac Studio (M1 Max)</td>
-                  <td class="px-3 py-2 text-emerald-400">L5: Autonomous Mesh</td>
-                  <td class="px-3 py-2">
-                    <span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px]">🟢 Initiate</span>
-                    <span class="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 text-[10px]">🥫 Postmaster</span>
-                  </td>
-                  <td class="px-3 py-2 text-right text-cyan-300 font-bold">850 XP</td>
-                </tr>
-                <tr>
-                  <td class="px-3 py-2 text-slate-400 font-bold">#2</td>
-                  <td class="px-3 py-2 text-slate-200">Collaborator MacBook</td>
-                  <td class="px-3 py-2 text-emerald-400">L4: CRDT Gossip</td>
-                  <td class="px-3 py-2">
-                    <span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px]">🟢 Initiate</span>
-                  </td>
-                  <td class="px-3 py-2 text-right text-cyan-300 font-bold">600 XP</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+        </details>
 
       </div>
     </div>
@@ -1733,7 +1847,11 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2 font-mono">
           <div class="flex flex-wrap items-center gap-1.5">
             <button id="boardTabBtn-discussions" type="button" onclick="switchBoardTab('discussions')" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-bold text-xs transition">
-              💬 Discussions &amp; Threads
+              💬 Discussions
+            </button>
+            <button id="boardTabBtn-feed" type="button" onclick="switchBoardTab('feed')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition flex items-center gap-1">
+              <span>📰 Feed &amp; Threads</span>
+              <span id="boardCuratedCountBadge" class="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px]">0</span>
             </button>
             <button id="boardTabBtn-graph" type="button" onclick="switchBoardTab('graph')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition">
               🕸️ Knowledge Graph Explorer
@@ -1775,18 +1893,20 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                 <div id="boardSearchChips" class="ubar-chips" aria-label="Active filters"></div>
                 <input id="boardSearchInput" type="text" autocomplete="off" spellcheck="false"
                        role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="boardSuggestList"
-                       aria-label="Search the board"
-                       placeholder="Search or type #topic, @agent, /topic, is:verified"
+                       aria-label="Search or start topic on Cyberspace"
+                       placeholder="Type anything — /search, /post, /thread, @mentions, #hashtags..."
                        oninput="onBoardSearchInput(event)" onkeydown="onBoardSearchKeydown(event)" onblur="setTimeout(closeBoardSuggest, 150)" />
-                <label class="ubar-sortwrap" onclick="event.stopPropagation()" title="Sort results (or type /sort new)">
+                <label class="ubar-sortwrap" onclick="event.stopPropagation()" title="Sort results (or type /sort activity)">
                   <span class="ubar-sort-label">sort</span>
                   <select id="boardSortSelect" onchange="onBoardSortChange()" class="ubar-sort" aria-label="Sort">
                     <option value="hot">Hot</option>
+                    <option value="activity">Activity</option>
                     <option value="new">Newest</option>
                     <option value="top">Top</option>
                     <option value="discussed">Most discussed</option>
                   </select>
                 </label>
+                <button type="button" onclick="event.stopPropagation(); submitBoardOmniInput()" class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-mono font-bold text-[10px] shrink-0 transition" title="Execute /search, /post, /thread, /feed or search">Go ↵</button>
                 <kbd class="ubar-kbd" title="Cmd/Ctrl+K focuses search">&#x2318;K</kbd>
               </div>
             </div>
@@ -1810,64 +1930,24 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             </div>
           </div>
 
-          <!-- Create New Cyberspace Topic + Dynamic @User / @Agent Roster Bar -->
-          <details id="boardComposerDetails" class="bg-slate-900/80 rounded-xl border border-slate-800 p-3" open>
-            <summary class="cursor-pointer font-mono font-bold text-cyan-300 text-xs flex items-center justify-between select-none">
-              <span>➕ Start a New Cyberspace Topic (Tag @yourself, @usernames, @ai-agents &amp; #tags)</span>
-              <span class="text-[10px] text-slate-400">Click to expand/collapse</span>
-            </summary>
-            <div class="mt-3 space-y-2.5 font-mono">
-              <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                <input id="boardTopicTitle" type="text" placeholder="Topic Title (e.g. Hybrid GraphRAG + BM25 Indexing with @gemini-brain)" class="sm:col-span-2 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs focus:border-cyan-400 focus:outline-none" />
-                <select id="boardTopicCategory" class="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-emerald-300 text-xs focus:border-cyan-400 focus:outline-none">
-                  <option value="cyberspace">#cyberspace (General)</option>
-                  <option value="ai">#ai (AI Agents &amp; Models)</option>
-                  <option value="architecture">#architecture (Mesh &amp; GraphRAG)</option>
-                  <option value="security">#security (Zero-Trust &amp; Verification)</option>
-                  <option value="qa">#qa (Q&amp;A / Troubleshooting)</option>
-                </select>
-                <input id="boardTopicTags" type="text" placeholder="Extra tags: graphrag, bm25" class="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-pink-300 text-xs focus:border-cyan-400 focus:outline-none" />
+          <!-- Free-Model AI Suggestions Strip (replaces static composer / peer / agent rows) -->
+          <div id="boardAiSuggestionsBar" class="p-2.5 bg-slate-900/70 rounded-xl border border-slate-800 space-y-1.5 font-mono text-[11px]">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="text-emerald-300 font-bold uppercase tracking-wider text-[10px]">AI Suggestions</span>
+                <span id="boardAiModelBadge" class="px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 text-[10px]">Free Model · $0</span>
               </div>
-
-              <!-- Dynamic Quick-Tagging Chips (@Me, Registered @Users, @AI-Agents, #Tags) -->
-              <div class="space-y-1.5 p-2 bg-slate-950/80 rounded-lg border border-slate-800/80 text-[10px]">
-                <div class="flex flex-wrap items-center gap-1">
-                  <span class="text-slate-400 mr-1">Peers:</span>
-                  <button type="button" onclick="insertBoardSelfTag('boardTopicBody')" class="px-2 py-0.5 rounded bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-700 font-bold">🙋 @Me (Tag Yourself)</button>
-                  <div id="boardDynamicUserChips" class="flex flex-wrap items-center gap-1"></div>
-                </div>
-                <div class="flex flex-wrap items-center gap-1">
-                  <span class="text-slate-400 mr-1">AI Agents:</span>
-                  <div id="boardDynamicAgentChips" class="flex flex-wrap items-center gap-1">
-                    <button type="button" onclick="insertBoardTag('@gemini-brain', 'boardTopicBody')" class="px-2 py-0.5 rounded bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700">🤖 @gemini-brain</button>
-                    <button type="button" onclick="insertBoardTag('@claude-brain', 'boardTopicBody')" class="px-2 py-0.5 rounded bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700">🤖 @claude-brain</button>
-                    <button type="button" onclick="insertBoardTag('@openai-brain', 'boardTopicBody')" class="px-2 py-0.5 rounded bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700">🤖 @openai-brain</button>
-                    <button type="button" onclick="insertBoardTag('@grok-brain', 'boardTopicBody')" class="px-2 py-0.5 rounded bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700">🤖 @grok-brain</button>
-                    <button type="button" onclick="insertBoardTag('@deepseek-r1', 'boardTopicBody')" class="px-2 py-0.5 rounded bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700">🤖 @deepseek-r1</button>
-                    <button type="button" onclick="insertBoardTag('@verifier-agent', 'boardTopicBody')" class="px-2 py-0.5 rounded bg-amber-950 hover:bg-amber-900 text-amber-300 border border-amber-700">🛡️ @verifier-agent</button>
-                    <button type="button" onclick="insertBoardTag('@tincan-agent', 'boardTopicBody')" class="px-2 py-0.5 rounded bg-teal-950 hover:bg-teal-900 text-teal-300 border border-teal-700">🥫 @tincan-agent</button>
-                  </div>
-                </div>
-                <div class="flex flex-wrap items-center gap-1">
-                  <span class="text-slate-400 mr-1">Topics:</span>
-                  <button type="button" onclick="insertBoardTag('#graphrag', 'boardTopicBody')" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-pink-300 border border-slate-700">#graphrag</button>
-                  <button type="button" onclick="insertBoardTag('#bm25', 'boardTopicBody')" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-pink-300 border border-slate-700">#bm25</button>
-                  <button type="button" onclick="insertBoardTag('#cyberspace', 'boardTopicBody')" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-pink-300 border border-slate-700">#cyberspace</button>
-                  <button type="button" onclick="insertBoardTag('#verification', 'boardTopicBody')" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-pink-300 border border-slate-700">#verification</button>
-                  <button type="button" onclick="insertBoardTag('#webrtc', 'boardTopicBody')" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-pink-300 border border-slate-700">#webrtc</button>
-                </div>
-              </div>
-
-              <textarea id="boardTopicBody" rows="3" placeholder="Write your discussion post... Tag yourself (@username), peers (@harper), AI agents (@gemini-brain @verifier-agent), and #topics!" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs focus:border-cyan-400 focus:outline-none"></textarea>
-
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <span class="text-[10px] text-slate-400">Tagged @ai-agents automatically synthesize a grounded reply using GraphRAG + BM25 context!</span>
-                <button type="button" onclick="createCyberspaceTopic()" class="px-4 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-cyan-600 hover:brightness-110 text-white font-bold text-xs transition active:scale-95 shadow">
-                  🚀 Post Topic to Cyberspace
-                </button>
+              <div class="flex items-center gap-1.5 text-[10px] text-slate-400">
+                <span>Slash: <code>/search</code> <code>/post</code> <code>/thread</code> <code>/feed</code> <code>@</code> <code>#</code></span>
+                <button type="button" onclick="loadBoardAiSuggestions(true)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700">↻ Suggest</button>
               </div>
             </div>
-          </details>
+            <div id="boardAiSuggestionChips" class="flex flex-wrap items-center gap-1.5">
+              <button type="button" onclick="applyBoardAiSuggestion('/post ')" class="px-2 py-0.5 rounded bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/70 text-[10px]">/post Start a Topic</button>
+              <button type="button" onclick="applyBoardAiSuggestion('/search #graphrag')" class="px-2 py-0.5 rounded bg-indigo-950/70 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/70 text-[10px]">/search #graphrag</button>
+              <button type="button" onclick="applyBoardAiSuggestion('@gemini-brain')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 text-[10px]">@gemini-brain</button>
+            </div>
+          </div>
 
           <!-- Topics Feed & Active Thread View -->
           <div id="boardTopicsFeed" class="space-y-3"></div>
@@ -2039,62 +2119,98 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             </div>
           </div>
         </div>
+
+        <!-- =============================================================== -->
+        <!-- TAB 5: CURATED FEED & DISCORD-STYLE ACTIVE THREADS (ACTIVITY)   -->
+        <!-- =============================================================== -->
+        <div id="boardTab-feed" class="hidden space-y-3 font-mono">
+          <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-900/85 rounded-xl border border-slate-800">
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button id="boardFeedFilter-all" type="button" onclick="setBoardFeedFilter('all')" class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold text-[11px] transition">All Feed</button>
+              <button id="boardFeedFilter-curated" type="button" onclick="setBoardFeedFilter('curated')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-700/40 text-[11px] transition">★ Curated</button>
+              <button id="boardFeedFilter-solved" type="button" onclick="setBoardFeedFilter('solved')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-700/40 text-[11px] transition">✓ Solved</button>
+            </div>
+            <div class="flex items-center gap-2 flex-1 min-w-[200px] max-w-md">
+              <input id="boardFeedFilterInput" type="text" placeholder="Search curated feed or filter threads..." oninput="loadBoardFeedAndThreads()" onkeydown="if(event.key==='Enter')loadBoardFeedAndThreads()" class="flex-1 px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs focus:border-cyan-400 focus:outline-none" />
+              <button type="button" onclick="loadBoardFeedAndThreads()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 text-[11px]">Filter</button>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
+            <div class="lg:col-span-7 bg-slate-900/75 rounded-xl border border-slate-800 p-3 space-y-2.5">
+              <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                <span class="text-xs font-bold text-cyan-300">📰 Curated Cyberspace Feed</span>
+                <span id="boardFeedStatusMeta" class="text-[10px] text-slate-400">All topics</span>
+              </div>
+              <div id="boardCuratedFeedList" class="space-y-2 max-h-[430px] overflow-y-auto pr-1"></div>
+            </div>
+            <div class="lg:col-span-5 bg-slate-950/90 rounded-xl border border-indigo-500/35 p-3 space-y-2.5">
+              <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                <span class="text-xs font-bold text-indigo-300">🧵 Active Threads (Ranked by Activity)</span>
+                <button type="button" onclick="promptNewBoardThread()" class="px-2 py-0.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px]">+ New Thread</button>
+              </div>
+              <div id="boardActiveThreadsList" class="space-y-2 max-h-[430px] overflow-y-auto pr-1"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- ===================================================================== -->
-    <!-- Window 9: Network Roster & Operator Leaderboard.app -->
+    <!-- Window 9: Network Presence, Peers & Leaderboard.app -->
     <!-- ===================================================================== -->
     <div id="win-network" class="mesh-window w-[560px] max-w-full" data-zen-window="true" data-window-id="win-network" style="top: 72px; right: 24px; z-index: 28;">
-      <!--TC_TITLEBAR {"id": "win-network", "icon": "👥", "title": "Network Presence & Leaderboard", "meta_html": "<span id=\"netWinActiveBadge\"><span id=\"netWinActiveNum\">0</span> active</span>"}-->
+      <!--TC_TITLEBAR {"id": "win-network", "icon": "👥", "title": "Network Presence & Leaderboard", "meta_html": "<span id=\"netWinActiveBadge\"><span id=\"netWinActiveNum\">0</span> online</span>"}-->
       <div class="window-body p-4 space-y-4 max-h-[680px] overflow-y-auto">
-        <!-- Top Metrics Cards -->
-        <div class="grid grid-cols-3 gap-2 text-center font-mono">
-          <div class="p-2.5 bg-slate-950/90 border border-slate-800 rounded-lg">
-            <div class="text-xs font-bold text-emerald-400 flex items-center justify-center gap-1">
+        <!-- Unified Stat-Tab Bar (merges statistical cards + navigation tabs) -->
+        <div class="grid grid-cols-3 gap-2 font-mono text-center">
+          <button onclick="switchNetTab('peers')" id="btnNetTab-peers" class="p-2.5 rounded-lg bg-emerald-950/90 text-emerald-300 border border-emerald-600 font-bold text-center transition active:scale-95">
+            <div class="text-sm font-bold flex items-center justify-center gap-1.5">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span id="netMetricPeers">2</span>
+              <span id="netMetricPeers">0</span>
             </div>
-            <div class="text-[10px] text-slate-400">Mesh Peers</div>
-          </div>
-          <div class="p-2.5 bg-slate-950/90 border border-slate-800 rounded-lg">
-            <div class="text-xs font-bold text-cyan-400" id="netMetricVisitors">14</div>
-            <div class="text-[10px] text-slate-400">Web Cursors</div>
-          </div>
-          <div class="p-2.5 bg-slate-950/90 border border-slate-800 rounded-lg">
-            <div class="text-xs font-bold text-amber-400" id="netMetricTopXp">850 XP</div>
-            <div class="text-[10px] text-slate-400">Top Rank</div>
-          </div>
-        </div>
-
-        <!-- Sub Tabs -->
-        <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs font-mono">
-          <button onclick="switchNetTab('peers')" id="btnNetTab-peers" class="flex-1 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold text-center transition">
-            🟢 Active Peers (<span id="netTabPeersCount">2</span>)
+            <div class="text-[10px] mt-0.5">🟢 Mesh Peers</div>
           </button>
-          <button onclick="switchNetTab('visitors')" id="btnNetTab-visitors" class="flex-1 py-1 rounded text-slate-400 hover:text-white text-center transition">
-            🌐 Web Visitors (<span id="netTabVisitorsCount">1</span>)
+          <button onclick="switchNetTab('visitors')" id="btnNetTab-visitors" class="p-2.5 rounded-lg bg-slate-950/90 text-slate-300 border border-slate-800 hover:border-slate-700 text-center transition active:scale-95">
+            <div class="text-sm font-bold text-cyan-400" id="netMetricVisitors">0</div>
+            <div class="text-[10px] text-slate-400 mt-0.5">🌐 Web Visitors</div>
           </button>
-          <button onclick="switchNetTab('leaderboard')" id="btnNetTab-leaderboard" class="flex-1 py-1 rounded text-slate-400 hover:text-white text-center transition">
-            🏆 Leaderboard
+          <button onclick="switchNetTab('leaderboard')" id="btnNetTab-leaderboard" class="p-2.5 rounded-lg bg-slate-950/90 text-slate-300 border border-slate-800 hover:border-slate-700 text-center transition active:scale-95">
+            <div class="text-sm font-bold text-amber-400" id="netMetricTopXp">0 XP</div>
+            <div class="text-[10px] text-slate-400 mt-0.5">🏆 Leaderboard</div>
           </button>
         </div>
 
-        <!-- Tab 1: Active Peers List -->
+        <!-- Inline Direct Message Drawer (for pinging/messaging Mesh Peers & Web Visitors) -->
+        <div id="netMessageDrawer" class="hidden p-3 bg-slate-950/95 border border-cyan-700/70 rounded-lg space-y-2 font-mono text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-cyan-300 font-bold">✉️ Direct Message → <span id="netMsgTargetLabel">Peer</span></span>
+            <button onclick="closePeerMessage()" class="text-slate-400 hover:text-white text-[11px]">✕ Cancel</button>
+          </div>
+          <div class="flex items-center gap-2">
+            <input id="netMsgInput" type="text" placeholder="Type message for this peer..." onkeydown="if(event.key==='Enter')sendDirectPeerMessage()" class="flex-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white text-xs focus:border-cyan-500 focus:outline-none">
+            <button onclick="sendDirectPeerMessage()" class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded text-xs transition active:scale-95">Send</button>
+          </div>
+        </div>
+
+        <!-- Tab 1: Mesh Peers List -->
         <div id="netPanel-peers" class="space-y-2">
+          <div class="text-[11px] text-slate-400 font-mono flex items-center justify-between">
+            <span>Connected Mesh Peers (Live Online Heartbeat)</span>
+            <span class="text-emerald-400 font-bold">● Real Telemetry</span>
+          </div>
           <div id="netPeersList" class="space-y-2 font-mono">
-            <!-- Dynamically populated via syncState -->
+            <!-- Dynamically populated via pollMeshState -->
           </div>
         </div>
 
-        <!-- Tab 2: Web Visitors List -->
+        <!-- Tab 2: Web Visitors & Live Cursors -->
         <div id="netPanel-visitors" class="space-y-2 hidden">
           <div class="text-[11px] text-slate-400 font-mono flex items-center justify-between">
-            <span>Real-time Multiplayer WebKit Cursors &amp; Visitors</span>
-            <span class="text-emerald-400 font-bold">● Live Sync</span>
+            <span>Active Web Visitors &amp; Live Cursors (Ping &amp; Message)</span>
+            <span class="text-cyan-400 font-bold">● Real-time Sync</span>
           </div>
           <div id="netVisitorsList" class="space-y-1.5 font-mono text-xs max-h-72 overflow-y-auto">
-            <!-- Dynamically populated via syncState -->
+            <!-- Dynamically populated via pollMeshState -->
           </div>
         </div>
 
@@ -2130,7 +2246,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- Window 9: 📁 Mesh Finder & Filesystem (Ranger VFS).app -->
     <!-- ===================================================================== -->
     <div id="win-agentspace" class="mesh-window w-[980px] max-w-full hidden" data-zen-window="true" data-window-id="win-agentspace" style="top: 76px; left: 140px; z-index: 35;">
-      <!--TC_TITLEBAR {"id": "win-agentspace", "icon": "📁", "title": "Space · Ranger VFS & Wasm Studio", "badge": "VFS"}-->
+      <!--TC_TITLEBAR {"id": "win-agentspace", "icon": "📁", "title": "Workstation", "badge": "VFS · 3D"}-->
       <style>
         /* Space IDE: Celadon, VS Code layout (explorer | tabbed editor | bottom terminal | status bar) */
         #win-agentspace .ide { display: flex; flex-direction: column; height: min(720px, calc(100vh - 150px)); overflow: hidden; padding: 0; background: #ecf1e6; color: #111111; font-family: "Inter", -apple-system, sans-serif; font-size: 12px; }
@@ -2152,6 +2268,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         #win-agentspace .ide-owner { width: 150px; font: 11px "JetBrains Mono", monospace; padding: 2px 8px; }
         #win-agentspace .ide-count { font: 10px "JetBrains Mono", monospace; padding: 1px 8px; border: 1px solid #111111; border-radius: 9999px; background: #ffffff; }
         #win-agentspace #finderTab-files { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+        #win-agentspace #finderTab-3dstudio { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
         #win-agentspace #finderTab-vscode, #win-agentspace #finderTab-artcraft { flex: 1 1 auto; min-height: 0; overflow: auto; margin: 10px; }
         #win-agentspace #rangerSplit { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: row; }
         #win-agentspace #rangerListPane { width: var(--ranger-list-w, 24%); min-width: 170px; flex: 0 0 auto; display: flex; flex-direction: column; min-height: 0; background: #f4f8f0; }
@@ -2220,16 +2337,20 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
               <button id="scopeTopicBtn" type="button" onclick="switchSpaceScope('topic')" title="A forum topic space">Topic</button>
               <button id="scopeDynamicBtn" type="button" onclick="switchSpaceScope('dynamic')" title="A dynamic sandbox space">Sandbox</button>
             </div>
-            <input id="spaceOwnerInput" type="text" placeholder="Owner ID / Space ID" aria-label="Space owner" class="ide-owner">
-            <button type="button" class="ide-btn" onclick="refreshAgentSpace()" title="Load this space">Load</button>
+            <div class="relative inline-flex items-center">
+              <input id="spaceOwnerInput" type="text" placeholder="Topic ID / Content IR Search or Owner ID" aria-label="Space owner or topic search" class="ide-owner" style="width: 215px;" onkeydown="onSpaceOwnerKeydown(event)" oninput="onSpaceOwnerInput(event)">
+              <div id="spaceTopicSearchResults" class="hidden absolute left-0 top-full mt-1 w-[340px] max-w-[85vw] max-h-[240px] overflow-y-auto bg-white border border-black rounded-lg shadow-xl z-50 p-1 font-mono text-[11px] text-neutral-900"></div>
+            </div>
+            <button type="button" class="ide-btn" onclick="resolveAndLoadSpaceOwner()" title="Search Topic by ID or content (IR) and load .space">Load</button>
           </div>
           <span class="ide-spacer"></span>
           <div class="ide-group">
             <span id="spaceFileCountBadge" class="ide-count">0 Files</span>
             <button type="button" class="ide-btn" onclick="exportAgentSpace()" title="Download this space as a .space file">Export .space</button>
-            <button type="button" class="ide-btn" id="spaceOpenWorkstationBtn" onclick="window.TinCanWorkstation ? window.TinCanWorkstation.tileWithSpace() : toggleWindow('win-workstation')" title="Open TinCan Workstation beside Space">Workstation</button>
+            <button type="button" class="ide-btn" id="spaceOpenWorkstationBtn" onclick="open3dStudioFromWorkstation()" title="Switch to 3D Studio (docked in Workstation or floating window)">3D Studio</button>
             <div class="ide-seg" role="group" aria-label="Studio views">
               <button id="finderTabBtn-files" type="button" class="is-active" onclick="switchFinderTab('files')">IDE</button>
+              <button id="finderTabBtn-3dstudio" type="button" onclick="switchFinderTab('3dstudio')">3D Studio</button>
               <button id="finderTabBtn-vscode" type="button" onclick="switchFinderTab('vscode')">Extensions</button>
               <button id="finderTabBtn-artcraft" type="button" onclick="switchFinderTab('artcraft')">ArtCraft</button>
             </div>
@@ -2594,6 +2715,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             <iframe id="artcraftWasmFrame" src="about:blank" class="w-full h-full border-0"></iframe>
           </div>
         </div>
+
+        <!-- =============================================================== -->
+        <!-- TAB 4: MERGED 3D STUDIO HOST (mounts #win-workstation .ws-body)  -->
+        <!-- =============================================================== -->
+        <div id="finderTab-3dstudio" class="hidden tc-ws-host aeonik-scope">
+          <div id="finder3dStudioPlaceholder" class="p-4 font-mono text-xs text-neutral-700">Initializing 3D Studio workspace...</div>
+        </div>
       </div>
     </div>
 
@@ -2638,33 +2766,24 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <button id="dockBtn-win-quests" onclick="toggleWindow('win-quests')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Rewards &amp; Token Minting Program">
       <span>🪙</span> <span class="hidden md:inline">Rewards &amp; Mint</span>
     </button>
-    <button id="dockBtn-win-agentspace" onclick="toggleWindow('win-agentspace')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Mesh Finder &amp; Ranger VFS Filesystem (Code, Video, 3D)">
-      <span>📁</span> <span class="hidden md:inline">Files / Finder</span>
+    <button id="dockBtn-win-agentspace" onclick="toggleWindow('win-agentspace')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Workstation · User, Topic &amp; Sandbox VFS + 3D Studio">
+      <span>📁</span> <span class="hidden md:inline">Workstation</span>
     </button>
-    <button id="dockBtn-win-workstation" onclick="toggleWindow('win-workstation')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Workstation · Multi-Model Foundry &amp; Hyper3D Rodin 3D Studio">
-      <span>🛠️</span> <span class="hidden md:inline">Workstation</span>
+    <button id="dockBtn-win-workstation" onclick="toggleWindow('win-workstation')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="3D Studio · Multi-Model Foundry &amp; Hyper3D Rodin 3D">
+      <span>🛠️</span> <span class="hidden md:inline">3D Studio</span>
     </button>
     <button id="dockBtn-win-ai-home" onclick="toggleWindow('win-ai-home')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="TinCan AI Command Shell &amp; Workflow Hub">
       <span>⌘</span> <span class="hidden md:inline">AI Hub</span>
     </button>
-    <button id="dockBtn-win-copilot" onclick="toggleWindow('win-copilot')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="AI Copilot · Multi-Model Router &amp; Space Diffs">
+    <button id="dockBtn-win-copilot" onclick="toggleWindow('win-copilot')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="AI Copilot · Multi-Model Router &amp; Context Palace">
       <span>✦</span> <span class="hidden md:inline">AI Copilot</span>
     </button>
-    <button id="dockBtn-win-billing" onclick="toggleWindow('win-billing')" class="px-2.5 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/80 text-emerald-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95 font-semibold" title="Token Billing, Store &amp; Sponsor Ads">
-      <span>💳</span> <span class="hidden md:inline">Tokens &amp; Ads</span>
+    <button id="dockBtn-win-billing" onclick="toggleWindow('win-billing')" class="px-2.5 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/80 text-emerald-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95 font-semibold" title="Ad Credits &amp; Token Vault (No Subscriptions)">
+      <span>💳</span> <span class="hidden md:inline">Credits &amp; Ads</span>
     </button>
     <button id="dockModBtn" onclick="toggleWindow('win-moderator')" class="hidden px-2.5 py-1.5 bg-amber-950/80 hover:bg-amber-900 border border-amber-600 text-amber-300 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Admin Moderator Control Panel">
       <span>🛡️</span> <span class="hidden md:inline font-bold">Mod Panel</span>
     </button>
-    <a href="/designs" class="px-2.5 py-1.5 bg-orange-950/80 hover:bg-orange-900 border border-orange-500/80 text-orange-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95 font-semibold" title="View Updated Native iOS &amp; Car UI Mockups">
-      <span>🎨</span> <span class="hidden md:inline">Mockups</span>
-    </a>
-    <a href="/ios" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="9-Screen Native iOS App Simulator">
-      <span>📱</span> <span class="hidden md:inline">iOS App</span>
-    </a>
-    <a href="/car" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="1280x720 Aftermarket Car Head-Unit">
-      <span>🚗</span> <span class="hidden md:inline">Car UI</span>
-    </a>
     <div class="h-5 w-px bg-slate-700 mx-1"></div>
     <button onclick="fireTestPacket()" class="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:brightness-110 text-white rounded-xl text-xs font-mono font-semibold transition active:scale-95 flex items-center gap-1 shadow-md" title="Launch animated test packet across mesh topology">
       <span>🥫</span> <span>Fire Test Packet</span>
@@ -2692,8 +2811,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       else if (window.location.pathname === '/terminal') singleWindowParam = 'win-terminal';
       else if (window.location.pathname === '/billing' || window.location.pathname === '/tokens') singleWindowParam = 'win-billing';
       else if (window.location.pathname === '/board' || window.location.pathname === '/cyberspace') singleWindowParam = 'win-board';
-      else if (['/space', '/files', '/finder', '/agentspace'].includes(window.location.pathname)) singleWindowParam = 'win-agentspace';
-      else if (window.location.pathname === '/workstation') singleWindowParam = 'win-workstation';
+      else if (['/space', '/files', '/finder', '/agentspace', '/workstation'].includes(window.location.pathname)) singleWindowParam = 'win-agentspace';
+      else if (window.location.pathname === '/3dstudio') singleWindowParam = 'win-workstation';
       else if (window.location.pathname === '/copilot') singleWindowParam = 'win-copilot';
       else if (window.location.pathname === '/ai' || window.location.pathname === '/home') singleWindowParam = 'win-ai-home';
       else if (window.location.pathname === '/rewards' || window.location.pathname === '/quests') singleWindowParam = 'win-quests';
@@ -2715,6 +2834,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       const dockBtn = document.getElementById('dockModBtn');
       const toggleText = document.getElementById('osAdminToggleText');
       const toggleBtn = document.getElementById('osAdminToggleBtn');
+      const adminMintCard = document.getElementById('questsAdminMintCard');
       if (isAdmin) {
         if (badge) badge.classList.remove('hidden');
         if (modBtn) modBtn.classList.remove('hidden');
@@ -2722,6 +2842,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           dockBtn.classList.remove('hidden');
           dockBtn.style.display = '';
         }
+        if (adminMintCard) adminMintCard.classList.remove('hidden');
         if (toggleText) toggleText.innerText = 'Admin: ACTIVE 🛡️';
         if (toggleBtn) {
           toggleBtn.className = 'text-xs font-mono px-2.5 py-1 rounded border border-amber-500 bg-amber-950 text-amber-300 transition flex items-center gap-1.5 shadow-sm font-bold';
@@ -2730,6 +2851,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         if (badge) badge.classList.add('hidden');
         if (modBtn) modBtn.classList.add('hidden');
         if (dockBtn) dockBtn.classList.add('hidden');
+        if (adminMintCard) adminMintCard.classList.add('hidden');
         if (toggleText) toggleText.innerText = 'Admin Mode';
         if (toggleBtn) {
           toggleBtn.className = 'text-xs font-mono px-2.5 py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 hover:text-amber-400 hover:border-amber-600 transition flex items-center gap-1.5 shadow-sm font-semibold';
@@ -2883,9 +3005,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         const panel = document.getElementById(`netPanel-${t}`);
         if (btn) {
           if (t === tabName) {
-            btn.className = 'flex-1 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold text-center transition';
+            btn.className = 'p-2.5 rounded-lg bg-emerald-950/90 text-emerald-300 border border-emerald-600 font-bold text-center transition active:scale-95';
           } else {
-            btn.className = 'flex-1 py-1 rounded text-slate-400 hover:text-white text-center transition';
+            btn.className = 'p-2.5 rounded-lg bg-slate-950/90 text-slate-300 border border-slate-800 hover:border-slate-700 text-center transition active:scale-95';
           }
         }
         if (panel) {
@@ -2991,6 +3113,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         return;
       }
 
+      if (winId === 'win-workstation' && typeof _is3dStudioDocked !== 'undefined' && _is3dStudioDocked && typeof mount3dStudioInWorkstation === 'function') {
+        mount3dStudioInWorkstation(false);
+        if (typeof switchFinderTab === 'function') switchFinderTab('files');
+      }
       const win = document.getElementById(winId);
       const dockBtn = getDockButton(winId);
 
@@ -3085,6 +3211,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         }
       }
 
+      if (winId === 'win-workstation' && typeof _is3dStudioDocked !== 'undefined' && _is3dStudioDocked && typeof mount3dStudioInWorkstation === 'function') {
+        mount3dStudioInWorkstation(false);
+        if (typeof switchFinderTab === 'function') switchFinderTab('files');
+      }
       const win = document.getElementById(winId);
       if (!win) return;
       const isHidden = win.style.display === 'none' || win.classList.contains('hidden') || win.classList.contains('minimized');
@@ -3125,6 +3255,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     function maximizeWindow(winId) {
+      if (winId === 'win-workstation' && typeof _is3dStudioDocked !== 'undefined' && _is3dStudioDocked && typeof mount3dStudioInWorkstation === 'function') {
+        mount3dStudioInWorkstation(false);
+        if (typeof switchFinderTab === 'function') switchFinderTab('files');
+      }
       const win = document.getElementById(winId);
       if (!win) return;
       win.classList.remove('minimized', 'hidden');
@@ -3922,9 +4056,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           if (totalUsedEl) totalUsedEl.innerText = `Total used: ${Number(data.total_tokens_used || 0).toLocaleString()} tokens ($${Number(data.total_billed_usd || 0).toFixed(4)})`;
 
           const pill = document.getElementById('hudTokenPill');
+          const toks = Number(data.token_balance || 0);
           if (pill) {
-            const toks = Number(data.token_balance || 0);
             pill.innerText = toks >= 1000 ? `${Math.round(toks / 1000)}k 🪙` : `${toks} 🪙`;
+          }
+          const questsBal = document.getElementById('rewardsMintedBalance');
+          if (questsBal) {
+            questsBal.innerText = `${toks.toLocaleString()} $TINCAN`;
           }
 
           const rowsEl = document.getElementById('billingLedgerRows');
@@ -4146,10 +4284,17 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         { id: 'grok-brain', label: pMap['grok-brain']?.model || 'Grok', x: w * 0.58, y: h * 0.18 },
         { id: 'openai-brain', label: pMap['openai-brain']?.model || 'GPT-4o', x: w * 0.72, y: h * 0.22 },
       ];
+      const remoteTopologyPeers = (window.latestOnlinePeers || [])
+        .filter(p => p && p.peer_id && p.peer_id !== myPeerId)
+        .slice(0, 6);
       const peers = [
-        { id: myPeerId, label: 'You (Local)', x: w * 0.32, y: h * 0.68 },
-        { id: 'peer-primary-mac', label: 'Mac Studio (M1 Max)', x: w * 0.5, y: h * 0.74 },
-        { id: 'peer-secondary-node', label: 'Collaborator MacBook', x: w * 0.68, y: h * 0.68 },
+        { id: myPeerId, label: 'You (Local)', x: w * (remoteTopologyPeers.length ? 0.32 : 0.5), y: h * 0.70 },
+        ...remoteTopologyPeers.map((p, idx) => ({
+          id: p.peer_id,
+          label: p.display_name || p.peer_id,
+          x: w * Math.min(0.84, 0.50 + idx * 0.14),
+          y: h * (idx % 2 === 0 ? 0.74 : 0.66)
+        }))
       ];
 
       function getNodePos(nodeId) {
@@ -4383,6 +4528,109 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     // AI Brain Arena: pickers, duel, voting and per-brain context live in arena_duel_ui.py
     // =========================================================================
 
+    const peerRttMap = {};
+    const pendingPings = {};
+    let directMsgTargetPeer = null;
+    let directMsgTargetLabel = '';
+
+    function formatSeenAge(epochSec) {
+      if (!epochSec) return 'just now';
+      const diff = Math.max(0, Math.round(Date.now() / 1000 - Number(epochSec)));
+      if (diff <= 5) return 'just now';
+      if (diff < 60) return `${diff}s ago`;
+      return `${Math.round(diff / 60)}m ago`;
+    }
+
+    async function pingNetworkPeer(targetPeerId, label) {
+      if (!targetPeerId) return;
+      if (targetPeerId === myPeerId) {
+        if (typeof showQuickNotification === 'function') showQuickNotification('● Local session online (0ms)');
+        return;
+      }
+      const room = (document.getElementById('roomInput') && document.getElementById('roomInput').value.trim()) || currentRoom || 'main';
+      pendingPings[targetPeerId] = performance.now();
+      spawnPacketFlight(myPeerId, targetPeerId, 'ping', 'PING');
+      try {
+        await fetch('/api/webrtc/signal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: myPeerId,
+            to: targetPeerId,
+            type: 'ping',
+            room,
+            payload: {
+              sent_at: Date.now(),
+              sender: typeof getVerifiedDisplayName === 'function' ? getVerifiedDisplayName() : myPeerId
+            }
+          })
+        });
+        if (typeof showQuickNotification === 'function') {
+          showQuickNotification(`📡 Ping sent to ${label || targetPeerId}`);
+        }
+      } catch (e) {
+        if (typeof showQuickNotification === 'function') showQuickNotification(`⚠️ Ping failed for ${label || targetPeerId}`);
+      }
+    }
+
+    function openPeerMessage(targetPeerId, label) {
+      if (!targetPeerId) return;
+      if (typeof requireVerifiedIdentity === 'function' && !requireVerifiedIdentity('send direct messages to peers')) return;
+      directMsgTargetPeer = targetPeerId;
+      directMsgTargetLabel = label || targetPeerId;
+      const drawer = document.getElementById('netMessageDrawer');
+      const lbl = document.getElementById('netMsgTargetLabel');
+      const inp = document.getElementById('netMsgInput');
+      if (lbl) lbl.innerText = `${directMsgTargetLabel} (${directMsgTargetPeer})`;
+      if (drawer) drawer.classList.remove('hidden');
+      if (inp) { inp.value = ''; inp.focus(); }
+    }
+
+    function closePeerMessage() {
+      directMsgTargetPeer = null;
+      const drawer = document.getElementById('netMessageDrawer');
+      if (drawer) drawer.classList.add('hidden');
+    }
+
+    async function sendDirectPeerMessage() {
+      if (!directMsgTargetPeer) return;
+      if (typeof requireVerifiedIdentity === 'function' && !requireVerifiedIdentity('send direct messages to peers')) return;
+      const inp = document.getElementById('netMsgInput');
+      const text = inp ? inp.value.trim() : '';
+      if (!text) return;
+      inp.value = '';
+      const room = (document.getElementById('roomInput') && document.getElementById('roomInput').value.trim()) || currentRoom || 'main';
+      const senderLabel = typeof getVerifiedDisplayName === 'function' ? getVerifiedDisplayName() : myPeerId;
+      try {
+        await fetch('/api/webrtc/signal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: myPeerId,
+            to: directMsgTargetPeer,
+            type: 'chat',
+            room,
+            payload: {
+              text: `[DM] ${text}`,
+              sender: senderLabel,
+              target: directMsgTargetPeer,
+              direct: true,
+              timestamp: Date.now()
+            }
+          })
+        });
+        if (typeof appendChatMessage === 'function') {
+          appendChatMessage(`${senderLabel} → ${directMsgTargetLabel}`, text, true, Date.now());
+        }
+        if (typeof showQuickNotification === 'function') {
+          showQuickNotification(`✉️ Direct message sent to ${directMsgTargetLabel}`);
+        }
+        closePeerMessage();
+      } catch (e) {
+        if (typeof showQuickNotification === 'function') showQuickNotification('⚠️ Failed to send direct message');
+      }
+    }
+
     async function triggerQuestAction(actionKey) {
       initAudio();
       playXpChime();
@@ -4401,6 +4649,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           })
         });
         const data = await res.json();
+        if (typeof showQuickNotification === 'function') {
+          if (data && data.status === 'already_completed') {
+            showQuickNotification('✓ Sign-on onboarding step already claimed for this peer.');
+          } else {
+            showQuickNotification('🌱 Sign-on onboarding step completed!');
+          }
+        }
         pollMeshState();
       } catch (e) {}
     }
@@ -4424,22 +4679,24 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         }
 
         // Update Squad XP Progress Bar
-        const squadXp = state.xp !== undefined ? state.xp : (state.squad_xp || 550);
-        const targetXp = state.tier?.next_tier_xp || state.tier?.target_xp || 1000;
+        const squadXp = state.xp !== undefined ? state.xp : (state.squad_xp || 0);
+        const targetXp = state.tier?.next_tier_xp || state.tier?.target_xp || 200;
         const pct = Math.min(100, Math.round((squadXp / targetXp) * 100));
         document.getElementById('osXpBar').style.width = `${pct}%`;
         document.getElementById('osXpText').innerText = `${squadXp.toLocaleString()} / ${targetXp.toLocaleString()} XP`;
 
-        // Update Peer Count across Top HUD and win-network
-        const count = state.peers_count || (state.active_webrtc_streams?.length || 2);
+        const streamsArr = Array.isArray(state.active_webrtc_streams) ? state.active_webrtc_streams : [];
+        const onlinePeers = streamsArr.filter(s => s && s.is_online !== false);
+        window.latestOnlinePeers = onlinePeers;
+        const count = (state.peers_count !== undefined && state.peers_count !== null)
+          ? Number(state.peers_count)
+          : onlinePeers.length;
         const osCountEl = document.getElementById('osPeerCountNum');
         if (osCountEl) osCountEl.innerText = count;
         const netWinBadgeEl = document.getElementById('netWinActiveNum');
         if (netWinBadgeEl) netWinBadgeEl.innerText = count;
         const netMetricPeersEl = document.getElementById('netMetricPeers');
         if (netMetricPeersEl) netMetricPeersEl.innerText = count;
-        const netTabPeersEl = document.getElementById('netTabPeersCount');
-        if (netTabPeersEl) netTabPeersEl.innerText = count;
 
         // Render Multiplayer Cursors
         if (state.cursors) {
@@ -4454,17 +4711,22 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
         // Update Leaderboard in both win-quests and standalone win-network
         if (state.leaderboard && Array.isArray(state.leaderboard)) {
-          const renderLdRows = (rows) => rows.map((p, idx) => `
-            <tr>
-              <td class="px-3 py-2 text-${idx === 0 ? 'amber-400' : 'slate-400'} font-bold">#${idx + 1}</td>
-              <td class="px-3 py-2 text-white font-bold">${p.display_name || p.peer_id}</td>
-              <td class="px-3 py-2 text-emerald-400">${p.tier || 'L3: Cryptographic Bridge'}</td>
-              <td class="px-3 py-2">
-                ${(p.badges || ['🟢 Initiate']).map(b => `<span class="px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-700 text-[10px] mr-1">${b}</span>`).join('')}
-              </td>
-              <td class="px-3 py-2 text-right text-cyan-300 font-bold">${(p.xp || 0).toLocaleString()} XP</td>
-            </tr>
-          `).join('');
+          const renderLdRows = (rows) => {
+            if (!rows || rows.length === 0) {
+              return '<tr><td colspan="5" class="px-3 py-3 text-center text-slate-500">No operator sessions recorded yet.</td></tr>';
+            }
+            return rows.map((p, idx) => `
+              <tr>
+                <td class="px-3 py-2 text-${idx === 0 ? 'amber-400' : 'slate-400'} font-bold">#${idx + 1}</td>
+                <td class="px-3 py-2 text-white font-bold">${escapeHtml(p.display_name || p.peer_id)}</td>
+                <td class="px-3 py-2 text-emerald-400">${escapeHtml(p.tier || 'L1: Isolated Node')}</td>
+                <td class="px-3 py-2">
+                  ${(p.badges || []).length > 0 ? p.badges.map(b => `<span class="px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-700 text-[10px] mr-1">${escapeHtml(b)}</span>`).join('') : '<span class="text-slate-500 text-[10px]">—</span>'}
+                </td>
+                <td class="px-3 py-2 text-right text-cyan-300 font-bold">${(p.xp || 0).toLocaleString()} XP</td>
+              </tr>
+            `).join('');
+          };
 
           const tbody = document.getElementById('operatorLeaderboard');
           if (tbody) tbody.innerHTML = renderLdRows(state.leaderboard);
@@ -4474,86 +4736,153 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
           const topRank = state.leaderboard[0];
           const topXpEl = document.getElementById('netMetricTopXp');
-          if (topXpEl && topRank) {
-            topXpEl.innerText = `${(topRank.xp || 850).toLocaleString()} XP`;
+          if (topXpEl) {
+            topXpEl.innerText = topRank ? `${(topRank.xp || 0).toLocaleString()} XP` : '0 XP';
+          }
+
+          // Mark any one-time sign-on quests completed by current peer
+          const myBoardRow = state.leaderboard.find(p => p.peer_id === myPeerId);
+          const completedSet = new Set((myBoardRow && myBoardRow.completed_quests) || []);
+          ['sealed_courier', 'arena_vote', 'coop_action'].forEach(qk => {
+            const btnEl = document.getElementById(`questBtn-${qk}`);
+            const badgeEl = document.getElementById(`questBadge-${qk}`);
+            const done = completedSet.has(qk);
+            if (badgeEl && done) {
+              badgeEl.textContent = '✓ Claimed';
+              badgeEl.className = 'text-[10px] bg-slate-900 text-emerald-400 border border-emerald-700 px-1.5 py-0.5 rounded font-mono';
+            }
+            if (btnEl && done) {
+              btnEl.disabled = true;
+              btnEl.classList.add('opacity-50', 'cursor-not-allowed');
+              btnEl.textContent = '✓ Sign-On Completed (1x)';
+            }
+          });
+        }
+
+        // Update win-network Mesh Peers Roster (real peers only — never hardcoded seed nodes)
+        const netPeersListEl = document.getElementById('netPeersList');
+        if (netPeersListEl) {
+          if (onlinePeers.length === 0) {
+            netPeersListEl.innerHTML = `
+              <div class="p-3 bg-slate-950/70 border border-slate-800 rounded-lg text-center text-slate-400 text-xs">
+                No mesh peers currently online in room "${escapeHtml(currentRoom)}". Join WebRTC or run <code class="text-emerald-300">tincan start</code> on a peer node.
+              </div>
+            `;
+          } else {
+            netPeersListEl.innerHTML = onlinePeers.map(p => {
+              const peerId = p.peer_id || '';
+              const label = p.display_name || peerId || 'Mesh Peer';
+              const isLocal = peerId === myPeerId;
+              const isOnline = p.is_online !== false;
+              const caps = [];
+              if (p.has_video) caps.push('Video');
+              if (p.has_audio) caps.push('Audio');
+              if (p.has_screen) caps.push('Screen');
+              const hasMedia = caps.length > 0 || Boolean(p.has_live_media);
+              const statusText = isOnline
+                ? (hasMedia ? `Online · Live Media (${caps.join(', ')})` : 'Online · Relay Connected')
+                : 'Offline';
+              const rttMs = peerRttMap[peerId];
+              const rightTelemetry = rttMs !== undefined
+                ? `${rttMs}ms RTT`
+                : `Seen ${formatSeenAge(p.last_seen || p.connected_at)}`;
+              return `
+                <div class="p-3 bg-slate-950/80 border border-slate-800 rounded-lg space-y-1.5 hover:border-slate-700 transition">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span>🖥️</span> <span>${escapeHtml(label)}</span>
+                      ${isLocal ? '<span class="text-[10px] text-cyan-400 font-normal">(you)</span>' : ''}
+                    </span>
+                    <span class="px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-700 text-[10px]">
+                      Room: ${escapeHtml(p.room || currentRoom || 'main')}
+                    </span>
+                  </div>
+                  <div class="flex items-center justify-between text-[11px] text-slate-400">
+                    <span class="${isOnline ? 'text-emerald-400' : 'text-slate-500'}">${isOnline ? '●' : '○'} ${escapeHtml(statusText)}</span>
+                    <span class="font-mono text-cyan-300">${escapeHtml(rightTelemetry)}</span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-800/80 text-[10px]">
+                    <button onclick="pingNetworkPeer('${escapeHtml(peerId)}', '${escapeHtml(label)}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition active:scale-95">📡 Ping</button>
+                    <button onclick="openPeerMessage('${escapeHtml(peerId)}', '${escapeHtml(label)}')" class="px-2 py-0.5 rounded bg-indigo-950/80 hover:bg-indigo-900 text-indigo-200 border border-indigo-800 transition active:scale-95">✉️ Message</button>
+                    ${!isLocal ? `<button onclick="startDirectCall('${escapeHtml(peerId)}')" class="px-2 py-0.5 rounded bg-emerald-900/80 hover:bg-emerald-800 text-emerald-200 border border-emerald-700 transition active:scale-95">📞 Call</button>` : ''}
+                    ${hasMedia ? `<button onclick="toggleWindow('win-comms')" class="px-2 py-0.5 rounded bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-800 transition active:scale-95">📺 View Stream</button>` : ''}
+                  </div>
+                </div>
+              `;
+            }).join('');
           }
         }
 
-        // Update win-network Peers & Visitors Roster
-        const activePeers = (state.active_webrtc_streams && state.active_webrtc_streams.length > 0)
-          ? state.active_webrtc_streams
-          : [
-              { peer_id: 'Mac Studio (M1 Max)', handle: '@nojuannobody', tier: 'L5: Autonomous Mesh', rtt: 24, status: 'Streaming 1080p', mbps: '5.4' },
-              { peer_id: 'MacBook Pro (M2)', handle: '@collaborator', tier: 'L4: CRDT Gossip', rtt: 38, status: 'Connected', mbps: '2.1' }
-            ];
-
-        const netPeersListEl = document.getElementById('netPeersList');
-        if (netPeersListEl) {
-          netPeersListEl.innerHTML = activePeers.map(p => `
-            <div class="p-3 bg-slate-950/80 border border-slate-800 rounded-lg space-y-1.5 hover:border-slate-700 transition">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-white flex items-center gap-1.5">
-                  <span>🖥️</span> <span>${escapeHtml(p.peer_id || p.handle || 'Peer Node')}</span>
-                </span>
-                <span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-bold">
-                  ${escapeHtml(p.tier || 'L4: CRDT Gossip')}
-                </span>
-              </div>
-              <div class="flex items-center justify-between text-[11px] text-slate-400">
-                <span class="text-emerald-400">● ${escapeHtml(p.status || 'Active WebRTC Stream')}</span>
-                <span class="font-mono text-cyan-300">${p.rtt || 24}ms RTT · ${p.mbps || '3.2'} Mbps</span>
-              </div>
-              <div class="flex items-center gap-2 pt-1 border-t border-slate-800/80 text-[10px]">
-                <button onclick="startDirectCall('${escapeHtml(p.peer_id || '')}')" class="px-2 py-0.5 rounded bg-emerald-900/80 hover:bg-emerald-800 text-emerald-200 border border-emerald-700 transition active:scale-95">📞 Call</button>
-                <button onclick="toggleWindow('win-comms')" class="px-2 py-0.5 rounded bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-800 transition active:scale-95">📺 View Screen</button>
-                <button onclick="fireTestPacket()" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition active:scale-95">💬 Ping</button>
-              </div>
-            </div>
-          `).join('');
-        }
-
         const cursorsArr = Array.isArray(state.cursors) ? state.cursors : Object.values(state.cursors || {});
-        const visitorsCount = Math.max(cursorsArr.length, 1);
+        const visitorsCount = cursorsArr.length;
         const netMetricVisitorsEl = document.getElementById('netMetricVisitors');
         if (netMetricVisitorsEl) netMetricVisitorsEl.innerText = visitorsCount;
-        const netTabVisitorsEl = document.getElementById('netTabVisitorsCount');
-        if (netTabVisitorsEl) netTabVisitorsEl.innerText = visitorsCount;
 
         const netVisitorsListEl = document.getElementById('netVisitorsList');
         if (netVisitorsListEl) {
           if (cursorsArr.length === 0) {
             netVisitorsListEl.innerHTML = `
-              <div class="p-2.5 bg-slate-950/60 border border-slate-800/80 rounded-lg text-slate-400 text-xs flex items-center justify-between">
-                <span class="flex items-center gap-1.5"><span>🖱️</span> <span>Local Browser Session</span></span>
-                <span class="px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 text-[10px]">Active Now</span>
+              <div class="p-3 bg-slate-950/60 border border-slate-800/80 rounded-lg text-slate-400 text-xs text-center">
+                No active web visitors right now.
               </div>
             `;
           } else {
-            netVisitorsListEl.innerHTML = cursorsArr.map(c => `
-              <div class="p-2 bg-slate-950/70 border border-slate-800 rounded-lg flex items-center justify-between text-[11px]">
-                <div class="flex items-center gap-2">
-                  <span class="w-2 h-2 rounded-full" style="background-color: ${c.color || '#38bdf8'}"></span>
-                  <span class="text-white font-bold">${escapeHtml(c.user || c.display_name || c.peer_id || 'Web Visitor')}</span>
-                  <span class="text-slate-400 text-[10px]">(${escapeHtml(c.agent || 'Web Client')})</span>
+            const nowSec = Date.now() / 1000;
+            netVisitorsListEl.innerHTML = cursorsArr.map(c => {
+              const peerId = c.peer_id || '';
+              const label = c.user || c.display_name || peerId || 'Web Visitor';
+              const isLocal = peerId === myPeerId;
+              const ageSec = Math.max(0, Math.round(nowSec - (c.updated_at || nowSec)));
+              const onlineBadge = ageSec <= 20
+                ? '<span class="text-emerald-400">● Online</span>'
+                : `<span class="text-yellow-400">◐ ${ageSec}s ago</span>`;
+              const rttTag = peerRttMap[peerId] !== undefined
+                ? `<span class="text-[10px] text-cyan-300 font-mono">${peerRttMap[peerId]}ms</span>`
+                : '';
+              return `
+                <div class="p-2.5 bg-slate-950/70 border border-slate-800 rounded-lg space-y-1.5 text-[11px]">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 min-w-0">
+                      <span class="w-2 h-2 rounded-full shrink-0" style="background-color: ${c.color || '#38bdf8'}"></span>
+                      <span class="text-white font-bold truncate">${escapeHtml(label)}</span>
+                      ${isLocal ? '<span class="text-[10px] text-cyan-400">(you)</span>' : ''}
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0 text-[10px]">
+                      ${rttTag}
+                      ${onlineBadge}
+                      <span class="text-slate-400 font-mono">${escapeHtml(c.window_id || c.focused_window || 'desktop')}</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-end gap-1.5 pt-1 border-t border-slate-800/60 text-[10px]">
+                    <button onclick="pingNetworkPeer('${escapeHtml(peerId)}', '${escapeHtml(label)}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition active:scale-95">📡 Ping</button>
+                    ${!isLocal ? `<button onclick="openPeerMessage('${escapeHtml(peerId)}', '${escapeHtml(label)}')" class="px-2 py-0.5 rounded bg-indigo-950/80 hover:bg-indigo-900 text-indigo-200 border border-indigo-800 transition active:scale-95">✉️ Message</button>` : '<span class="text-slate-500 px-1.5">Local tab</span>'}
+                  </div>
                 </div>
-                <span class="text-emerald-400 font-mono text-[10px]">${escapeHtml(c.window_id || c.focused_window || 'Mesh Desktop')}</span>
-              </div>
-            `).join('');
+              `;
+            }).join('');
           }
         }
 
-        // Update Moderator Panel Rosters
-        const streamsArr = state.active_webrtc_streams || [];
+        // Populate customer peer suggestions for Admin Minting console
+        const dl = document.getElementById('adminMintPeerSuggestions');
+        if (dl) {
+          const seenIds = new Set();
+          [myPeerId, ...onlinePeers.map(p => p.peer_id), ...cursorsArr.map(c => c.peer_id)].forEach(id => {
+            if (id) seenIds.add(id);
+          });
+          dl.innerHTML = Array.from(seenIds).map(id => `<option value="${escapeHtml(id)}">`).join('');
+        }
 
+        // Update Moderator Panel Rosters
         const modWebCountEl = document.getElementById('modWebCount');
         const modMeshCountEl = document.getElementById('modMeshCount');
         const modWebTagEl = document.getElementById('modWebVisitorsCountTag');
         const modMeshTagEl = document.getElementById('modMeshNodesCountTag');
 
         if (modWebCountEl) modWebCountEl.innerText = cursorsArr.length;
-        if (modMeshCountEl) modMeshCountEl.innerText = streamsArr.length;
+        if (modMeshCountEl) modMeshCountEl.innerText = onlinePeers.length;
         if (modWebTagEl) modWebTagEl.innerText = `${cursorsArr.length} connected`;
-        if (modMeshTagEl) modMeshTagEl.innerText = `${streamsArr.length} active streams`;
+        if (modMeshTagEl) modMeshTagEl.innerText = `${onlinePeers.length} online`;
 
         const webTbody = document.getElementById('modWebVisitorsTable');
         if (webTbody) {
@@ -4865,10 +5194,14 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             const sigKey = `${sig.seq || ''}-${sig.from}-${sig.timestamp || ''}`;
             if (!seenChatIds.has(sigKey)) {
               seenChatIds.add(sigKey);
-              const txt = (sig.payload && (sig.payload.text || sig.payload.message)) || (typeof sig.payload === 'string' ? sig.payload : '');
-              const sender = (sig.payload && sig.payload.sender) || sig.from || 'Peer';
+              const payload = sig.payload && typeof sig.payload === 'object' ? sig.payload : {};
+              const txt = (payload && (payload.text || payload.message)) || (typeof sig.payload === 'string' ? sig.payload : '');
+              const sender = (payload && payload.sender) || sig.from || 'Peer';
+              const targetKey = sig.to && sig.to !== '*'
+                ? `dm:${sig.from === myPeerId ? sig.to : sig.from}`
+                : `channel:${payload.channel || sig.room || 'main'}`;
               if (txt && sig.from !== myPeerId) {
-                appendChatMessage(sender, txt, false, sig.timestamp ? sig.timestamp * 1000 : null);
+                appendChatMessage(sender, txt, false, sig.timestamp ? sig.timestamp * 1000 : null, targetKey);
                 playXpChime();
               }
             }
@@ -4900,6 +5233,39 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
               seenChatIds.add(sigKey);
               loadCyberspaceBoard();
             }
+          } else if (sig.type === 'ping') {
+            const sigKey = `ping-${sig.seq || ''}-${sig.from}-${sig.timestamp || ''}`;
+            if (!seenChatIds.has(sigKey)) {
+              seenChatIds.add(sigKey);
+              const sender = (sig.payload && sig.payload.sender) || sig.from || 'Peer';
+              if (typeof showQuickNotification === 'function') {
+                showQuickNotification(`📡 Ping received from ${sender} — replying pong`);
+              }
+              if (typeof sendSignal === 'function') {
+                sendSignal('pong', {
+                  sent_at: sig.payload && sig.payload.sent_at,
+                  responder: typeof getVerifiedDisplayName === 'function' ? getVerifiedDisplayName() : myPeerId
+                }, sig.from);
+              }
+            }
+          } else if (sig.type === 'pong') {
+            const sigKey = `pong-${sig.seq || ''}-${sig.from}-${sig.timestamp || ''}`;
+            if (!seenChatIds.has(sigKey)) {
+              seenChatIds.add(sigKey);
+              const sentPerf = pendingPings[sig.from];
+              const rttMs = sentPerf
+                ? Math.max(1, Math.round(performance.now() - sentPerf))
+                : ((sig.payload && sig.payload.sent_at) ? Math.max(1, Math.round(Date.now() - Number(sig.payload.sent_at))) : null);
+              delete pendingPings[sig.from];
+              if (rttMs !== null) {
+                peerRttMap[sig.from] = rttMs;
+              }
+              const responder = (sig.payload && sig.payload.responder) || sig.from || 'Peer';
+              if (typeof showQuickNotification === 'function') {
+                showQuickNotification(`✅ Pong from ${responder}${rttMs !== null ? ` (${rttMs}ms RTT)` : ''}`);
+              }
+              pollMeshState(true);
+            }
           }
         }
       } catch (e) {}
@@ -4907,10 +5273,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     pollTimer = setInterval(() => pollSignals(false), 3000);
 
     // =========================================================================
-    // Live Mesh & Peer Chat Engine
+    // Live Mesh & Peer Chat Engine (Discord-Style Channels + Room People DMs)
     // =========================================================================
     let chatMsgCount = 0;
     const seenChatIds = new Set();
+    const chatStreamsByTarget = new Map();
+    const customChatChannels = ['main', 'architecture', 'cyberspace', 'arena'];
+    let activeChatTarget = { mode: 'channel', id: 'main', label: '#main', peerId: '' };
 
     function escapeHtml(str) {
       if (!str) return '';
@@ -4922,29 +5291,184 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         .replace(/'/g, '&#039;');
     }
 
-    function appendChatMessage(sender, text, isMe = false, timestamp = null) {
+    function _activeChatKey() {
+      return activeChatTarget.mode === 'direct'
+        ? `dm:${activeChatTarget.peerId || activeChatTarget.id}`
+        : `channel:${activeChatTarget.id || 'main'}`;
+    }
+
+    function _renderActiveChatStream() {
       const list = document.getElementById('chatMessagesList');
       if (!list) return;
-
-      if (chatMsgCount === 0) {
-        list.innerHTML = '';
-      }
-      chatMsgCount++;
+      const key = _activeChatKey();
+      const rows = chatStreamsByTarget.get(key) || [];
       const counter = document.getElementById('chatCounterBadge');
-      if (counter) counter.innerText = `${chatMsgCount} message${chatMsgCount === 1 ? '' : 's'}`;
-
-      const timeStr = timestamp ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const row = document.createElement('div');
-      row.className = `p-2 rounded text-xs font-mono border transition-all ${isMe ? 'bg-cyan-950/40 border-cyan-800/60 ml-4' : 'bg-slate-900/90 border-slate-800 mr-4'}`;
-      row.innerHTML = `
-        <div class="flex items-center justify-between text-[10px] text-slate-400 mb-0.5">
-          <span class="font-bold ${isMe ? 'text-cyan-300' : 'text-emerald-400'}">${escapeHtml(sender)}${isMe ? ' (you)' : ''}</span>
-          <span class="text-[9px] text-slate-500">${timeStr}</span>
-        </div>
-        <div class="text-slate-100 break-words leading-relaxed">${escapeHtml(text)}</div>
-      `;
-      list.appendChild(row);
+      if (counter) counter.innerText = `${rows.length} message${rows.length === 1 ? '' : 's'}`;
+      if (!rows.length) {
+        const emptyLabel = activeChatTarget.mode === 'direct'
+          ? `No direct sealed messages with ${activeChatTarget.label || activeChatTarget.peerId} yet.`
+          : `No messages in #${activeChatTarget.id || 'main'} yet. Say hello to peers in the room.`;
+        list.innerHTML = `<div class="text-slate-500 text-[11px] italic">${escapeHtml(emptyLabel)}</div>`;
+        return;
+      }
+      list.innerHTML = '';
+      for (const m of rows) {
+        const timeStr = new Date(m.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const row = document.createElement('div');
+        row.className = `p-2 rounded text-xs font-mono border transition-all ${m.isMe ? 'bg-cyan-950/40 border-cyan-800/60 ml-4' : 'bg-slate-900/90 border-slate-800 mr-4'}`;
+        row.innerHTML = `
+          <div class="flex items-center justify-between text-[10px] text-slate-400 mb-0.5">
+            <span class="font-bold ${m.isMe ? 'text-cyan-300' : 'text-emerald-400'}">${escapeHtml(m.sender)}${m.isMe ? ' (you)' : ''}</span>
+            <span class="text-[9px] text-slate-500">${timeStr}</span>
+          </div>
+          <div class="text-slate-100 break-words leading-relaxed">${escapeHtml(m.text)}</div>
+        `;
+        list.appendChild(row);
+      }
       list.scrollTop = list.scrollHeight;
+    }
+
+    function _renderChatChannelsSidebar() {
+      const host = document.getElementById('chatChannelsList');
+      if (!host) return;
+      const curKey = _activeChatKey();
+      host.innerHTML = customChatChannels.map((ch) => {
+        const active = curKey === `channel:${ch}`;
+        const cls = active
+          ? 'bg-cyan-950/80 border border-cyan-700/70 text-cyan-200 font-bold'
+          : 'text-slate-300 hover:bg-slate-900';
+        return `<button type="button" data-channel="${escapeHtml(ch)}" onclick="selectChatTarget('channel', '${escapeHtml(ch)}', '#${escapeHtml(ch)}')" class="w-full text-left px-2 py-1 rounded ${cls} text-[11px] flex items-center justify-between">#${escapeHtml(ch)}</button>`;
+      }).join('');
+    }
+
+    function onChatModeSelectChange(mode) {
+      const dmInput = document.getElementById('chatDirectPeerInput');
+      if (mode === 'direct') {
+        if (dmInput) dmInput.classList.remove('hidden');
+        const targetPeer = (dmInput && dmInput.value.trim()) || activeChatTarget.peerId || '';
+        activeChatTarget = { mode: 'direct', id: targetPeer, peerId: targetPeer, label: targetPeer || 'Direct Peer' };
+      } else {
+        if (dmInput) dmInput.classList.add('hidden');
+        const ch = activeChatTarget.mode === 'channel' ? (activeChatTarget.id || 'main') : 'main';
+        activeChatTarget = { mode: 'channel', id: ch, label: '#' + ch, peerId: '' };
+      }
+      _updateChatBannerAndInputs();
+      _renderChatChannelsSidebar();
+      _renderActiveChatStream();
+    }
+
+    function _updateChatBannerAndInputs() {
+      const banner = document.getElementById('chatActiveTargetBanner');
+      const sel = document.getElementById('chatChannelSelect');
+      const dmInput = document.getElementById('chatDirectPeerInput');
+      const chatInput = document.getElementById('chatInput');
+      const isDirect = activeChatTarget.mode === 'direct';
+      if (sel) sel.value = isDirect ? 'direct' : 'room';
+      if (dmInput) {
+        dmInput.classList.toggle('hidden', !isDirect);
+        if (isDirect && activeChatTarget.peerId) dmInput.value = activeChatTarget.peerId;
+      }
+      if (banner) {
+        banner.innerText = isDirect
+          ? `🔒 DM · ${activeChatTarget.label || activeChatTarget.peerId || 'Select person'}`
+          : `#${activeChatTarget.id || 'main'} · Broadcast`;
+      }
+      if (chatInput) {
+        chatInput.placeholder = isDirect
+          ? `Sealed DM to ${activeChatTarget.label || activeChatTarget.peerId || 'peer'}...`
+          : `Message #${activeChatTarget.id || 'main'}...`;
+      }
+    }
+
+    function selectChatTarget(mode, id, label) {
+      if (mode === 'direct') {
+        activeChatTarget = { mode: 'direct', id, peerId: id, label: label || id };
+      } else {
+        const clean = String(id || 'main').replace(/^#+/, '').toLowerCase() || 'main';
+        if (!customChatChannels.includes(clean)) customChatChannels.push(clean);
+        activeChatTarget = { mode: 'channel', id: clean, label: '#' + clean, peerId: '' };
+      }
+      _updateChatBannerAndInputs();
+      _renderChatChannelsSidebar();
+      _renderActiveChatStream();
+    }
+    window.selectChatTarget = selectChatTarget;
+    window.onChatModeSelectChange = onChatModeSelectChange;
+
+    function promptNewChatChannel() {
+      const name = window.prompt('Create encrypted mesh channel (e.g. research, ops):', 'research');
+      if (!name) return;
+      const slug = name.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-').replace(/^-+|-+$/g, '');
+      if (!slug) return;
+      selectChatTarget('channel', slug, '#' + slug);
+    }
+    window.promptNewChatChannel = promptNewChatChannel;
+
+    async function refreshCommsPeopleRoster() {
+      const host = document.getElementById('chatPeopleList');
+      if (!host) return;
+      try {
+        const [meshRes, rosterRes] = await Promise.all([
+          fetch(`/api/mesh/state?room=${encodeURIComponent(currentRoom)}`).catch(() => null),
+          fetch('/api/board/roster').catch(() => null),
+        ]);
+        const merged = new Map();
+        if (meshRes && meshRes.ok) {
+          const st = await meshRes.json();
+          const peersObj = (st && st.peers) || {};
+          for (const [pid, info] of Object.entries(peersObj)) {
+            if (!pid) continue;
+            merged.set(pid, {
+              peer_id: pid,
+              label: (info && (info.display_name || info.name || info.username)) || pid,
+              online: true,
+              role: (info && info.role) || 'Peer',
+            });
+          }
+        }
+        if (rosterRes && rosterRes.ok) {
+          const rd = await rosterRes.json();
+          for (const u of (rd.users || [])) {
+            const id = String(u.peer_id || u.username || '').trim();
+            if (!id) continue;
+            const handle = String(u.username || id).replace(/^@+/, '');
+            if (!merged.has(id)) {
+              merged.set(id, {
+                peer_id: id,
+                label: '@' + handle,
+                online: !!u.verified,
+                role: u.role || 'Peer',
+              });
+            }
+          }
+        }
+        const entries = Array.from(merged.values()).filter((p) => p.peer_id !== myPeerId);
+        if (!entries.length) {
+          host.innerHTML = '<div class="text-[10px] text-slate-500 italic">No other peers in room yet.</div>';
+          return;
+        }
+        const curKey = _activeChatKey();
+        host.innerHTML = entries.map((p) => {
+          const active = curKey === `dm:${p.peer_id}`;
+          const cls = active
+            ? 'bg-emerald-950/80 border border-emerald-600/80 text-emerald-200 font-bold'
+            : 'text-slate-300 hover:bg-slate-900';
+          const dot = p.online ? 'bg-emerald-400' : 'bg-slate-500';
+          return `<button type="button" data-dm-peer="${escapeHtml(p.peer_id)}" onclick="selectChatTarget('direct', '${escapeHtml(p.peer_id)}', '${escapeHtml(p.label)}')" class="w-full text-left px-2 py-1 rounded ${cls} text-[11px] flex items-center gap-1.5 truncate" title="Direct sealed chat with ${escapeHtml(p.peer_id)}"><span class="w-1.5 h-1.5 rounded-full ${dot} shrink-0"></span><span class="truncate">${escapeHtml(p.label)}</span></button>`;
+        }).join('');
+      } catch (e) {}
+    }
+    window.refreshCommsPeopleRoster = refreshCommsPeopleRoster;
+
+    function appendChatMessage(sender, text, isMe = false, timestamp = null, targetKey = null) {
+      chatMsgCount++;
+      const key = targetKey || _activeChatKey();
+      const arr = chatStreamsByTarget.get(key) || [];
+      arr.push({ sender, text, isMe, timestamp: timestamp || Date.now() });
+      chatStreamsByTarget.set(key, arr.slice(-150));
+      if (key === _activeChatKey()) {
+        _renderActiveChatStream();
+      }
     }
 
     async function sendChatMessage() {
@@ -4954,10 +5478,16 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       const text = input.value.trim();
       if (!text) return;
       input.value = '';
+      const modeSel = document.getElementById('chatChannelSelect');
+      const dmInp = document.getElementById('chatDirectPeerInput');
+      const isDirect = (modeSel && modeSel.value === 'direct') || activeChatTarget.mode === 'direct';
+      const recipientPeer = isDirect ? ((dmInp && dmInp.value.trim()) || activeChatTarget.peerId || '*').trim() : '*';
+      const channelId = isDirect ? 'direct' : (activeChatTarget.id || 'main');
+      const targetKey = isDirect && recipientPeer !== '*' ? `dm:${recipientPeer}` : `channel:${channelId}`;
       const room = document.getElementById('roomInput').value.trim() || 'main';
       const senderLabel = getVerifiedDisplayName();
 
-      appendChatMessage(senderLabel, text, true, Date.now());
+      appendChatMessage(senderLabel, text, true, Date.now(), targetKey);
       playXpChime();
 
       try {
@@ -4966,12 +5496,14 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             from: myPeerId,
-            to: '*',
+            to: recipientPeer || '*',
             type: 'chat',
             room: room,
             payload: {
               text: text,
               sender: senderLabel,
+              channel: channelId,
+              recipient: recipientPeer,
               timestamp: Date.now()
             }
           })
@@ -4980,6 +5512,11 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         console.error('Failed to send chat message:', err);
       }
     }
+    setTimeout(() => { refreshCommsPeopleRoster(); }, 900);
+    setInterval(() => {
+      const w = document.getElementById('win-comms');
+      if (w && !w.classList.contains('hidden')) refreshCommsPeopleRoster();
+    }, 10000);
 
     // =========================================================================
     // OpenRouter Analytics & Model Configuration Engine (Preserved & Synced)
@@ -5731,7 +6268,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         activeBoardTab = tabName;
         openBoardRankDetails();
       }
-      ['discussions', 'graph', 'verify'].forEach(t => {
+      ['discussions', 'feed', 'graph', 'verify'].forEach(t => {
         const panel = document.getElementById(`boardTab-${t}`);
         const btn = document.getElementById(`boardTabBtn-${t}`);
         if (panel) panel.classList.toggle('hidden', t !== tabName);
@@ -5745,6 +6282,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       });
       if (tabName === 'graph') {
         loadAndDrawBoardGraph();
+      } else if (tabName === 'feed') {
+        loadBoardFeedAndThreads();
       } else if (tabName === 'verify') {
         prefillVerificationFormDefaults();
         loadVerificationCenterData();
@@ -5788,8 +6327,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       return out;
     }
 
-    function insertBoardTag(tagStr, targetId = 'boardTopicBody') {
-      const el = document.getElementById(targetId);
+    function insertBoardTag(tagStr, targetId = 'boardSearchInput') {
+      const el = document.getElementById(targetId) || document.getElementById('boardSearchInput');
       if (!el) return;
       const cur = el.value;
       const prefix = (cur && !cur.endsWith(' ')) ? ' ' : '';
@@ -5797,7 +6336,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       el.focus();
     }
 
-    function insertBoardSelfTag(targetId = 'boardTopicBody') {
+    function insertBoardSelfTag(targetId = 'boardSearchInput') {
       const un = (localStorage.getItem('tincan_username') || '').trim().replace(/^@/, '');
       if (!un) {
         switchBoardTab('verify');
@@ -5828,11 +6367,16 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     let boardSuggestSeq = 0;
     const BOARD_SLASH_COMMANDS = [
       { token: '/search ', name: '/search', label: 'Search posts, people and agents (hybrid BM25 + GraphRAG)' },
+      { token: '/post ', name: '/post', label: 'Start a new topic/thread: /post Title #tag @agent :: details' },
+      { token: '/thread ', name: '/thread', label: 'Open a Discord-style active thread: /thread Title' },
       { token: '/topic ', name: '/topic', label: 'Jump to a topic: /topic graphrag' },
-      { token: '/sort ', name: '/sort', label: 'Sort results: /sort hot, new, top or discussed' },
+      { token: '/feed', name: '/feed', label: 'Open Curated Feed & Active Threads view' },
+      { token: '/curate ', name: '/curate', label: 'Toggle curated topics view or curate a topic ID' },
+      { token: '/sort ', name: '/sort', label: 'Sort results: /sort hot, activity, new, top or discussed' },
     ];
     const BOARD_SORTS = [
       { token: 'sort:hot', name: 'sort:hot', label: 'Hot: activity weighted by age' },
+      { token: 'sort:activity', name: 'sort:activity', label: 'Activity: highest recent thread activity' },
       { token: 'sort:new', name: 'sort:new', label: 'Newest first' },
       { token: 'sort:top', name: 'sort:top', label: 'Most upvoted' },
       { token: 'sort:discussed', name: 'sort:discussed', label: 'Most replies' },
@@ -5974,11 +6518,77 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         inp.setSelectionRange(inp.value.length, inp.value.length);
         closeBoardSuggest();
         inp.focus();
+        if (it.token.trim() === '/feed') submitBoardOmniInput();
         return;
       }
       inp.value = (before + after).replace(/\s+/g, ' ').trimStart();
       closeBoardSuggest();
       addBoardChip(it.token);
+      inp.focus();
+    }
+
+    let _boardAiSuggestTimer = null;
+    function scheduleBoardAiSuggestions(q) {
+      clearTimeout(_boardAiSuggestTimer);
+      _boardAiSuggestTimer = setTimeout(() => loadBoardAiSuggestions(false, q), 280);
+    }
+
+    async function loadBoardAiSuggestions(forcePost = false, explicitQuery = null) {
+      const chipsEl = document.getElementById('boardAiSuggestionChips');
+      const badgeEl = document.getElementById('boardAiModelBadge');
+      if (!chipsEl) return;
+      const inp = document.getElementById('boardSearchInput');
+      const q = explicitQuery !== null ? String(explicitQuery) : (inp ? inp.value.trim() : '');
+      try {
+        const res = forcePost
+          ? await fetch('/api/board/ai-suggest', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ query: q, limit: 6 })
+            })
+          : await fetch(`/api/board/ai-suggest?q=${encodeURIComponent(q)}&limit=6`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
+        if (badgeEl) {
+          const mdl = (data.model || 'free-model').split('/').pop();
+          badgeEl.textContent = `${mdl} · ${data.source === 'free_llm' ? 'Free LLM $0' : 'Indexed $0'}`;
+        }
+        if (!suggestions.length) return;
+        chipsEl.innerHTML = suggestions.map(s => {
+          const text = String(s.text || s.token || '').trim();
+          const kind = String(s.kind || 'search');
+          const reason = String(s.reason || '');
+          const colorCls = kind === 'post' || kind === 'thread'
+            ? 'bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 border-emerald-700/70'
+            : kind === 'agent'
+              ? 'bg-indigo-950/70 hover:bg-indigo-900 text-indigo-300 border-indigo-700/70'
+              : 'bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700';
+          return `<button type="button" onclick="applyBoardAiSuggestion('${escapeHtml(text).replace(/'/g, '&#39;')}')" title="${escapeHtml(reason)}" class="px-2 py-0.5 rounded border text-[10px] transition ${colorCls}">${escapeHtml(text)}</button>`;
+        }).join('');
+      } catch (e) {}
+    }
+
+    function applyBoardAiSuggestion(text) {
+      const inp = document.getElementById('boardSearchInput');
+      if (!inp) return;
+      const clean = String(text || '').trim();
+      if (!clean) return;
+      if (clean.startsWith('/post') || clean.startsWith('/thread') || clean.startsWith('/search') || clean.startsWith('/feed')) {
+        inp.value = clean + (clean.endsWith(' ') ? '' : ' ');
+        inp.focus();
+        if (clean.startsWith('/search ')) searchCyberspaceBoard();
+        else if (clean === '/feed') submitBoardOmniInput();
+        return;
+      }
+      if (/^[#@][A-Za-z0-9_\-]+$/.test(clean) && !inp.value.trim().startsWith('/post') && !inp.value.trim().startsWith('/thread')) {
+        addBoardChip(clean);
+        inp.focus();
+        return;
+      }
+      const cur = inp.value;
+      const sep = cur && !cur.endsWith(' ') ? ' ' : '';
+      inp.value = cur + sep + clean + ' ';
       inp.focus();
     }
 
@@ -5988,7 +6598,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       const seq = ++boardSuggestSeq;
       // Turn a finished "#tag " / "@name " / "is:verified " into a chip as soon as space is typed.
       if (ev.data === ' ') {
-        const prev = inp.value.slice(0, inp.selectionStart - 1).match(/(^|\s)([#@][A-Za-z0-9_\-]+|is:verified)$/i);
+        const isCreating = /^\s*\/(post|new|thread)\b/i.test(inp.value);
+        const prev = !isCreating && inp.value.slice(0, inp.selectionStart - 1).match(/(^|\s)([#@][A-Za-z0-9_\-]+|is:verified)$/i);
         if (prev) {
           const t = prev[2];
           inp.value = (inp.value.slice(0, inp.selectionStart - 1 - t.length) + inp.value.slice(inp.selectionStart)).replace(/\s+/g, ' ').trimStart();
@@ -5997,6 +6608,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           return;
         }
       }
+      scheduleBoardAiSuggestions(inp.value);
       const sortCmd = inp.value.match(/^\/sort\s+(\S*)$/i);
       if (sortCmd || (tok.length >= 2 && ('sort:'.startsWith(tok.toLowerCase()) || tok.toLowerCase().startsWith('sort:')))) {
         const want = (sortCmd ? sortCmd[1] : tok.slice(5)).toLowerCase();
@@ -6031,10 +6643,50 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       if (ev.key === 'Escape') { if (open) { ev.preventDefault(); closeBoardSuggest(); } else if (inp.value) { inp.value = ''; } return; }
       if (ev.key === 'Enter') {
         ev.preventDefault(); closeBoardSuggest();
-        if (consumeBoardSortToken(inp) && !inp.value && !boardChips.length) return;
-        searchCyberspaceBoard(); return;
+        submitBoardOmniInput(); return;
       }
       if (ev.key === 'Backspace' && !inp.value && boardChips.length) { ev.preventDefault(); removeBoardChip(boardChips.length - 1); }
+    }
+
+    async function submitBoardOmniInput() {
+      const inp = document.getElementById('boardSearchInput');
+      if (!inp) return;
+      if (consumeBoardSortToken(inp) && !inp.value.trim() && !boardChips.length) return;
+      const raw = (inp.value || '').trim();
+      const postMatch = raw.match(/^\/(post|new|thread)\b\s*(.*)$/i);
+      if (postMatch) {
+        const cmd = postMatch[1].toLowerCase();
+        const payload = (postMatch[2] || '').trim();
+        if (!payload) {
+          inp.focus();
+          showQuickNotification(`Type a topic after /${cmd}, e.g. /${cmd} GraphRAG tuning #graphrag @gemini-brain`);
+          return;
+        }
+        await createCyberspaceTopic(raw);
+        return;
+      }
+      if (/^\/feed\b/i.test(raw)) {
+        const rest = raw.replace(/^\/feed\b\s*/i, '').trim();
+        inp.value = '';
+        switchBoardTab('feed');
+        if (rest) {
+          const fi = document.getElementById('boardFeedFilterInput');
+          if (fi) { fi.value = rest; loadBoardFeedAndThreads(); }
+        }
+        return;
+      }
+      if (/^\/curate\b/i.test(raw)) {
+        const arg = raw.replace(/^\/curate\b\s*/i, '').trim();
+        inp.value = '';
+        if (arg.startsWith('topic-')) {
+          await curateCyberspaceTopic(arg);
+          return;
+        }
+        setBoardFeedFilter('curated');
+        switchBoardTab('feed');
+        return;
+      }
+      searchCyberspaceBoard();
     }
 
     function focusBoardSearch() {
@@ -6411,6 +7063,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       refreshBoardVerificationBadge();
       loadBoardDynamicRoster();
       loadBoardTrending();
+      loadBoardAiSuggestions(false);
       if (buildBoardQuery()) { searchCyberspaceBoard(); return; }
       try {
         const sortBy = document.getElementById('boardSortSelect')?.value || 'hot';
@@ -6421,7 +7074,173 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         if (gBadge && data.graph_stats) {
           gBadge.innerText = `Graph: ${data.graph_stats.total_nodes || 0} nodes · ${data.graph_stats.total_edges || 0} edges`;
         }
+        const curatedBadge = document.getElementById('boardCuratedCountBadge');
+        if (curatedBadge && Array.isArray(data.topics)) {
+          curatedBadge.textContent = String(data.topics.filter(t => t.curated).length);
+        }
         renderCyberspaceTopics(data.topics || [], false);
+        if (activeBoardTab === 'feed') loadBoardFeedAndThreads();
+      } catch (e) {}
+    }
+
+    let boardFeedFilter = 'all';
+    function setBoardFeedFilter(mode) {
+      boardFeedFilter = mode || 'all';
+      ['all', 'curated', 'solved'].forEach(m => {
+        const btn = document.getElementById(`boardFeedFilter-${m}`);
+        if (!btn) return;
+        if (m === boardFeedFilter) {
+          btn.className = 'px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold text-[11px] transition';
+        } else {
+          btn.className = 'px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] transition';
+        }
+      });
+      loadBoardFeedAndThreads();
+    }
+
+    async function loadBoardFeedAndThreads() {
+      const feedEl = document.getElementById('boardCuratedFeedList');
+      const threadsEl = document.getElementById('boardActiveThreadsList');
+      const statusEl = document.getElementById('boardFeedStatusMeta');
+      if (!feedEl && !threadsEl) return;
+      const q = (document.getElementById('boardFeedFilterInput')?.value || '').trim().toLowerCase();
+      try {
+        const curatedParam = boardFeedFilter === 'curated' ? '&curated_only=1' : '';
+        const res = await fetch(`/api/board/topics?limit=50&sort_by=activity${curatedParam}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        let topics = Array.isArray(data.topics) ? data.topics.slice() : [];
+        if (boardFeedFilter === 'solved') {
+          topics = topics.filter(t => !!t.accepted_post_id);
+        }
+        if (q) {
+          topics = topics.filter(t =>
+            (t.title || '').toLowerCase().includes(q) ||
+            (t.body || '').toLowerCase().includes(q) ||
+            (t.tags || []).some(tag => String(tag).toLowerCase().includes(q)) ||
+            (t.posts || []).some(p => (p.body || '').toLowerCase().includes(q))
+          );
+        }
+        const curatedBadge = document.getElementById('boardCuratedCountBadge');
+        if (curatedBadge) {
+          const allResCount = topics.filter(t => t.curated).length;
+          if (boardFeedFilter === 'all' && !q) curatedBadge.textContent = String(allResCount);
+        }
+        if (statusEl) statusEl.textContent = `${topics.length} topic(s) · ${boardFeedFilter}`;
+
+        if (feedEl) {
+          if (!topics.length) {
+            feedEl.innerHTML = '<div class="p-4 text-center text-xs text-slate-400 border border-dashed border-slate-800 rounded-lg">No feed items match right now.</div>';
+          } else {
+            feedEl.innerHTML = topics.map(t => {
+              const starCls = t.curated
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
+                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-amber-300';
+              const tagsHtml = (t.tags || []).slice(0, 4).map(tg => `<span class="px-1.5 py-0.2 rounded bg-slate-800 text-pink-300 text-[10px]">#${escapeHtml(tg)}</span>`).join('');
+              return `
+                <div class="p-2.5 rounded-lg bg-slate-950/85 border border-slate-800 hover:border-cyan-500/40 space-y-1.5 transition">
+                  <div class="flex items-start justify-between gap-2">
+                    <button type="button" onclick="openBoardThreadFromFeed('${t.topic_id}')" class="text-left font-bold text-white hover:text-cyan-300 text-xs">${t.curated ? '★ ' : ''}${escapeHtml(t.title || t.topic_id)}</button>
+                    <button type="button" onclick="curateCyberspaceTopic('${t.topic_id}', ${t.curated ? 'false' : 'true'})" class="px-2 py-0.5 rounded border text-[10px] shrink-0 ${starCls}">${t.curated ? '★ Curated' : '☆ Curate'}</button>
+                  </div>
+                  <p class="text-[11px] text-slate-300 line-clamp-2 font-sans">${escapeHtml((t.body || '').slice(0, 180))}</p>
+                  <div class="flex flex-wrap items-center justify-between gap-1.5 text-[10px] text-slate-400">
+                    <div class="flex flex-wrap items-center gap-1">${tagsHtml}</div>
+                    <div class="flex items-center gap-2">
+                      <span>💬 ${(t.posts || []).length}</span>
+                      <span>▲ ${t.votes || 0}</span>
+                      <button type="button" onclick="openBoardThreadFromFeed('${t.topic_id}')" class="text-cyan-400 hover:underline">Open Thread →</button>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+        }
+
+        if (threadsEl) {
+          const ranked = topics.slice().sort((a, b) => (b.activity_score || 0) - (a.activity_score || 0));
+          if (!ranked.length) {
+            threadsEl.innerHTML = '<div class="p-4 text-center text-xs text-slate-400 border border-dashed border-slate-800 rounded-lg">No active threads yet.</div>';
+          } else {
+            threadsEl.innerHTML = ranked.map((t, idx) => {
+              const posts = Array.isArray(t.posts) ? t.posts : [];
+              const lastPost = posts[posts.length - 1];
+              const actScore = Number(t.activity_score || posts.length || 0).toFixed(1);
+              return `
+                <div class="p-2.5 rounded-lg bg-slate-900/90 border border-indigo-900/50 space-y-1.5">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-1.5 min-w-0">
+                      <span class="px-1.5 py-0.2 rounded bg-indigo-950 text-indigo-300 border border-indigo-700/60 text-[10px] shrink-0">#${idx + 1}</span>
+                      <button type="button" onclick="openBoardThreadFromFeed('${t.topic_id}')" class="truncate font-bold text-white hover:text-cyan-300 text-xs">${escapeHtml(t.title || t.topic_id)}</button>
+                    </div>
+                    <span class="text-[10px] text-emerald-300 shrink-0" title="Thread Activity Score">⚡ ${actScore}</span>
+                  </div>
+                  <div class="text-[10px] text-slate-400 font-sans truncate">
+                    ${lastPost ? `Latest @${escapeHtml(lastPost.author_username || 'peer')}: ${escapeHtml((lastPost.body || '').slice(0, 90))}` : escapeHtml((t.body || '').slice(0, 90))}
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <input id="threadQuickReply-${t.topic_id}" type="text" placeholder="Reply in #thread..." onkeydown="if(event.key==='Enter')replyQuickThread('${t.topic_id}')" class="flex-1 px-2 py-1 rounded bg-slate-950 border border-slate-700 text-white text-[11px] focus:border-cyan-400 focus:outline-none" />
+                    <button type="button" onclick="replyQuickThread('${t.topic_id}')" class="px-2 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px]">Send</button>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+        }
+      } catch (e) {}
+    }
+
+    function openBoardThreadFromFeed(topicId) {
+      activeBoardTopicId = topicId;
+      switchBoardTab('discussions');
+      loadCyberspaceBoard();
+    }
+
+    function promptNewBoardThread() {
+      switchBoardTab('discussions');
+      const inp = document.getElementById('boardSearchInput');
+      if (inp) {
+        inp.value = '/thread ';
+        inp.focus();
+      }
+    }
+
+    async function curateCyberspaceTopic(topicId, nextState) {
+      try {
+        const res = await fetch('/api/board/curate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic_id: topicId, peer_id: myPeerId, curated: nextState })
+        });
+        if (res.ok) {
+          playXpChime();
+          await loadBoardFeedAndThreads();
+          await loadCyberspaceBoard();
+        }
+      } catch (e) {}
+    }
+
+    async function replyQuickThread(topicId) {
+      if (!requireVerifiedIdentity('reply in an active thread')) {
+        requestAgentVerificationForm();
+        return;
+      }
+      const inp = document.getElementById(`threadQuickReply-${topicId}`);
+      const body = inp ? inp.value.trim() : '';
+      if (!body) return;
+      const username = (localStorage.getItem('tincan_username') || '').trim();
+      try {
+        const res = await fetch('/api/board/reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic_id: topicId, peer_id: myPeerId, username, body, auto_agent_reply: true })
+        });
+        if (res.ok) {
+          if (inp) inp.value = '';
+          playXpChime();
+          await loadBoardFeedAndThreads();
+        }
       } catch (e) {}
     }
 
@@ -6732,21 +7551,23 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       if (el) el.classList.toggle('hidden');
     }
 
-    async function createCyberspaceTopic() {
+    async function createCyberspaceTopic(omniText = null) {
       if (!requireVerifiedIdentity('create a topic on the Cyberspace Knowledge Board')) {
         requestAgentVerificationForm();
         return;
       }
-      const titleEl = document.getElementById('boardTopicTitle');
-      const catEl = document.getElementById('boardTopicCategory');
-      const tagsEl = document.getElementById('boardTopicTags');
-      const bodyEl = document.getElementById('boardTopicBody');
-      const title = titleEl ? titleEl.value.trim() : '';
-      const category = catEl ? catEl.value.trim() || 'cyberspace' : 'cyberspace';
-      const tags = tagsEl ? tagsEl.value.trim() : '';
-      const body = bodyEl ? bodyEl.value.trim() : '';
+      const rawOmni = String(omniText !== null ? omniText : (document.getElementById('boardSearchInput')?.value || '')).trim();
+      const cleaned = rawOmni.replace(/^\/(post|new|thread)\b\s*/i, '').trim();
+      const parts = cleaned.split(/\s*::\s*/);
+      let title = (parts[0] || '').trim();
+      let body = parts.length > 1 ? parts.slice(1).join(' :: ').trim() : title;
+      const chipTags = boardChips.filter(c => c.startsWith('#')).map(c => c.slice(1));
+      const inlineTags = [...cleaned.matchAll(/#([a-zA-Z0-9_\-]+)/g)].map(m => m[1].toLowerCase());
+      const allTags = [...new Set([...chipTags, ...inlineTags])];
+      const category = allTags.find(t => ['cyberspace', 'ai', 'architecture', 'security', 'qa'].includes(t)) || 'cyberspace';
+      const tags = allTags.join(', ');
       if (!title || !body) {
-        alert('Please enter both a Topic Title and Post Body.');
+        alert('Type /post <Title> #tag @agent (optionally :: details) in the Cyberspace input.');
         return;
       }
       const username = (localStorage.getItem('tincan_username') || '').trim();
@@ -6770,9 +7591,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           return;
         }
         if (res.ok && data.topic) {
-          if (titleEl) titleEl.value = '';
-          if (tagsEl) tagsEl.value = '';
-          if (bodyEl) bodyEl.value = '';
+          const searchInp = document.getElementById('boardSearchInput');
+          if (searchInp) searchInp.value = '';
           activeBoardTopicId = data.topic.topic_id;
           playXpChime();
           spawnPacketFlight(myPeerId, 'relay', 'cyberspace_topic', `#${category}`);
@@ -7131,9 +7951,12 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     let currentSpaceScope = 'user';
     let currentSpaceOwner = '';
     let currentSpaceFile = '/src/main.py';
+    window.currentSpaceScope = currentSpaceScope;
+    window.currentSpaceOwner = currentSpaceOwner;
 
     function switchSpaceScope(scope) {
       currentSpaceScope = scope;
+      window.currentSpaceScope = scope;
       ['user', 'topic', 'dynamic'].forEach(k => {
         const btn = document.getElementById('scope' + k.charAt(0).toUpperCase() + k.slice(1) + 'Btn');
         if (btn) btn.classList.toggle('is-active', k === scope);
@@ -7142,8 +7965,114 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       if (scope === 'user') {
         if (ownerInput) { ownerInput.value = myPeerId || ''; ownerInput.placeholder = 'User Peer ID'; }
       } else if (ownerInput) {
-        ownerInput.placeholder = scope === 'topic' ? 'Topic ID (e.g. topic-abc123)' : 'Sandbox ID';
-        if (!ownerInput.value.startsWith('topic-')) ownerInput.value = '';
+        ownerInput.placeholder = scope === 'topic' ? 'Topic ID or Content IR Search (Enter)' : 'Sandbox ID';
+        if (scope === 'topic' && !ownerInput.value.startsWith('topic-')) ownerInput.value = '';
+      }
+      hideSpaceTopicSearchResults();
+      refreshAgentSpace();
+    }
+
+    let _spaceTopicSearchTimer = null;
+    function hideSpaceTopicSearchResults() {
+      const box = document.getElementById('spaceTopicSearchResults');
+      if (box) box.classList.add('hidden');
+    }
+
+    function onSpaceOwnerInput(ev) {
+      const val = (ev && ev.target ? ev.target.value : '').trim();
+      clearTimeout(_spaceTopicSearchTimer);
+      if (!val || currentSpaceScope === 'user') {
+        hideSpaceTopicSearchResults();
+        return;
+      }
+      _spaceTopicSearchTimer = setTimeout(() => searchSpaceTopicsIR(val, false), 220);
+    }
+
+    function onSpaceOwnerKeydown(ev) {
+      if (ev.key === 'Escape') { hideSpaceTopicSearchResults(); return; }
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        resolveAndLoadSpaceOwner();
+      }
+    }
+
+    function selectWorkstationTopicResult(topicId) {
+      currentSpaceScope = 'topic';
+      window.currentSpaceScope = 'topic';
+      ['user', 'topic', 'dynamic'].forEach(k => {
+        const btn = document.getElementById('scope' + k.charAt(0).toUpperCase() + k.slice(1) + 'Btn');
+        if (btn) btn.classList.toggle('is-active', k === 'topic');
+      });
+      const ownerInput = document.getElementById('spaceOwnerInput');
+      if (ownerInput) ownerInput.value = topicId;
+      hideSpaceTopicSearchResults();
+      refreshAgentSpace();
+    }
+
+    async function searchSpaceTopicsIR(query, autoLoadFirst = false) {
+      const box = document.getElementById('spaceTopicSearchResults');
+      const q = String(query || '').trim();
+      if (!q) { hideSpaceTopicSearchResults(); return null; }
+      try {
+        const [irRes, listRes] = await Promise.all([
+          fetch(`/api/board/query?q=${encodeURIComponent(q)}&top_k=6`),
+          fetch('/api/board/topics?limit=30&sort_by=hot')
+        ]);
+        const hits = [];
+        const seen = new Set();
+        if (irRes.ok) {
+          const irData = await irRes.json();
+          (irData.results || []).forEach(r => {
+            if (r.topic_id && !seen.has(r.topic_id)) { seen.add(r.topic_id); hits.push(r); }
+          });
+        }
+        if (listRes.ok) {
+          const lData = await listRes.json();
+          const low = q.toLowerCase();
+          (lData.topics || []).forEach(t => {
+            if (!t.topic_id || seen.has(t.topic_id)) return;
+            if (t.topic_id.toLowerCase().includes(low) || (t.title || '').toLowerCase().includes(low) || (t.body || '').toLowerCase().includes(low)) {
+              seen.add(t.topic_id);
+              hits.push(t);
+            }
+          });
+        }
+        if (autoLoadFirst && hits.length > 0) {
+          selectWorkstationTopicResult(hits[0].topic_id);
+          return hits[0].topic_id;
+        }
+        if (box) {
+          if (!hits.length) {
+            box.innerHTML = '<div class="p-2 text-neutral-500">No matching Topic ID or content found. Press Enter to load exact Owner/Sandbox ID.</div>';
+          } else {
+            box.innerHTML = hits.slice(0, 8).map(t =>
+              `<button type="button" onmousedown="event.preventDefault(); selectWorkstationTopicResult('${rangerEsc(t.topic_id)}')" class="w-full text-left px-2 py-1.5 hover:bg-[#ecf1e6] rounded border-b border-black/10 last:border-0">
+                 <div class="font-bold text-black truncate">${rangerEsc(t.title || t.topic_id)}</div>
+                 <div class="text-[10px] text-neutral-600 truncate">${rangerEsc(t.topic_id)} · ${(t.tags || []).slice(0, 3).map(tg => '#' + tg).join(' ')}</div>
+               </button>`
+            ).join('');
+          }
+          box.classList.remove('hidden');
+        }
+        return hits.length ? hits[0].topic_id : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    async function resolveAndLoadSpaceOwner() {
+      const ownerInput = document.getElementById('spaceOwnerInput');
+      const raw = (ownerInput ? ownerInput.value : '').trim();
+      hideSpaceTopicSearchResults();
+      if (!raw) { refreshAgentSpace(); return; }
+      const looksLikeContentSearch = (currentSpaceScope === 'topic' && !/^topic-[a-z0-9_-]+$/i.test(raw)) || raw.includes(' ');
+      if (looksLikeContentSearch || /^topic-/i.test(raw)) {
+        if (/^topic-[a-z0-9_-]+$/i.test(raw)) {
+          selectWorkstationTopicResult(raw);
+          return;
+        }
+        const matchedId = await searchSpaceTopicsIR(raw, true);
+        if (matchedId) return;
       }
       refreshAgentSpace();
     }
@@ -7153,7 +8082,12 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       if (!background) rangerMode = 'space';
       const ownerInput = document.getElementById('spaceOwnerInput');
       currentSpaceOwner = (ownerInput && ownerInput.value.trim()) || (myPeerId || 'default');
+      window.currentSpaceScope = currentSpaceScope;
+      window.currentSpaceOwner = currentSpaceOwner;
       ideSpaceChanged();
+      if (!background && window.TinCanWorkstation && typeof window.TinCanWorkstation.refresh === 'function') {
+        try { window.TinCanWorkstation.refresh({ immediate: false }); } catch (e) {}
+      }
       const fileListEl = document.getElementById('spaceFileList');
       const badgeEl = document.getElementById('spaceFileCountBadge');
       if (!fileListEl) return;
@@ -7573,18 +8507,217 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     // =========================================================================
-    // Utility Token Minting Program ($TINCAN)
+    // Admin-Controlled $TINCAN Minting & User Request / Add Money Flows
     // =========================================================================
-    let mintedRewardBalance = 10;
-    function mintTincanRewardTokens(amount = 10) {
-      mintedRewardBalance += amount;
-      const el = document.getElementById('rewardsMintedBalance');
-      if (el) el.innerText = `${mintedRewardBalance} $TINCAN`;
-      const pill = document.getElementById('hudTokenPill');
-      if (pill) pill.innerText = `${mintedRewardBalance} 🪙`;
-      if (sfxEnabled) playXpChime();
-      awardLocalXp(amount * 10, `Minted ${amount} $TINCAN tokens`);
-      showQuickNotification(`🎉 Successfully minted ${amount} $TINCAN utility tokens!`);
+    function toggleMintRequestDrawer() {
+      const drawer = document.getElementById('mintRequestDrawer');
+      if (!drawer) return;
+      const opening = drawer.classList.toggle('hidden') === false;
+      if (opening) {
+        fetchMintRequests(false);
+      }
+    }
+
+    function openAddMoneyFromQuests() {
+      if (typeof toggleWindow === 'function') {
+        toggleWindow('win-billing');
+      }
+      if (typeof refreshBillingWindow === 'function') {
+        refreshBillingWindow();
+      }
+    }
+
+    async function submitMintRequest() {
+      if (typeof requireVerifiedIdentity === 'function' && !requireVerifiedIdentity('submit a $TINCAN mint request')) return;
+      const amtEl = document.getElementById('mintReqAmountInput');
+      const reasonEl = document.getElementById('mintReqReasonInput');
+      const banner = document.getElementById('mintRequestStatusBanner');
+      const tokens = Math.max(1, parseInt((amtEl && amtEl.value) || '100', 10) || 100);
+      const reason = (reasonEl && reasonEl.value.trim()) || 'User requested onboarding / compute grant';
+      try {
+        const res = await fetch('/api/tokens/mint-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            peer_id: myPeerId,
+            target_peer_id: myPeerId,
+            tokens,
+            reason
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          if (banner) {
+            banner.textContent = data.error || 'Could not submit mint request.';
+            banner.className = 'text-[11px] text-amber-400';
+          }
+          return;
+        }
+        if (reasonEl) reasonEl.value = '';
+        if (banner) {
+          banner.textContent = `✓ Request ${data.request.id} submitted (${data.request.tokens} $TINCAN) — awaiting admin approval.`;
+          banner.className = 'text-[11px] text-emerald-400';
+        }
+        if (typeof showQuickNotification === 'function') {
+          showQuickNotification(`🪙 Mint request (${tokens} $TINCAN) queued for admin approval.`);
+        }
+        fetchMintRequests(false);
+      } catch (e) {
+        if (banner) banner.textContent = 'Network error submitting mint request.';
+      }
+    }
+
+    function _getAdminKeyInput() {
+      const inp = document.getElementById('adminMintKeyInput');
+      const val = inp ? inp.value.trim() : '';
+      if (val) {
+        try { sessionStorage.setItem('tincan_admin_key', val); } catch (e) {}
+        return val;
+      }
+      try { return sessionStorage.getItem('tincan_admin_key') || ''; } catch (e) { return ''; }
+    }
+
+    async function fetchMintRequests(adminView = false) {
+      const headers = {};
+      if (adminView) {
+        const key = _getAdminKeyInput();
+        if (key) headers['X-Admin-Key'] = key;
+      }
+      const url = adminView
+        ? '/api/tokens/mint-requests'
+        : `/api/tokens/mint-requests?peer_id=${encodeURIComponent(myPeerId)}`;
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const data = await res.json();
+        const items = Array.isArray(data.requests) ? data.requests : [];
+        if (adminView) {
+          const listEl = document.getElementById('adminMintRequestsList');
+          const fbEl = document.getElementById('adminMintFeedback');
+          if (!data.admin_authenticated && fbEl) {
+            fbEl.textContent = 'Enter a valid TINCAN_ADMIN_KEY to approve/mint requests.';
+            fbEl.className = 'text-[11px] text-amber-400';
+          }
+          if (listEl) {
+            if (items.length === 0) {
+              listEl.innerHTML = '<div class="text-slate-500 py-1">No mint requests in queue.</div>';
+            } else {
+              listEl.innerHTML = items.slice(0, 10).map(r => `
+                <div class="p-2 bg-slate-950/90 border border-slate-800 rounded flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span class="text-white font-bold">${escapeHtml(r.username || r.peer_id)}</span>
+                    <span class="text-amber-300 font-bold ml-1">+${Number(r.tokens || 0).toLocaleString()} $TC</span>
+                    <span class="text-slate-400 ml-1">(${escapeHtml(r.status)})</span>
+                    <div class="text-[10px] text-slate-400">${escapeHtml(r.reason || '')} · target: ${escapeHtml(r.target_peer_id)}</div>
+                  </div>
+                  ${r.status === 'pending' ? `
+                    <div class="flex items-center gap-1.5">
+                      <button onclick="resolveMintRequest('${escapeHtml(r.id)}', 'approve')" class="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold">✓ Approve</button>
+                      <button onclick="resolveMintRequest('${escapeHtml(r.id)}', 'reject')" class="px-2 py-0.5 rounded bg-red-900/80 hover:bg-red-800 text-red-200 text-[10px]">✕ Reject</button>
+                    </div>
+                  ` : `<span class="text-[10px] text-slate-500 font-mono">${escapeHtml(r.id)}</span>`}
+                </div>
+              `).join('');
+            }
+          }
+        } else {
+          const mineEl = document.getElementById('myMintRequestsList');
+          if (mineEl && items.length > 0) {
+            mineEl.innerHTML = items.slice(0, 4).map(r => `
+              <div class="px-2 py-1 bg-slate-900/80 border border-slate-800 rounded flex items-center justify-between">
+                <span>${escapeHtml(r.id)} · ${Number(r.tokens || 0).toLocaleString()} $TINCAN</span>
+                <span class="${r.status === 'approved' ? 'text-emerald-400' : (r.status === 'rejected' ? 'text-red-400' : 'text-amber-300')} uppercase font-bold">${escapeHtml(r.status)}</span>
+              </div>
+            `).join('');
+          }
+        }
+      } catch (e) {}
+    }
+
+    async function adminMintAndRouteTokens() {
+      const targetEl = document.getElementById('adminMintTargetPeer');
+      const tokEl = document.getElementById('adminMintTokensInput');
+      const usdEl = document.getElementById('adminMintUsdInput');
+      const fbEl = document.getElementById('adminMintFeedback');
+      const peerId = (targetEl && targetEl.value.trim()) || myPeerId;
+      const tokens = Math.max(1, parseInt((tokEl && tokEl.value) || '500', 10) || 0);
+      const amountUsd = Math.max(0, parseFloat((usdEl && usdEl.value) || '0') || 0);
+      const adminKey = _getAdminKeyInput();
+      if (!adminKey) {
+        if (fbEl) {
+          fbEl.textContent = 'Admin Key required to mint & route credits.';
+          fbEl.className = 'text-[11px] text-amber-400';
+        }
+        return;
+      }
+      try {
+        const res = await fetch('/api/account/billing/topup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Key': adminKey },
+          body: JSON.stringify({ peer_id: peerId, tokens, amount_usd: amountUsd })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          if (fbEl) {
+            fbEl.textContent = data.error || 'Mint rejected (check X-Admin-Key or target peer).';
+            fbEl.className = 'text-[11px] text-red-400';
+          }
+          return;
+        }
+        if (fbEl) {
+          fbEl.textContent = `✓ Minted & routed ${tokens.toLocaleString()} $TINCAN to ${peerId}.`;
+          fbEl.className = 'text-[11px] text-emerald-400';
+        }
+        if (typeof refreshBillingWindow === 'function') refreshBillingWindow();
+        if (window.TinCanTokenVault && typeof window.TinCanTokenVault.refresh === 'function') {
+          window.TinCanTokenVault.refresh();
+        }
+        if (typeof showQuickNotification === 'function') {
+          showQuickNotification(`🛡️ Admin minted ${tokens.toLocaleString()} $TINCAN to ${peerId}`);
+        }
+      } catch (e) {
+        if (fbEl) fbEl.textContent = 'Request failed.';
+      }
+    }
+
+    async function resolveMintRequest(requestId, decision) {
+      const fbEl = document.getElementById('adminMintFeedback');
+      const adminKey = _getAdminKeyInput();
+      if (!adminKey) {
+        if (fbEl) {
+          fbEl.textContent = 'Enter TINCAN_ADMIN_KEY before resolving requests.';
+          fbEl.className = 'text-[11px] text-amber-400';
+        }
+        return;
+      }
+      try {
+        const res = await fetch('/api/tokens/mint-requests/resolve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Key': adminKey },
+          body: JSON.stringify({ request_id: requestId, decision })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          if (fbEl) {
+            fbEl.textContent = data.error || 'Resolution failed.';
+            fbEl.className = 'text-[11px] text-red-400';
+          }
+          return;
+        }
+        if (fbEl) {
+          fbEl.textContent = `✓ Request ${requestId} ${data.status}.`;
+          fbEl.className = 'text-[11px] text-emerald-400';
+        }
+        fetchMintRequests(true);
+        if (typeof refreshBillingWindow === 'function') refreshBillingWindow();
+        if (window.TinCanTokenVault && typeof window.TinCanTokenVault.refresh === 'function') {
+          window.TinCanTokenVault.refresh();
+        }
+      } catch (e) {}
+    }
+
+    function mintTincanRewardTokens() {
+      toggleMintRequestDrawer();
     }
 
     // =========================================================================
@@ -7712,8 +8845,75 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     // =========================================================================
     // Finder VFS & Ranger Multi-Format Previewer
     // =========================================================================
+    let _is3dStudioDocked = false;
+    function mount3dStudioInWorkstation(dock) {
+      const wsWin = document.getElementById('win-workstation');
+      const host = document.getElementById('finderTab-3dstudio');
+      const wsBody = document.querySelector('[data-ws-root="true"]');
+      const dockBtn = document.getElementById('wsTileSpaceBtn');
+      if (!wsWin || !host || !wsBody) return;
+      if (dock) {
+        if (!_is3dStudioDocked) {
+          host.innerHTML = '';
+          host.appendChild(wsBody);
+          _is3dStudioDocked = true;
+        }
+        wsWin.classList.add('hidden');
+        wsWin.style.display = 'none';
+        if (dockBtn) dockBtn.textContent = 'Undock Window';
+        if (window.TinCanWorkstation && typeof window.TinCanWorkstation.refresh === 'function') {
+          window.TinCanWorkstation.refresh({ immediate: true });
+        }
+      } else if (_is3dStudioDocked) {
+        wsWin.appendChild(wsBody);
+        host.innerHTML = '<div class="p-4 font-mono text-xs text-neutral-700">3D Studio is open in its floating window. Click Dock in Workstation or switch back to re-attach.</div>';
+        _is3dStudioDocked = false;
+        if (dockBtn) dockBtn.textContent = 'Dock in Workstation';
+      }
+    }
+
+    window.toggleDock3dStudio = function () {
+      const wsWin = document.getElementById('win-workstation');
+      if (_is3dStudioDocked) {
+        mount3dStudioInWorkstation(false);
+        switchFinderTab('files');
+        if (wsWin) {
+          wsWin.classList.remove('hidden', 'minimized');
+          wsWin.style.display = 'flex';
+          if (typeof bringToFront === 'function') bringToFront(wsWin);
+        }
+      } else {
+        const spWin = document.getElementById('win-agentspace');
+        if (spWin) {
+          spWin.classList.remove('hidden', 'minimized');
+          spWin.style.display = 'flex';
+          if (typeof bringToFront === 'function') bringToFront(spWin);
+        }
+        switchFinderTab('3dstudio');
+      }
+    };
+
+    function open3dStudioFromWorkstation() {
+      const curActive = !document.getElementById('finderTab-3dstudio')?.classList.contains('hidden');
+      if (curActive) {
+        mount3dStudioInWorkstation(false);
+        switchFinderTab('files');
+        if (typeof toggleWindow === 'function') {
+          const wsWin = document.getElementById('win-workstation');
+          if (wsWin && wsWin.classList.contains('hidden')) toggleWindow('win-workstation');
+        }
+      } else {
+        switchFinderTab('3dstudio');
+      }
+    }
+
     function switchFinderTab(tab) {
-      ['files', 'vscode', 'artcraft'].forEach(t => {
+      if (tab === '3dstudio') {
+        mount3dStudioInWorkstation(true);
+      } else if (_is3dStudioDocked) {
+        mount3dStudioInWorkstation(false);
+      }
+      ['files', '3dstudio', 'vscode', 'artcraft'].forEach(t => {
         const btn = document.getElementById(`finderTabBtn-${t}`);
         const panel = document.getElementById(`finderTab-${t}`);
         if (btn) btn.classList.toggle('is-active', t === tab);
