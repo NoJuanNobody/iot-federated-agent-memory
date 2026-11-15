@@ -1817,68 +1817,68 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <div id="win-board" class="mesh-window w-[940px] max-w-full" data-zen-window="true" data-window-id="win-board" style="top: 84px; left: 130px; z-index: 27;">
       <!--TC_TITLEBAR {"id": "win-board", "icon": "🌐", "title": "Cyberspace Board", "badge": "GraphRAG + BM25"}-->
 
-      <div id="board" class="window-body p-4 space-y-3.5 max-h-[780px] overflow-y-auto text-xs font-sans">
+      <div id="board" class="window-body p-4 space-y-3.5 max-h-[780px] overflow-y-auto text-xs font-sans bg-[#ecf1e6] text-[#111111]">
         <!-- Identity Verification Agent (@verifier-agent) Status & Form Dispatch Banner -->
-        <div id="boardVerifierBanner" class="p-3 bg-gradient-to-r from-emerald-950/60 via-slate-900/90 to-indigo-950/60 rounded-xl border border-emerald-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <div id="boardVerifierBanner" class="p-3 bg-[#f4f8f0] rounded-2xl border border-[#111111] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[#111111]">
           <div class="flex items-center gap-2.5">
             <span class="text-xl">🛡️</span>
             <div>
-              <div class="font-mono font-bold text-emerald-300 text-xs flex flex-wrap items-center gap-2">
-                <span>Identity Agent: <span class="text-cyan-300">@verifier-agent</span></span>
-                <span id="boardVerifiedBadge" class="px-2 py-0.5 rounded-full bg-emerald-900/80 text-emerald-300 border border-emerald-600 text-[10px]">Checking...</span>
-                <span id="boardAttestationBadge" class="hidden px-2 py-0.5 rounded bg-slate-950 text-cyan-300 border border-cyan-800 text-[10px] font-mono"></span>
+              <div class="font-mono font-bold text-[#111111] text-xs flex flex-wrap items-center gap-2">
+                <span>Identity Agent: <span class="text-[#107a47]">@verifier-agent</span></span>
+                <span id="boardVerifiedBadge" class="px-2 py-0.5 rounded-full bg-[#ffffff] text-[#107a47] border border-[#107a47] text-[10px] font-semibold">Checking...</span>
+                <span id="boardAttestationBadge" class="hidden px-2 py-0.5 rounded-full bg-[#ffffff] text-[#111111] border border-[#111111]/40 text-[10px] font-mono"></span>
               </div>
-              <p id="boardVerifierSubtext" class="text-[11px] text-slate-300 mt-0.5">
+              <p id="boardVerifierSubtext" class="text-[11px] text-[#4a4a4a] mt-0.5">
                 Verify your identity to tag @usernames, summon @ai-agents, vote on threads, and build the Cyberspace Knowledge Graph.
               </p>
             </div>
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
-            <button type="button" onclick="requestAgentVerificationForm()" class="px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono font-bold text-[11px] transition active:scale-95 shadow">
+            <button type="button" onclick="requestAgentVerificationForm()" class="px-3 py-1.5 rounded-full bg-[#111111] hover:bg-[#107a47] text-[#ecf1e6] font-mono font-bold text-[11px] transition active:scale-95">
               📨 Have @verifier-agent Send Form
             </button>
-            <button type="button" onclick="switchBoardTab('verify')" class="px-2.5 py-1.5 rounded-lg bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-600 font-mono font-bold text-[11px] transition">
+            <button type="button" onclick="switchBoardTab('verify')" class="px-3 py-1.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111] font-mono font-bold text-[11px] transition">
               🛡️ Open Verification Form
             </button>
           </div>
         </div>
 
         <!-- Navigation Tabs + Graph Telemetry Pill -->
-        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2 font-mono">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#111111]/20 pb-2.5 font-mono">
           <div class="flex flex-wrap items-center gap-1.5">
-            <button id="boardTabBtn-discussions" type="button" onclick="switchBoardTab('discussions')" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-bold text-xs transition">
+            <button id="boardTabBtn-discussions" type="button" onclick="switchBoardTab('discussions')" class="px-3 py-1.5 rounded-full bg-[#111111] text-[#ecf1e6] border border-[#111111] font-bold text-xs transition flex items-center gap-1">
               💬 Discussions
             </button>
-            <button id="boardTabBtn-feed" type="button" onclick="switchBoardTab('feed')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition flex items-center gap-1">
+            <button id="boardTabBtn-feed" type="button" onclick="switchBoardTab('feed')" class="px-3 py-1.5 rounded-full bg-[#ffffff] hover:bg-[#f4f8f0] text-[#111111] border border-[#111111] text-xs transition flex items-center gap-1">
               <span>📰 Feed &amp; Threads</span>
-              <span id="boardCuratedCountBadge" class="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px]">0</span>
+              <span id="boardCuratedCountBadge" class="px-1.5 py-0.2 rounded-full bg-[#107a47] text-[#ffffff] text-[10px] font-bold">0</span>
             </button>
-            <button id="boardTabBtn-graph" type="button" onclick="switchBoardTab('graph')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition">
+            <button id="boardTabBtn-graph" type="button" onclick="switchBoardTab('graph')" class="px-3 py-1.5 rounded-full bg-[#ffffff] hover:bg-[#f4f8f0] text-[#111111] border border-[#111111] text-xs transition flex items-center gap-1">
               🕸️ Knowledge Graph Explorer
             </button>
-            <button id="boardTabBtn-verify" type="button" onclick="switchBoardTab('verify')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition flex items-center gap-1">
+            <button id="boardTabBtn-verify" type="button" onclick="switchBoardTab('verify')" class="px-3 py-1.5 rounded-full bg-[#ffffff] hover:bg-[#f4f8f0] text-[#111111] border border-[#111111] text-xs transition flex items-center gap-1">
               <span>🛡️ @verifier-agent Center</span>
-              <span id="boardPendingVerifyCount" class="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px]">0</span>
+              <span id="boardPendingVerifyCount" class="px-1.5 py-0.2 rounded-full bg-[#107a47]/15 text-[#107a47] border border-[#107a47]/50 text-[10px] font-bold">0</span>
             </button>
           </div>
           <div class="flex items-center gap-2">
-            <span id="boardGraphStatsBadge" class="text-[10px] font-mono text-cyan-300 bg-slate-950 px-2.5 py-1 rounded border border-slate-800">Graph: loading...</span>
-            <button type="button" onclick="loadCyberspaceBoard()" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px]" title="Refresh Board & S3 Sync">🔄 Sync</button>
+            <span id="boardGraphStatsBadge" class="text-[10px] font-mono text-[#107a47] bg-[#ffffff] px-2.5 py-1 rounded-full border border-[#111111]/30 font-semibold">● Graph: loading...</span>
+            <button type="button" onclick="loadCyberspaceBoard()" class="px-2.5 py-1 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111] text-[10px] font-semibold transition" title="Refresh Board & S3 Sync">🔄 Sync</button>
           </div>
         </div>
 
         <!-- Citizen Profile & Attestation Inspector Drawer (Hidden until a @username is clicked) -->
-        <div id="boardProfileDrawer" class="hidden p-3 bg-slate-950/95 rounded-xl border border-cyan-500/50 space-y-2 font-mono text-xs shadow-xl">
-          <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+        <div id="boardProfileDrawer" class="hidden p-3 bg-[#ffffff] rounded-2xl border border-[#111111] space-y-2 font-mono text-xs shadow-lg text-[#111111]">
+          <div class="flex items-center justify-between border-b border-[#111111]/15 pb-1.5">
             <div class="flex items-center gap-2">
               <span class="text-base">🪪</span>
-              <span id="boardProfileName" class="font-bold text-white text-sm">@username</span>
+              <span id="boardProfileName" class="font-bold text-[#111111] text-sm">@username</span>
               <span id="boardProfileVerifiedPill" class="px-2 py-0.5 rounded-full text-[10px]"></span>
             </div>
-            <button type="button" onclick="document.getElementById('boardProfileDrawer').classList.add('hidden')" class="text-slate-400 hover:text-white px-1.5">✕</button>
+            <button type="button" onclick="document.getElementById('boardProfileDrawer').classList.add('hidden')" class="text-[#4a4a4a] hover:text-[#111111] px-1.5">✕</button>
           </div>
-          <div id="boardProfileMeta" class="text-[11px] text-slate-300 grid grid-cols-1 sm:grid-cols-3 gap-2"></div>
-          <div id="boardProfileTopics" class="text-[10px] text-slate-400 space-y-1 pt-1 border-t border-slate-900"></div>
+          <div id="boardProfileMeta" class="text-[11px] text-[#111111] grid grid-cols-1 sm:grid-cols-3 gap-2"></div>
+          <div id="boardProfileTopics" class="text-[10px] text-[#4a4a4a] space-y-1 pt-1 border-t border-[#111111]/15"></div>
         </div>
 
         <!-- =============================================================== -->
@@ -1886,7 +1886,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         <!-- =============================================================== -->
         <div id="boardTab-discussions" class="space-y-3.5">
           <!-- Unified search bar: one input. #topics, @people/@agents, /search, /topic, is:verified. Cmd/Ctrl+K focuses it. -->
-          <div id="boardUnifiedSearch" class="ubar-wrap space-y-2">
+          <div id="boardUnifiedSearch" class="ubar-wrap p-3 bg-[#ffffff] rounded-2xl border border-[#111111] space-y-2">
             <div class="ubar-row">
               <div id="boardUnifiedBar" class="ubar" onclick="document.getElementById('boardSearchInput').focus()">
                 <span class="ubar-icon" aria-hidden="true">&#x2315;</span>
@@ -1894,7 +1894,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                 <input id="boardSearchInput" type="text" autocomplete="off" spellcheck="false"
                        role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="boardSuggestList"
                        aria-label="Search or start topic on Cyberspace"
-                       placeholder="Type anything — /search, /post, /thread, @mentions, #hashtags..."
+                       placeholder="/search or start topic: /search <query>, @peer, #hashtag, or /thread <name>..."
                        oninput="onBoardSearchInput(event)" onkeydown="onBoardSearchKeydown(event)" onblur="setTimeout(closeBoardSuggest, 150)" />
                 <label class="ubar-sortwrap" onclick="event.stopPropagation()" title="Sort results (or type /sort activity)">
                   <span class="ubar-sort-label">sort</span>
@@ -1906,11 +1906,32 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                     <option value="discussed">Most discussed</option>
                   </select>
                 </label>
-                <button type="button" onclick="event.stopPropagation(); submitBoardOmniInput()" class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-mono font-bold text-[10px] shrink-0 transition" title="Execute /search, /post, /thread, /feed or search">Go ↵</button>
+                <button type="button" onclick="event.stopPropagation(); submitBoardOmniInput()" class="px-3 py-1 rounded-full bg-[#111111] hover:bg-[#107a47] text-[#ecf1e6] font-mono font-bold text-[10px] shrink-0 transition" title="Execute /search, /post, /thread, /feed or search">Post / Search ↵</button>
                 <kbd class="ubar-kbd" title="Cmd/Ctrl+K focuses search">&#x2318;K</kbd>
               </div>
             </div>
-            <div id="boardSuggestList" role="listbox" class="ubar-suggest hidden"></div>
+
+            <!-- Persistent Always-Visible Inline Free-Model AI Suggestions Chip Strip -->
+            <div id="boardAiSuggestBar" class="px-3 py-2 bg-[#f4f8f0] rounded-xl border border-[#107a47]/50 font-mono text-[11px]">
+              <div id="boardAiSuggestionsBar" class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+                  <span class="text-[#107a47] font-bold uppercase tracking-wider text-[10px]">✦ AI Suggestions</span>
+                  <span id="boardAiModelBadge" class="px-2 py-0.5 rounded-full bg-[#ffffff] text-[#107a47] border border-[#107a47]/50 text-[10px] font-semibold">Free Model · $0</span>
+                  <div id="boardAiSuggestionChips" class="flex flex-wrap items-center gap-1.5">
+                    <button type="button" onclick="applyBoardAiSuggestion('#graphrag')" class="px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111]/40 text-[10px] transition">[#graphrag]</button>
+                    <button type="button" onclick="applyBoardAiSuggestion('@gemini-brain')" class="px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#107a47] hover:text-[#ffffff] text-[#107a47] border border-[#107a47]/60 text-[10px] font-semibold transition">[@gemini-brain]</button>
+                    <button type="button" onclick="applyBoardAiSuggestion('/search bm25')" class="px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111]/40 text-[10px] transition">[/search bm25]</button>
+                    <button type="button" onclick="applyBoardAiSuggestion('/thread ')" class="px-2 py-0.5 rounded-full bg-[#107a47] hover:bg-[#111111] text-[#ffffff] border border-[#107a47] text-[10px] font-semibold transition">[/thread + New]</button>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1.5 text-[10px] text-[#4a4a4a] shrink-0">
+                  <span class="hidden sm:inline">Slash: <code>/search</code> <code>/post</code> <code>/thread</code> <code>/feed</code></span>
+                  <button type="button" onclick="loadBoardAiSuggestions(true)" class="px-2.5 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111] text-[10px] font-semibold transition">↻ Suggest</button>
+                </div>
+              </div>
+            </div>
+
+            <div id="boardSuggestList" role="listbox" class="ubar-suggest hidden" style="top: 3.35rem;"></div>
             <div class="ubar-meta">
               <div id="boardTrending" class="ubar-trending" aria-label="Trending topics"></div>
               <details id="boardRankDetails" class="ubar-rank">
@@ -1920,32 +1941,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             </div>
 
             <!-- Inline GraphRAG + BM25 Search Synthesis Box -->
-            <div id="boardSynthesisBox" class="hidden p-2.5 bg-indigo-950/60 border border-indigo-500/50 rounded-lg space-y-2 font-mono text-[11px]">
+            <div id="boardSynthesisBox" class="hidden p-2.5 bg-[#f4f8f0] border border-[#107a47] rounded-xl space-y-2 font-mono text-[11px] text-[#111111]">
               <div class="flex items-center justify-between">
-                <span class="text-[10px] uppercase tracking-wider text-cyan-300 font-bold">🧠 Hybrid GraphRAG + Okapi BM25 Synthesis</span>
-                <button type="button" onclick="openBoardRankDetails()" class="text-[10px] text-indigo-300 underline hover:text-white">how this ranked</button>
+                <span class="text-[10px] uppercase tracking-wider text-[#107a47] font-bold">🧠 Hybrid GraphRAG + Okapi BM25 Synthesis</span>
+                <button type="button" onclick="openBoardRankDetails()" class="text-[10px] text-[#111111] underline hover:text-[#107a47]">how this ranked</button>
               </div>
-              <div id="boardSynthesisText" class="text-indigo-100 leading-relaxed"></div>
+              <div id="boardSynthesisText" class="text-[#111111] leading-relaxed"></div>
               <div id="boardSubgraphEntities" class="flex flex-wrap gap-1.5 pt-1"></div>
-            </div>
-          </div>
-
-          <!-- Free-Model AI Suggestions Strip (replaces static composer / peer / agent rows) -->
-          <div id="boardAiSuggestionsBar" class="p-2.5 bg-slate-900/70 rounded-xl border border-slate-800 space-y-1.5 font-mono text-[11px]">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <div class="flex items-center gap-2">
-                <span class="text-emerald-300 font-bold uppercase tracking-wider text-[10px]">AI Suggestions</span>
-                <span id="boardAiModelBadge" class="px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 text-[10px]">Free Model · $0</span>
-              </div>
-              <div class="flex items-center gap-1.5 text-[10px] text-slate-400">
-                <span>Slash: <code>/search</code> <code>/post</code> <code>/thread</code> <code>/feed</code> <code>@</code> <code>#</code></span>
-                <button type="button" onclick="loadBoardAiSuggestions(true)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700">↻ Suggest</button>
-              </div>
-            </div>
-            <div id="boardAiSuggestionChips" class="flex flex-wrap items-center gap-1.5">
-              <button type="button" onclick="applyBoardAiSuggestion('/post ')" class="px-2 py-0.5 rounded bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/70 text-[10px]">/post Start a Topic</button>
-              <button type="button" onclick="applyBoardAiSuggestion('/search #graphrag')" class="px-2 py-0.5 rounded bg-indigo-950/70 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/70 text-[10px]">/search #graphrag</button>
-              <button type="button" onclick="applyBoardAiSuggestion('@gemini-brain')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 text-[10px]">@gemini-brain</button>
             </div>
           </div>
 
@@ -1957,55 +1959,55 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         <!-- TAB 3: INTERACTIVE KNOWLEDGE GRAPH EXPLORER & PATH FINDER -->
         <!-- =============================================================== -->
         <div id="boardTab-graph" class="hidden space-y-3.5 font-mono">
-          <div class="p-3.5 bg-slate-900/90 rounded-xl border border-cyan-500/40 space-y-3">
+          <div class="p-3.5 bg-[#ffffff] rounded-2xl border border-[#111111] space-y-3 text-[#111111]">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 class="text-xs font-bold text-cyan-300 uppercase tracking-wider">🕸️ Cyberspace Multi-Relational Knowledge Graph</h3>
-                <p class="text-[11px] text-slate-400 font-sans">Multi-entity semantic topology linking posts, authors, and AI agents.</p>
+                <h3 class="text-xs font-bold text-[#111111] uppercase tracking-wider">🕸️ Cyberspace Multi-Relational Knowledge Graph</h3>
+                <p class="text-[11px] text-[#4a4a4a] font-sans">Multi-entity semantic topology linking posts, authors, and AI agents.</p>
               </div>
-              <div class="flex items-center gap-2 text-[10px]">
-                <span class="px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700">● Topic</span>
-                <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">● @User</span>
-                <span class="px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-700">● @Agent</span>
-                <span class="px-2 py-0.5 rounded bg-pink-950 text-pink-300 border border-pink-700">● #Tag</span>
-                <button type="button" onclick="loadAndDrawBoardGraph()" class="px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-white border border-slate-700">⟳ Re-Layout</button>
+              <div class="flex flex-wrap items-center gap-1.5 text-[10px]">
+                <span class="px-2 py-0.5 rounded-full bg-[#f4f8f0] text-[#111111] border border-[#111111]/40">● Topic</span>
+                <span class="px-2 py-0.5 rounded-full bg-[#f4f8f0] text-[#107a47] border border-[#107a47]">● @User</span>
+                <span class="px-2 py-0.5 rounded-full bg-[#f4f8f0] text-[#111111] border border-[#111111]/60">● @Agent</span>
+                <span class="px-2 py-0.5 rounded-full bg-[#f4f8f0] text-[#4a4a4a] border border-[#111111]/30">● #Tag</span>
+                <button type="button" onclick="loadAndDrawBoardGraph()" class="px-2.5 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111] font-semibold transition">⟳ Re-Layout</button>
               </div>
             </div>
 
             <!-- Knowledge Graph Architecture Explanation & Collapsible Toggle -->
-            <div class="p-3 bg-gradient-to-r from-indigo-950/80 to-slate-900 border border-indigo-700/60 rounded-xl space-y-1.5 font-sans">
+            <div class="p-3 bg-[#f4f8f0] border border-[#111111]/40 rounded-xl space-y-1.5 font-sans">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                   <span class="text-base">💡</span>
-                  <span class="text-xs font-bold text-indigo-300 font-mono">What is the Cyberspace Knowledge Graph showing?</span>
+                  <span class="text-xs font-bold text-[#111111] font-mono">What is the Cyberspace Knowledge Graph showing?</span>
                 </div>
-                <button type="button" onclick="toggleKnowledgeGraphView()" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-[10px] border border-slate-700 transition">
+                <button type="button" onclick="toggleKnowledgeGraphView()" class="px-2.5 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] font-mono text-[10px] border border-[#111111] transition">
                   <span id="kgToggleText">👁️ Hide Canvas</span>
                 </button>
               </div>
-              <p class="text-[11px] text-slate-300 leading-relaxed">
-                The Cyberspace Knowledge Graph visualizes multi-relational connections between discussion topics, registered operators (<code class="text-emerald-400">@users</code>), AI models (<code class="text-amber-400">@agents</code>), and topical hashtags (<code class="text-pink-400">#tags</code>). Edges represent cryptographic co-authoring, thread citations, and semantic co-occurrence. GraphRAG uses this topology to execute Personalized PageRank ($\alpha=0.85$), enabling AI agents to synthesize cross-topic answers without keyword hallucination.
+              <p class="text-[11px] text-[#4a4a4a] leading-relaxed">
+                The Cyberspace Knowledge Graph visualizes multi-relational connections between discussion topics, registered operators (<code class="text-[#107a47] font-semibold">@users</code>), AI models (<code class="text-[#111111] font-semibold">@agents</code>), and topical hashtags (<code class="text-[#111111] font-semibold">#tags</code>). Edges represent cryptographic co-authoring, thread citations, and semantic co-occurrence. GraphRAG uses this topology to execute Personalized PageRank ($\alpha=0.85$), enabling AI agents to synthesize cross-topic answers without keyword hallucination.
               </p>
             </div>
 
             <!-- Canvas & Path Container (Collapsible) -->
             <div id="boardGraphCanvasContainer" class="space-y-3">
               <!-- Shortest-Path Entity Finder -->
-              <div class="p-2.5 bg-slate-950/90 rounded-lg border border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 text-xs">
-                <span class="text-slate-400 text-[11px] shrink-0">Shortest Path:</span>
-                <input id="graphPathSource" type="text" value="@alejandro" placeholder="From (e.g. @alejandro, #bm25)" class="px-2.5 py-1 rounded bg-slate-900 border border-slate-700 text-cyan-300 text-xs flex-1" />
-                <span class="text-slate-500 text-center">⟶</span>
-                <input id="graphPathTarget" type="text" value="@verifier-agent" placeholder="To (e.g. @verifier-agent, #graphrag)" class="px-2.5 py-1 rounded bg-slate-900 border border-slate-700 text-indigo-300 text-xs flex-1" />
-                <button type="button" onclick="findCyberspaceEntityPath()" class="px-3 py-1 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shrink-0">
+              <div class="p-2.5 bg-[#f4f8f0] rounded-xl border border-[#111111]/40 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 text-xs">
+                <span class="text-[#4a4a4a] text-[11px] shrink-0 font-semibold">Shortest Path:</span>
+                <input id="graphPathSource" type="text" value="@alejandro" placeholder="From (e.g. @alejandro, #bm25)" class="px-2.5 py-1 rounded-lg bg-[#ffffff] border border-[#111111] text-[#111111] text-xs flex-1" />
+                <span class="text-[#4a4a4a] text-center">⟶</span>
+                <input id="graphPathTarget" type="text" value="@verifier-agent" placeholder="To (e.g. @verifier-agent, #graphrag)" class="px-2.5 py-1 rounded-lg bg-[#ffffff] border border-[#111111] text-[#111111] text-xs flex-1" />
+                <button type="button" onclick="findCyberspaceEntityPath()" class="px-3 py-1 rounded-full bg-[#111111] hover:bg-[#107a47] text-[#ecf1e6] font-bold text-xs shrink-0 transition">
                   Find Relational Path
                 </button>
               </div>
-              <div id="graphPathOutput" class="hidden p-2.5 bg-cyan-950/50 border border-cyan-600/50 rounded-lg text-[11px] text-cyan-200"></div>
+              <div id="graphPathOutput" class="hidden p-2.5 bg-[#107a47]/10 border border-[#107a47] rounded-xl text-[11px] text-[#111111]"></div>
 
               <!-- Interactive HTML5 Canvas -->
-              <div class="relative bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
+              <div class="relative bg-[#f4f8f0] rounded-xl border border-[#111111] overflow-hidden">
                 <canvas id="boardGraphCanvas" width="860" height="380" class="w-full h-[380px] cursor-grab active:cursor-grabbing"></canvas>
-                <div id="boardGraphNodeInspector" class="absolute bottom-2 left-2 right-2 p-2 bg-slate-900/95 border border-slate-700 rounded-lg text-[10px] text-slate-300 flex items-center justify-between">
+                <div id="boardGraphNodeInspector" class="absolute bottom-2 left-2 right-2 p-2 bg-[#ffffff]/95 border border-[#111111] rounded-lg text-[10px] text-[#111111] flex items-center justify-between gap-2">
                   <span>Click any node on the graph canvas to inspect its connections and filter topics.</span>
                 </div>
               </div>
@@ -2018,83 +2020,83 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         <!-- =============================================================== -->
         <div id="boardTab-verify" class="hidden space-y-4 font-mono">
           <!-- Step 1: @verifier-agent Dispatch Console -->
-          <div class="p-3.5 bg-gradient-to-r from-amber-950/40 via-slate-900/95 to-indigo-950/40 rounded-xl border border-amber-500/50 space-y-2.5">
+          <div class="p-3.5 bg-[#f4f8f0] rounded-2xl border border-[#111111] space-y-2.5 text-[#111111]">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 class="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                <h3 class="text-xs font-bold text-[#111111] uppercase tracking-wider flex items-center gap-1.5">
                   <span>🛡️</span> <span>@verifier-agent Automated Form Dispatcher</span>
                 </h3>
-                <p class="text-[11px] text-slate-300 font-sans">
-                  Have <code class="text-cyan-300">@verifier-agent</code> send a cryptographic verification form + challenge code (<code class="text-amber-300">CYBER-XXXXXX</code>) to yourself or any unverified peer in the mesh.
+                <p class="text-[11px] text-[#4a4a4a] font-sans">
+                  Have <code class="text-[#107a47] font-semibold">@verifier-agent</code> send a cryptographic verification form + challenge code (<code class="text-[#111111] font-semibold">CYBER-XXXXXX</code>) to yourself or any unverified peer in the mesh.
                 </p>
               </div>
-              <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold">Ed25519 + SHA-256 Attestation</span>
+              <span class="px-2.5 py-0.5 rounded-full bg-[#ffffff] text-[#107a47] border border-[#107a47] text-[10px] font-bold">Ed25519 + SHA-256 Attestation</span>
             </div>
             <div class="flex flex-col sm:flex-row gap-2">
-              <input id="verifyDispatchTargetUser" type="text" placeholder="Target @username or peer_id (leave blank to send to yourself)" class="flex-1 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs" />
-              <input id="verifyDispatchReason" type="text" value="Cyberspace Discussion Board Identity Verification" placeholder="Reason for verification" class="flex-1 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-slate-300 text-xs" />
-              <button type="button" onclick="dispatchVerifierAgentFormFromCenter()" class="px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition active:scale-95 shrink-0">
+              <input id="verifyDispatchTargetUser" type="text" placeholder="Target @username or peer_id (leave blank to send to yourself)" class="flex-1 px-3 py-1.5 rounded-lg bg-[#ffffff] border border-[#111111] text-[#111111] text-xs" />
+              <input id="verifyDispatchReason" type="text" value="Cyberspace Discussion Board Identity Verification" placeholder="Reason for verification" class="flex-1 px-3 py-1.5 rounded-lg bg-[#ffffff] border border-[#111111] text-[#4a4a4a] text-xs" />
+              <button type="button" onclick="dispatchVerifierAgentFormFromCenter()" class="px-4 py-1.5 rounded-full bg-[#111111] hover:bg-[#107a47] text-[#ecf1e6] font-bold text-xs transition active:scale-95 shrink-0">
                 📨 Dispatch Form via @verifier-agent
               </button>
             </div>
-            <div id="verifyDispatchFeedback" class="hidden p-2.5 rounded-lg bg-emerald-950/70 border border-emerald-500/60 text-emerald-200 text-[11px]"></div>
+            <div id="verifyDispatchFeedback" class="hidden p-2.5 rounded-xl bg-[#107a47]/10 border border-[#107a47] text-[#111111] text-[11px]"></div>
           </div>
 
           <!-- Step 2: Dedicated Cyberspace Identity Verification Form -->
-          <div class="p-4 bg-slate-900/95 rounded-xl border border-emerald-500/50 space-y-3">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+          <div class="p-4 bg-[#ffffff] rounded-2xl border border-[#111111] space-y-3 text-[#111111]">
+            <div class="flex items-center justify-between border-b border-[#111111]/15 pb-2">
               <div>
-                <h3 class="text-sm font-bold text-emerald-300 flex items-center gap-2">
+                <h3 class="text-sm font-bold text-[#111111] flex items-center gap-2">
                   <span>✍️</span> <span>Official Cyberspace Identity Verification Form</span>
                 </h3>
-                <p class="text-[11px] text-slate-400 font-sans">Fill out and submit this form to <code class="text-cyan-300">@verifier-agent</code> to receive your <code class="text-emerald-300">✅ Verified Cyberspace Citizen</code> badge and SHA-256 attestation hash.</p>
+                <p class="text-[11px] text-[#4a4a4a] font-sans">Fill out and submit this form to <code class="text-[#107a47] font-semibold">@verifier-agent</code> to receive your <code class="text-[#107a47] font-semibold">✅ Verified Cyberspace Citizen</code> badge and SHA-256 attestation hash.</p>
               </div>
-              <span id="verifyFormRequestIdBadge" class="px-2 py-0.5 rounded bg-slate-950 text-cyan-300 border border-slate-700 text-[10px]">Ready</span>
+              <span id="verifyFormRequestIdBadge" class="px-2.5 py-0.5 rounded-full bg-[#f4f8f0] text-[#107a47] border border-[#107a47] text-[10px] font-semibold">Ready</span>
             </div>
 
             <input type="hidden" id="verifyFormRequestId" value="" />
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
-                <label class="block text-[10px] text-slate-400 mb-1">Full Legal / Real Name *</label>
-                <input id="verifyFormFullName" type="text" placeholder="e.g. Alejandro Londono" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white focus:border-emerald-400 focus:outline-none" />
+                <label class="block text-[10px] text-[#4a4a4a] font-semibold mb-1">Full Legal / Real Name *</label>
+                <input id="verifyFormFullName" type="text" placeholder="e.g. Alejandro Londono" class="w-full px-3 py-1.5 rounded-lg bg-[#ffffff] border border-[#111111] text-[#111111] focus:border-[#107a47] focus:outline-none" />
               </div>
               <div>
-                <label class="block text-[10px] text-slate-400 mb-1">Cyberspace @username Handle *</label>
-                <input id="verifyFormUsername" type="text" placeholder="e.g. alejandro" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-cyan-300 focus:border-emerald-400 focus:outline-none" />
+                <label class="block text-[10px] text-[#4a4a4a] font-semibold mb-1">Cyberspace @username Handle *</label>
+                <input id="verifyFormUsername" type="text" placeholder="e.g. alejandro" class="w-full px-3 py-1.5 rounded-lg bg-[#ffffff] border border-[#111111] text-[#111111] focus:border-[#107a47] focus:outline-none" />
               </div>
               <div>
-                <label class="block text-[10px] text-slate-400 mb-1">Verified Contact Email *</label>
-                <input id="verifyFormEmail" type="email" placeholder="e.g. operator@fau.edu" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white focus:border-emerald-400 focus:outline-none" />
+                <label class="block text-[10px] text-[#4a4a4a] font-semibold mb-1">Verified Contact Email *</label>
+                <input id="verifyFormEmail" type="email" placeholder="e.g. operator@fau.edu" class="w-full px-3 py-1.5 rounded-lg bg-[#ffffff] border border-[#111111] text-[#111111] focus:border-[#107a47] focus:outline-none" />
               </div>
               <div>
-                <label class="block text-[10px] text-slate-400 mb-1">2FA Contact Phone Number *</label>
-                <input id="verifyFormPhone" type="tel" placeholder="e.g. +15615550199" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white focus:border-emerald-400 focus:outline-none" />
+                <label class="block text-[10px] text-[#4a4a4a] font-semibold mb-1">2FA Contact Phone Number *</label>
+                <input id="verifyFormPhone" type="tel" placeholder="e.g. +15615550199" class="w-full px-3 py-1.5 rounded-lg bg-[#ffffff] border border-[#111111] text-[#111111] focus:border-[#107a47] focus:outline-none" />
               </div>
               <div>
-                <label class="block text-[10px] text-slate-400 mb-1">Role / Institution / Affiliation</label>
-                <input id="verifyFormRole" type="text" value="Graduate Researcher / Mesh Engineer" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-emerald-300 focus:border-emerald-400 focus:outline-none" />
+                <label class="block text-[10px] text-[#4a4a4a] font-semibold mb-1">Role / Institution / Affiliation</label>
+                <input id="verifyFormRole" type="text" value="Graduate Researcher / Mesh Engineer" class="w-full px-3 py-1.5 rounded-lg bg-[#ffffff] border border-[#111111] text-[#107a47] focus:border-[#107a47] focus:outline-none" />
               </div>
               <div>
-                <label class="block text-[10px] text-slate-400 mb-1">@verifier-agent Challenge Code</label>
-                <input id="verifyFormChallengeCode" type="text" placeholder="e.g. CYBER-A1B2C3 (auto-filled on dispatch)" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-amber-700/70 text-amber-300 focus:border-amber-400 focus:outline-none" />
+                <label class="block text-[10px] text-[#4a4a4a] font-semibold mb-1">@verifier-agent Challenge Code</label>
+                <input id="verifyFormChallengeCode" type="text" placeholder="e.g. CYBER-A1B2C3 (auto-filled on dispatch)" class="w-full px-3 py-1.5 rounded-lg bg-[#ffffff] border border-[#111111] text-[#111111] focus:border-[#107a47] focus:outline-none" />
               </div>
             </div>
 
             <div>
-              <label class="block text-[10px] text-slate-400 mb-1">Cyberspace Bio &amp; Knowledge Domains (Indexed in GraphRAG)</label>
-              <textarea id="verifyFormBio" rows="2" placeholder="e.g. Building federated GraphRAG + BM25 knowledge bases, WebRTC mesh systems, and autonomous agents." class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs focus:border-emerald-400 focus:outline-none"></textarea>
+              <label class="block text-[10px] text-[#4a4a4a] font-semibold mb-1">Cyberspace Bio &amp; Knowledge Domains (Indexed in GraphRAG)</label>
+              <textarea id="verifyFormBio" rows="2" placeholder="e.g. Building federated GraphRAG + BM25 knowledge bases, WebRTC mesh systems, and autonomous agents." class="w-full px-3 py-1.5 rounded-lg bg-[#ffffff] border border-[#111111] text-[#111111] text-xs focus:border-[#107a47] focus:outline-none"></textarea>
             </div>
 
-            <label class="flex items-start gap-2 text-[11px] text-slate-300 font-sans cursor-pointer">
-              <input id="verifyFormConsent" type="checkbox" checked class="mt-0.5 rounded border-slate-700 bg-slate-950" />
-              <span>I attest that this identity information is accurate and consent to cryptographic SHA-256 identity attestation by <code class="text-cyan-300">@verifier-agent</code> for the TinCan Cyberspace Knowledge Base.</span>
+            <label class="flex items-start gap-2 text-[11px] text-[#4a4a4a] font-sans cursor-pointer">
+              <input id="verifyFormConsent" type="checkbox" checked class="mt-0.5 rounded border-[#111111] bg-[#ffffff]" />
+              <span>I attest that this identity information is accurate and consent to cryptographic SHA-256 identity attestation by <code class="text-[#107a47] font-semibold">@verifier-agent</code> for the TinCan Cyberspace Knowledge Base.</span>
             </label>
 
-            <div id="verifyFormStatusMsg" class="hidden p-2.5 rounded-lg text-xs"></div>
+            <div id="verifyFormStatusMsg" class="hidden p-2.5 rounded-xl text-xs"></div>
 
             <div class="flex items-center justify-end gap-2 pt-1">
-              <button type="button" onclick="submitCyberspaceVerificationForm()" class="px-5 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-cyan-600 hover:brightness-110 text-white font-bold text-xs transition active:scale-95 shadow-lg">
+              <button type="button" onclick="submitCyberspaceVerificationForm()" class="px-5 py-2 rounded-full bg-[#111111] hover:bg-[#107a47] text-[#ecf1e6] font-bold text-xs transition active:scale-95">
                 ✅ Submit Verification Form &amp; Claim Citizen Badge
               </button>
             </div>
@@ -2102,18 +2104,18 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
           <!-- Step 3: Live Pending Requests & Verified Citizens Ledger -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div class="p-3 bg-slate-950/90 rounded-xl border border-slate-800 space-y-2">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-amber-300">📨 Pending @verifier-agent Forms</span>
-                <button type="button" onclick="loadVerificationCenterData()" class="text-[10px] text-slate-400 hover:text-white">🔄 Refresh</button>
+            <div class="p-3 bg-[#ffffff] rounded-2xl border border-[#111111] space-y-2 text-[#111111]">
+              <div class="flex items-center justify-between border-b border-[#111111]/15 pb-1.5">
+                <span class="text-xs font-bold text-[#111111]">📨 Pending @verifier-agent Forms</span>
+                <button type="button" onclick="loadVerificationCenterData()" class="text-[10px] text-[#4a4a4a] hover:text-[#111111] font-semibold">🔄 Refresh</button>
               </div>
               <div id="verifyPendingList" class="space-y-1.5 text-[11px] max-h-48 overflow-y-auto"></div>
             </div>
 
-            <div class="p-3 bg-slate-950/90 rounded-xl border border-slate-800 space-y-2">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-emerald-300">🏛️ Verified Cyberspace Citizens</span>
-                <span id="verifyCitizensCount" class="text-[10px] text-slate-400">0 verified</span>
+            <div class="p-3 bg-[#ffffff] rounded-2xl border border-[#111111] space-y-2 text-[#111111]">
+              <div class="flex items-center justify-between border-b border-[#111111]/15 pb-1.5">
+                <span class="text-xs font-bold text-[#107a47]">🏛️ Verified Cyberspace Citizens</span>
+                <span id="verifyCitizensCount" class="text-[10px] text-[#5c5c5c]">0 verified</span>
               </div>
               <div id="verifyCitizensList" class="space-y-1.5 text-[11px] max-h-48 overflow-y-auto"></div>
             </div>
@@ -2124,31 +2126,31 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         <!-- TAB 5: CURATED FEED & DISCORD-STYLE ACTIVE THREADS (ACTIVITY)   -->
         <!-- =============================================================== -->
         <div id="boardTab-feed" class="hidden space-y-3 font-mono">
-          <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-900/85 rounded-xl border border-slate-800">
+          <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-[#ffffff] rounded-2xl border border-[#111111]">
             <div class="flex flex-wrap items-center gap-1.5">
-              <button id="boardFeedFilter-all" type="button" onclick="setBoardFeedFilter('all')" class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold text-[11px] transition">All Feed</button>
-              <button id="boardFeedFilter-curated" type="button" onclick="setBoardFeedFilter('curated')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-700/40 text-[11px] transition">★ Curated</button>
-              <button id="boardFeedFilter-solved" type="button" onclick="setBoardFeedFilter('solved')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-700/40 text-[11px] transition">✓ Solved</button>
+              <button id="boardFeedFilter-all" type="button" onclick="setBoardFeedFilter('all')" class="px-3 py-1 rounded-full bg-[#111111] text-[#ecf1e6] border border-[#111111] font-bold text-[11px] transition">All (0)</button>
+              <button id="boardFeedFilter-curated" type="button" onclick="setBoardFeedFilter('curated')" class="px-3 py-1 rounded-full bg-[#f4f8f0] hover:bg-[#ecf1e6] text-[#111111] border border-[#111111]/40 text-[11px] transition">★ Curated (0)</button>
+              <button id="boardFeedFilter-solved" type="button" onclick="setBoardFeedFilter('solved')" class="px-3 py-1 rounded-full bg-[#f4f8f0] hover:bg-[#ecf1e6] text-[#107a47] border border-[#107a47]/50 text-[11px] transition">✓ Solved (0)</button>
             </div>
             <div class="flex items-center gap-2 flex-1 min-w-[200px] max-w-md">
-              <input id="boardFeedFilterInput" type="text" placeholder="Search curated feed or filter threads..." oninput="loadBoardFeedAndThreads()" onkeydown="if(event.key==='Enter')loadBoardFeedAndThreads()" class="flex-1 px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs focus:border-cyan-400 focus:outline-none" />
-              <button type="button" onclick="loadBoardFeedAndThreads()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 text-[11px]">Filter</button>
+              <input id="boardFeedFilterInput" type="text" placeholder="Search curated feed or filter threads..." oninput="loadBoardFeedAndThreads()" onkeydown="if(event.key==='Enter')loadBoardFeedAndThreads()" class="flex-1 px-2.5 py-1 rounded-lg bg-[#f4f8f0] border border-[#111111] text-[#111111] text-xs focus:border-[#107a47] focus:outline-none" />
+              <button type="button" onclick="loadBoardFeedAndThreads()" class="px-3 py-1 rounded-full bg-[#111111] hover:bg-[#107a47] text-[#ecf1e6] font-semibold text-[11px] transition">Filter</button>
             </div>
           </div>
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
-            <div class="lg:col-span-7 bg-slate-900/75 rounded-xl border border-slate-800 p-3 space-y-2.5">
-              <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
-                <span class="text-xs font-bold text-cyan-300">📰 Curated Cyberspace Feed</span>
-                <span id="boardFeedStatusMeta" class="text-[10px] text-slate-400">All topics</span>
+            <div class="lg:col-span-7 bg-[#ffffff] rounded-2xl border border-[#111111] p-3.5 space-y-2.5 text-[#111111]">
+              <div class="flex items-center justify-between border-b border-[#111111]/15 pb-1.5">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-[#111111]">📰 Curated Feed · All Topics</span>
+                <span id="boardFeedStatusMeta" class="text-[10px] text-[#5c5c5c]">All topics</span>
               </div>
-              <div id="boardCuratedFeedList" class="space-y-2 max-h-[430px] overflow-y-auto pr-1"></div>
+              <div id="boardCuratedFeedList" class="space-y-2.5 max-h-[430px] overflow-y-auto pr-1"></div>
             </div>
-            <div class="lg:col-span-5 bg-slate-950/90 rounded-xl border border-indigo-500/35 p-3 space-y-2.5">
-              <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
-                <span class="text-xs font-bold text-indigo-300">🧵 Active Threads (Ranked by Activity)</span>
-                <button type="button" onclick="promptNewBoardThread()" class="px-2 py-0.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px]">+ New Thread</button>
+            <div class="lg:col-span-5 bg-[#ffffff] rounded-2xl border border-[#111111] p-3.5 space-y-2.5 text-[#111111]">
+              <div class="flex items-center justify-between border-b border-[#111111]/15 pb-1.5">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-[#111111]">🧵 Active Threads · Ranked by Activity</span>
+                <button type="button" onclick="promptNewBoardThread()" class="px-2.5 py-0.5 rounded-full bg-[#111111] hover:bg-[#107a47] text-[#ecf1e6] font-bold text-[10px] transition">+ New Thread</button>
               </div>
-              <div id="boardActiveThreadsList" class="space-y-2 max-h-[430px] overflow-y-auto pr-1"></div>
+              <div id="boardActiveThreadsList" class="space-y-2.5 max-h-[430px] overflow-y-auto pr-1"></div>
             </div>
           </div>
         </div>
@@ -6256,6 +6258,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     let activeBoardTab = 'discussions';
     let activeBoardCategoryFilter = '';
     let activeReplyParentPostByTopic = {};
+    let _boardTopicsById = {};
     let boardGraphSnapshot = { nodes: [], edges: [] };
     let boardGraphLayoutNodes = [];
     let selectedGraphNodeId = null;
@@ -6274,9 +6277,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         if (panel) panel.classList.toggle('hidden', t !== tabName);
         if (btn) {
           if (t === tabName) {
-            btn.className = 'px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-bold text-xs transition flex items-center gap-1';
+            btn.className = 'px-3 py-1.5 rounded-full bg-[#111111] text-[#ecf1e6] border border-[#111111] font-bold text-xs transition flex items-center gap-1';
           } else {
-            btn.className = 'px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition flex items-center gap-1';
+            btn.className = 'px-3 py-1.5 rounded-full bg-[#ffffff] hover:bg-[#f4f8f0] text-[#111111] border border-[#111111] text-xs transition flex items-center gap-1';
           }
         }
       });
@@ -6312,12 +6315,12 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           const low = token.toLowerCase();
           const isAgent = low.endsWith('-brain') || low.endsWith('-agent') || low === 'claude-sonnet' || low === 'gpt-4o' || low === 'deepseek-r1';
           if (isAgent) {
-            out += `<span onclick="quickSearchBoardEntity('@${token}')" title="Search @${token} across Cyberspace" class="cursor-pointer px-1.5 py-0.2 rounded bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700 font-mono text-[11px] font-bold">🤖 @${token}</span>`;
+            out += `<span onclick="quickSearchBoardEntity('@${token}')" title="Search @${token} across Cyberspace" class="cursor-pointer px-1.5 py-0.2 rounded-full bg-[#f4f8f0] hover:bg-[#107a47] hover:text-[#ffffff] text-[#107a47] border border-[#107a47] font-mono text-[11px] font-bold">🤖 @${token}</span>`;
           } else {
-            out += `<span onclick="inspectCyberspaceUserProfile('${token}')" title="Inspect @${token}'s Cyberspace profile & attestation" class="cursor-pointer px-1.5 py-0.2 rounded bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/70 font-mono text-[11px] font-semibold">🪪 @${token}</span>`;
+            out += `<span onclick="inspectCyberspaceUserProfile('${token}')" title="Inspect @${token}'s Cyberspace profile & attestation" class="cursor-pointer px-1.5 py-0.2 rounded-full bg-[#f4f8f0] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111]/40 font-mono text-[11px] font-semibold">🪪 @${token}</span>`;
           }
         } else {
-          out += `<span onclick="quickSearchBoardEntity('#${token}')" class="cursor-pointer px-1.5 py-0.2 rounded bg-pink-950/60 hover:bg-pink-900 text-pink-300 border border-pink-800/60 font-mono text-[11px]">#${token}</span>`;
+          out += `<span onclick="quickSearchBoardEntity('#${token}')" class="cursor-pointer px-1.5 py-0.2 rounded-full bg-[#f4f8f0] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111]/30 font-mono text-[11px]">#${token}</span>`;
         }
         lastIdx = tokenRe.lastIndex;
       }
@@ -6552,19 +6555,21 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
         if (badgeEl) {
           const mdl = (data.model || 'free-model').split('/').pop();
-          badgeEl.textContent = `${mdl} · ${data.source === 'free_llm' ? 'Free LLM $0' : 'Indexed $0'}`;
+          badgeEl.textContent = `${mdl} · ${data.used_live_llm || data.source === 'free_llm' ? 'Free LLM $0' : 'Indexed $0'}`;
         }
         if (!suggestions.length) return;
         chipsEl.innerHTML = suggestions.map(s => {
-          const text = String(s.text || s.token || '').trim();
+          const rawToken = String(s.text || s.token || '');
+          const text = rawToken.trim();
           const kind = String(s.kind || 'search');
           const reason = String(s.reason || '');
-          const colorCls = kind === 'post' || kind === 'thread'
-            ? 'bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 border-emerald-700/70'
-            : kind === 'agent'
-              ? 'bg-indigo-950/70 hover:bg-indigo-900 text-indigo-300 border-indigo-700/70'
-              : 'bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700';
-          return `<button type="button" onclick="applyBoardAiSuggestion('${escapeHtml(text).replace(/'/g, '&#39;')}')" title="${escapeHtml(reason)}" class="px-2 py-0.5 rounded border text-[10px] transition ${colorCls}">${escapeHtml(text)}</button>`;
+          const label = text === '/thread' ? '/thread + New' : (text === '/search' ? '/search ...' : text);
+          const colorCls = kind === 'post' || kind === 'thread' || kind === 'command'
+            ? 'bg-[#107a47]/10 hover:bg-[#107a47] hover:text-[#ffffff] text-[#107a47] border-[#107a47]/60 font-semibold'
+            : kind === 'agent' || kind === 'ai'
+              ? 'bg-[#ffffff] hover:bg-[#107a47] hover:text-[#ffffff] text-[#107a47] border-[#107a47] font-semibold'
+              : 'bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border-[#111111]/40';
+          return `<button type="button" onclick="applyBoardAiSuggestion('${escapeHtml(rawToken).replace(/'/g, '&#39;')}')" title="${escapeHtml(reason)}" class="px-2 py-0.5 rounded-full border text-[10px] transition ${colorCls}">[${escapeHtml(label)}]</button>`;
         }).join('');
       } catch (e) {}
     }
@@ -6572,12 +6577,12 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     function applyBoardAiSuggestion(text) {
       const inp = document.getElementById('boardSearchInput');
       if (!inp) return;
-      const clean = String(text || '').trim();
+      const clean = String(text || '').trim().replace(/^\[|\]$/g, '');
       if (!clean) return;
       if (clean.startsWith('/post') || clean.startsWith('/thread') || clean.startsWith('/search') || clean.startsWith('/feed')) {
         inp.value = clean + (clean.endsWith(' ') ? '' : ' ');
         inp.focus();
-        if (clean.startsWith('/search ')) searchCyberspaceBoard();
+        if (clean.startsWith('/search ') && clean.length > '/search '.length) searchCyberspaceBoard();
         else if (clean === '/feed') submitBoardOmniInput();
         return;
       }
@@ -6775,7 +6780,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           userBox.innerHTML = data.users.slice(0, 14).map(u => {
             const handle = (u.username || '').replace(/^@/, '');
             const verifiedIcon = u.verified ? '✅' : '👤';
-            return `<button type="button" onclick="insertBoardTag('@${escapeHtml(handle)}', 'boardTopicBody')" title="${escapeHtml(u.full_name || handle)} (${escapeHtml(u.role || 'Peer')})" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-slate-700">${verifiedIcon} @${escapeHtml(handle)}</button>`;
+            return `<button type="button" onclick="insertBoardTag('@${escapeHtml(handle)}', 'boardTopicBody')" title="${escapeHtml(u.full_name || handle)} (${escapeHtml(u.role || 'Peer')})" class="px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111]/40">${verifiedIcon} @${escapeHtml(handle)}</button>`;
           }).join('');
         }
       } catch (e) {}
@@ -6801,34 +6806,34 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         if (pillEl) {
           if (data.verified) {
             pillEl.innerText = '✅ Verified Cyberspace Citizen';
-            pillEl.className = 'px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600 text-[10px] font-bold';
+            pillEl.className = 'px-2 py-0.5 rounded-full bg-[#107a47]/10 text-[#107a47] border border-[#107a47] text-[10px] font-bold';
           } else {
             pillEl.innerText = '⚠️ Unverified Peer';
-            pillEl.className = 'px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-600 text-[10px] font-bold';
+            pillEl.className = 'px-2 py-0.5 rounded-full bg-[#f4f8f0] text-[#111111] border border-[#111111]/40 text-[10px] font-bold';
           }
         }
         if (metaEl) {
           metaEl.innerHTML = `
-            <div class="p-2 bg-slate-900/90 rounded border border-slate-800">
-              <div class="text-[9px] text-slate-500 uppercase">Role / Institution</div>
-              <div class="text-emerald-300 font-bold truncate">${escapeHtml(p.role || 'Mesh Collaborator')}</div>
+            <div class="p-2 bg-[#f4f8f0] rounded-lg border border-[#111111]/25">
+              <div class="text-[9px] text-[#5c5c5c] uppercase">Role / Institution</div>
+              <div class="text-[#107a47] font-bold truncate">${escapeHtml(p.role || 'Mesh Collaborator')}</div>
             </div>
-            <div class="p-2 bg-slate-900/90 rounded border border-slate-800">
-              <div class="text-[9px] text-slate-500 uppercase">SHA-256 Attestation</div>
-              <div class="text-cyan-300 truncate">${escapeHtml(p.attestation_hash || 'pending-verification')}</div>
+            <div class="p-2 bg-[#f4f8f0] rounded-lg border border-[#111111]/25">
+              <div class="text-[9px] text-[#5c5c5c] uppercase">SHA-256 Attestation</div>
+              <div class="text-[#111111] truncate">${escapeHtml(p.attestation_hash || 'pending-verification')}</div>
             </div>
-            <div class="p-2 bg-slate-900/90 rounded border border-slate-800">
-              <div class="text-[9px] text-slate-500 uppercase">Graph Contributions</div>
-              <div class="text-indigo-300 font-bold">${data.authored_count || 0} topics · ${data.reply_count || 0} replies · ${data.mentioned_count || 0} mentions</div>
+            <div class="p-2 bg-[#f4f8f0] rounded-lg border border-[#111111]/25">
+              <div class="text-[9px] text-[#5c5c5c] uppercase">Graph Contributions</div>
+              <div class="text-[#111111] font-bold">${data.authored_count || 0} topics · ${data.reply_count || 0} replies · ${data.mentioned_count || 0} mentions</div>
             </div>
           `;
         }
         if (topicsEl) {
-          const bioLine = p.bio ? `<div class="text-slate-300 italic pb-1">"${escapeHtml(p.bio)}"</div>` : '';
+          const bioLine = p.bio ? `<div class="text-[#4a4a4a] italic pb-1">"${escapeHtml(p.bio)}"</div>` : '';
           const authoredLinks = (data.authored_topics || []).slice(0, 4).map(t =>
-            `<span onclick="quickSearchBoardEntity('${escapeHtml(t.title)}')" class="cursor-pointer px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-slate-800 inline-block mr-1 mb-1">📌 ${escapeHtml(t.title)}</span>`
+            `<span onclick="quickSearchBoardEntity('${escapeHtml(t.title)}')" class="cursor-pointer px-1.5 py-0.5 rounded-full bg-[#f4f8f0] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111]/30 inline-block mr-1 mb-1">📌 ${escapeHtml(t.title)}</span>`
           ).join('');
-          topicsEl.innerHTML = `${bioLine}<div><span class="text-slate-500 mr-1">Filter Board:</span> <button type="button" onclick="quickSearchBoardEntity('@${escapeHtml(clean)}')" class="px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700">🔍 Show All Threads with @${escapeHtml(clean)}</button> ${authoredLinks}</div>`;
+          topicsEl.innerHTML = `${bioLine}<div><span class="text-[#5c5c5c] mr-1">Filter Board:</span> <button type="button" onclick="quickSearchBoardEntity('@${escapeHtml(clean)}')" class="px-2 py-0.5 rounded-full bg-[#111111] hover:bg-[#107a47] text-[#ecf1e6] border border-[#111111]">🔍 Show All Threads with @${escapeHtml(clean)}</button> ${authoredLinks}</div>`;
         }
       } catch (e) {}
     }
@@ -6851,7 +6856,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         }
         if (data.verified) {
           badge.innerText = `✅ Verified Citizen (@${String(un).replace(/^@/, '')})`;
-          badge.className = 'px-2 py-0.5 rounded-full bg-emerald-900/90 text-emerald-300 border border-emerald-500 text-[10px] font-bold';
+          badge.className = 'px-2 py-0.5 rounded-full bg-[#107a47]/10 text-[#107a47] border border-[#107a47] text-[10px] font-bold';
           if (attBadge && data.profile && data.profile.attestation_hash) {
             attBadge.innerText = `SHA256:${data.profile.attestation_hash.slice(0, 10)}`;
             attBadge.classList.remove('hidden');
@@ -6861,7 +6866,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           }
         } else {
           badge.innerText = '⚠️ Unverified Peer — Fill Form';
-          badge.className = 'px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-600 text-[10px] font-bold';
+          badge.className = 'px-2 py-0.5 rounded-full bg-[#ffffff] text-[#111111] border border-[#111111] text-[10px] font-bold';
         }
       } catch (e) {}
     }
@@ -6959,8 +6964,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         if (!statusBox) return;
         statusBox.classList.remove('hidden');
         statusBox.className = isErr
-          ? 'p-2.5 rounded-lg text-xs bg-red-950/80 border border-red-600 text-red-200 font-mono'
-          : 'p-2.5 rounded-lg text-xs bg-emerald-950/80 border border-emerald-500 text-emerald-200 font-mono';
+          ? 'p-2.5 rounded-xl text-xs bg-[#8a1c1c]/10 border border-[#8a1c1c] text-[#8a1c1c] font-mono'
+          : 'p-2.5 rounded-xl text-xs bg-[#107a47]/10 border border-[#107a47] text-[#107a47] font-mono';
         statusBox.innerHTML = msg;
       };
 
@@ -7023,15 +7028,15 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
         if (pendingEl) {
           if (!reqs.length) {
-            pendingEl.innerHTML = '<div class="text-slate-500 text-[11px] py-2">No pending verification forms. Click "Dispatch Form via @verifier-agent" above to generate a fresh challenge form.</div>';
+            pendingEl.innerHTML = '<div class="text-[#5c5c5c] text-[11px] py-2">No pending verification forms. Click "Dispatch Form via @verifier-agent" above to generate a fresh challenge form.</div>';
           } else {
             pendingEl.innerHTML = reqs.map(r => `
-              <div class="p-2 bg-slate-900 rounded border border-amber-800/60 flex items-center justify-between gap-2">
+              <div class="p-2 bg-[#f4f8f0] rounded-lg border border-[#111111]/30 flex items-center justify-between gap-2">
                 <div>
-                  <div class="text-amber-300 font-bold">#${escapeHtml(r.request_id)} · Challenge: <code>${escapeHtml(r.challenge_code || '')}</code></div>
-                  <div class="text-[10px] text-slate-400">Target: ${escapeHtml(r.target_username || r.peer_id)} · ${escapeHtml(r.reason || '')}</div>
+                  <div class="text-[#111111] font-bold">#${escapeHtml(r.request_id)} · Challenge: <code>${escapeHtml(r.challenge_code || '')}</code></div>
+                  <div class="text-[10px] text-[#4a4a4a]">Target: ${escapeHtml(r.target_username || r.peer_id)} · ${escapeHtml(r.reason || '')}</div>
                 </div>
-                <button type="button" onclick='prefillVerificationFormFromSignal(${JSON.stringify({request_id: r.request_id, challenge_code: r.challenge_code, target_username: r.target_username})})' class="px-2 py-1 rounded bg-amber-500 text-slate-950 font-bold text-[10px] shrink-0">
+                <button type="button" onclick='prefillVerificationFormFromSignal(${JSON.stringify({request_id: r.request_id, challenge_code: r.challenge_code, target_username: r.target_username})})' class="px-2.5 py-1 rounded-full bg-[#111111] hover:bg-[#107a47] text-[#ecf1e6] font-bold text-[10px] shrink-0">
                   ✍️ Load Form
                 </button>
               </div>
@@ -7043,15 +7048,15 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         if (countEl) countEl.innerText = `${citizens.length} verified`;
         if (citizensEl) {
           if (!citizens.length) {
-            citizensEl.innerHTML = '<div class="text-slate-500 text-[11px] py-2">No verified citizens yet.</div>';
+            citizensEl.innerHTML = '<div class="text-[#5c5c5c] text-[11px] py-2">No verified citizens yet.</div>';
           } else {
             citizensEl.innerHTML = citizens.map(c => `
-              <div onclick="inspectCyberspaceUserProfile('${escapeHtml(c.username)}')" class="cursor-pointer p-2 bg-slate-900 hover:bg-slate-800 rounded border border-emerald-900/60 flex items-center justify-between gap-2 transition">
+              <div onclick="inspectCyberspaceUserProfile('${escapeHtml(c.username)}')" class="cursor-pointer p-2 bg-[#f4f8f0] hover:bg-[#ecf1e6] rounded-lg border border-[#107a47]/50 flex items-center justify-between gap-2 transition">
                 <div>
-                  <div class="text-emerald-300 font-bold">✅ @${escapeHtml(c.username)} <span class="text-slate-400 font-normal">(${escapeHtml(c.full_name)})</span></div>
-                  <div class="text-[10px] text-slate-400">${escapeHtml(c.role || 'Citizen')} · ${escapeHtml(c.bio || '')}</div>
+                  <div class="text-[#107a47] font-bold">✅ @${escapeHtml(c.username)} <span class="text-[#4a4a4a] font-normal">(${escapeHtml(c.full_name)})</span></div>
+                  <div class="text-[10px] text-[#4a4a4a]">${escapeHtml(c.role || 'Citizen')} · ${escapeHtml(c.bio || '')}</div>
                 </div>
-                <span class="px-1.5 py-0.5 rounded bg-slate-950 text-cyan-300 border border-slate-800 text-[9px]">SHA256:${escapeHtml((c.attestation_hash || '').slice(0, 10))}</span>
+                <span class="px-1.5 py-0.5 rounded-full bg-[#ffffff] text-[#111111] border border-[#111111]/30 text-[9px]">SHA256:${escapeHtml((c.attestation_hash || '').slice(0, 10))}</span>
               </div>
             `).join('');
           }
@@ -7070,15 +7075,17 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         const res = await fetch(`/api/board/topics?limit=40&sort_by=${encodeURIComponent(sortBy)}`);
         if (!res.ok) return;
         const data = await res.json();
+        const topics = Array.isArray(data.topics) ? data.topics : [];
+        topics.forEach(t => { if (t && t.topic_id) _boardTopicsById[t.topic_id] = t; });
         const gBadge = document.getElementById('boardGraphStatsBadge');
         if (gBadge && data.graph_stats) {
-          gBadge.innerText = `Graph: ${data.graph_stats.total_nodes || 0} nodes · ${data.graph_stats.total_edges || 0} edges`;
+          gBadge.innerText = `● Graph: ${data.graph_stats.total_nodes || 0} nodes · ${data.graph_stats.total_edges || 0} edges`;
         }
         const curatedBadge = document.getElementById('boardCuratedCountBadge');
-        if (curatedBadge && Array.isArray(data.topics)) {
-          curatedBadge.textContent = String(data.topics.filter(t => t.curated).length);
+        if (curatedBadge) {
+          curatedBadge.textContent = String(topics.filter(t => t.curated).length);
         }
-        renderCyberspaceTopics(data.topics || [], false);
+        renderCyberspaceTopics(topics, false);
         if (activeBoardTab === 'feed') loadBoardFeedAndThreads();
       } catch (e) {}
     }
@@ -7090,12 +7097,28 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         const btn = document.getElementById(`boardFeedFilter-${m}`);
         if (!btn) return;
         if (m === boardFeedFilter) {
-          btn.className = 'px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold text-[11px] transition';
+          btn.className = 'px-3 py-1 rounded-full bg-[#111111] text-[#ecf1e6] border border-[#111111] font-bold text-[11px] transition';
+        } else if (m === 'solved') {
+          btn.className = 'px-3 py-1 rounded-full bg-[#f4f8f0] hover:bg-[#ecf1e6] text-[#107a47] border border-[#107a47]/50 text-[11px] transition';
         } else {
-          btn.className = 'px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] transition';
+          btn.className = 'px-3 py-1 rounded-full bg-[#f4f8f0] hover:bg-[#ecf1e6] text-[#111111] border border-[#111111]/40 text-[11px] transition';
         }
       });
       loadBoardFeedAndThreads();
+    }
+
+    function isBoardAiAuthor(post) {
+      if (!post) return false;
+      if (post.is_agent) return true;
+      const raw = String(post.author_username || post.author || '').trim().toLowerCase();
+      const cleaned = raw.replace(/^@/, '');
+      return /^(ai:|agent:)/.test(cleaned) || cleaned.endsWith('-brain') || cleaned.endsWith('-agent') || cleaned.includes('agent') || cleaned === 'claude-sonnet' || cleaned === 'gpt-4o' || cleaned === 'deepseek-r1';
+    }
+
+    function formatBoardActivityScore(topic) {
+      const posts = Array.isArray(topic && topic.posts) ? topic.posts : [];
+      const raw = Number((topic && topic.activity_score !== undefined && topic.activity_score !== null) ? topic.activity_score : posts.length);
+      return Number.isInteger(raw) ? String(raw) : raw.toFixed(1);
     }
 
     async function loadBoardFeedAndThreads() {
@@ -7105,51 +7128,81 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       if (!feedEl && !threadsEl) return;
       const q = (document.getElementById('boardFeedFilterInput')?.value || '').trim().toLowerCase();
       try {
-        const curatedParam = boardFeedFilter === 'curated' ? '&curated_only=1' : '';
-        const res = await fetch(`/api/board/topics?limit=50&sort_by=activity${curatedParam}`);
+        const res = await fetch('/api/board/topics?limit=50&sort_by=activity');
         if (!res.ok) return;
         const data = await res.json();
-        let topics = Array.isArray(data.topics) ? data.topics.slice() : [];
-        if (boardFeedFilter === 'solved') {
-          topics = topics.filter(t => !!t.accepted_post_id);
+        const allTopics = Array.isArray(data.topics) ? data.topics.slice() : [];
+        allTopics.forEach(t => { if (t && t.topic_id) _boardTopicsById[t.topic_id] = t; });
+
+        const totalAll = allTopics.length;
+        const totalCurated = allTopics.filter(t => Boolean(t.curated)).length;
+        const totalSolved = allTopics.filter(t => Boolean(t.accepted_post_id || t.resolved)).length;
+
+        const btnAll = document.getElementById('boardFeedFilter-all');
+        const btnCur = document.getElementById('boardFeedFilter-curated');
+        const btnSol = document.getElementById('boardFeedFilter-solved');
+        if (btnAll) btnAll.textContent = `All (${totalAll})`;
+        if (btnCur) btnCur.textContent = `★ Curated (${totalCurated})`;
+        if (btnSol) btnSol.textContent = `✓ Solved (${totalSolved})`;
+
+        const curatedBadge = document.getElementById('boardCuratedCountBadge');
+        if (curatedBadge) curatedBadge.textContent = String(totalCurated);
+
+        let topics = allTopics.slice();
+        if (boardFeedFilter === 'curated') {
+          topics = topics.filter(t => Boolean(t.curated));
+        } else if (boardFeedFilter === 'solved') {
+          topics = topics.filter(t => Boolean(t.accepted_post_id || t.resolved));
         }
         if (q) {
           topics = topics.filter(t =>
             (t.title || '').toLowerCase().includes(q) ||
             (t.body || '').toLowerCase().includes(q) ||
+            (t.author_username || '').toLowerCase().includes(q) ||
             (t.tags || []).some(tag => String(tag).toLowerCase().includes(q)) ||
             (t.posts || []).some(p => (p.body || '').toLowerCase().includes(q))
           );
-        }
-        const curatedBadge = document.getElementById('boardCuratedCountBadge');
-        if (curatedBadge) {
-          const allResCount = topics.filter(t => t.curated).length;
-          if (boardFeedFilter === 'all' && !q) curatedBadge.textContent = String(allResCount);
         }
         if (statusEl) statusEl.textContent = `${topics.length} topic(s) · ${boardFeedFilter}`;
 
         if (feedEl) {
           if (!topics.length) {
-            feedEl.innerHTML = '<div class="p-4 text-center text-xs text-slate-400 border border-dashed border-slate-800 rounded-lg">No feed items match right now.</div>';
+            feedEl.innerHTML = '<div class="p-4 text-center text-xs text-[#5c5c5c] border border-dashed border-[#111111]/30 rounded-xl bg-[#f4f8f0]">No feed items match right now.</div>';
           } else {
             feedEl.innerHTML = topics.map(t => {
+              const posts = Array.isArray(t.posts) ? t.posts : [];
+              const actScore = formatBoardActivityScore(t);
+              const upvotes = Number(t.upvotes ?? t.score ?? t.votes ?? 0);
+              const author = String(t.author_username || 'peer').replace(/^@/, '');
+              const isSolved = Boolean(t.accepted_post_id || t.resolved);
+              const tagsHtml = (t.tags || []).slice(0, 4).map(tg => `<span class="text-[#107a47] font-semibold text-[10px]">#${escapeHtml(tg)}</span>`).join(' ');
+              const cardSurface = t.curated
+                ? 'bg-[#f4f8f0] border-[#111111]'
+                : 'bg-[#ffffff] border-[#111111]/40 hover:border-[#111111]';
               const starCls = t.curated
-                ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
-                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-amber-300';
-              const tagsHtml = (t.tags || []).slice(0, 4).map(tg => `<span class="px-1.5 py-0.2 rounded bg-slate-800 text-pink-300 text-[10px]">#${escapeHtml(tg)}</span>`).join('');
+                ? 'bg-[#107a47] text-[#ffffff] border-[#107a47]'
+                : 'bg-[#ffffff] text-[#111111] border-[#111111]/50 hover:border-[#111111]';
               return `
-                <div class="p-2.5 rounded-lg bg-slate-950/85 border border-slate-800 hover:border-cyan-500/40 space-y-1.5 transition">
-                  <div class="flex items-start justify-between gap-2">
-                    <button type="button" onclick="openBoardThreadFromFeed('${t.topic_id}')" class="text-left font-bold text-white hover:text-cyan-300 text-xs">${t.curated ? '★ ' : ''}${escapeHtml(t.title || t.topic_id)}</button>
-                    <button type="button" onclick="curateCyberspaceTopic('${t.topic_id}', ${t.curated ? 'false' : 'true'})" class="px-2 py-0.5 rounded border text-[10px] shrink-0 ${starCls}">${t.curated ? '★ Curated' : '☆ Curate'}</button>
+                <div class="p-3 rounded-xl border space-y-1.5 transition ${cardSurface}">
+                  <div class="flex flex-wrap items-center justify-between gap-1.5 text-[10px] font-mono">
+                    <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+                      ${t.curated ? '<span class="text-[#107a47] font-bold">★ CURATED</span><span class="text-[#5c5c5c]">·</span>' : ''}
+                      ${isSolved ? '<span class="text-[#107a47] font-bold">✓ SOLVED</span><span class="text-[#5c5c5c]">·</span>' : ''}
+                      ${tagsHtml ? `${tagsHtml}<span class="text-[#5c5c5c]">·</span>` : ''}
+                      <span class="text-[#4a4a4a]">@${escapeHtml(author)}</span>
+                      <span class="text-[#5c5c5c]">·</span>
+                      <span class="px-1.5 py-0.2 rounded-full bg-[#107a47]/10 text-[#107a47] border border-[#107a47]/40 font-semibold">ACTIVITY SCORE ${actScore}</span>
+                    </div>
+                    <button type="button" onclick="curateCyberspaceTopic('${escapeHtml(t.topic_id)}', ${t.curated ? 'false' : 'true'})" class="px-2 py-0.5 rounded-full border text-[10px] font-semibold shrink-0 transition ${starCls}">${t.curated ? '★ Curated' : '☆ Curate'}</button>
                   </div>
-                  <p class="text-[11px] text-slate-300 line-clamp-2 font-sans">${escapeHtml((t.body || '').slice(0, 180))}</p>
-                  <div class="flex flex-wrap items-center justify-between gap-1.5 text-[10px] text-slate-400">
-                    <div class="flex flex-wrap items-center gap-1">${tagsHtml}</div>
-                    <div class="flex items-center gap-2">
-                      <span>💬 ${(t.posts || []).length}</span>
-                      <span>▲ ${t.votes || 0}</span>
-                      <button type="button" onclick="openBoardThreadFromFeed('${t.topic_id}')" class="text-cyan-400 hover:underline">Open Thread →</button>
+                  <button type="button" onclick="openBoardThreadFromFeed('${escapeHtml(t.topic_id)}')" class="text-left font-bold text-[#111111] hover:text-[#107a47] text-[13px] leading-snug block w-full">${escapeHtml(t.title || t.topic_id)}</button>
+                  <p class="text-[11px] text-[#4a4a4a] line-clamp-2 font-sans leading-relaxed">${escapeHtml((t.body || '').slice(0, 180))}</p>
+                  <div class="flex flex-wrap items-center justify-between gap-2 text-[10px] text-[#4a4a4a] pt-0.5">
+                    <span>▲ ${upvotes} upvotes · ${posts.length} thread msgs</span>
+                    <div class="flex flex-wrap items-center gap-2 font-semibold">
+                      <button type="button" onclick="openBoardThreadFromFeed('${escapeHtml(t.topic_id)}')" class="text-[#111111] hover:text-[#107a47]">[Open Thread →]</button>
+                      <button type="button" onclick="curateCyberspaceTopic('${escapeHtml(t.topic_id)}', ${t.curated ? 'false' : 'true'})" class="text-[#111111] hover:text-[#107a47]">[${t.curated ? 'Curate ★' : 'Curate ☆'}]</button>
+                      <button type="button" onclick="loadTopicIntoWorkstation('${escapeHtml(t.topic_id)}')" class="text-[#107a47] hover:underline">[Load in Workstation]</button>
                     </div>
                   </div>
                 </div>
@@ -7159,29 +7212,64 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         }
 
         if (threadsEl) {
-          const ranked = topics.slice().sort((a, b) => (b.activity_score || 0) - (a.activity_score || 0));
+          const ranked = topics.slice().sort((a, b) => Number(b.activity_score || 0) - Number(a.activity_score || 0));
           if (!ranked.length) {
-            threadsEl.innerHTML = '<div class="p-4 text-center text-xs text-slate-400 border border-dashed border-slate-800 rounded-lg">No active threads yet.</div>';
+            threadsEl.innerHTML = '<div class="p-4 text-center text-xs text-[#5c5c5c] border border-dashed border-[#111111]/30 rounded-xl bg-[#f4f8f0]">No active threads yet.</div>';
           } else {
             threadsEl.innerHTML = ranked.map((t, idx) => {
               const posts = Array.isArray(t.posts) ? t.posts : [];
               const lastPost = posts[posts.length - 1];
-              const actScore = Number(t.activity_score || posts.length || 0).toFixed(1);
-              return `
-                <div class="p-2.5 rounded-lg bg-slate-900/90 border border-indigo-900/50 space-y-1.5">
-                  <div class="flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-1.5 min-w-0">
-                      <span class="px-1.5 py-0.2 rounded bg-indigo-950 text-indigo-300 border border-indigo-700/60 text-[10px] shrink-0">#${idx + 1}</span>
-                      <button type="button" onclick="openBoardThreadFromFeed('${t.topic_id}')" class="truncate font-bold text-white hover:text-cyan-300 text-xs">${escapeHtml(t.title || t.topic_id)}</button>
+              const actScore = formatBoardActivityScore(t);
+              if (idx === 0) {
+                const recentReplies = posts.slice(-2);
+                const repliesHtml = recentReplies.length
+                  ? recentReplies.map(p => {
+                      const pAuthor = String(p.author_username || p.author || 'peer').trim().replace(/^@/, '');
+                      const isAi = isBoardAiAuthor(p);
+                      if (isAi) {
+                        return `
+                          <div class="p-2 rounded-lg bg-[#107a47]/10 border border-[#107a47] space-y-0.5">
+                            <div class="font-mono text-[10px] font-bold text-[#107a47]">[AI] @${escapeHtml(pAuthor)}${p.is_agent ? ' (Free Model Suggest)' : ''}</div>
+                            <div class="text-[11px] text-[#111111] font-sans leading-snug">${escapeHtml((p.body || '').slice(0, 160))}</div>
+                          </div>
+                        `;
+                      }
+                      return `
+                        <div class="p-2 rounded-lg bg-[#f4f8f0] border border-[#111111]/20 space-y-0.5">
+                          <div class="font-mono text-[10px] font-semibold text-[#4a4a4a]">@${escapeHtml(pAuthor)}</div>
+                          <div class="text-[11px] text-[#111111] font-sans leading-snug">${escapeHtml((p.body || '').slice(0, 160))}</div>
+                        </div>
+                      `;
+                    }).join('')
+                  : `<div class="p-2 rounded-lg bg-[#f4f8f0] border border-[#111111]/20 text-[11px] text-[#4a4a4a] font-sans leading-snug">${escapeHtml((t.body || '').slice(0, 140))}</div>`;
+                return `
+                  <div class="p-3 rounded-xl bg-[#ffffff] border border-[#111111] space-y-2">
+                    <div class="flex items-center justify-between gap-2 text-[10px] font-mono">
+                      <span class="font-bold text-[#107a47] uppercase tracking-wider">#1 MOST ACTIVE · ACTIVITY SCORE ${actScore}</span>
+                      <span class="px-1.5 py-0.2 rounded-full bg-[#f4f8f0] text-[#111111] border border-[#111111]/30 shrink-0">${posts.length} MSGS</span>
                     </div>
-                    <span class="text-[10px] text-emerald-300 shrink-0" title="Thread Activity Score">⚡ ${actScore}</span>
+                    <button type="button" onclick="openBoardThreadFromFeed('${escapeHtml(t.topic_id)}')" class="text-left font-bold text-[#111111] hover:text-[#107a47] text-[13px] leading-snug block w-full">${escapeHtml(t.title || t.topic_id)}</button>
+                    <div class="space-y-1.5">${repliesHtml}</div>
+                    <div class="flex items-center gap-1.5 pt-0.5">
+                      <input id="threadQuickReply-${t.topic_id}" type="text" placeholder="Reply in thread (@peer, @agent, #tag)..." onkeydown="if(event.key==='Enter')replyQuickThread('${t.topic_id}')" class="flex-1 px-2.5 py-1 rounded-lg bg-[#ffffff] border border-[#111111] text-[#111111] text-[11px] focus:border-[#107a47] focus:outline-none" />
+                      <button type="button" onclick="replyQuickThread('${t.topic_id}')" class="px-2.5 py-1 rounded-full bg-[#111111] hover:bg-[#107a47] text-[#ecf1e6] font-bold text-[10px] shrink-0 transition">Send ↵</button>
+                    </div>
                   </div>
-                  <div class="text-[10px] text-slate-400 font-sans truncate">
-                    ${lastPost ? `Latest @${escapeHtml(lastPost.author_username || 'peer')}: ${escapeHtml((lastPost.body || '').slice(0, 90))}` : escapeHtml((t.body || '').slice(0, 90))}
+                `;
+              }
+              return `
+                <div class="p-2.5 rounded-xl bg-[#f4f8f0] border border-[#111111]/35 space-y-1.5">
+                  <div class="flex items-center justify-between gap-2 text-[10px] font-mono">
+                    <span class="text-[#5c5c5c] font-semibold">#${idx + 1} · ACTIVITY SCORE ${actScore}</span>
+                    <span class="text-[#5c5c5c] shrink-0">${posts.length} MSGS</span>
+                  </div>
+                  <button type="button" onclick="openBoardThreadFromFeed('${escapeHtml(t.topic_id)}')" class="truncate text-left font-bold text-[#111111] hover:text-[#107a47] text-xs block w-full">${escapeHtml(t.title || t.topic_id)}</button>
+                  <div class="text-[10px] text-[#4a4a4a] font-sans truncate">
+                    ${lastPost ? `@${escapeHtml(String(lastPost.author_username || 'peer').replace(/^@/, ''))}: ${escapeHtml((lastPost.body || '').slice(0, 90))}` : escapeHtml((t.body || '').slice(0, 90))}
                   </div>
                   <div class="flex items-center gap-1.5">
-                    <input id="threadQuickReply-${t.topic_id}" type="text" placeholder="Reply in #thread..." onkeydown="if(event.key==='Enter')replyQuickThread('${t.topic_id}')" class="flex-1 px-2 py-1 rounded bg-slate-950 border border-slate-700 text-white text-[11px] focus:border-cyan-400 focus:outline-none" />
-                    <button type="button" onclick="replyQuickThread('${t.topic_id}')" class="px-2 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px]">Send</button>
+                    <input id="threadQuickReply-${t.topic_id}" type="text" placeholder="Reply in #thread..." onkeydown="if(event.key==='Enter')replyQuickThread('${t.topic_id}')" class="flex-1 px-2 py-1 rounded-lg bg-[#ffffff] border border-[#111111] text-[#111111] text-[11px] focus:border-[#107a47] focus:outline-none" />
+                    <button type="button" onclick="replyQuickThread('${t.topic_id}')" class="px-2.5 py-1 rounded-full bg-[#111111] hover:bg-[#107a47] text-[#ecf1e6] font-bold text-[10px] transition">Send ↵</button>
                   </div>
                 </div>
               `;
@@ -7189,6 +7277,58 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           }
         }
       } catch (e) {}
+    }
+
+    function openAgentSpaceWithTopic(topicId, topicTitle = '') {
+      const tid = String(topicId || '').trim();
+      if (!tid) return;
+      if (typeof selectWorkstationTopicResult === 'function') {
+        selectWorkstationTopicResult(tid);
+      } else {
+        if (typeof switchSpaceScope === 'function') switchSpaceScope('topic');
+        const ownerInput = document.getElementById('spaceOwnerInput');
+        if (ownerInput) ownerInput.value = tid;
+        if (typeof resolveAndLoadSpaceOwner === 'function') resolveAndLoadSpaceOwner();
+      }
+    }
+
+    async function loadTopicIntoWorkstation(topicId) {
+      let tid = String(topicId || '').trim();
+      if (!tid) return;
+      let topicTitle = (_boardTopicsById[tid] && _boardTopicsById[tid].title) || '';
+      if (!topicTitle && typeof fetch === 'function') {
+        try {
+          const res = await fetch(`/api/board/topic?id=${encodeURIComponent(tid)}&increment_views=0`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.topic) {
+              _boardTopicsById[tid] = data.topic;
+              topicTitle = data.topic.title || '';
+              if (data.topic.topic_id) tid = data.topic.topic_id;
+            }
+          }
+        } catch (e) {}
+      }
+
+      const spWin = document.getElementById('win-agentspace');
+      if (spWin) {
+        const isClosed = spWin.style.display === 'none' || spWin.classList.contains('hidden') || spWin.classList.contains('minimized');
+        if (isClosed) {
+          if (typeof toggleWindow === 'function') {
+            toggleWindow('win-agentspace');
+          } else {
+            spWin.classList.remove('hidden', 'minimized');
+            spWin.style.display = 'flex';
+          }
+        } else if (typeof bringToFront === 'function') {
+          bringToFront(spWin);
+        }
+      }
+      if (typeof switchFinderTab === 'function') switchFinderTab('files');
+      openAgentSpaceWithTopic(tid, topicTitle);
+      if (typeof showQuickNotification === 'function') {
+        showQuickNotification(`📂 Loaded ${topicTitle || tid} in Workstation`);
+      }
     }
 
     function openBoardThreadFromFeed(topicId) {
@@ -7274,12 +7414,14 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           if (subEntities) {
             const seeds = ((data.diagnostics || {}).subgraph || {}).seed_entities || [];
             subEntities.innerHTML = seeds.slice(0, 14).map(n =>
-              `<span onclick="quickSearchBoardEntity('${escapeHtml(n)}')" class="cursor-pointer px-1.5 py-0.5 rounded border text-[10px] bg-slate-800 text-slate-300 border-slate-700">${escapeHtml(n)}</span>`
+              `<span onclick="quickSearchBoardEntity('${escapeHtml(n)}')" class="cursor-pointer px-2 py-0.5 rounded-full border text-[10px] bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border-[#111111]/40">${escapeHtml(n)}</span>`
             ).join('');
           }
         }
+        const results = data.results || [];
+        results.forEach(t => { if (t && t.topic_id) _boardTopicsById[t.topic_id] = t; });
         renderBoardRankDiagnostics(data);
-        renderCyberspaceTopics(data.results || [], (data.diagnostics || {}).mode === 'hybrid');
+        renderCyberspaceTopics(results, (data.diagnostics || {}).mode === 'hybrid');
       } catch (e) {}
     }
 
@@ -7384,7 +7526,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       const inp = document.getElementById(`replyInput-${topicId}`);
       if (indicator) {
         indicator.classList.remove('hidden');
-        indicator.innerHTML = `<span>↪ Replying to post <code>#${escapeHtml(postId)}</code> (@${escapeHtml(authorHandle)})</span> <button type="button" onclick="clearReplyToNestedPost('${topicId}')" class="text-red-300 hover:underline ml-2">✕ Cancel</button>`;
+        indicator.innerHTML = `<span>↪ Replying to post <code>#${escapeHtml(postId)}</code> (@${escapeHtml(authorHandle)})</span> <button type="button" onclick="clearReplyToNestedPost('${topicId}')" class="text-[#8a1c1c] hover:underline ml-2">✕ Cancel</button>`;
       }
       if (inp) {
         if (!inp.value.includes(`@${authorHandle}`)) {
@@ -7404,13 +7546,14 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       const feed = document.getElementById('boardTopicsFeed');
       if (!feed) return;
       if (!topics.length) {
-        feed.innerHTML = '<div class="p-4 bg-slate-900/60 rounded-xl border border-slate-800 text-center text-slate-400 font-mono">No matching Cyberspace topics found. Start a new topic above!</div>';
+        feed.innerHTML = '<div class="p-4 bg-[#ffffff] rounded-xl border border-[#111111]/20 text-center text-[#5c5c5c] font-mono">No matching Cyberspace topics found. Start a new topic above!</div>';
         return;
       }
 
       const myUn = (localStorage.getItem('tincan_username') || '').toLowerCase();
 
       feed.innerHTML = topics.map(t => {
+        if (t && t.topic_id) _boardTopicsById[t.topic_id] = t;
         const author = (t.author_username || 'peer').replace(/^@/, '');
         const posts = t.posts || [];
         const isExpanded = activeBoardTopicId === t.topic_id || isSearchResult;
@@ -7419,29 +7562,25 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         const scoreBadges = (t.bm25_score !== undefined || t.graphrag_score !== undefined) ? `
           <details class="ubar-rank-mini font-mono"><summary>how this ranked</summary><div class="ubar-rank-mini-body space-y-1">
           <div class="flex flex-wrap items-center gap-1 font-mono text-[10px]">
-            <span class="px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700">Hybrid: ${Number(t.score || 0).toFixed(3)}</span>
-            <span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">BM25: ${Number(t.bm25_score || 0).toFixed(3)}</span>
-            <span class="px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-700">GraphRAG: ${Number(t.graphrag_score || 0).toFixed(3)}</span>
+            <span class="px-1.5 py-0.5 rounded-full bg-[#111111] text-[#ecf1e6] font-semibold">Hybrid: ${Number(t.score || 0).toFixed(3)}</span>
+            <span class="px-1.5 py-0.5 rounded-full bg-[#f4f8f0] text-[#107a47] border border-[#107a47]/40">BM25: ${Number(t.bm25_score || 0).toFixed(3)}</span>
+            <span class="px-1.5 py-0.5 rounded-full bg-[#ecf1e6] text-[#111111] border border-[#111111]/25">GraphRAG: ${Number(t.graphrag_score || 0).toFixed(3)}</span>
           </div>
-          ${(t.matched_terms && t.matched_terms.length) ? `<div class="text-[10px]">Matched terms: ${t.matched_terms.map(x => escapeHtml(x)).join(', ')}</div>` : ''}
-          ${(t.graph_paths && t.graph_paths.length) ? `<div class="text-[10px]">Graph paths: ${t.graph_paths.map(p => escapeHtml(p)).join(' · ')}</div>` : ''}
+          ${(t.matched_terms && t.matched_terms.length) ? `<div class="text-[10px] text-[#4a4a4a]">Matched terms: ${t.matched_terms.map(x => escapeHtml(x)).join(', ')}</div>` : ''}
+          ${(t.graph_paths && t.graph_paths.length) ? `<div class="text-[10px] text-[#4a4a4a]">Graph paths: ${t.graph_paths.map(p => escapeHtml(p)).join(' · ')}</div>` : ''}
           </div></details>
         ` : '';
 
         const snippetHtml = t.highlighted_snippet ? `
-          <div class="p-2 bg-emerald-950/30 border border-emerald-800/50 rounded text-[11px] text-slate-300 font-mono">
+          <div class="p-2 bg-[#f4f8f0] border border-[#107a47]/35 rounded-lg text-[11px] text-[#111111] font-mono">
             ${t.highlighted_snippet}
           </div>
         ` : '';
 
-        const graphPathsHtml = false ? `
-          <div class="mt-1 p-2 bg-slate-950/90 rounded border border-indigo-900/60 font-mono text-[10px] text-indigo-300">
-            <span class="font-bold text-cyan-300">🕸️ GraphRAG Traversal Paths:</span> ${t.graph_paths.map(p => escapeHtml(p)).join(' · ')}
-          </div>
-        ` : '';
+        const graphPathsHtml = '';
 
         const tagsHtml = (t.tags || []).map(tag =>
-          `<span onclick="quickSearchBoardEntity('#${escapeHtml(tag)}')" class="cursor-pointer px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-pink-300 border border-slate-700 font-mono text-[10px]">#${escapeHtml(tag)}</span>`
+          `<span onclick="quickSearchBoardEntity('#${escapeHtml(tag)}')" class="cursor-pointer px-1.5 py-0.5 rounded-full bg-[#f4f8f0] hover:bg-[#ecf1e6] text-[#111111] border border-[#111111]/20 font-mono text-[10px]">#${escapeHtml(tag)}</span>`
         ).join('');
 
         // Organize posts with nested indentation for parent_post_id
@@ -7450,72 +7589,73 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
         const postsHtml = posts.map(p => {
           const pAuthor = (p.author_username || 'peer').replace(/^@/, '');
-          const isAgent = Boolean(p.is_agent);
+          const isAgent = Boolean(p.is_agent) || isBoardAiAuthor(p);
           const isAccepted = Boolean(p.is_accepted);
           const parentPost = p.parent_post_id ? postMap[p.parent_post_id] : null;
-          const indentCls = p.parent_post_id ? 'ml-5 border-l-2 border-l-cyan-700/60' : '';
+          const indentCls = p.parent_post_id ? 'ml-5 border-l-2 border-l-[#107a47]' : '';
           const canDeletePost = isAdmin || p.author_peer_id === myPeerId || (myUn && pAuthor.toLowerCase() === myUn);
 
           return `
-            <div class="p-2.5 rounded-lg border ${indentCls} ${isAccepted ? 'bg-emerald-950/40 border-emerald-500/70' : (isAgent ? 'bg-indigo-950/40 border-indigo-700/60' : 'bg-slate-950/80 border-slate-800')} space-y-1.5">
+            <div class="p-2.5 rounded-lg border ${indentCls} ${isAccepted ? 'bg-[#107a47]/10 border-[#107a47]' : (isAgent ? 'bg-[#f4f8f0] border-[#107a47]/50' : 'bg-[#ffffff] border-[#111111]/20')} space-y-1.5">
               <div class="flex flex-wrap items-center justify-between gap-1 font-mono text-[10px]">
                 <div class="flex items-center gap-1.5 flex-wrap">
-                  <span onclick="${isAgent ? `quickSearchBoardEntity('@${escapeHtml(pAuthor)}')` : `inspectCyberspaceUserProfile('${escapeHtml(pAuthor)}')`}" class="cursor-pointer font-bold ${isAgent ? 'text-indigo-300' : 'text-cyan-300'} hover:underline">
-                    ${isAgent ? '🤖' : '✅'} @${escapeHtml(pAuthor)}
+                  <span onclick="${isAgent ? `quickSearchBoardEntity('@${escapeHtml(pAuthor)}')` : `inspectCyberspaceUserProfile('${escapeHtml(pAuthor)}')`}" class="cursor-pointer font-bold ${isAgent ? 'text-[#107a47]' : 'text-[#111111]'} hover:underline">
+                    ${isAgent ? '[AI]' : '✅'} @${escapeHtml(pAuthor)}
                   </span>
-                  ${parentPost ? `<span class="text-slate-500">↪ in reply to @${escapeHtml((parentPost.author_username || 'peer').replace(/^@/, ''))}</span>` : ''}
-                  ${isAccepted ? '<span class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold">✅ Accepted Solution</span>' : ''}
+                  ${parentPost ? `<span class="text-[#5c5c5c]">↪ in reply to @${escapeHtml((parentPost.author_username || 'peer').replace(/^@/, ''))}</span>` : ''}
+                  ${isAccepted ? '<span class="px-1.5 py-0.5 rounded-full bg-[#107a47] text-[#ffffff] font-bold">✅ Accepted Solution</span>' : ''}
                 </div>
                 <div class="flex items-center gap-1.5">
-                  <button type="button" onclick="voteCyberspaceItem('post', '${p.post_id}', 'up')" class="px-1.5 py-0.2 rounded bg-slate-900 hover:bg-slate-800 text-emerald-300 border border-slate-700">▲ ${Number(p.upvotes || 0)}</button>
-                  <button type="button" onclick="setReplyToNestedPost('${t.topic_id}', '${p.post_id}', '${escapeHtml(pAuthor)}')" class="px-1.5 py-0.2 rounded bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-slate-700">↪ Reply</button>
-                  ${!isAccepted ? `<button type="button" onclick="markAcceptedSolution('${t.topic_id}', '${p.post_id}')" class="px-1.5 py-0.2 rounded bg-slate-900 hover:bg-emerald-950 text-slate-400 hover:text-emerald-300 border border-slate-800" title="Mark as Accepted Solution">✓ Solution</button>` : ''}
-                  ${canDeletePost ? `<button type="button" onclick="deleteCyberspacePost('${t.topic_id}', '${p.post_id}')" class="px-1 py-0.2 rounded text-red-400 hover:bg-red-950">🗑️</button>` : ''}
-                  <span class="text-slate-500">${p.created_at ? new Date(p.created_at * 1000).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : ''}</span>
+                  <button type="button" onclick="voteCyberspaceItem('post', '${p.post_id}', 'up')" class="px-1.5 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#f4f8f0] text-[#107a47] border border-[#111111]/20">▲ ${Number(p.upvotes || 0)}</button>
+                  <button type="button" onclick="setReplyToNestedPost('${t.topic_id}', '${p.post_id}', '${escapeHtml(pAuthor)}')" class="px-1.5 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#f4f8f0] text-[#111111] border border-[#111111]/20">↪ Reply</button>
+                  ${!isAccepted ? `<button type="button" onclick="markAcceptedSolution('${t.topic_id}', '${p.post_id}')" class="px-1.5 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#f4f8f0] text-[#5c5c5c] hover:text-[#107a47] border border-[#111111]/20" title="Mark as Accepted Solution">✓ Solution</button>` : ''}
+                  ${canDeletePost ? `<button type="button" onclick="deleteCyberspacePost('${t.topic_id}', '${p.post_id}')" class="px-1.5 py-0.5 rounded-full text-[#8a1c1c] hover:bg-[#8a1c1c]/10">🗑️</button>` : ''}
+                  <span class="text-[#5c5c5c]">${p.created_at ? new Date(p.created_at * 1000).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : ''}</span>
                 </div>
               </div>
-              <div class="text-slate-200 text-xs leading-relaxed">${formatBoardMentions(p.body)}</div>
+              <div class="text-[#111111] text-xs leading-relaxed">${formatBoardMentions(p.body)}</div>
             </div>
           `;
         }).join('');
 
         return `
-          <div class="p-3.5 bg-slate-900/90 rounded-xl border ${t.pinned ? 'border-amber-500/50' : (t.resolved ? 'border-emerald-500/50' : 'border-slate-800')} hover:border-indigo-500/50 transition space-y-2.5">
+          <div class="p-3.5 bg-[#ffffff] rounded-xl border ${t.pinned ? 'border-[#111111]' : (t.resolved ? 'border-[#107a47]' : 'border-[#111111]/20')} hover:border-[#111111] transition space-y-2.5 shadow-sm">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
               <div class="flex items-center gap-1.5 flex-wrap">
-                ${t.pinned ? '<span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono text-[10px] font-bold">📌 PINNED</span>' : ''}
-                ${t.resolved ? '<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono text-[10px] font-bold">✅ SOLVED</span>' : ''}
-                <span onclick="setBoardCategoryFilter('${escapeHtml(t.category || 'cyberspace')}')" class="cursor-pointer px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800 font-mono text-[10px] uppercase font-bold">#${escapeHtml(t.category || 'cyberspace')}</span>
-                <h4 onclick="toggleBoardTopicThread('${t.topic_id}')" class="cursor-pointer font-bold text-white text-sm hover:text-cyan-300 transition">${escapeHtml(t.title)}</h4>
+                ${t.pinned ? '<span class="px-2 py-0.5 rounded-full bg-[#111111] text-[#ecf1e6] font-mono text-[10px] font-bold">📌 PINNED</span>' : ''}
+                ${t.resolved ? '<span class="px-2 py-0.5 rounded-full bg-[#107a47] text-[#ffffff] font-mono text-[10px] font-bold">✅ SOLVED</span>' : ''}
+                <span onclick="setBoardCategoryFilter('${escapeHtml(t.category || 'cyberspace')}')" class="cursor-pointer px-2 py-0.5 rounded-full bg-[#f4f8f0] text-[#111111] border border-[#111111]/20 font-mono text-[10px] uppercase font-bold">#${escapeHtml(t.category || 'cyberspace')}</span>
+                <h4 onclick="toggleBoardTopicThread('${t.topic_id}')" class="cursor-pointer font-bold text-[#111111] text-sm hover:text-[#107a47] transition">${escapeHtml(t.title)}</h4>
               </div>
               <div class="flex items-center gap-1.5 font-mono text-[10px]">
                 ${scoreBadges}
-                <div class="flex items-center bg-slate-950 rounded-lg border border-slate-800 px-1.5 py-0.5 gap-1">
-                  <button type="button" onclick="voteCyberspaceItem('topic', '${t.topic_id}', 'up')" class="text-emerald-400 hover:text-emerald-300 font-bold" title="Upvote Topic">▲</button>
-                  <span class="text-white font-bold">${Number(t.upvotes || 0)}</span>
-                  <button type="button" onclick="voteCyberspaceItem('topic', '${t.topic_id}', 'down')" class="text-slate-500 hover:text-rose-400" title="Downvote Topic">▼</button>
+                <div class="flex items-center bg-[#f4f8f0] rounded-full border border-[#111111]/20 px-2 py-0.5 gap-1.5">
+                  <button type="button" onclick="voteCyberspaceItem('topic', '${t.topic_id}', 'up')" class="text-[#107a47] hover:underline font-bold" title="Upvote Topic">▲</button>
+                  <span class="text-[#111111] font-bold">${Number(t.upvotes || 0)}</span>
+                  <button type="button" onclick="voteCyberspaceItem('topic', '${t.topic_id}', 'down')" class="text-[#5c5c5c] hover:text-[#8a1c1c]" title="Downvote Topic">▼</button>
                 </div>
               </div>
             </div>
 
-            <div class="text-slate-200 text-xs leading-relaxed">${formatBoardMentions(t.body)}</div>
+            <div class="text-[#111111] text-xs leading-relaxed">${formatBoardMentions(t.body)}</div>
 
             ${snippetHtml}
 
-            <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-[#111111]/15">
               <div class="flex flex-wrap items-center gap-1.5">
-                <span onclick="inspectCyberspaceUserProfile('${escapeHtml(author)}')" class="cursor-pointer font-mono text-[10px] ${t.author_verified ? 'text-emerald-400' : 'text-amber-300'} font-semibold hover:underline">
+                <span onclick="inspectCyberspaceUserProfile('${escapeHtml(author)}')" class="cursor-pointer font-mono text-[10px] ${t.author_verified ? 'text-[#107a47]' : 'text-[#5c5c5c]'} font-semibold hover:underline">
                   ${t.author_verified ? '✅' : '⚠️'} @${escapeHtml(author)}
                 </span>
-                <span class="text-slate-600">·</span>
-                <span class="font-mono text-[10px] text-slate-400">👁️ ${Number(t.views || 1)} views</span>
-                <span class="text-slate-600">·</span>
+                <span class="text-[#5c5c5c]">·</span>
+                <span class="font-mono text-[10px] text-[#5c5c5c]">👁️ ${Number(t.views || 1)} views</span>
+                <span class="text-[#5c5c5c]">·</span>
                 ${tagsHtml}
               </div>
-              <div class="flex items-center gap-1.5 font-mono text-[10px]">
-                <button type="button" onclick="togglePinTopic('${t.topic_id}', ${Boolean(t.pinned)})" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700" title="Pin/Unpin Topic">📌 ${t.pinned ? 'Unpin' : 'Pin'}</button>
-                ${canModifyTopic ? `<button type="button" onclick="deleteCyberspaceTopic('${t.topic_id}')" class="px-2 py-0.5 rounded bg-red-950/60 hover:bg-red-900 text-red-300 border border-red-800/60" title="Delete Topic">🗑️</button>` : ''}
-                <button type="button" onclick="toggleBoardTopicThread('${t.topic_id}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold border border-slate-700">
+              <div class="flex flex-wrap items-center gap-1.5 font-mono text-[10px]">
+                <button type="button" onclick="loadTopicIntoWorkstation('${t.topic_id}')" class="px-2.5 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111] font-bold transition" title="Load topic in Workstation">[Load in Workstation]</button>
+                <button type="button" onclick="togglePinTopic('${t.topic_id}', ${Boolean(t.pinned)})" class="px-2 py-0.5 rounded-full bg-[#f4f8f0] hover:bg-[#ecf1e6] text-[#111111] border border-[#111111]/20" title="Pin/Unpin Topic">📌 ${t.pinned ? 'Unpin' : 'Pin'}</button>
+                ${canModifyTopic ? `<button type="button" onclick="deleteCyberspaceTopic('${t.topic_id}')" class="px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#8a1c1c]/10 text-[#8a1c1c] border border-[#8a1c1c]/40" title="Delete Topic">🗑️</button>` : ''}
+                <button type="button" onclick="toggleBoardTopicThread('${t.topic_id}')" class="px-2.5 py-1 rounded-full bg-[#111111] hover:bg-[#107a47] text-[#ecf1e6] font-bold transition">
                   💬 ${posts.length} Repl${posts.length === 1 ? 'y' : 'ies'} / Thread
                 </button>
               </div>
@@ -7523,19 +7663,19 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
             ${graphPathsHtml}
 
-            <div id="boardThread-${t.topic_id}" class="${isExpanded ? '' : 'hidden'} pt-2 space-y-2 border-t border-slate-800">
-              <div class="space-y-2">${postsHtml || '<div class="text-slate-500 font-mono text-[11px]">No replies yet. Tag an @username or @gemini-brain below!</div>'}</div>
-              <div id="replyParentBanner-${t.topic_id}" class="hidden px-2.5 py-1 rounded bg-cyan-950/70 border border-cyan-700 text-cyan-200 font-mono text-[10px] flex items-center justify-between"></div>
+            <div id="boardThread-${t.topic_id}" class="${isExpanded ? '' : 'hidden'} pt-2 space-y-2 border-t border-[#111111]/15">
+              <div class="space-y-2">${postsHtml || '<div class="text-[#5c5c5c] font-mono text-[11px]">No replies yet. Tag an @username or @gemini-brain below!</div>'}</div>
+              <div id="replyParentBanner-${t.topic_id}" class="hidden px-2.5 py-1 rounded-lg bg-[#f4f8f0] border border-[#107a47] text-[#111111] font-mono text-[10px] flex items-center justify-between"></div>
               <div class="flex flex-wrap gap-1 pt-1 font-mono text-[10px]">
-                <button type="button" onclick="insertBoardSelfTag('replyInput-${t.topic_id}')" class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">🙋 @Me</button>
-                <button type="button" onclick="insertBoardTag('@gemini-brain', 'replyInput-${t.topic_id}')" class="px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">🤖 @gemini-brain</button>
-                <button type="button" onclick="insertBoardTag('@claude-brain', 'replyInput-${t.topic_id}')" class="px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">🤖 @claude-brain</button>
-                <button type="button" onclick="insertBoardTag('@openai-brain', 'replyInput-${t.topic_id}')" class="px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">🤖 @openai-brain</button>
-                <button type="button" onclick="insertBoardTag('@verifier-agent', 'replyInput-${t.topic_id}')" class="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800">🛡️ @verifier-agent</button>
+                <button type="button" onclick="insertBoardSelfTag('replyInput-${t.topic_id}')" class="px-2 py-0.5 rounded-full bg-[#f4f8f0] hover:bg-[#ecf1e6] text-[#107a47] border border-[#107a47]/35 font-semibold">🙋 @Me</button>
+                <button type="button" onclick="insertBoardTag('@gemini-brain', 'replyInput-${t.topic_id}')" class="px-2 py-0.5 rounded-full bg-[#f4f8f0] hover:bg-[#ecf1e6] text-[#111111] border border-[#111111]/20 font-semibold">🤖 @gemini-brain</button>
+                <button type="button" onclick="insertBoardTag('@claude-brain', 'replyInput-${t.topic_id}')" class="px-2 py-0.5 rounded-full bg-[#f4f8f0] hover:bg-[#ecf1e6] text-[#111111] border border-[#111111]/20 font-semibold">🤖 @claude-brain</button>
+                <button type="button" onclick="insertBoardTag('@openai-brain', 'replyInput-${t.topic_id}')" class="px-2 py-0.5 rounded-full bg-[#f4f8f0] hover:bg-[#ecf1e6] text-[#111111] border border-[#111111]/20 font-semibold">🤖 @openai-brain</button>
+                <button type="button" onclick="insertBoardTag('@verifier-agent', 'replyInput-${t.topic_id}')" class="px-2 py-0.5 rounded-full bg-[#f4f8f0] hover:bg-[#ecf1e6] text-[#107a47] border border-[#107a47]/35 font-semibold">🛡️ @verifier-agent</button>
               </div>
               <div class="flex gap-2">
-                <input id="replyInput-${t.topic_id}" type="text" placeholder="Reply with @username, @gemini-brain, @verifier-agent, or #tags..." onkeydown="if(event.key==='Enter') replyCyberspaceTopic('${t.topic_id}')" class="flex-1 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono text-xs focus:border-cyan-400 focus:outline-none" />
-                <button type="button" onclick="replyCyberspaceTopic('${t.topic_id}')" class="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-mono font-bold text-xs">
+                <input id="replyInput-${t.topic_id}" type="text" placeholder="Reply with @username, @gemini-brain, @verifier-agent, or #tags..." onkeydown="if(event.key==='Enter') replyCyberspaceTopic('${t.topic_id}')" class="flex-1 px-3 py-1.5 rounded-full bg-[#ffffff] border border-[#111111] text-[#111111] placeholder-[#5c5c5c] font-mono text-xs focus:outline-none" />
+                <button type="button" onclick="replyCyberspaceTopic('${t.topic_id}')" class="px-3.5 py-1.5 rounded-full bg-[#111111] hover:bg-[#107a47] text-[#ecf1e6] font-mono font-bold text-xs transition">
                   Reply
                 </button>
               </div>
@@ -7744,28 +7884,28 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         ctx.beginPath();
         ctx.moveTo(s.x, s.y);
         ctx.lineTo(t.x, t.y);
-        ctx.strokeStyle = isHighlighted ? 'rgba(34, 211, 238, 0.85)' : 'rgba(100, 116, 139, 0.28)';
+        ctx.strokeStyle = isHighlighted ? '#107a47' : 'rgba(17, 17, 17, 0.20)';
         ctx.lineWidth = isHighlighted ? 2.0 : 1.0;
         ctx.stroke();
       });
 
       // Draw nodes
       boardGraphLayoutNodes.forEach(n => {
-        const color = n.type === 'topic' ? '#6366f1' :
-                      n.type === 'user' ? '#10b981' :
-                      n.type === 'agent' ? '#f59e0b' :
-                      n.type === 'tag' ? '#ec4899' : '#38bdf8';
+        const color = n.type === 'topic' ? '#111111' :
+                      n.type === 'user' ? '#107a47' :
+                      n.type === 'agent' ? '#0f766e' :
+                      n.type === 'tag' ? '#4a4a4a' : '#2f5e46';
         const r = n.id === selectedGraphNodeId ? 10 : Math.min(9, 5 + Math.sqrt(n.degree || 1));
         ctx.beginPath();
         ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
         ctx.fillStyle = color;
         ctx.fill();
         ctx.lineWidth = n.id === selectedGraphNodeId ? 2.5 : 1.2;
-        ctx.strokeStyle = n.id === selectedGraphNodeId ? '#ffffff' : '#0f172a';
+        ctx.strokeStyle = n.id === selectedGraphNodeId ? '#107a47' : '#ffffff';
         ctx.stroke();
 
         ctx.font = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
-        ctx.fillStyle = '#e2e8f0';
+        ctx.fillStyle = '#111111';
         const lbl = (n.label || n.id).slice(0, 22);
         ctx.fillText(lbl, n.x + r + 4, n.y + 3);
       });
@@ -7799,8 +7939,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                 .filter(e => e.source === clicked.id || e.target === clicked.id)
                 .map(e => `${e.relation} → ${e.source === clicked.id ? e.target : e.source}`);
               insp.innerHTML = `
-                <div><strong class="text-cyan-300">${escapeHtml(clicked.type.toUpperCase())}: ${escapeHtml(clicked.label)}</strong> · Degree: ${clicked.degree || 0} · Connections: ${escapeHtml(neighbors.slice(0, 5).join(', '))}</div>
-                <button type="button" onclick="quickSearchBoardEntity('${escapeHtml(clicked.label)}')" class="px-2 py-0.5 rounded bg-indigo-600 text-white font-bold text-[10px]">🔍 Search Node in Board</button>
+                <div><strong class="text-[#107a47]">${escapeHtml(clicked.type.toUpperCase())}: ${escapeHtml(clicked.label)}</strong> · Degree: ${clicked.degree || 0} · Connections: ${escapeHtml(neighbors.slice(0, 5).join(', '))}</div>
+                <button type="button" onclick="quickSearchBoardEntity('${escapeHtml(clicked.label)}')" class="px-2.5 py-0.5 rounded-full bg-[#111111] text-[#ecf1e6] font-bold text-[10px]">🔍 Search Node in Board</button>
               `;
             }
           }
