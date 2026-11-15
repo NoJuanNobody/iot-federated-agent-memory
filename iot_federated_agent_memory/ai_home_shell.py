@@ -77,7 +77,7 @@ WORKFLOW_CARDS: Tuple[Dict[str, Any], ...] = (
         "window_id": "win-arena",
         "fallback_window_id": "win-arena",
         "route": "/arena",
-        "desc": "Pit Local Open-Weight vs Frontier Cloud side-by-side with Vault RAG context & earn +25 XP per vote.",
+        "desc": "Pit Local Open-Weight vs Frontier Cloud side-by-side with Vault RAG context & earn +150 XP per vote.",
         "metric": "SAVINGS: Up to 94% on Open-Weight",
         "metric_tone": "ink",
         "progress_pct": 72,

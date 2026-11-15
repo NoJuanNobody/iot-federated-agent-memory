@@ -1331,13 +1331,12 @@ def _build_copilot_script() -> str:
     try {
       await apiJson('/api/arena/context/palace/crud', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           action: 'create',
           canonical_name: title.trim(),
           category: 'router_memory',
           value: value.trim()
-        })
+        }
       });
       await refreshSpaceAndDrive();
       attachContextFile('/palace/' + title.trim(), 'palace');
@@ -1352,11 +1351,13 @@ def _build_copilot_script() -> str:
     try {
       const res = await apiJson('/api/arena/context/palace/import', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agent_id: 'both', node_ids: palaceAtt.length ? palaceAtt : null })
+        body: { agent_id: 'both', node_ids: palaceAtt.length ? palaceAtt : null }
       });
       notify('Imported ' + (res.imported_count || 0) + ' Context Palace item(s) to Brain A & Brain B!', false);
-      if (typeof window.arenaCtxLoad === 'function') window.arenaCtxLoad('duel');
+      if (typeof window.arenaCtxRefresh === 'function') {
+        window.arenaCtxRefresh('arenaWin', 'A');
+        window.arenaCtxRefresh('arenaWin', 'B');
+      }
     } catch (err) {
       notify('Could not import Palace to Arena: ' + (err && err.message ? err.message : 'sign in first'), true);
     }

@@ -112,7 +112,7 @@ def render_arena_duel(prefix: str, view_label: str = "") -> str:
                 <span class="px-2 py-0.5 rounded-full bg-[#111111] text-[#ecf1e6] text-[10px] font-mono font-semibold uppercase tracking-wider">BLIND DUEL</span>
                 <span class="text-[11px] font-mono text-[#4a4a4a]">+150 XP per vote · ad-supported credits</span>
               </div>
-              <p class="text-[11px] text-[#4a4a4a]">Pick two chat models, load shared or per-brain context (Workspace Space, Drive, or Context Palace), click Run Arena, then Vote Brain A or Vote Brain B (+150 XP).</p>
+              <p class="text-[11px] text-[#4a4a4a]">Pick two chat models, load shared or per-brain context (Workstation, Drive, or Context Palace), click Run Arena — the floating vote modal pops up in the bottom corner once a run finishes (+150 XP).</p>
             </div>
             <span id="{p}Account" role="button" tabindex="0" onclick="arenaCtxStatus(true)" title="Refresh sign-in and files" class="cursor-pointer text-[11px] font-mono text-[#111111] bg-[#ffffff] border border-[#111111] hover:bg-[#111111] hover:text-[#ecf1e6] px-2.5 py-1 rounded-full transition">Checking sign-in…</span>
           </div>
@@ -212,26 +212,35 @@ def render_arena_duel(prefix: str, view_label: str = "") -> str:
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">{columns}
           </div>
 
-          <form id="{p}VoteForm" onsubmit="event.preventDefault(); arenaDuelSubmitVote('{p}');" class="hidden bg-[#ffffff] border border-[#111111] rounded-xl p-3 space-y-2">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <div class="flex items-center gap-2 text-xs font-mono font-bold text-[#111111]">
-                <span>📝 Short Vote Feedback · Winner:</span>
-                <label class="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="{p}VoteWinner" id="{p}VotePickA" value="A" class="accent-[#111111]"> Brain A</label>
-                <label class="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="{p}VoteWinner" id="{p}VotePickB" value="B" class="accent-[#111111]"> Brain B</label>
+          <form id="{p}VoteForm" role="dialog" aria-modal="false" aria-labelledby="{p}VoteModalTitle" data-arena-vote-modal="{p}" onsubmit="event.preventDefault(); arenaDuelSubmitVote('{p}');" onkeydown="if(event.key==='Escape')arenaDuelCloseVoteModal('{p}')" class="hidden fixed bottom-[5.25rem] right-5 z-[220] w-[420px] max-w-[calc(100vw-2rem)] bg-[#ffffff] text-[#111111] border-2 border-[#111111] rounded-2xl p-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.28)] space-y-2.5" style="position:fixed; bottom:5.25rem; right:1.25rem; z-index:220; width:420px; max-width:calc(100vw - 2rem);">
+            <div class="flex items-start justify-between gap-2 pb-2 border-b border-[#111111]/15">
+              <div class="min-w-0">
+                <div id="{p}VoteModalTitle" class="text-xs font-mono font-bold text-[#111111] flex items-center gap-1.5"><span>🏆</span><span>Run Complete · Cast Your Vote (+150 XP)</span></div>
+                <div id="{p}VoteModalPrompt" class="text-[10px] font-mono text-[#4a4a4a] truncate">Pick Brain A or Brain B while reviewing answers above.</div>
               </div>
-              <button type="button" onclick="var f=document.getElementById('{p}VoteForm');if(f)f.classList.add('hidden')" class="text-[10px] font-mono text-[#5c5c5c] hover:text-[#111111]">Close ✕</button>
+              <button type="button" id="{p}VoteCloseBtn" onclick="arenaDuelCloseVoteModal('{p}')" aria-label="Close vote popup" class="shrink-0 px-2 py-0.5 rounded-full border border-[#111111]/25 text-[10px] font-mono text-[#4a4a4a] hover:bg-[#111111] hover:text-[#ecf1e6] transition">Close ✕</button>
             </div>
-            <div class="flex flex-wrap gap-1.5 text-[10px] font-mono">
-              <select id="{p}VoteTagSelect" class="bg-[#f4f8f0] border border-[#111111]/40 rounded px-2 py-1 text-[11px] text-[#111111] font-mono">
+            <div class="grid grid-cols-2 gap-2 text-xs font-mono font-bold">
+              <label id="{p}VoteCardA" class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#111111]/40 bg-[#f4f8f0] text-[#111111] hover:border-[#111111] cursor-pointer transition select-none">
+                <input type="radio" name="{p}VoteWinner" id="{p}VotePickA" value="A" onchange="arenaDuelSelectVoteSide('{p}','A')" class="accent-[#111111]"> <span>Brain A</span>
+              </label>
+              <label id="{p}VoteCardB" class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#111111]/40 bg-[#f4f8f0] text-[#111111] hover:border-[#111111] cursor-pointer transition select-none">
+                <input type="radio" name="{p}VoteWinner" id="{p}VotePickB" value="B" onchange="arenaDuelSelectVoteSide('{p}','B')" class="accent-[#111111]"> <span>Brain B</span>
+              </label>
+            </div>
+            <div class="space-y-1.5 text-[10px] font-mono">
+              <select id="{p}VoteTagSelect" class="w-full bg-[#f4f8f0] border border-[#111111]/40 rounded-lg px-2 py-1 text-[11px] text-[#111111] font-mono">
                 <option value="More accurate">More accurate</option>
                 <option value="Better context recall">Better context recall</option>
                 <option value="Faster &amp; cleaner">Faster &amp; cleaner</option>
                 <option value="More helpful code/reasoning">More helpful code/reasoning</option>
               </select>
-              <input id="{p}VoteReasonInput" type="text" maxlength="400" placeholder="Which one did you like and why was it better?" class="flex-1 min-w-[200px] bg-[#f4f8f0] border border-[#111111]/40 rounded px-2.5 py-1 text-xs text-[#111111] font-mono">
-              <button type="submit" id="{p}VoteSubmitBtn" class="px-4 py-1 bg-[#111111] hover:bg-[#333333] text-[#ecf1e6] font-semibold rounded-full text-xs font-mono border border-[#111111]">Submit Vote (+150 XP)</button>
+              <div class="flex items-center gap-1.5">
+                <input id="{p}VoteReasonInput" type="text" maxlength="400" placeholder="Which one did you like and why was it better?" class="flex-1 min-w-0 bg-[#f4f8f0] border border-[#111111]/40 rounded-lg px-2.5 py-1 text-xs text-[#111111] font-mono">
+                <button type="submit" id="{p}VoteSubmitBtn" class="shrink-0 px-3.5 py-1.5 bg-[#111111] hover:bg-[#333333] text-[#ecf1e6] font-semibold rounded-full text-xs font-mono border border-[#111111]">Submit Vote</button>
+              </div>
             </div>
-            <div id="{p}VoteStatus" class="text-[10px] font-mono text-[#4a4a4a]"></div>
+            <div id="{p}VoteStatus" class="text-[10px] font-mono text-[#4a4a4a]" aria-live="polite"></div>
           </form>
 
           <div id="{p}ProStrip" class="bg-[#ffffff] border border-[#111111] rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
@@ -972,6 +981,64 @@ ARENA_DUEL_SCRIPT = r"""
 
   function sayBoth(p, text) { SIDES.forEach((side) => { el(p + 'Result' + side).textContent = text; }); }
 
+  function hoistVoteModal(p) {
+    const form = el(p + 'VoteForm');
+    if (!form) return null;
+    if (typeof document !== 'undefined' && document.body && typeof document.body.appendChild === 'function' && form.parentNode !== document.body) {
+      try { document.body.appendChild(form); } catch (e) {}
+    }
+    return form;
+  }
+
+  function syncVoteChoiceStyles(p) {
+    const pickA = el(p + 'VotePickA');
+    const pickB = el(p + 'VotePickB');
+    const cardA = el(p + 'VoteCardA');
+    const cardB = el(p + 'VoteCardB');
+    const base = 'inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-mono font-bold cursor-pointer transition select-none ';
+    if (cardA) cardA.className = base + (pickA && pickA.checked ? 'bg-[#111111] text-[#ecf1e6] border-[#111111]' : 'border-[#111111]/40 bg-[#f4f8f0] text-[#111111] hover:border-[#111111]');
+    if (cardB) cardB.className = base + (pickB && pickB.checked ? 'bg-[#111111] text-[#ecf1e6] border-[#111111]' : 'border-[#111111]/40 bg-[#f4f8f0] text-[#111111] hover:border-[#111111]');
+  }
+
+  function closeVoteModal(p) {
+    const form = el(p + 'VoteForm');
+    if (form && form.classList && typeof form.classList.add === 'function') form.classList.add('hidden');
+  }
+
+  function openVoteModal(p, winnerSide) {
+    VIEWS.forEach((other) => { if (other !== p) closeVoteModal(other); });
+    const form = hoistVoteModal(p);
+    if (!form) return false;
+    const pickA = el(p + 'VotePickA');
+    const pickB = el(p + 'VotePickB');
+    if (pickA) pickA.checked = (winnerSide === 'A');
+    if (pickB) pickB.checked = (winnerSide === 'B');
+    syncVoteChoiceStyles(p);
+    const duel = lastDuel[p] || {};
+    const promptMeta = el(p + 'VoteModalPrompt');
+    if (promptMeta) {
+      const snippet = (duel.prompt || '').trim();
+      promptMeta.textContent = snippet ? ('Run complete · "' + snippet.slice(0, 72) + (snippet.length > 72 ? '…' : '') + '"') : 'Pick Brain A or Brain B while reviewing answers above.';
+    }
+    const st = el(p + 'VoteStatus');
+    if (st) st.textContent = winnerSide ? ('Brain ' + winnerSide + ' selected — optional note & Submit (+150 XP).') : 'Run complete — pick Brain A or Brain B and submit (+150 XP).';
+    if (form.classList && typeof form.classList.remove === 'function') form.classList.remove('hidden');
+    const inp = el(p + 'VoteReasonInput');
+    if (inp && typeof inp.focus === 'function') inp.focus();
+    return true;
+  }
+
+  window.arenaDuelCloseVoteModal = function (p) { closeVoteModal(p); };
+  window.arenaDuelSelectVoteSide = function (p, side) {
+    const pickA = el(p + 'VotePickA');
+    const pickB = el(p + 'VotePickB');
+    if (pickA) pickA.checked = (side === 'A');
+    if (pickB) pickB.checked = (side === 'B');
+    syncVoteChoiceStyles(p);
+    const st = el(p + 'VoteStatus');
+    if (st) st.textContent = 'Brain ' + side + ' selected — click Submit Vote (+150 XP).';
+  };
+
   window.arenaDuelRun = async function (p) {
     if (typeof initAudio === 'function') { try { initAudio(); } catch (e) {} }
     const prompt = (el(p + 'PromptInput').value || '').trim();
@@ -980,6 +1047,7 @@ ARENA_DUEL_SCRIPT = r"""
     const btn = el(p + 'RunBtn');
     if (btn) btn.disabled = true;
     lastDuel[p] = null;
+    closeVoteModal(p);
     const models = {A: modelOf(p, 'A'), B: modelOf(p, 'B')};
     const telemetry = {A: null, B: null};
     SIDES.forEach((side) => {
@@ -1066,6 +1134,7 @@ ARENA_DUEL_SCRIPT = r"""
         lastDuel[p] = {a: models.A, b: models.B, prompt, match_id: match.match_id};
         const total = (results.B.billing && results.B.billing.match_total_cost_usd) || 0;
         if (typeof showQuickNotification === 'function') showQuickNotification('Duel billed to your account: $' + Number(total).toFixed(6) + ' (' + match.match_id.slice(0, 14) + '…)');
+        openVoteModal(p, null);
       }
       status();
     } finally {
@@ -1081,15 +1150,7 @@ ARENA_DUEL_SCRIPT = r"""
       return;
     }
     const winnerSide = side === 'B' ? 'B' : 'A';
-    const form = el(p + 'VoteForm');
-    if (form && !(opts && opts.immediate)) {
-      const pickA = el(p + 'VotePickA');
-      const pickB = el(p + 'VotePickB');
-      if (pickA) pickA.checked = (winnerSide === 'A');
-      if (pickB) pickB.checked = (winnerSide === 'B');
-      form.classList.remove('hidden');
-      const inp = el(p + 'VoteReasonInput');
-      if (inp && typeof inp.focus === 'function') inp.focus();
+    if (!(opts && opts.immediate) && openVoteModal(p, winnerSide)) {
       return;
     }
     return window.arenaDuelSubmitVote(p, winnerSide);
@@ -1101,8 +1162,16 @@ ARENA_DUEL_SCRIPT = r"""
       if (typeof showQuickNotification === 'function') showQuickNotification('Click "Run Arena" first before submitting a vote.');
       return;
     }
+    const pickA = el(p + 'VotePickA');
     const pickB = el(p + 'VotePickB');
-    const winnerSide = explicitSide || ((pickB && pickB.checked) ? 'B' : 'A');
+    let winnerSide = explicitSide || ((pickB && pickB.checked) ? 'B' : ((pickA && pickA.checked) ? 'A' : ''));
+    if (!winnerSide && !pickA && !pickB) winnerSide = 'A';
+    if (!winnerSide) {
+      const st = el(p + 'VoteStatus');
+      if (st) st.textContent = 'Select Brain A or Brain B first before submitting.';
+      if (typeof showQuickNotification === 'function') showQuickNotification('Pick Brain A or Brain B in the vote popup first.');
+      return;
+    }
     const winnerModel = winnerSide === 'A' ? duel.a : duel.b;
     const tag = (el(p + 'VoteTagSelect') && el(p + 'VoteTagSelect').value) || '';
     const note = (el(p + 'VoteReasonInput') && el(p + 'VoteReasonInput').value || '').trim();
@@ -1116,8 +1185,7 @@ ARENA_DUEL_SCRIPT = r"""
       }});
       const st = el(p + 'VoteStatus');
       if (st) st.textContent = 'Recorded Brain ' + winnerSide + ' (' + winnerModel + ') (+150 XP)' + (feedback ? (' · "' + feedback + '"') : '');
-      const form = el(p + 'VoteForm');
-      if (form) form.classList.add('hidden');
+      closeVoteModal(p);
       if (el(p + 'VoteReasonInput')) el(p + 'VoteReasonInput').value = '';
       if (typeof showQuickNotification === 'function') showQuickNotification('🏆 Vote recorded for ' + winnerModel + ' (' + duel.a + ' vs ' + duel.b + '). +150 XP.');
       if (typeof pollMeshState === 'function') pollMeshState();
@@ -1149,7 +1217,7 @@ ARENA_DUEL_SCRIPT = r"""
 
   function boot() {
     loadSettings();
-    VIEWS.forEach((p) => window.arenaUpdatePreAuthCap(p));
+    VIEWS.forEach((p) => { window.arenaUpdatePreAuthCap(p); hoistVoteModal(p); });
     loadModels();
     status();
     // Re-check after sign-in / account creation in another tab or the account modal.

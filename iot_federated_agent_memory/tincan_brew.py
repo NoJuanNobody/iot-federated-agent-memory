@@ -1065,13 +1065,14 @@ def handle_harness_command(
     queued = None
     if queue_hitl:
         try:
-            queued = queue_action(
-                action_type="harness",
-                command=full_cmd,
-                sender_peer_id=peer_id,
-                source="mesh_os_terminal_harness",
-                summary=f"Run {target['name']} coding harness on host",
+            seq = int(time.time() * 1000) % 100000
+            queued = enqueue_action(
+                seq=seq,
+                sender=peer_id,
+                sender_alias=peer_id,
+                command_text=full_cmd,
                 config_dir=config_dir,
+                action_type="harness",
             )
         except Exception:
             queued = None
