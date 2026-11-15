@@ -140,13 +140,43 @@ def main(argv: Optional[List[str]] = None) -> int:
     ss_p.add_argument("--duration", type=float, default=None, help="Exit after N seconds")
 
     # chat / agent
-    chat_p = subparsers.add_parser("chat", help="Start interactive agentic chat REPL with the live OpenRouter models")
+    def _add_ai_target_args(p: argparse.ArgumentParser) -> None:
+        p.add_argument(
+            "--model",
+            default=None,
+            help="Model alias or provider/model ID (e.g. gemini-brain, ollama/qwen2.5:3b, owlchat/<model>, local/<model>)",
+        )
+        p.add_argument(
+            "--local",
+            action="store_true",
+            help="Route directly to local Ollama / TINCAN_AI_BASE_URL instead of the remote relay",
+        )
+        p.add_argument(
+            "--gateway",
+            default="auto",
+            choices=["auto", "relay", "ollama", "owlchat", "trussed", "local"],
+            help="Inference gateway routing mode (default: auto)",
+        )
+        p.add_argument(
+            "--base-url",
+            dest="base_url",
+            default=None,
+            help="Custom OpenAI-compatible base URL (e.g. http://localhost:11434/v1, https://chat.hpc.fau.edu/openai, http://localhost:8000/v1)",
+        )
+        p.add_argument(
+            "--api-key",
+            dest="api_key",
+            default=None,
+            help="Explicit API key / bearer token for custom/FAU endpoints (prefer env vars over CLI flags)",
+        )
+
+    chat_p = subparsers.add_parser("chat", help="Start interactive agentic chat REPL (relay, local Ollama, FAU OwlChat/Trussed, or custom OpenAI-compat)")
     chat_p.add_argument("prompt", nargs="?", default=None, help="Single-shot prompt to send to the agent")
-    chat_p.add_argument("--model", default="gemini-brain", help="Model alias to use (default: gemini-brain)")
+    _add_ai_target_args(chat_p)
 
     agent_p = subparsers.add_parser("ask", help="Single-shot query to the TinCan Agent")
     agent_p.add_argument("prompt", help="Prompt question for the agent")
-    agent_p.add_argument("--model", default="gemini-brain", help="Model alias to use")
+    _add_ai_target_args(agent_p)
 
     # actions / accessibility queue
     act_p = subparsers.add_parser("actions", help="List and review incoming actions queued for approval (Accessibility Gate)")
@@ -214,9 +244,16 @@ def main(argv: Optional[List[str]] = None) -> int:
         cr_parser = subparsers.add_parser(cr_cmd, help="Display live OpenRouter & NanoGPT account credits, spend, and per-model cost rates")
         cr_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
-    # models (browse OpenRouter & NanoGPT catalogs)
-    models_p = subparsers.add_parser("models", help="List available OpenRouter and NanoGPT models (including abliterated/Heretic & TEE)")
-    models_p.add_argument("--gateway", default="all", choices=["all", "nanogpt", "openrouter"], help="Filter by gateway provider")
+    # models (browse OpenRouter, NanoGPT, local Ollama, FAU OwlChat & custom OpenAI-compat catalogs)
+    models_p = subparsers.add_parser("models", help="List available OpenRouter, NanoGPT, local Ollama, OwlChat, and custom OpenAI-compat models")
+    models_p.add_argument(
+        "--gateway",
+        default="all",
+        choices=["all", "nanogpt", "openrouter", "ollama", "owlchat", "local"],
+        help="Filter by gateway provider",
+    )
+    models_p.add_argument("--base-url", dest="base_url", default=None, help="Custom base URL when querying --gateway ollama|owlchat|local")
+    models_p.add_argument("--api-key", dest="api_key", default=None, help="API key for --gateway owlchat|local")
     models_p.add_argument("--category", default=None, help="Filter by category substring (e.g. Uncensored, Private/TEE, Roleplay)")
     models_p.add_argument("--uncensored", action="store_true", help="Show only uncensored / abliterated / Heretic models")
     models_p.add_argument("--tee", action="store_true", help="Show only hardware-attested Private/TEE models")
@@ -819,7 +856,17 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.command in ("chat", "ask"):
         from .tincan_agent import TinCanAgentChat
-        agent = TinCanAgentChat(relay_url=args.relay, model_alias=args.model)
+
+        gw_arg = getattr(args, "gateway", None)
+        gateway_val = None if gw_arg in (None, "", "auto") else gw_arg
+        agent = TinCanAgentChat(
+            relay_url=args.relay,
+            model_alias=getattr(args, "model", None),
+            local=bool(getattr(args, "local", False)),
+            base_url=getattr(args, "base_url", None),
+            api_key=getattr(args, "api_key", None),
+            gateway=gateway_val,
+        )
         if hasattr(args, "prompt") and args.prompt:
             reply = agent.ask(args.prompt)
             print(reply)
@@ -1362,24 +1409,55 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     if args.command == "models":
-        from .ai_gateway import DynamicAIGatewayRouter, filter_gateway_models
+        from .ai_gateway import (
+            DEFAULT_OLLAMA_BASE_URL,
+            OWLCHAT_BASE_URL,
+            DynamicAIGatewayRouter,
+            filter_gateway_models,
+            resolve_local_compat_key,
+            resolve_owlchat_key,
+        )
 
         router_inst = DynamicAIGatewayRouter()
         gw = getattr(args, "gateway", "all")
         live = bool(getattr(args, "live", False))
+        base_url_arg = getattr(args, "base_url", None)
+        api_key_arg = getattr(args, "api_key", None)
+
         if gw == "nanogpt":
             models = router_inst.get_nanogpt_models(include_live_public=live)
+        elif gw == "ollama":
+            models = router_inst.get_ollama_models(base_url=base_url_arg)
+        elif gw == "owlchat":
+            models = router_inst.get_openai_compat_models(
+                base_url_arg or OWLCHAT_BASE_URL,
+                api_key=resolve_owlchat_key(api_key_arg),
+                gateway_name="owlchat",
+                prefix="owlchat",
+            )
+        elif gw == "local":
+            models = router_inst.get_openai_compat_models(
+                base_url_arg or router_inst.local_base_url or DEFAULT_OLLAMA_BASE_URL,
+                api_key=resolve_local_compat_key(api_key_arg),
+                gateway_name="local",
+                prefix="local",
+            )
         else:
             models = router_inst.get_available_models()
+            seen_ids = {m["id"] for m in models}
             if live:
                 live_ng = router_inst.get_nanogpt_models(include_live_public=True)
-                seen_ids = {m["id"] for m in models}
                 for m in live_ng:
                     if m["id"] not in seen_ids:
                         models.append(m)
                         seen_ids.add(m["id"])
             if gw == "openrouter":
                 models = [m for m in models if str(m.get("gateway", "openrouter")).lower() == "openrouter"]
+            elif gw == "all":
+                for m in router_inst.get_ollama_models(base_url=base_url_arg):
+                    if m["id"] not in seen_ids:
+                        models.append(m)
+                        seen_ids.add(m["id"])
 
         models = filter_gateway_models(
             models,
@@ -1397,8 +1475,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                 p = m.get("pricing") or {}
                 if "prompt_per_1m" in p:
                     rate_str = f"${float(p['prompt_per_1m']):.3f}/${float(p.get('completion_per_1m', 0)):.3f} per 1M"
-                else:
+                elif "prompt" in p:
                     rate_str = f"prompt={p.get('prompt', '?')}"
+                else:
+                    rate_str = "local/free" if m.get("gateway") in ("ollama", "local", "owlchat", "trussed") else "prompt=?"
                 print(
                     f"  • {m['id']:54s} [{m.get('gateway', 'openrouter'):10s}] "
                     f"({m.get('category', 'General'):20s}) ctx={m.get('context_length', '?')} | {rate_str}"

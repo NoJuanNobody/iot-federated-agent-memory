@@ -1486,13 +1486,18 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     updated_config = router.set_model(alias, new_model, display_name, gateway=gateway)
                 except TypeError:
                     updated_config = router.set_model(alias, new_model, display_name)
+                gateway_name = (
+                    router._provider_gateway(updated_config)
+                    if hasattr(router, "_provider_gateway")
+                    else ("nanogpt" if updated_config.api_key_env == "NANOGPT_API_KEY" else "openrouter")
+                )
                 self._send_json({
                     "status": "updated",
                     "alias": alias,
                     "model": updated_config.model_alias,
                     "display_name": updated_config.display_name,
                     "endpoint": updated_config.endpoint,
-                    "gateway": "nanogpt" if updated_config.api_key_env == "NANOGPT_API_KEY" else "openrouter",
+                    "gateway": gateway_name,
                 }, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
@@ -3280,6 +3285,8 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             search_q = query.get("q", [""])[0]
             if gateway == "nanogpt" and hasattr(router, "get_nanogpt_models"):
                 models = router.get_nanogpt_models(include_live_public=True)
+            elif gateway == "ollama" and hasattr(router, "get_ollama_models"):
+                models = router.get_ollama_models()
             else:
                 models = router.get_available_models() if hasattr(router, "get_available_models") else []
                 if gateway in ("openrouter", "ronin"):

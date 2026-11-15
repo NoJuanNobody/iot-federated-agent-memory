@@ -68,3 +68,54 @@ def test_mesh_os_ui_zen_modal():
     modal_idx = html.find('id="accountSetupModal"')
     snippet = html[modal_idx : modal_idx + 150]
     assert 'data-zen-modal="true"' in snippet
+
+
+def test_mesh_os_ui_one_click_terminal_installer():
+    """Verify One-Click Terminal Installer controls exist via install_card component."""
+    html = MESH_OS_HTML_UI
+    assert 'data-tc-install=' in html
+    assert 'data-role="display"' in html
+    assert 'href="/install.command"' in html
+    assert 'data-tab="curl"' in html
+    assert 'data-action="copy-install"' in html
+
+
+def test_format_board_mentions_does_not_corrupt_celadon_hex_classes():
+    """Verify single-pass formatBoardMentions never re-parses #f4f8f0/#111111 inside span attributes."""
+    import json
+    import re
+    import shutil
+    import subprocess
+
+    html = MESH_OS_HTML_UI
+    esc_match = re.search(r"function escapeHtml\(str\)\s*\{.*?\n    \}", html, re.DOTALL)
+    fmt_match = re.search(r"function formatBoardMentions\(text\)\s*\{.*?\n    \}", html, re.DOTALL)
+    assert esc_match and fmt_match, "escapeHtml or formatBoardMentions missing from MESH_OS_HTML_UI"
+
+    node_bin = shutil.which("node")
+    assert node_bin, "node binary required to evaluate formatBoardMentions JS"
+
+    sample = (
+        "[@claude-brain Synthesis]: Attesting @verifier-agent protocol. "
+        "Combining #ed25519 node keys with verified operator forms ensures "
+        "sybil-resistant #cyberspace discussions. It's <safe> for @alice!"
+    )
+    js_program = (
+        f"{esc_match.group(0)}\n"
+        f"{fmt_match.group(0)}\n"
+        f"process.stdout.write(formatBoardMentions({json.dumps(sample)}));\n"
+    )
+    proc = subprocess.run([node_bin, "-e", js_program], capture_output=True, text=True, check=True)
+    rendered = proc.stdout
+
+    assert "quickSearchBoardEntity('#f4f8f0')" not in rendered
+    assert "quickSearchBoardEntity('#111111')" not in rendered
+    assert "quickSearchBoardEntity('#039')" not in rendered
+    assert ">🤖 @claude-brain</span>" in rendered
+    assert ">🤖 @verifier-agent</span>" in rendered
+    assert ">🪪 @alice</span>" in rendered
+    assert ">#ed25519</span>" in rendered
+    assert ">#cyberspace</span>" in rendered
+    assert "It&#039;s &lt;safe&gt;" in rendered
+    assert 'bg-[#f4f8f0]' in rendered
+    assert 'text-[#111111]' in rendered

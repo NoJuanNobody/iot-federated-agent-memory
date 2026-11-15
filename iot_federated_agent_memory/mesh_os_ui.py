@@ -5924,19 +5924,34 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     function formatBoardMentions(text) {
-      const safe = escapeHtml(text || '');
-      return safe
-        .replace(/(?<![\w.])@([a-zA-Z0-9_\-]+)/g, (m, handle) => {
-          const low = handle.toLowerCase();
+      const raw = String(text || '');
+      const tokenRe = /(?<![\w.&])([@#])([a-zA-Z0-9_\-]+)/g;
+      let out = '';
+      let lastIdx = 0;
+      let match;
+      while ((match = tokenRe.exec(raw)) !== null) {
+        if (match.index > lastIdx) {
+          out += escapeHtml(raw.slice(lastIdx, match.index));
+        }
+        const sigil = match[1];
+        const token = match[2];
+        if (sigil === '@') {
+          const low = token.toLowerCase();
           const isAgent = low.endsWith('-brain') || low.endsWith('-agent') || low === 'claude-sonnet' || low === 'gpt-4o' || low === 'deepseek-r1';
           if (isAgent) {
-            return `<span onclick="quickSearchBoardEntity('@${handle}')" title="Search @${handle} across Cyberspace" class="cursor-pointer px-1.5 py-0.2 rounded bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700 font-mono text-[11px] font-bold">🤖 @${handle}</span>`;
+            out += `<span onclick="quickSearchBoardEntity('@${token}')" title="Search @${token} across Cyberspace" class="cursor-pointer px-1.5 py-0.2 rounded bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700 font-mono text-[11px] font-bold">🤖 @${token}</span>`;
+          } else {
+            out += `<span onclick="inspectCyberspaceUserProfile('${token}')" title="Inspect @${token}'s Cyberspace profile & attestation" class="cursor-pointer px-1.5 py-0.2 rounded bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/70 font-mono text-[11px] font-semibold">🪪 @${token}</span>`;
           }
-          return `<span onclick="inspectCyberspaceUserProfile('${handle}')" title="Inspect @${handle}'s Cyberspace profile & attestation" class="cursor-pointer px-1.5 py-0.2 rounded bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/70 font-mono text-[11px] font-semibold">🪪 @${handle}</span>`;
-        })
-        .replace(/(?<![\w.])#([a-zA-Z0-9_\-]+)/g, (m, tag) => {
-          return `<span onclick="quickSearchBoardEntity('#${tag}')" class="cursor-pointer px-1.5 py-0.2 rounded bg-pink-950/60 hover:bg-pink-900 text-pink-300 border border-pink-800/60 font-mono text-[11px]">#${tag}</span>`;
-        });
+        } else {
+          out += `<span onclick="quickSearchBoardEntity('#${token}')" class="cursor-pointer px-1.5 py-0.2 rounded bg-pink-950/60 hover:bg-pink-900 text-pink-300 border border-pink-800/60 font-mono text-[11px]">#${token}</span>`;
+        }
+        lastIdx = tokenRe.lastIndex;
+      }
+      if (lastIdx < raw.length) {
+        out += escapeHtml(raw.slice(lastIdx));
+      }
+      return out;
     }
 
     function insertBoardTag(tagStr, targetId = 'boardTopicBody') {
