@@ -1679,7 +1679,12 @@ class WasmAndCodePlaygroundRunner:
         with tempfile.TemporaryDirectory(prefix="agent_space_run_") as tmpdir, \
                 tempfile.TemporaryDirectory(prefix="agent_space_cache_") as cache_dir:
             initial_hashes = self._materialize_space(vfs, tmpdir)
+            sandbox_home = os.path.join(cache_dir, "home")
+            os.makedirs(sandbox_home, exist_ok=True)
             sandbox_env = build_toolchain_env(tmpdir, cache_dir)
+            # Keep tool config/cache dotfiles out of the .space workspace directory.
+            sandbox_env["HOME"] = sandbox_home
+            sandbox_env["CODEX_HOME"] = os.path.join(sandbox_home, ".codex")
             for key in HARNESS_AUTH_ENV_KEYS:
                 val = os.environ.get(key)
                 if val:

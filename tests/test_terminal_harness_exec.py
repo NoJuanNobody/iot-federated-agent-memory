@@ -48,7 +48,9 @@ def test_discover_harnesses_prefers_installed_over_stale_cellar(tmp_path, monkey
     assert snap["best_cli"] == "claude"
 
 
-def test_build_harness_exec_argv_variants():
+def test_build_harness_exec_argv_variants(monkeypatch):
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     target_claude = {"id": "claude-code", "cli": "claude", "bin_path": "/usr/local/bin/claude", "detected_local": []}
     argv, cmd = _build_harness_exec_argv(target_claude, '"summarize main.py"')
     assert argv == [
@@ -63,6 +65,22 @@ def test_build_harness_exec_argv_variants():
 
     argv_ver, _ = _build_harness_exec_argv(target_claude, "--version")
     assert argv_ver == ["/usr/local/bin/claude", "--version"]
+
+    # With OPENROUTER_API_KEY set and no vendor key, claude/opencode/codex/goose bridge to OpenRouter.
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-test")
+    from iot_federated_agent_memory.tincan_brew import _harness_extra_env
+
+    argv_or, _ = _build_harness_exec_argv(target_claude, "hello")
+    assert "--model" in argv_or
+    assert _harness_extra_env(target_claude) == {
+        "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
+        "ANTHROPIC_AUTH_TOKEN": "or-test",
+        "ANTHROPIC_API_KEY": "",
+    }
+    assert _harness_extra_env({"id": "goose"}) == {
+        "GOOSE_PROVIDER": "openrouter",
+        "GOOSE_MODEL": "google/gemini-2.5-flash",
+    }
 
     target_dsx = {
         "id": "dsx",
@@ -84,6 +102,9 @@ def test_handle_harness_command_executes_and_syncs_space(tmp_path, monkeypatch):
 import os, pathlib, sys
 print("ARGS:" + "|".join(sys.argv[1:]))
 print("KEY:" + os.environ.get("OPENROUTER_API_KEY", ""))
+# Tool writing dotfiles into $HOME must NOT leak into the .space workspace cwd.
+home_dir = pathlib.Path(os.environ["HOME"])
+(home_dir / ".claude.json").write_text("{}", encoding="utf-8")
 pathlib.Path("harness_out.txt").write_text("from claude\\n", encoding="utf-8")
 pathlib.Path(".claude").mkdir(exist_ok=True)
 pathlib.Path(".claude/session.json").write_text("{}", encoding="utf-8")

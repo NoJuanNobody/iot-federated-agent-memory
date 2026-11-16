@@ -915,10 +915,10 @@ HARNESS_CATALOG: List[Dict[str, Any]] = [
 _HARNESS_NONINTERACTIVE_FLAGS: Dict[str, List[str]] = {
     "antigravity": ["-p", "--mode", "accept-edits"],
     "claude-code": ["-p", "--permission-mode", "acceptEdits", "--no-session-persistence"],
-    "opencode": ["run", "--standalone", "--auto"],
+    "opencode": ["run", "--auto"],
     "dsx": ["--yes", "-p"],
-    "codex": ["exec", "--skip-git-repo-check", "--full-auto"],
-    "gemini-cli": ["--approval-mode", "yolo", "-p"],
+    "codex": ["--dangerously-bypass-approvals-and-sandbox", "exec", "--skip-git-repo-check"],
+    "gemini-cli": ["--skip-trust", "--approval-mode", "yolo", "-p"],
     "aider": ["--yes-always", "--no-auto-commits", "--no-git", "--message"],
     "goose": ["run", "-t"],
 }
@@ -1022,7 +1022,7 @@ def _build_harness_exec_argv(target: Dict[str, Any], task_args: str) -> Tuple[Li
     if not stripped:
         return base_argv, shlex.join(base_argv)
 
-    if stripped.startswith("-"):
+    if stripped.startswith("-") or re.match(r"^(?:run|exec|help)\s+.*(?:--help|-h|--version|-V|-v)\b", stripped):
         try:
             extra_flags = shlex.split(stripped)
         except ValueError:
@@ -1032,15 +1032,43 @@ def _build_harness_exec_argv(target: Dict[str, Any], task_args: str) -> Tuple[Li
 
     prompt_text = _unwrap_prompt_text(stripped)
     flags = list(_HARNESS_NONINTERACTIVE_FLAGS.get(target["id"], shlex.split(target.get("print_flag", "-p"))))
+    or_key = os.environ.get("OPENROUTER_API_KEY")
+
+    if target["id"] == "claude-code" and or_key and not os.environ.get("ANTHROPIC_API_KEY"):
+        flags.extend(["--model", os.environ.get("CLAUDE_MODEL") or "anthropic/claude-sonnet-4"])
+    elif target["id"] == "opencode" and or_key:
+        flags.extend(["-m", os.environ.get("OPENCODE_MODEL") or "openrouter/google/gemini-2.5-flash"])
+    elif target["id"] == "codex" and or_key and not os.environ.get("OPENAI_API_KEY"):
+        codex_model = os.environ.get("CODEX_MODEL") or "openai/gpt-4o-mini"
+        flags = [
+            "--dangerously-bypass-approvals-and-sandbox",
+            "-c", 'model_provider="openrouter"',
+            "-c", f'model="{codex_model}"',
+            "-c", 'model_providers.openrouter.name="OpenRouter"',
+            "-c", 'model_providers.openrouter.base_url="https://openrouter.ai/api/v1"',
+            "-c", 'model_providers.openrouter.env_key="OPENROUTER_API_KEY"',
+            "-c", 'model_providers.openrouter.wire_api="responses"',
+            "-c", "model_providers.openrouter.supports_websockets=false",
+            "exec", "--skip-git-repo-check",
+        ]
+
     argv = [*base_argv, *flags, prompt_text]
     return argv, shlex.join(argv)
 
 
 def _harness_extra_env(target: Dict[str, Any]) -> Dict[str, str]:
-    """Derive provider-specific environment defaults from existing server keys."""
+    """Derive OpenRouter bridge defaults from server keys when native vendor keys are absent."""
     extra: Dict[str, str] = {}
-    if target["id"] == "goose" and os.environ.get("OPENROUTER_API_KEY") and not os.environ.get("GOOSE_PROVIDER"):
-        extra["GOOSE_PROVIDER"] = "openrouter"
+    or_key = os.environ.get("OPENROUTER_API_KEY")
+    if target["id"] == "claude-code" and or_key and not os.environ.get("ANTHROPIC_API_KEY"):
+        extra["ANTHROPIC_BASE_URL"] = os.environ.get("ANTHROPIC_BASE_URL") or "https://openrouter.ai/api"
+        extra["ANTHROPIC_AUTH_TOKEN"] = or_key
+        extra["ANTHROPIC_API_KEY"] = ""
+    elif target["id"] == "goose" and or_key:
+        if not os.environ.get("GOOSE_PROVIDER"):
+            extra["GOOSE_PROVIDER"] = "openrouter"
+        if not os.environ.get("GOOSE_MODEL"):
+            extra["GOOSE_MODEL"] = "google/gemini-2.5-flash"
     return extra
 
 
@@ -1224,6 +1252,25 @@ def handle_harness_command(
 
     # Live non-interactive execution inside the caller's .space sandbox.
     if execute and _can_execute_harness_locally(target) and task_args:
+        if (
+            target["id"] == "gemini-cli"
+            and not task_args.startswith("-")
+            and not (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+        ):
+            msg = (
+                "[Gemini CLI · `gemini`] GEMINI_API_KEY is not configured on this server. "
+                "Use `dsx`, `claude`, `opencode`, `codex`, or `goose` (backed by OpenRouter), or set GEMINI_API_KEY."
+            )
+            return {
+                "status": "error",
+                "harness": target,
+                "command": full_cmd,
+                "argv": argv,
+                "executed": False,
+                "exit_code": 1,
+                "output": msg,
+                "lines": [msg],
+            }
         run_res = _run_harness_subprocess(
             target,
             argv,
