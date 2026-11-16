@@ -141,7 +141,7 @@ class PTYSession:
         self.initial_hashes = WasmAndCodePlaygroundRunner._materialize_space(vfs, self.tmpdir)
 
         env = prepare_harness_sandbox_env(self.tmpdir, self.cache_dir, extra_env=extra_env)
-        # Write ephemeral space & Context Palace briefing into sandbox HOME & AGENTS.md without polluting .space.
+        # Write ephemeral space & Context Palace briefing into sandbox HOME & agent instruction files without polluting .space.
         tincan_meta_dir = os.path.join(self.tmpdir, ".tincan")
         os.makedirs(tincan_meta_dir, exist_ok=True)
         ctx_file = os.path.join(tincan_meta_dir, "SPACE_CONTEXT.md")
@@ -152,12 +152,13 @@ class PTYSession:
             os.makedirs(dsx_home_dir, exist_ok=True)
             with open(os.path.join(dsx_home_dir, "DSX.md"), "w", encoding="utf-8") as df:
                 df.write(space_context_text + "\n")
-            if "AGENTS.md" not in self.initial_hashes:
-                agents_path = os.path.join(self.tmpdir, "AGENTS.md")
-                agents_bytes = (space_context_text + "\n").encode("utf-8")
-                with open(agents_path, "wb") as af:
-                    af.write(agents_bytes)
-                self.initial_hashes["AGENTS.md"] = hashlib.sha256(agents_bytes).hexdigest()
+            ctx_bytes = (space_context_text + "\n").encode("utf-8")
+            for ctx_name in ("AGENTS.md", "CLAUDE.md", "GEMINI.md"):
+                if ctx_name not in self.initial_hashes:
+                    ctx_path = os.path.join(self.tmpdir, ctx_name)
+                    with open(ctx_path, "wb") as af:
+                        af.write(ctx_bytes)
+                    self.initial_hashes[ctx_name] = hashlib.sha256(ctx_bytes).hexdigest()
         env["TERM"] = "xterm-256color"
         env["COLORTERM"] = "truecolor"
         env["COLUMNS"] = str(self.cols)
@@ -393,16 +394,35 @@ class PTYSessionManager:
         active_file: Optional[str] = None,
         cols: int = 100,
         rows: int = 30,
+        extra_env: Optional[Dict[str, str]] = None,
+        ai_router: Optional[Any] = None,
     ) -> PTYSession:
         ctx = build_space_context_summary(
             vfs,
             active_file=active_file,
             palace_snippets=palace_snippets,
+            ai_router=ai_router,
+            include_capabilities=True,
         )
-        argv, extra_env, canonical_app = prepare_tui_command(
+        tui_tool_guide = (
+            "\n\n[Sandbox Generative Tools — Already Authenticated via TinCan Server]\n"
+            "Do NOT claim you lack an API key or Rodin/image tool inside this session.\n"
+            "Run these pre-installed CLI commands directly in your shell (on PATH):\n"
+            "- Generate a 2D image (.png/.jpg saved into ./images/ & .space VFS):\n"
+            '  tincan-gen image "a cartoon picture of spongebob"\n'
+            "- Generate a 3D mesh (.glb via Hyper3D Rodin v2 saved into ./models3d/ & .space VFS):\n"
+            '  tincan-gen 3d "a 3D stylized goose" --tier Regular\n'
+            "- Inspect live models & Rodin billing:\n"
+            "  tincan-gen models\n"
+        )
+        full_ctx_text = (ctx.get("text") or "") + tui_tool_guide
+        argv, cmd_env, canonical_app = prepare_tui_command(
             app_id,
-            space_context_text=ctx["text"],
+            space_context_text=full_ctx_text,
         )
+        merged_env = dict(cmd_env)
+        if extra_env:
+            merged_env.update({k: v for k, v in extra_env.items() if v is not None})
         with self._lock:
             self._prune_stale()
             if len(self._sessions) >= self.max_sessions:
@@ -418,8 +438,8 @@ class PTYSessionManager:
                 owner_id=owner_id,
                 vfs=vfs,
                 argv=argv,
-                extra_env=extra_env,
-                space_context_text=ctx["text"],
+                extra_env=merged_env,
+                space_context_text=full_ctx_text,
                 active_file=active_file,
                 cols=cols,
                 rows=rows,

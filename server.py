@@ -2738,12 +2738,20 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     geometry_file_format=fmt,
                     mesh_mode=mesh_mode,
                 )
+                if data.get("wait") and not res.get("simulated") and hasattr(router, "wait_for_rodin_glb"):
+                    res = router.wait_for_rodin_glb(res, max_wait_sec=float(data.get("wait_sec") or 45.0))
 
                 # If save_path or owner_id passed, write into .space VFS
                 sm = _get_space_manager()
                 if sm and (save_path or owner_id):
                     try:
-                        sp_path = save_path or f"/models3d/{res.get('uuid', 'model')}.{fmt}"
+                        if save_path:
+                            sp_path = save_path
+                        else:
+                            from iot_federated_agent_memory.agent_space import _slug_from_prompt, _unique_space_path
+                            sp_pre = sm.get_or_create_space(scope, owner_id)
+                            slug = _slug_from_prompt(prompt, default=str(res.get("uuid", "rodin_mesh")))
+                            sp_path = _unique_space_path(sp_pre, "/models3d", slug, f".{fmt}")
                         sp = sm.get_or_create_space(scope, owner_id)
                         glb_b64 = res.get("glb_bytes_b64", "")
                         sp.write_file(sp_path, glb_b64, is_base64=True, mime_type="model/gltf-binary", updated_by=peer_id)
@@ -2779,6 +2787,53 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json(res, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path in ("/api/image/generate", "/api/2d/generate"):
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                from iot_federated_agent_memory.agent_space import _slug_from_prompt, _unique_space_path
+
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                prompt = (data.get("prompt") or "").strip()
+                if not prompt:
+                    self._send_json({"ok": False, "error": "Missing 'prompt'"}, 400)
+                    return
+                model = data.get("model")
+                aspect_ratio = data.get("aspect_ratio")
+                gateway = data.get("gateway")
+                scope = (data.get("scope") or "user").strip()
+                owner_id = (data.get("owner_id") or data.get("peer_id") or "default").strip()
+                peer_id = (data.get("peer_id") or owner_id or "peer").strip()
+                save_path = data.get("save_path")
+
+                img_res = router.dispatch_image_generation(
+                    prompt=prompt,
+                    model=model,
+                    aspect_ratio=aspect_ratio,
+                    gateway=gateway,
+                )
+                if not img_res.get("ok") or not img_res.get("image_bytes"):
+                    self._send_json({k: v for k, v in img_res.items() if k != "image_bytes"}, 502 if not img_res.get("simulated") else 400)
+                    return
+
+                sm = _get_space_manager()
+                sp = sm.get_or_create_space(scope, owner_id)
+                ext = str(img_res.get("ext") or ".png")
+                sp_path = save_path or _unique_space_path(sp, "/images", _slug_from_prompt(prompt, default="image"), ext)
+                sp.write_file(
+                    sp_path,
+                    img_res["image_bytes"],
+                    mime_type=img_res.get("mime_type") or "image/png",
+                    updated_by=peer_id,
+                )
+                out = {k: v for k, v in img_res.items() if k != "image_bytes"}
+                if not out.get("image_b64"):
+                    out["image_b64"] = base64.b64encode(img_res["image_bytes"]).decode("ascii")
+                out["path"] = sp_path
+                out["saved_to_space"] = {"scope": scope, "owner_id": owner_id, "path": sp_path}
+                self._send_json(out, 200)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
         elif parsed.path == "/api/space/file":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
@@ -2864,6 +2919,8 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 owner_id = (data.get("owner_id") or data.get("peer_id") or "default").strip()
                 sm = _get_space_manager()
                 space_vfs = sm.get_or_create_space(scope=scope, owner_id=owner_id)
+                if getattr(self, "server", None) and getattr(self.server, "server_port", None):
+                    os.environ["TINCAN_PORT"] = str(self.server.server_port)
                 out = handle_harness_command(
                     cmd,
                     peer_id=peer_id,
@@ -2899,6 +2956,8 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 cols = int(data.get("cols") or 100)
                 rows = int(data.get("rows") or 30)
                 sp_vfs = _get_space_manager().get_or_create_space(scope=scope, owner_id=owner_id)
+                srv_port = getattr(getattr(self, "server", None), "server_port", None) or PORT
+                os.environ["TINCAN_PORT"] = str(srv_port)
                 sess = _get_pty_manager().start_session(
                     app_id,
                     scope=scope,
@@ -2908,6 +2967,8 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     active_file=active_file,
                     cols=cols,
                     rows=rows,
+                    extra_env={"TINCAN_LOCAL_URL": f"http://127.0.0.1:{srv_port}"},
+                    ai_router=router,
                 )
                 self._send_json({"status": "ok", **sess.summary(), "files_count": len(sp_vfs.list_files())}, 200)
             except Exception as e:

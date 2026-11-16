@@ -1477,12 +1477,147 @@ def _tool_timeout(timeout_sec: float) -> float:
     return max(timeout_sec, floor)
 
 
+_TINCAN_GEN_SCRIPT = r'''#!/usr/bin/env python3
+"""TinCan Sandbox Generator CLI (`tincan-gen image|3d|models`) using TinCan Server keys."""
+import argparse
+import base64
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+
+
+def _base_url() -> str:
+    url = os.environ.get("TINCAN_LOCAL_URL", "").strip()
+    if url:
+        return url.rstrip("/")
+    port = os.environ.get("TINCAN_PORT") or os.environ.get("PORT") or "8765"
+    return f"http://127.0.0.1:{port}"
+
+
+def _req_json(path: str, payload=None, timeout: float = 120.0) -> dict:
+    url = _base_url() + path
+    data = json.dumps(payload).encode("utf-8") if payload is not None else None
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json"} if data is not None else {},
+        method="POST" if data is not None else "GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as err:
+        body = err.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"HTTP {err.code} from {url}: {body[:300]}") from err
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog="tincan-gen", description="TinCan Sandbox Media Generator")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    p_img = sub.add_parser("image", help="Generate a 2D image via TinCan Server OpenRouter/NanoGPT gateway")
+    p_img.add_argument("prompt", help="Image description prompt")
+    p_img.add_argument("--model", default=None, help="Optional model ID override")
+    p_img.add_argument("--out", default=None, help="Optional VFS / relative path (e.g. /images/out.png)")
+
+    p_3d = sub.add_parser("3d", help="Generate a 3D .glb mesh via TinCan Server Hyper3D Rodin v2")
+    p_3d.add_argument("prompt", help="3D asset description prompt")
+    p_3d.add_argument("--tier", default="Regular", choices=["Regular", "Sketch", "Detail", "Smooth"])
+    p_3d.add_argument("--out", default=None, help="Optional VFS / relative path (e.g. /models3d/goose.glb)")
+    p_3d.add_argument("--no-wait", action="store_true", help="Do not wait for async Rodin job download")
+
+    sub.add_parser("models", help="Inspect live TinCan chat, 2D image, and 3D Rodin availability")
+
+    args = parser.parse_args()
+    scope = os.environ.get("TINCAN_SPACE_SCOPE", "user")
+    owner = os.environ.get("TINCAN_SPACE_OWNER", "default")
+
+    if args.cmd == "models":
+        models = _req_json("/api/models", timeout=20.0)
+        analytics = _req_json("/api/models/analytics", timeout=20.0)
+        print(json.dumps({
+            "local_url": _base_url(),
+            "space": f"{scope}:{owner}",
+            "chat_and_image_models": [m.get("id") for m in (models.get("models") or [])[:16]],
+            "rodin_billing": analytics.get("rodin") or analytics.get("hyper3d") or {},
+        }, indent=2))
+        return 0
+
+    if args.cmd == "image":
+        res = _req_json("/api/image/generate", {
+            "prompt": args.prompt,
+            "model": args.model,
+            "scope": scope,
+            "owner_id": owner,
+            "save_path": args.out,
+            "peer_id": owner,
+        }, timeout=120.0)
+        if not res.get("ok"):
+            print(json.dumps(res, indent=2), file=sys.stderr)
+            return 1
+        vfs_path = res.get("path") or "/images/generated.png"
+        local_rel = vfs_path.lstrip("/")
+        local_abs = os.path.join(os.getcwd(), local_rel)
+        os.makedirs(os.path.dirname(local_abs), exist_ok=True)
+        if res.get("image_b64"):
+            with open(local_abs, "wb") as f:
+                f.write(base64.b64decode(res["image_b64"]))
+        res_out = {k: v for k, v in res.items() if k != "image_b64"}
+        res_out["local_path"] = local_rel
+        print(json.dumps(res_out, indent=2))
+        return 0
+
+    if args.cmd == "3d":
+        res = _req_json("/api/3d/generate", {
+            "prompt": args.prompt,
+            "tier": args.tier,
+            "format": "glb",
+            "scope": scope,
+            "owner_id": owner,
+            "save_path": args.out,
+            "peer_id": owner,
+            "wait": not args.no_wait,
+        }, timeout=120.0)
+        saved = res.get("saved_to_space") or {}
+        vfs_path = saved.get("path") or args.out or f"/models3d/{res.get('uuid', 'rodin_mesh')}.glb"
+        local_rel = vfs_path.lstrip("/")
+        local_abs = os.path.join(os.getcwd(), local_rel)
+        os.makedirs(os.path.dirname(local_abs), exist_ok=True)
+        if res.get("glb_bytes_b64"):
+            with open(local_abs, "wb") as f:
+                f.write(base64.b64decode(res["glb_bytes_b64"]))
+        res_out = {k: v for k, v in res.items() if k != "glb_bytes_b64"}
+        res_out["local_path"] = local_rel
+        print(json.dumps(res_out, indent=2))
+        return 0
+
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+'''
+
+
+def _install_sandbox_gen_cli(cache_dir: str) -> str:
+    """Write the zero-secret `tincan-gen` helper binary inside cache_dir/bin and return bin_dir."""
+    bin_dir = os.path.join(cache_dir, "bin")
+    os.makedirs(bin_dir, exist_ok=True)
+    cli_path = os.path.join(bin_dir, "tincan-gen")
+    with open(cli_path, "w", encoding="utf-8") as cf:
+        cf.write(_TINCAN_GEN_SCRIPT)
+    os.chmod(cli_path, 0o755)
+    return bin_dir
+
+
 def prepare_harness_sandbox_env(
     tmpdir: str,
     cache_dir: str,
     extra_env: Optional[Dict[str, str]] = None,
 ) -> Dict[str, str]:
-    """Build an isolated sandbox env keeping HOME, TMPDIR, CODEX_HOME, and OpenCode config outside .space."""
+    """Build an isolated sandbox env keeping HOME, TMPDIR, CODEX_HOME, OpenCode config, and `tincan-gen` ready."""
     sandbox_home = os.path.join(cache_dir, "home")
     sandbox_tmp = os.path.join(cache_dir, "tmp")
     codex_home = os.path.join(sandbox_home, ".codex")
@@ -1510,11 +1645,19 @@ def prepare_harness_sandbox_env(
                 ocf,
             )
     sandbox_env = build_toolchain_env(tmpdir, cache_dir)
+    bin_dir = _install_sandbox_gen_cli(cache_dir)
+    sandbox_env["PATH"] = bin_dir + os.pathsep + sandbox_env.get("PATH", "")
     sandbox_env["HOME"] = sandbox_home
     sandbox_env["TMPDIR"] = sandbox_tmp
     sandbox_env["TMP"] = sandbox_tmp
     sandbox_env["TEMP"] = sandbox_tmp
     sandbox_env["CODEX_HOME"] = codex_home
+    if not sandbox_env.get("TINCAN_LOCAL_URL"):
+        local_url = os.environ.get("TINCAN_LOCAL_URL")
+        if not local_url:
+            port = os.environ.get("TINCAN_PORT") or os.environ.get("PORT") or "8765"
+            local_url = f"http://127.0.0.1:{port}"
+        sandbox_env["TINCAN_LOCAL_URL"] = local_url
     for key in HARNESS_AUTH_ENV_KEYS:
         val = os.environ.get(key)
         if val:
@@ -1729,7 +1872,32 @@ class WasmAndCodePlaygroundRunner:
         with tempfile.TemporaryDirectory(prefix="agent_space_run_") as tmpdir, \
                 tempfile.TemporaryDirectory(prefix="agent_space_cache_") as cache_dir:
             initial_hashes = self._materialize_space(vfs, tmpdir)
-            sandbox_env = prepare_harness_sandbox_env(tmpdir, cache_dir, extra_env=extra_env)
+            merged_extra = {
+                "TINCAN_SPACE_SCOPE": getattr(vfs, "scope", "user"),
+                "TINCAN_SPACE_OWNER": getattr(vfs, "owner_id", "default"),
+            }
+            if extra_env:
+                merged_extra.update(extra_env)
+            sandbox_env = prepare_harness_sandbox_env(tmpdir, cache_dir, extra_env=merged_extra)
+            # Provide sandbox context & tincan-gen instructions in non-synced .tincan/ and AGENTS.md
+            tincan_meta = os.path.join(tmpdir, ".tincan")
+            os.makedirs(tincan_meta, exist_ok=True)
+            cap_text = build_tincan_capability_manifest(include_tool_protocol=False) + (
+                "\n\n[Sandbox CLI Tool `tincan-gen` (already authenticated via TinCan Server)]\n"
+                "- Generate 2D image into ./images/: `tincan-gen image \"<prompt>\"`\n"
+                "- Generate 3D Rodin .glb mesh into ./models3d/: `tincan-gen 3d \"<prompt>\"`\n"
+                "- List available models: `tincan-gen models`\n"
+            )
+            with open(os.path.join(tincan_meta, "SPACE_CONTEXT.md"), "w", encoding="utf-8") as cf:
+                cf.write(cap_text)
+            for ctx_fn in ("AGENTS.md", "CLAUDE.md"):
+                if ctx_fn not in initial_hashes:
+                    cp = os.path.join(tmpdir, ctx_fn)
+                    cbytes = cap_text.encode("utf-8")
+                    with open(cp, "wb") as fp:
+                        fp.write(cbytes)
+                    initial_hashes[ctx_fn] = hashlib.sha256(cbytes).hexdigest()
+            sandbox_env["TINCAN_SPACE_CONTEXT_FILE"] = os.path.join(tincan_meta, "SPACE_CONTEXT.md")
             stdout, stderr, exit_code = self._run_subprocess(
                 cmd, tmpdir=tmpdir, env=sandbox_env, timeout_sec=effective_timeout
             )
@@ -2066,7 +2234,8 @@ def build_tincan_capability_manifest(
         "- 2D Image Generation (OpenRouter multimodal & NanoGPT Image API): " + ", ".join(image_models[:6]) + ". Saves `.png`/`.jpg` into `.space` `/images/`.",
         "- 3D Mesh Generation (Hyper3D Rodin v2 / Ronin): " + ", ".join(rodin_models[:5]) + ". Saves `.glb` meshes into `.space` `/models3d/`.",
         "- Code & ArtCraft Tools in `.space`: Python 3 & Node.js sandbox execution, `cadcraft` (`.dxf`), `vectorcraft` (`.svg`), `scriptcraft` (`.fountain`), `deckcraft`, plus `.space` file CRUD.",
-        "- Interactive Terminal TUIs (`xterm.js` PTY) & Coding Harnesses: `bash`, `claude`, `codex`, `opencode`, `goose`, `gemini`, `dsx` (run `<cli> \"prompt\"`, `hey <cli> <prompt>`, or click TUI buttons).",
+        "- Interactive Terminal TUIs (`xterm.js` PTY) & Coding Harnesses: `bash`, `claude`, `codex`, `opencode`, `goose`, `gemini`, `dsx` (run `<cli> \"prompt\"`, `hey <cli> <prompt>`, or click TUI buttons).\n"
+        "- Sandbox Shell Helper (`tincan-gen`, pre-authenticated on PATH): inside any shell/TUI run `tincan-gen image \"<prompt>\"` for 2D images or `tincan-gen 3d \"<prompt>\"` for Hyper3D Rodin .glb meshes (`HYPER3D_API_KEY`, `OPENROUTER_API_KEY`, and `NANOGPT_API_KEY` are held securely by TinCan Server).",
         "- Disambiguation Note: `/models3d/README.txt` inside `.space` ONLY documents the `/models3d/` folder for 3D `.glb` meshes from Hyper3D Rodin. Hyper3D Rodin is ONLY for 3D `.glb` meshes — 2D images use OpenRouter / NanoGPT image models and save to `/images/`. When the user asks 'what models do?' or 'rodin', explain both clearly.",
         "- CRITICAL: Never say 'My capabilities are limited to text' or 'I cannot generate images' — TinCan supports real 2D image generation, 3D Rodin generation, and `.space` code/file tools.",
     ]
@@ -2165,6 +2334,8 @@ class AgentSpaceHarness:
         if self.ai_router is not None and hasattr(self.ai_router, "dispatch_rodin_generation"):
             try:
                 rodin_res = self.ai_router.dispatch_rodin_generation(prompt=rodin_prompt, geometry_file_format="glb")
+                if not rodin_res.get("simulated") and hasattr(self.ai_router, "wait_for_rodin_glb"):
+                    rodin_res = self.ai_router.wait_for_rodin_glb(rodin_res, max_wait_sec=45.0)
                 b64_str = rodin_res.get("glb_bytes_b64")
                 if b64_str:
                     glb_bytes = base64.b64decode(b64_str)

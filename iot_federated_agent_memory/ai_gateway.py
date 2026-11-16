@@ -617,6 +617,7 @@ class DynamicAIGatewayRouter:
 
     # Hyper3D Rodin (Ronin) v2 3D Generation Endpoints
     RODIN_GENERATE_URL = "https://api.hyper3d.com/api/v2/rodin"
+    RODIN_FALLBACK_GENERATE_URL = "https://hyperhuman.deemos.com/api/v2/rodin"
     RODIN_STATUS_URL = "https://api.hyper3d.com/api/v2/status"
     RODIN_DOWNLOAD_URL = "https://api.hyper3d.com/api/v2/download"
     RODIN_BALANCE_URL = "https://api.hyper3d.com/api/v2/check_balance"
@@ -1650,6 +1651,21 @@ class DynamicAIGatewayRouter:
 
         return self._fetch_hyper3d_billing_sync(api_key)
 
+    @staticmethod
+    def _encode_multipart_fields(fields: Dict[str, Any]) -> tuple[bytes, str]:
+        """Encode simple text/JSON-serializable fields as multipart/form-data for Hyper3D Rodin v2."""
+        boundary = f"----TinCanBoundary{uuid.uuid4().hex[:16]}"
+        parts: List[bytes] = []
+        for k, v in fields.items():
+            if v is None:
+                continue
+            val = json.dumps(v) if isinstance(v, (list, dict)) else str(v)
+            parts.append(
+                f"--{boundary}\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{val}\r\n".encode("utf-8")
+            )
+        parts.append(f"--{boundary}--\r\n".encode("utf-8"))
+        return b"".join(parts), f"multipart/form-data; boundary={boundary}"
+
     def dispatch_rodin_generation(
         self,
         prompt: str,
@@ -1660,12 +1676,13 @@ class DynamicAIGatewayRouter:
         quality: str = "medium",
         mesh_mode: str = "Quad",
     ) -> Dict[str, Any]:
-        """Dispatch 3D generative task to Hyper3D Rodin v2 API or return simulated receipt."""
+        """Dispatch 3D generative task to Hyper3D Rodin v2 API (multipart + fallback host) or return simulated receipt."""
         cost_usd = float(self.RODIN_TIER_COSTS.get(tier, 0.50))
         task_uuid = f"rodin-{uuid.uuid4().hex[:12]}"
         sub_key = f"sub-{uuid.uuid4().hex[:12]}"
         status = "Done"
         simulated = True
+        remote_error: Optional[str] = None
 
         api_key = self.hyper3d_key or _resolve_hyper3d_key_fallback()
         if api_key:
@@ -1680,28 +1697,42 @@ class DynamicAIGatewayRouter:
             if images:
                 payload["images"] = images
 
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            }
-            req = urllib.request.Request(
-                self.RODIN_GENERATE_URL,
-                data=json.dumps(payload).encode("utf-8"),
-                headers=headers,
-                method="POST",
-            )
-            try:
-                with urllib.request.urlopen(req, timeout=30.0) as resp:
-                    resp_data = json.loads(resp.read().decode("utf-8")) or {}
+            mp_body, mp_ctype = self._encode_multipart_fields(payload)
+            json_body = json.dumps(payload).encode("utf-8")
+            attempts = [
+                (self.RODIN_GENERATE_URL, mp_body, mp_ctype),
+                (self.RODIN_FALLBACK_GENERATE_URL, mp_body, mp_ctype),
+                (self.RODIN_GENERATE_URL, json_body, "application/json"),
+            ]
+            for url, body_bytes, ctype in attempts:
+                headers = {
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": ctype,
+                }
+                req = urllib.request.Request(url, data=body_bytes, headers=headers, method="POST")
+                try:
+                    with urllib.request.urlopen(req, timeout=30.0) as resp:
+                        resp_data = json.loads(resp.read().decode("utf-8")) or {}
                     if resp_data.get("uuid"):
                         task_uuid = str(resp_data["uuid"])
-                    if resp_data.get("subscription_key"):
-                        sub_key = str(resp_data["subscription_key"])
-                    status = resp_data.get("status", "Done")
+                    jobs_obj = resp_data.get("jobs") if isinstance(resp_data.get("jobs"), dict) else {}
+                    found_sub = resp_data.get("subscription_key") or jobs_obj.get("subscription_key")
+                    if found_sub:
+                        sub_key = str(found_sub)
+                    status = resp_data.get("status", "Waiting" if found_sub and not resp_data.get("status") else "Done")
                     simulated = False
-            except Exception:
-                simulated = True
-                status = "Done"
+                    remote_error = None
+                    break
+                except urllib.error.HTTPError as http_err:
+                    remote_error = f"HTTP {http_err.code} at {url}"
+                    if http_err.code in (400, 404, 415, 502, 503, 504):
+                        continue
+                    break
+                except Exception as err:
+                    remote_error = str(err)
+                    simulated = True
+                    status = "Done"
+                    break
 
         glb_bytes = generate_minimal_glb_bytes(name=prompt[:24] if prompt else "rodin_mesh")
         glb_b64 = base64.b64encode(glb_bytes).decode("utf-8")
@@ -1721,6 +1752,8 @@ class DynamicAIGatewayRouter:
             "glb_bytes_b64": glb_b64,
             "simulated": simulated,
         }
+        if remote_error:
+            task_record["remote_error"] = remote_error
 
         self.rodin_tasks[task_uuid] = task_record
         self.rodin_total_calls += 1
@@ -1775,6 +1808,7 @@ class DynamicAIGatewayRouter:
         task = self.rodin_tasks.get(task_uuid, {})
         is_simulated = task.get("simulated", True)
 
+        download_error: Optional[str] = None
         if api_key and not is_simulated:
             headers = {
                 "Authorization": f"Bearer {api_key}",
@@ -1782,22 +1816,38 @@ class DynamicAIGatewayRouter:
             }
             req = urllib.request.Request(
                 self.RODIN_DOWNLOAD_URL,
-                data=json.dumps({"uuid": task_uuid}).encode("utf-8"),
+                data=json.dumps({"task_uuid": task_uuid, "uuid": task_uuid}).encode("utf-8"),
                 headers=headers,
                 method="POST",
             )
             try:
                 with urllib.request.urlopen(req, timeout=15.0) as resp:
-                    return json.loads(resp.read().decode("utf-8"))
-            except Exception:
-                pass
+                    dl_data = json.loads(resp.read().decode("utf-8")) or {}
+                # Extract direct .glb download URL from Hyper3D v2 response ("list" or "files") and hydrate glb_bytes_b64
+                glb_url = None
+                for item in (dl_data.get("list") or []):
+                    if isinstance(item, dict) and str(item.get("name", "")).lower().endswith(".glb") and item.get("url"):
+                        glb_url = str(item["url"])
+                        break
+                if not glb_url and isinstance(dl_data.get("files"), dict):
+                    glb_url = dl_data["files"].get("glb")
+                if glb_url and not dl_data.get("glb_bytes_b64"):
+                    mesh_req = urllib.request.Request(glb_url, method="GET")
+                    with urllib.request.urlopen(mesh_req, timeout=30.0) as mesh_resp:
+                        raw_mesh = mesh_resp.read()
+                    if raw_mesh:
+                        dl_data["glb_bytes_b64"] = base64.b64encode(raw_mesh).decode("ascii")
+                        dl_data["simulated"] = False
+                return dl_data
+            except Exception as err:
+                download_error = str(err)
 
         fmt = task.get("format", "glb")
         glb_b64 = task.get("glb_bytes_b64")
         if not glb_b64:
             glb_b64 = base64.b64encode(generate_minimal_glb_bytes(task_uuid[:16])).decode("utf-8")
 
-        return {
+        out = {
             "task_uuid": task_uuid,
             "format": fmt,
             "files": [
@@ -1808,7 +1858,38 @@ class DynamicAIGatewayRouter:
                 }
             ],
             "glb_bytes_b64": glb_b64,
+            "simulated": True,
         }
+        if download_error:
+            out["download_error"] = download_error
+        return out
+
+    def wait_for_rodin_glb(self, task_record: Dict[str, Any], max_wait_sec: float = 45.0) -> Dict[str, Any]:
+        """Poll a live Rodin task briefly and hydrate glb_bytes_b64 with the real downloaded mesh."""
+        if not task_record or task_record.get("simulated"):
+            return task_record
+        sub_key = task_record.get("subscription_key") or ""
+        task_uuid = task_record.get("uuid") or ""
+        deadline = time.time() + float(max_wait_sec)
+        while time.time() < deadline:
+            st_data = self.check_rodin_status(sub_key) if sub_key else {}
+            jobs = st_data.get("jobs") or []
+            statuses = [str(j.get("status") or "") for j in jobs if isinstance(j, dict)]
+            top_status = str(st_data.get("status") or "")
+            if top_status == "Done" or (statuses and all(s == "Done" for s in statuses)):
+                dl = self.download_rodin_assets(task_uuid)
+                if dl.get("glb_bytes_b64") and not dl.get("simulated"):
+                    task_record["glb_bytes_b64"] = dl["glb_bytes_b64"]
+                    task_record["status"] = "Done"
+                    task_record["downloaded"] = True
+                elif dl.get("download_error"):
+                    task_record["download_error"] = dl["download_error"]
+                break
+            if top_status == "Failed" or any(s == "Failed" for s in statuses):
+                task_record["status"] = "Failed"
+                break
+            time.sleep(2.0)
+        return task_record
 
     def get_analytics(self, include_live_billing: bool = True) -> Dict[str, Any]:
         """Aggregate usage analytics, per-model token rates, and live OpenRouter/NanoGPT/Hyper3D spend."""
