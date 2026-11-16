@@ -1699,9 +1699,15 @@ class DynamicAIGatewayRouter:
 
             mp_body, mp_ctype = self._encode_multipart_fields(payload)
             json_body = json.dumps(payload).encode("utf-8")
+            minimal_mp_body, minimal_mp_ctype = self._encode_multipart_fields({
+                "prompt": prompt,
+                "tier": tier,
+                "geometry_file_format": geometry_file_format,
+            })
             attempts = [
                 (self.RODIN_GENERATE_URL, mp_body, mp_ctype),
-                (self.RODIN_FALLBACK_GENERATE_URL, mp_body, mp_ctype),
+                (self.RODIN_GENERATE_URL, minimal_mp_body, minimal_mp_ctype),
+                (self.RODIN_FALLBACK_GENERATE_URL, minimal_mp_body, minimal_mp_ctype),
                 (self.RODIN_GENERATE_URL, json_body, "application/json"),
             ]
             for url, body_bytes, ctype in attempts:
@@ -1713,10 +1719,18 @@ class DynamicAIGatewayRouter:
                 try:
                     with urllib.request.urlopen(req, timeout=30.0) as resp:
                         resp_data = json.loads(resp.read().decode("utf-8")) or {}
-                    if resp_data.get("uuid"):
-                        task_uuid = str(resp_data["uuid"])
+                    err_flag = resp_data.get("error")
+                    if err_flag and str(err_flag).upper() != "OK":
+                        remote_error = f"{err_flag}: {resp_data.get('message') or ''}".strip(": ")
+                        continue
                     jobs_obj = resp_data.get("jobs") if isinstance(resp_data.get("jobs"), dict) else {}
                     found_sub = resp_data.get("subscription_key") or jobs_obj.get("subscription_key")
+                    found_uuid = resp_data.get("uuid")
+                    if not found_uuid and not found_sub:
+                        remote_error = f"Unexpected Rodin response at {url}: {json.dumps(resp_data)[:200]}"
+                        continue
+                    if found_uuid:
+                        task_uuid = str(found_uuid)
                     if found_sub:
                         sub_key = str(found_sub)
                     status = resp_data.get("status", "Waiting" if found_sub and not resp_data.get("status") else "Done")
@@ -1724,8 +1738,13 @@ class DynamicAIGatewayRouter:
                     remote_error = None
                     break
                 except urllib.error.HTTPError as http_err:
-                    remote_error = f"HTTP {http_err.code} at {url}"
-                    if http_err.code in (400, 404, 415, 502, 503, 504):
+                    detail = ""
+                    try:
+                        detail = http_err.read().decode("utf-8", errors="replace").strip()[:200]
+                    except Exception:
+                        pass
+                    remote_error = f"HTTP {http_err.code} at {url}{' — ' + detail if detail else ''}"
+                    if http_err.code in (400, 404, 415, 422, 502, 503, 504):
                         continue
                     break
                 except Exception as err:

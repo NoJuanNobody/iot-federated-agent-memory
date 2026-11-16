@@ -554,6 +554,8 @@ def test_rodin_fallback_host_and_glb_download(monkeypatch):
 
     def fake_urlopen(req, timeout=30.0):
         seen_urls.append(req.full_url)
+        if req.full_url == router.RODIN_GENERATE_URL and seen_urls.count(router.RODIN_GENERATE_URL) == 1:
+            return _DummyHTTPResp({"error": "INVALID_REQUEST", "message": "unsupported field"})
         if req.full_url == router.RODIN_GENERATE_URL:
             raise urllib.error.HTTPError(req.full_url, 503, "Service Unavailable", hdrs={}, fp=None)
         if req.full_url == router.RODIN_FALLBACK_GENERATE_URL:
