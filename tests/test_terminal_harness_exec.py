@@ -145,10 +145,10 @@ pathlib.Path(".claude/session.json").write_text("{}", encoding="utf-8")
 
 
 def test_http_terminal_harness_exec_and_error_status(tmp_path, monkeypatch):
-    import server
+    import tests.test_tincan_ux_updates as _ux
 
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setattr(server, "_space_manager", AgentSpaceManager(base_dir=str(tmp_path / "spaces")))
+    monkeypatch.setattr(_ux.server, "_space_manager", AgentSpaceManager(base_dir=str(tmp_path / "spaces")))
     fake_codex = _write_fake_cli(
         tmp_path / "codex",
         """#!/usr/bin/env python3

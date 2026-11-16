@@ -2528,6 +2528,10 @@ def _build_copilot_script() -> str:
       const payload = {
         model: modelId,
         prompt: fullPrompt,
+        scope: state.scope || 'user',
+        owner_id: state.ownerId || resolvePeerId(),
+        active_file: (typeof window !== 'undefined' && window.currentSpaceFile) || null,
+        use_space_context: true,
         peer_id: resolvePeerId()
       };
       if (state.threadId) payload.thread_id = state.threadId;

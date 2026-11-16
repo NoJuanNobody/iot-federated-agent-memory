@@ -12,6 +12,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TinCan Mesh OS 2.1 — Multi-Window, Multiplayer &amp; AI Mesh Gateway</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/assets/vendor/xterm/xterm.css">
+  <script src="/assets/vendor/xterm/xterm.js"></script>
+  <script src="/assets/vendor/xterm/addon-fit.js"></script>
   <style>
     /*TC_SHELL_CSS*/
     /*TC_COPILOT_CSS*/
@@ -849,10 +852,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     <!-- ===================================================================== -->
     <!-- Window 1: Terminal & Quickstart.exe (Aeonik Celadon Industrial Layout) -->
     <!-- ===================================================================== -->
-    <div id="win-terminal" class="mesh-window w-[840px] max-w-[96vw]" data-zen-window="true" data-window-id="win-terminal" style="top: 60px; left: 32px; z-index: 20;">
+    <div id="win-terminal" class="mesh-window w-[960px] max-w-[96vw]" data-zen-window="true" data-window-id="win-terminal" style="top: 60px; left: 32px; z-index: 20;">
       <!--TC_TITLEBAR {"id": "win-terminal", "title": "Terminal", "meta_html": "<span id=\"aeonikHeaderClock\">--:--</span> <span id=\"aeonikHeaderCwd\" class=\"hidden sm:inline\">~/space</span>", "extra_controls_html": "<a href=\"/fono\" target=\"_blank\" class=\"tc-ctl\" title=\"Open the Fono mobile controller\">Fono</a>"}-->
-      <!-- The terminal is just the terminal: install card top-left, the shell below taking the rest. Files live in Space. -->
-      <div class="window-body tc-term-body p-0 font-mono text-xs border-b border-black bg-[#ecf1e6]" style="display: flex; flex-direction: column; height: min(600px, calc(100vh - 150px)); overflow: hidden;">
+      <!-- The terminal is just the terminal: install card top-left, the shell/TUI below taking the rest. Files live in Space. -->
+      <div class="window-body tc-term-body p-0 font-mono text-xs border-b border-black bg-[#ecf1e6]" style="display: flex; flex-direction: column; height: min(680px, calc(100vh - 120px)); overflow: hidden;">
         <div class="tc-term-top p-3 pb-2 flex flex-wrap items-start gap-3" style="flex: 0 0 auto;">
           <div class="w-full md:w-[470px] max-w-full min-w-0">
             <!--TC_INSTALL_CARD {"id": "terminal", "compact": true, "shell": "#termShellMount"}-->
@@ -8338,6 +8341,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     let currentSpaceFile = '/src/main.py';
     window.currentSpaceScope = currentSpaceScope;
     window.currentSpaceOwner = currentSpaceOwner;
+    window.currentSpaceFile = currentSpaceFile;
 
     function switchSpaceScope(scope) {
       currentSpaceScope = scope;
@@ -8511,6 +8515,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     async function openAgentSpaceFile(path) {
       currentSpaceFile = path;
+      window.currentSpaceFile = currentSpaceFile;
       if (typeof notifyParentInstanceTitle === 'function' && singleWindowParam === 'win-agentspace') {
         notifyParentInstanceTitle(`${currentSpaceScope}: ${currentSpaceOwner} · ${String(path || '').split('/').pop()}`);
       }
@@ -8591,6 +8596,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         if (resp.ok) {
           ideForgetTab('space:' + currentSpaceFile);
           currentSpaceFile = '/src/main.py';
+          window.currentSpaceFile = currentSpaceFile;
           refreshAgentSpace();
         }
       } catch (err) {
@@ -8602,6 +8608,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       const name = prompt('Enter new file path inside space (e.g. /src/solution.py, /artcraft/notes.md):', '/src/script.py');
       if (!name) return;
       currentSpaceFile = name;
+      window.currentSpaceFile = currentSpaceFile;
       const editor = document.getElementById('agentspaceEditor');
       if (editor) editor.value = '# New file in AgentSpace VFS\n';
       rangerMode = 'space';

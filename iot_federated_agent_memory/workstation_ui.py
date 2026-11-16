@@ -1874,7 +1874,15 @@ def _workstation_js() -> str:
 
             const runSide = async (side, modelId) => {
               const t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-              const body = { model: modelId, prompt, peer_id: resolvePeerId() };
+              const body = {
+                model: modelId,
+                prompt,
+                scope: (typeof window !== 'undefined' && window.currentSpaceScope) || 'user',
+                owner_id: (typeof window !== 'undefined' && window.currentSpaceOwner) || resolvePeerId(),
+                active_file: (typeof window !== 'undefined' && window.currentSpaceFile) || null,
+                use_space_context: true,
+                peer_id: resolvePeerId()
+              };
               if (matchId) {
                 body.arena = true;
                 body.match_id = matchId;

@@ -1376,7 +1376,9 @@ TOOL_RUNTIMES = {"npm": "npm", "npx": "npx", "cargo": "cargo", "rustc": "rustc",
 # Directories never synced back from a run into the .space VFS (dependency
 # trees, build output and tool caches can be huge).
 SANDBOX_NO_SYNC_DIRS = {"node_modules", "target", ".npm", ".cache", ".cargo", ".rustup", ".linuxbrew", "__pycache__"}
-HARNESS_NO_SYNC_DIRS = SANDBOX_NO_SYNC_DIRS | {".dsx", ".claude", ".codex", ".gemini", ".opencode", ".config", ".local", ".aider"}
+HARNESS_NO_SYNC_DIRS = SANDBOX_NO_SYNC_DIRS | {
+    ".dsx", ".claude", ".codex", ".gemini", ".opencode", ".config", ".local", ".aider", ".tincan",
+}
 HARNESS_AUTH_ENV_KEYS = (
     "OPENROUTER_API_KEY",
     "OPENROUTER_BASE_URL",
@@ -1473,6 +1475,54 @@ def _tool_timeout(timeout_sec: float) -> float:
     except ValueError:
         floor = 120.0
     return max(timeout_sec, floor)
+
+
+def prepare_harness_sandbox_env(
+    tmpdir: str,
+    cache_dir: str,
+    extra_env: Optional[Dict[str, str]] = None,
+) -> Dict[str, str]:
+    """Build an isolated sandbox env keeping HOME, TMPDIR, CODEX_HOME, and OpenCode config outside .space."""
+    sandbox_home = os.path.join(cache_dir, "home")
+    sandbox_tmp = os.path.join(cache_dir, "tmp")
+    codex_home = os.path.join(sandbox_home, ".codex")
+    opencode_cfg_dir = os.path.join(sandbox_home, ".config", "opencode")
+    os.makedirs(sandbox_tmp, exist_ok=True)
+    os.makedirs(codex_home, exist_ok=True)
+    os.makedirs(opencode_cfg_dir, exist_ok=True)
+    if os.environ.get("OPENROUTER_API_KEY"):
+        with open(os.path.join(opencode_cfg_dir, "opencode.json"), "w", encoding="utf-8") as ocf:
+            json.dump(
+                {
+                    "provider": {
+                        "openrouter": {
+                            "options": {
+                                "baseURL": "https://openrouter.ai/api/v1",
+                                "apiKey": "{env:OPENROUTER_API_KEY}",
+                            },
+                            "models": {
+                                "openai/gpt-4o-mini": {"name": "GPT-4o Mini"},
+                                "anthropic/claude-sonnet-5.5": {"name": "Claude Sonnet 5.5"},
+                            },
+                        }
+                    }
+                },
+                ocf,
+            )
+    sandbox_env = build_toolchain_env(tmpdir, cache_dir)
+    sandbox_env["HOME"] = sandbox_home
+    sandbox_env["TMPDIR"] = sandbox_tmp
+    sandbox_env["TMP"] = sandbox_tmp
+    sandbox_env["TEMP"] = sandbox_tmp
+    sandbox_env["CODEX_HOME"] = codex_home
+    for key in HARNESS_AUTH_ENV_KEYS:
+        val = os.environ.get(key)
+        if val:
+            sandbox_env[key] = val
+    if extra_env:
+        sandbox_env.update({k: v for k, v in extra_env.items() if v is not None})
+    sandbox_env.setdefault("IS_SANDBOX", "1")
+    return sandbox_env
 
 
 class WasmAndCodePlaygroundRunner:
@@ -1679,46 +1729,7 @@ class WasmAndCodePlaygroundRunner:
         with tempfile.TemporaryDirectory(prefix="agent_space_run_") as tmpdir, \
                 tempfile.TemporaryDirectory(prefix="agent_space_cache_") as cache_dir:
             initial_hashes = self._materialize_space(vfs, tmpdir)
-            sandbox_home = os.path.join(cache_dir, "home")
-            sandbox_tmp = os.path.join(cache_dir, "tmp")
-            codex_home = os.path.join(sandbox_home, ".codex")
-            opencode_cfg_dir = os.path.join(sandbox_home, ".config", "opencode")
-            os.makedirs(sandbox_tmp, exist_ok=True)
-            os.makedirs(codex_home, exist_ok=True)
-            os.makedirs(opencode_cfg_dir, exist_ok=True)
-            if os.environ.get("OPENROUTER_API_KEY"):
-                with open(os.path.join(opencode_cfg_dir, "opencode.json"), "w", encoding="utf-8") as ocf:
-                    json.dump(
-                        {
-                            "provider": {
-                                "openrouter": {
-                                    "options": {
-                                        "baseURL": "https://openrouter.ai/api/v1",
-                                        "apiKey": "{env:OPENROUTER_API_KEY}",
-                                    },
-                                    "models": {
-                                        "openai/gpt-4o-mini": {"name": "GPT-4o Mini"},
-                                        "anthropic/claude-sonnet-5.5": {"name": "Claude Sonnet 5.5"},
-                                    },
-                                }
-                            }
-                        },
-                        ocf,
-                    )
-            sandbox_env = build_toolchain_env(tmpdir, cache_dir)
-            # Keep tool config/cache dotfiles and Bun/CLI temp files out of the .space workspace.
-            sandbox_env["HOME"] = sandbox_home
-            sandbox_env["TMPDIR"] = sandbox_tmp
-            sandbox_env["TMP"] = sandbox_tmp
-            sandbox_env["TEMP"] = sandbox_tmp
-            sandbox_env["CODEX_HOME"] = codex_home
-            for key in HARNESS_AUTH_ENV_KEYS:
-                val = os.environ.get(key)
-                if val:
-                    sandbox_env[key] = val
-            if extra_env:
-                sandbox_env.update({k: v for k, v in extra_env.items() if v is not None})
-            sandbox_env.setdefault("IS_SANDBOX", "1")
+            sandbox_env = prepare_harness_sandbox_env(tmpdir, cache_dir, extra_env=extra_env)
             stdout, stderr, exit_code = self._run_subprocess(
                 cmd, tmpdir=tmpdir, env=sandbox_env, timeout_sec=effective_timeout
             )
@@ -2421,3 +2432,80 @@ class AgentSpaceManager:
                 "events": ["<app>:ready", "<app>:open", "<app>:save", "<app>:dirty"],
             },
         }
+
+
+def build_space_context_summary(
+    vfs: Any,
+    *,
+    active_file: Optional[str] = None,
+    palace_snippets: Optional[List[Dict[str, Any]]] = None,
+    max_total_chars: int = 24000,
+    max_file_chars: int = 4000,
+) -> Dict[str, Any]:
+    """Build a bounded system-context snapshot of a .space VFS and optional Context Palace items."""
+    files = list(vfs.list_files() or [])
+    norm_active = vfs.normalize_path(active_file) if active_file and hasattr(vfs, "normalize_path") else active_file
+    scope = getattr(vfs, "scope", "user")
+    owner_id = getattr(vfs, "owner_id", "default")
+    merkle_root = vfs.compute_merkle_root() if hasattr(vfs, "compute_merkle_root") else ""
+
+    tree_lines = [f"- {f['path']} ({f.get('size_bytes', 0)}B)" for f in files[:80]]
+    ordered = sorted(
+        files,
+        key=lambda f: (
+            0 if norm_active and f["path"] == norm_active else 1,
+            0 if f["path"] in ("/README.md", "/AGENTS.md", "/CLAUDE.md") else 1,
+            f["path"],
+        ),
+    )
+
+    excerpts: List[str] = []
+    used_chars = 0
+    for rec in ordered:
+        if used_chars >= max_total_chars:
+            break
+        fpath = rec["path"]
+        try:
+            file_data = vfs.read_file(fpath, as_text=True)
+        except Exception:
+            continue
+        text = file_data.get("content") if isinstance(file_data, dict) else None
+        if text is None:
+            continue
+        snippet = text[:max_file_chars]
+        if len(text) > max_file_chars:
+            snippet += "\n... [truncated]"
+        block = f"[{fpath}]\n{snippet}"
+        if used_chars + len(block) > max_total_chars and excerpts:
+            break
+        excerpts.append(block)
+        used_chars += len(block)
+
+    palace_lines: List[str] = []
+    for item in (palace_snippets or [])[:8]:
+        name = item.get("canonical_name") or item.get("node_id") or "concept"
+        val = str(item.get("active_value") or item.get("value") or "").strip()[:500]
+        if val:
+            palace_lines.append(f"- {name}: {val}")
+
+    header = (
+        f"[TinCan .space VFS Context: {scope}:{owner_id}"
+        + (f" · merkle {merkle_root[:12]}" if merkle_root else "")
+        + (f" · active_file={norm_active}" if norm_active else "")
+        + "]"
+    )
+    sections = [header]
+    sections.append("Files in VFS:\n" + ("\n".join(tree_lines) if tree_lines else "(empty)"))
+    if excerpts:
+        sections.append("VFS File Contents:\n" + "\n\n".join(excerpts))
+    if palace_lines:
+        sections.append("Context Palace Facts:\n" + "\n".join(palace_lines))
+
+    return {
+        "scope": scope,
+        "owner_id": owner_id,
+        "active_file": norm_active,
+        "merkle_root": merkle_root,
+        "files_count": len(files),
+        "text": "\n\n".join(sections),
+    }

@@ -9,6 +9,7 @@ import re
 from http.cookies import SimpleCookie
 import os
 import secrets
+import struct
 import subprocess
 import tarfile
 import threading
@@ -859,6 +860,91 @@ ARENA_CONTEXT_API = ArenaContextAPI(
     arena_context, lambda: account_registry, banned_peers=banned_peers, space_manager_getter=_get_space_manager,
 )
 
+_pty_manager = None
+
+
+def _get_pty_manager():
+    global _pty_manager
+    if _pty_manager is None:
+        from iot_federated_agent_memory.pty_sessions import PTYSessionManager
+        _pty_manager = PTYSessionManager()
+    return _pty_manager
+
+
+def _get_palace_snippets(limit: int = 8) -> List[Dict[str, Any]]:
+    try:
+        res = arena_context.list_palace_concepts(limit=limit)
+        return list(res.get("concepts") or [])
+    except Exception:
+        return []
+
+
+def _ws_recv_exact(sock: Any, count: int) -> Optional[bytes]:
+    buf = bytearray()
+    while len(buf) < count:
+        try:
+            chunk = sock.recv(count - len(buf))
+        except OSError:
+            return None
+        if not chunk:
+            return None
+        buf.extend(chunk)
+    return bytes(buf)
+
+
+def _ws_send_frame(sock: Any, opcode: int, payload: bytes, lock: threading.Lock) -> bool:
+    length = len(payload)
+    if length < 126:
+        header = bytes([0x80 | opcode, length])
+    elif length <= 0xFFFF:
+        header = struct.pack("!BBH", 0x80 | opcode, 126, length)
+    else:
+        header = struct.pack("!BBQ", 0x80 | opcode, 127, length)
+    try:
+        with lock:
+            sock.sendall(header + payload)
+        return True
+    except OSError:
+        return False
+
+
+def _ws_recv_frame(sock: Any) -> Optional[Tuple[int, bytes]]:
+    chunks: List[bytes] = []
+    first_opcode: Optional[int] = None
+    while True:
+        hdr = _ws_recv_exact(sock, 2)
+        if not hdr:
+            return None
+        fin = (hdr[0] & 0x80) != 0
+        opcode = hdr[0] & 0x0F
+        if first_opcode is None:
+            first_opcode = opcode
+        masked = (hdr[1] & 0x80) != 0
+        length = hdr[1] & 0x7F
+        if length == 126:
+            ext = _ws_recv_exact(sock, 2)
+            if not ext:
+                return None
+            length = struct.unpack("!H", ext)[0]
+        elif length == 127:
+            ext = _ws_recv_exact(sock, 8)
+            if not ext:
+                return None
+            length = struct.unpack("!Q", ext)[0]
+        if length > 2 * 1024 * 1024:
+            return None
+        mask = _ws_recv_exact(sock, 4) if masked else None
+        if masked and not mask:
+            return None
+        raw = _ws_recv_exact(sock, length) if length else b""
+        if raw is None:
+            return None
+        if masked and mask:
+            raw = bytes(b ^ mask[i % 4] for i, b in enumerate(raw))
+        chunks.append(raw)
+        if fin:
+            return (first_opcode if first_opcode is not None else opcode, b"".join(chunks))
+
 HTML_UI = MESH_OS_HTML_UI
 
 # Paths that open the shell straight into one window (mesh_os_ui.py maps each to its window id;
@@ -1441,12 +1527,47 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     thread_id = tdir.name
                 except ThreadFsError as te:
                     thread_error = str(te)
+                space_ctx_meta = None
+                if data.get("use_space_context") or data.get("scope") or data.get("owner_id"):
+                    try:
+                        from iot_federated_agent_memory.agent_space import build_space_context_summary
+
+                        sp_scope = (data.get("scope") or "user").strip()
+                        sp_owner = (data.get("owner_id") or data.get("peer_id") or "default").strip()
+                        sp_vfs = _get_space_manager().get_space(scope=sp_scope, owner_id=sp_owner)
+                        ctx_summary = build_space_context_summary(
+                            sp_vfs,
+                            active_file=data.get("active_file"),
+                            palace_snippets=_get_palace_snippets(limit=8),
+                        )
+                        if ctx_summary.get("text"):
+                            messages = [
+                                {
+                                    "role": "system",
+                                    "content": (
+                                        "Use this live TinCan .space VFS and Context Palace context when answering "
+                                        "about the user's files, code, or project.\n\n" + ctx_summary["text"]
+                                    ),
+                                },
+                                *messages,
+                            ]
+                            space_ctx_meta = {
+                                "scope": ctx_summary["scope"],
+                                "owner_id": ctx_summary["owner_id"],
+                                "active_file": ctx_summary["active_file"],
+                                "files_count": ctx_summary["files_count"],
+                                "merkle_root": ctx_summary["merkle_root"],
+                            }
+                    except Exception:
+                        space_ctx_meta = None
                 completion = router.dispatch_completion(
                     alias=model_alias,
                     messages=messages,
                     temperature=float(data.get("temperature", 0.7)),
                     max_tokens=int(data.get("max_tokens", 512)),
                 )
+                if space_ctx_meta is not None:
+                    completion["space_context"] = space_ctx_meta
                 peer_id = data.get("peer_id") or "peer"
                 mesh_os.record_flight(peer_id, model_alias, kind="ai_prompt", label=model_alias)
                 usage = completion.get("usage", {})
@@ -2754,6 +2875,85 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json(out, 200 if out.get("status") != "error" else 400)
             except Exception as e:
                 self._send_json({"status": "error", "error": str(e), "output": f"Error: {e}", "lines": [f"Error: {e}"]}, 500)
+        elif parsed.path == "/api/terminal/pty/start":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                app_id = (data.get("harness") or data.get("command") or data.get("app") or "bash").strip()
+                scope = (data.get("scope") or "user").strip()
+                owner_id = (data.get("owner_id") or data.get("peer_id") or "default").strip()
+                active_file = data.get("active_file")
+                cols = int(data.get("cols") or 100)
+                rows = int(data.get("rows") or 30)
+                sp_vfs = _get_space_manager().get_or_create_space(scope=scope, owner_id=owner_id)
+                sess = _get_pty_manager().start_session(
+                    app_id,
+                    scope=scope,
+                    owner_id=owner_id,
+                    vfs=sp_vfs,
+                    palace_snippets=_get_palace_snippets(limit=8),
+                    active_file=active_file,
+                    cols=cols,
+                    rows=rows,
+                )
+                self._send_json({"status": "ok", **sess.summary(), "files_count": len(sp_vfs.list_files())}, 200)
+            except Exception as e:
+                self._send_json({"status": "error", "error": str(e)}, 400)
+        elif parsed.path == "/api/terminal/pty/input":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                sid = (data.get("session_id") or "").strip()
+                sess = _get_pty_manager().get(sid)
+                if not sess:
+                    self._send_json({"status": "error", "error": f"Unknown PTY session '{sid}'"}, 404)
+                    return
+                if data.get("data_b64"):
+                    raw = base64.b64decode(data["data_b64"])
+                else:
+                    raw = str(data.get("data") or "").encode("utf-8")
+                sess.write(raw)
+                self._send_json({"status": "ok"}, 200)
+            except Exception as e:
+                self._send_json({"status": "error", "error": str(e)}, 400)
+        elif parsed.path == "/api/terminal/pty/resize":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                sid = (data.get("session_id") or "").strip()
+                sess = _get_pty_manager().get(sid)
+                if not sess:
+                    self._send_json({"status": "error", "error": f"Unknown PTY session '{sid}'"}, 404)
+                    return
+                sess.resize(int(data.get("cols") or 100), int(data.get("rows") or 30))
+                self._send_json({"status": "ok", "cols": sess.cols, "rows": sess.rows}, 200)
+            except Exception as e:
+                self._send_json({"status": "error", "error": str(e)}, 400)
+        elif parsed.path == "/api/terminal/pty/sync":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                sid = (data.get("session_id") or "").strip()
+                synced = _get_pty_manager().sync(sid)
+                self._send_json({"status": "ok", "synced_files": synced}, 200)
+            except KeyError as e:
+                self._send_json({"status": "error", "error": str(e)}, 404)
+            except Exception as e:
+                self._send_json({"status": "error", "error": str(e)}, 500)
+        elif parsed.path == "/api/terminal/pty/stop":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                sid = (data.get("session_id") or "").strip()
+                synced = _get_pty_manager().close(sid)
+                self._send_json({"status": "ok", "synced_files": synced}, 200)
+            except Exception as e:
+                self._send_json({"status": "error", "error": str(e)}, 500)
         elif parsed.path == "/api/space/agent":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
@@ -3699,6 +3899,102 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             from iot_federated_agent_memory.tincan_brew import discover_harnesses
 
             self._send_json(discover_harnesses(), 200)
+        elif parsed.path == "/api/terminal/pty/ws":
+            qs = parse_qs(parsed.query)
+            sid = (qs.get("session_id") or [""])[0].strip()
+            sess = _get_pty_manager().get(sid)
+            if not sess:
+                self._send_json({"status": "error", "error": f"Unknown PTY session '{sid}'"}, 404)
+                return
+            ws_key = self.headers.get("Sec-WebSocket-Key")
+            if self.headers.get("Upgrade", "").lower() != "websocket" or not ws_key:
+                self._send_json({"status": "error", "error": "WebSocket upgrade required"}, 426)
+                return
+            accept = base64.b64encode(
+                hashlib.sha1((ws_key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode("ascii")).digest()
+            ).decode("ascii")
+            self.close_connection = True
+            handshake = (
+                "HTTP/1.1 101 Switching Protocols\r\n"
+                "Upgrade: websocket\r\n"
+                "Connection: Upgrade\r\n"
+                f"Sec-WebSocket-Accept: {accept}\r\n\r\n"
+            ).encode("ascii")
+            self.connection.sendall(handshake)
+
+            write_lock = threading.Lock()
+            stop_ev = threading.Event()
+
+            def _pump_out() -> None:
+                offset = 0
+                while not stop_ev.is_set():
+                    chunk, offset, closed = sess.read_since(offset, timeout=0.25)
+                    if chunk:
+                        if not _ws_send_frame(self.connection, 0x2, chunk, write_lock):
+                            break
+                    if closed and offset >= sess._total_bytes:
+                        _ws_send_frame(self.connection, 0x8, b"", write_lock)
+                        break
+
+            pump_thread = threading.Thread(target=_pump_out, daemon=True)
+            pump_thread.start()
+            try:
+                while not stop_ev.is_set():
+                    frame = _ws_recv_frame(self.connection)
+                    if frame is None:
+                        break
+                    opcode, payload = frame
+                    if opcode == 0x8:
+                        _ws_send_frame(self.connection, 0x8, b"", write_lock)
+                        break
+                    if opcode == 0x9:
+                        _ws_send_frame(self.connection, 0xA, payload, write_lock)
+                    elif opcode in (0x1, 0x2):
+                        if payload.startswith(b"\x01{"):
+                            try:
+                                ctrl = json.loads(payload[1:].decode("utf-8"))
+                                if ctrl.get("type") == "resize":
+                                    sess.resize(int(ctrl.get("cols") or 100), int(ctrl.get("rows") or 30))
+                            except Exception:
+                                pass
+                        else:
+                            sess.write(payload)
+            finally:
+                stop_ev.set()
+                pump_thread.join(timeout=1.0)
+            return
+        elif parsed.path == "/api/terminal/pty/stream":
+            qs = parse_qs(parsed.query)
+            sid = (qs.get("session_id") or [""])[0].strip()
+            sess = _get_pty_manager().get(sid)
+            if not sess:
+                self._send_json({"status": "error", "error": f"Unknown PTY session '{sid}'"}, 404)
+                return
+            self.close_connection = True
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("X-Accel-Buffering", "no")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            offset = 0
+            try:
+                while True:
+                    chunk, offset, closed = sess.read_since(offset, timeout=0.4)
+                    if chunk:
+                        msg = f"data: {json.dumps({'b64': base64.b64encode(chunk).decode('ascii')})}\n\n".encode("utf-8")
+                        self.wfile.write(msg)
+                        self.wfile.flush()
+                    else:
+                        self.wfile.write(b": keepalive\n\n")
+                        self.wfile.flush()
+                    if closed and offset >= sess._total_bytes:
+                        self.wfile.write(f"event: close\ndata: {json.dumps({'exit_code': sess.exit_code})}\n\n".encode("utf-8"))
+                        self.wfile.flush()
+                        break
+            except (OSError, BrokenPipeError):
+                pass
+            return
         elif parsed.path in ("/Formula/tincan.rb", "/Formula/context-palace.rb", "/tincan.rb"):
             from iot_federated_agent_memory.tincan_brew import generate_homebrew_formula
 

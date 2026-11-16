@@ -1008,15 +1008,33 @@ def _unwrap_prompt_text(raw_args: str) -> str:
     return text
 
 
-def _build_harness_exec_argv(target: Dict[str, Any], task_args: str) -> Tuple[List[str], str]:
-    """Build non-interactive argv and human-readable command string for a harness invocation."""
+def harness_base_argv(target: Dict[str, Any]) -> List[str]:
+    """Return executable argv prefix for a resolved harness catalog entry."""
     bin_path = target.get("bin_path")
     detected = target.get("detected_local") or []
     js_entry = next((p for p in detected if p.endswith("dist/index.js")), None)
     if target["id"] == "dsx" and not bin_path and js_entry:
-        base_argv = ["node", js_entry]
-    else:
-        base_argv = [bin_path or target["cli"]]
+        return ["node", js_entry]
+    return [bin_path or target["cli"]]
+
+
+def codex_openrouter_flags() -> List[str]:
+    """Return inline Codex CLI `-c` provider overrides when bridging through OpenRouter."""
+    codex_model = os.environ.get("CODEX_MODEL") or "openai/gpt-4o-mini"
+    return [
+        "-c", 'model_provider="openrouter"',
+        "-c", f'model="{codex_model}"',
+        "-c", 'model_providers.openrouter.name="OpenRouter"',
+        "-c", 'model_providers.openrouter.base_url="https://openrouter.ai/api/v1"',
+        "-c", 'model_providers.openrouter.env_key="OPENROUTER_API_KEY"',
+        "-c", 'model_providers.openrouter.wire_api="responses"',
+        "-c", "model_providers.openrouter.supports_websockets=false",
+    ]
+
+
+def _build_harness_exec_argv(target: Dict[str, Any], task_args: str) -> Tuple[List[str], str]:
+    """Build non-interactive argv and human-readable command string for a harness invocation."""
+    base_argv = harness_base_argv(target)
 
     stripped = (task_args or "").strip()
     if not stripped:
@@ -1039,16 +1057,9 @@ def _build_harness_exec_argv(target: Dict[str, Any], task_args: str) -> Tuple[Li
     elif target["id"] == "opencode" and or_key:
         flags.extend(["-m", os.environ.get("OPENCODE_MODEL") or "openrouter/openai/gpt-4o-mini"])
     elif target["id"] == "codex" and or_key and not os.environ.get("OPENAI_API_KEY"):
-        codex_model = os.environ.get("CODEX_MODEL") or "openai/gpt-4o-mini"
         flags = [
             "--dangerously-bypass-approvals-and-sandbox",
-            "-c", 'model_provider="openrouter"',
-            "-c", f'model="{codex_model}"',
-            "-c", 'model_providers.openrouter.name="OpenRouter"',
-            "-c", 'model_providers.openrouter.base_url="https://openrouter.ai/api/v1"',
-            "-c", 'model_providers.openrouter.env_key="OPENROUTER_API_KEY"',
-            "-c", 'model_providers.openrouter.wire_api="responses"',
-            "-c", "model_providers.openrouter.supports_websockets=false",
+            *codex_openrouter_flags(),
             "exec", "--skip-git-repo-check",
         ]
 

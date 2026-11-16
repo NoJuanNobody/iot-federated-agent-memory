@@ -31,13 +31,17 @@ SHELL_CSS = r"""
     .tcsh { display: flex; flex-direction: column; min-height: 0; min-width: 0; height: 100%; background: #ffffff; color: #111111;
       border: 1px solid #111111; border-radius: 12px; overflow: hidden;
       font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; line-height: 1.5; }
-    .tcsh-bar { display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: #f4f8f0; border-bottom: 1px solid rgba(17,17,17,0.22);
+    .tcsh-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 4px 10px; background: #f4f8f0; border-bottom: 1px solid rgba(17,17,17,0.22);
       font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; flex: 0 0 auto; }
     .tcsh-bar .tcsh-spacer { flex: 1; }
     .tcsh-bar button { font: inherit; font-size: 9px; letter-spacing: 0; text-transform: none; padding: 1px 8px; border: 1px solid #111111; border-radius: 9999px;
-      background: transparent; color: #111111; cursor: pointer; }
-    .tcsh-bar button:hover { background: #111111; color: #ecf1e6; }
+      background: transparent; color: #111111; cursor: pointer; white-space: nowrap; }
+    .tcsh-bar button:hover, .tcsh-bar button.is-active { background: #111111; color: #ecf1e6; }
     .tcsh-pill { padding: 1px 8px; border: 1px solid #111111; border-radius: 9999px; font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+    .tcsh-tui { display: none; flex: 1 1 auto; min-height: 0; background: #0d1210; padding: 6px; overflow: hidden; }
+    .tcsh-tui-host { width: 100%; height: 100%; min-height: 0; }
+    .tcsh.is-tui .tcsh-scroll, .tcsh.is-tui .tcsh-row { display: none; }
+    .tcsh.is-tui .tcsh-tui { display: flex; flex-direction: column; }
     .tcsh-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; cursor: text; }
     .tcsh-log { min-height: 100%; display: flex; flex-direction: column; justify-content: flex-end; padding: 8px 12px 4px; gap: 1px; user-select: text; }
     .tcsh-help { color: #4a4a4a; margin: 0 0 4px; white-space: pre-wrap; }
@@ -164,7 +168,8 @@ SHELL_JS = r"""
       'brew <args>   TinCan Homebrew (brew install tincan context-palace)',
       'harnesses     list coding harnesses (Antigravity, Claude Code, OpenCode, DSX, Codex)',
       'harness <cmd> inspect or queue best harness / run `<agy|claude|opencode|dsx> <prompt>`',
-      'ask <q>       ask the AI gateway',
+      'tui [app]     launch full interactive TUI (claude, opencode, dsx, codex, goose, bash)',
+      'ask <q>       ask the AI gateway (grounded in current .space VFS + Context Palace)',
       'clear         clear the screen',
       'help          this list'
     ].join('\n');
@@ -311,6 +316,17 @@ SHELL_JS = r"""
             );
           }
         }
+        const tuiApps = ['claude', 'claude-code', 'opencode', 'dsx', 'codex', 'goose', 'gemini', 'bash', 'sh', 'zsh'];
+        if (verb === 'tui' || (tuiApps.includes(verb) && !arg)) {
+          const targetTui = verb === 'tui' ? (rest[0] || 'bash') : verb;
+          if (typeof o.openTui === 'function') {
+            await o.openTui(targetTui);
+            return termDone(true, `Launched interactive ${targetTui} TUI inside ${c.scope}:${c.owner}`);
+          }
+          if (verb === 'tui' || ['bash', 'sh', 'zsh'].includes(verb)) {
+            return termDone(true, `Use the Terminal TUI bar to launch interactive ${targetTui}.`);
+          }
+        }
         if (harnessVerbs.includes(effectiveVerb)) {
           progress('Running coding harness in your .space...');
           const r = await fetch('/api/terminal/harness', {
@@ -329,10 +345,18 @@ SHELL_JS = r"""
         }
         if (verb === 'ask' && !arg) return termDone(false, 'ask: usage: ask <question>');
         const prompt = cmd.replace(/^(ask|tincan\s+(?:chat|ask))\s+/i, '');
-        progress('Asking the AI gateway…');
+        progress('Asking the AI gateway with .space VFS context…');
         const r = await fetch('/api/chat', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: 'gemini-brain', prompt: prompt, peer_id: (typeof myPeerId !== 'undefined' && myPeerId) || 'terminal' })
+          body: JSON.stringify({
+            model: 'gemini-brain',
+            prompt: prompt,
+            scope: c.scope,
+            owner_id: c.owner,
+            active_file: (typeof window !== 'undefined' && window.currentSpaceFile) || null,
+            use_space_context: true,
+            peer_id: (typeof myPeerId !== 'undefined' && myPeerId) || c.owner || 'terminal'
+          })
         });
         const d = await r.json();
         const text = termChatReply(d);
@@ -362,21 +386,217 @@ SHELL_JS = r"""
         el.classList.add('tcsh');
         el.setAttribute('data-tc-shell', '1');
         el.innerHTML =
-          '<div class="tcsh-bar"><span>' + termEsc(opts.title || 'Shell') + '</span><span class="tcsh-spacer"></span>' +
+          '<div class="tcsh-bar"><span>' + termEsc(opts.title || 'Shell') + '</span>' +
+          '<button type="button" data-tui="claude" title="Launch interactive Claude Code TUI">Claude TUI</button>' +
+          '<button type="button" data-tui="opencode" title="Launch interactive OpenCode TUI">OpenCode TUI</button>' +
+          '<button type="button" data-tui="dsx" title="Launch interactive DSX TUI">DSX TUI</button>' +
+          '<button type="button" data-tui="codex" title="Launch interactive Codex TUI">Codex TUI</button>' +
+          '<button type="button" data-tui="goose" title="Launch interactive Goose TUI">Goose TUI</button>' +
+          '<button type="button" data-tui="bash" title="Launch interactive bash shell in .space">Bash</button>' +
+          '<span class="tcsh-spacer"></span>' +
+          '<button type="button" data-act="sync" style="display:none" title="Sync TUI file edits to .space">↻ Sync</button>' +
+          '<button type="button" data-act="shell" style="display:none" title="Return to command shell">Command Shell</button>' +
+          '<button type="button" data-act="stop" style="display:none" title="Close live TUI session">Stop TUI</button>' +
           '<button type="button" data-act="clear">Clear</button><span class="tcsh-pill" data-role="pill">Ready</span></div>' +
           '<div class="tcsh-scroll" data-role="scroll"><div class="tcsh-log" data-role="log" role="log" aria-live="polite"></div></div>' +
+          '<div class="tcsh-tui" data-role="tui"><div class="tcsh-tui-host" data-role="tuihost"></div></div>' +
           '<form class="tcsh-row" autocomplete="off"><span class="tcsh-ps" data-role="prompt"></span>' +
           '<input class="tcsh-input" data-role="input" type="text" spellcheck="false" autocapitalize="off" aria-label="Shell command" placeholder="' +
-          termEsc(opts.placeholder || 'ls, cat /src/main.py, run, py print(1), ask …') + '" />' +
+          termEsc(opts.placeholder || 'ls, cat /src/main.py, claude, opencode, dsx, ask …') + '" />' +
           '<button type="submit" class="tcsh-run">RUN</button></form>';
         const $ = (r) => el.querySelector('[data-role="' + r + '"]');
-        const log = $('log'), scroll = $('scroll'), input = $('input'), pill = $('pill'), ps = $('prompt');
+        const log = $('log'), scroll = $('scroll'), input = $('input'), pill = $('pill'), ps = $('prompt'), tuiHost = $('tuihost');
+        const syncBtn = el.querySelector('[data-act="sync"]');
+        const shellBtn = el.querySelector('[data-act="shell"]');
+        const stopBtn = el.querySelector('[data-act="stop"]');
         const history = [];
         let hIdx = 0;
+        let tuiState = null;
 
         const refreshPrompt = () => { ps.textContent = termPrompt(); };
         const toBottom = () => { scroll.scrollTop = scroll.scrollHeight; };
         const setPill = (t) => { pill.textContent = t; };
+        function setTuiActiveButtons(activeApp) {
+          el.querySelectorAll('[data-tui]').forEach(b => b.classList.toggle('is-active', !!activeApp && b.getAttribute('data-tui') === activeApp));
+          const hasTui = !!tuiState;
+          if (syncBtn) syncBtn.style.display = hasTui ? '' : 'none';
+          if (shellBtn) shellBtn.style.display = el.classList.contains('is-tui') ? '' : 'none';
+          if (stopBtn) stopBtn.style.display = hasTui ? '' : 'none';
+        }
+        async function syncTuiSpace(silent) {
+          if (!tuiState || !tuiState.sid) return [];
+          try {
+            const r = await fetch('/api/terminal/pty/sync', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ session_id: tuiState.sid })
+            });
+            const d = await r.json().catch(() => ({}));
+            const files = (d && Array.isArray(d.synced_files)) ? d.synced_files : [];
+            if (files.length) termSpaceChanged(tuiState.ctx);
+            if (!silent && files.length && tuiState.term) {
+              tuiState.term.write('\r\n\x1b[32m[Synced to .space: ' + files.join(', ') + ']\x1b[0m\r\n');
+            }
+            return files;
+          } catch (e) { return []; }
+        }
+        async function stopTui() {
+          if (!tuiState) { el.classList.remove('is-tui'); setTuiActiveButtons(null); return; }
+          const st = tuiState;
+          tuiState = null;
+          clearInterval(st.syncTimer);
+          if (st.ro) st.ro.disconnect();
+          if (st.ws) { try { st.ws.close(); } catch (e) {} }
+          if (st.es) { try { st.es.close(); } catch (e) {} }
+          try {
+            const r = await fetch('/api/terminal/pty/stop', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ session_id: st.sid })
+            });
+            const d = await r.json().catch(() => ({}));
+            if (d && Array.isArray(d.synced_files) && d.synced_files.length) termSpaceChanged(st.ctx);
+          } catch (e) {}
+          if (st.term && st.term.dispose) st.term.dispose();
+          tuiHost.innerHTML = '';
+          el.classList.remove('is-tui');
+          setPill('Ready');
+          setTuiActiveButtons(null);
+          input.focus();
+        }
+        function showCommandShell() {
+          el.classList.remove('is-tui');
+          setPill(tuiState ? ('TUI bg: ' + tuiState.app) : 'Ready');
+          setTuiActiveButtons(tuiState ? tuiState.app : null);
+          input.focus();
+        }
+        async function openTui(appId) {
+          if (tuiState && tuiState.app === appId) {
+            el.classList.add('is-tui');
+            if (tuiState.fit) setTimeout(() => tuiState.fit.fit(), 30);
+            if (tuiState.term) tuiState.term.focus();
+            setPill('TUI: ' + appId);
+            setTuiActiveButtons(appId);
+            return tuiState;
+          }
+          if (tuiState) await stopTui();
+          const c = termCtx(opts);
+          el.classList.add('is-tui');
+          tuiHost.innerHTML = '';
+          setPill('Starting ' + appId + '…');
+          let term = null, fit = null;
+          if (typeof window.Terminal === 'function') {
+            term = new window.Terminal({
+              cursorBlink: true,
+              convertEol: false,
+              fontSize: 12,
+              lineHeight: 1.25,
+              fontFamily: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
+              theme: { background: '#0d1210', foreground: '#d8e6df', cursor: '#10b981', selectionBackground: 'rgba(16, 185, 129, 0.28)' }
+            });
+            if (window.FitAddon && typeof window.FitAddon.FitAddon === 'function') {
+              fit = new window.FitAddon.FitAddon();
+              term.loadAddon(fit);
+            }
+            term.open(tuiHost);
+            if (fit) { try { fit.fit(); } catch (e) {} }
+            term.focus();
+            term.writeln('\x1b[32m[*] Mounting ' + c.scope + ':' + c.owner + '.space and launching ' + appId + ' TUI…\x1b[0m');
+          } else {
+            tuiHost.innerHTML = '<pre style="color:#d8e6df;margin:0;padding:8px">Starting ' + termEsc(appId) + ' TUI…</pre>';
+          }
+          const cols = (term && term.cols) || 100;
+          const rows = (term && term.rows) || 30;
+          const r = await fetch('/api/terminal/pty/start', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              harness: appId,
+              scope: c.scope,
+              owner_id: c.owner,
+              active_file: (typeof window !== 'undefined' && window.currentSpaceFile) || null,
+              cols, rows
+            })
+          });
+          const d = await r.json();
+          if (!r.ok || d.status === 'error') {
+            const err = (d && d.error) || ('HTTP ' + r.status);
+            if (term) term.writeln('\x1b[31m[-] ' + err + '\x1b[0m');
+            setPill('TUI Error');
+            throw new Error(err);
+          }
+          const sid = d.session_id;
+          const st = { sid, app: d.app_id || appId, ctx: c, term, fit, ws: null, es: null, ro: null, syncTimer: null };
+          tuiState = st;
+          setPill('TUI: ' + st.app + ' · ' + c.scope + ':' + c.owner);
+          setTuiActiveButtons(appId);
+
+          const sendResize = (nc, nr) => {
+            if (st.ws && st.ws.readyState === 1) {
+              st.ws.send('\x01' + JSON.stringify({ type: 'resize', cols: nc, rows: nr }));
+            } else {
+              fetch('/api/terminal/pty/resize', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: sid, cols: nc, rows: nr })
+              }).catch(() => {});
+            }
+          };
+          const sendInput = (data) => {
+            if (st.ws && st.ws.readyState === 1) { st.ws.send(data); return; }
+            fetch('/api/terminal/pty/input', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ session_id: sid, data })
+            }).catch(() => {});
+          };
+          if (term) {
+            term.onData(sendInput);
+            term.onResize((sz) => sendResize(sz.cols, sz.rows));
+          }
+
+          const startSseFallback = () => {
+            if (st.es || tuiState !== st) return;
+            const es = new EventSource('/api/terminal/pty/stream?session_id=' + encodeURIComponent(sid));
+            st.es = es;
+            es.onmessage = (ev) => {
+              try {
+                const msg = JSON.parse(ev.data);
+                if (msg.b64 && term) {
+                  const bin = atob(msg.b64);
+                  const arr = new Uint8Array(bin.length);
+                  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+                  term.write(arr);
+                }
+              } catch (e) {}
+            };
+            es.addEventListener('close', () => { es.close(); syncTuiSpace(true); setPill('TUI Exited'); });
+          };
+
+          if (typeof WebSocket === 'function') {
+            const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+            const ws = new WebSocket(proto + location.host + '/api/terminal/pty/ws?session_id=' + encodeURIComponent(sid));
+            ws.binaryType = 'arraybuffer';
+            st.ws = ws;
+            let opened = false;
+            ws.onopen = () => { opened = true; if (fit) { try { fit.fit(); sendResize(term.cols, term.rows); } catch (e) {} } };
+            ws.onmessage = (ev) => {
+              if (!term) return;
+              if (ev.data instanceof ArrayBuffer) term.write(new Uint8Array(ev.data));
+              else term.write(String(ev.data));
+            };
+            ws.onerror = () => { if (!opened) { try { ws.close(); } catch (e) {} startSseFallback(); } };
+            ws.onclose = () => { if (!opened) startSseFallback(); else syncTuiSpace(true); };
+          } else {
+            startSseFallback();
+          }
+
+          if (fit && typeof ResizeObserver === 'function') {
+            st.ro = new ResizeObserver(() => {
+              if (el.classList.contains('is-tui')) {
+                try { fit.fit(); } catch (e) {}
+              }
+            });
+            st.ro.observe(tuiHost);
+          }
+          st.syncTimer = setInterval(() => syncTuiSpace(true), 4000);
+          return st;
+        }
         function intro() {
           const p = document.createElement('div');
           p.className = 'tcsh-help';
@@ -409,12 +629,15 @@ SHELL_JS = r"""
           log.appendChild(out);
           setPill('Running');
           toBottom();
-          const o = Object.assign({}, opts, { progress: (t) => { out.textContent = t; toBottom(); } });
+          const o = Object.assign({}, opts, {
+            progress: (t) => { out.textContent = t; toBottom(); },
+            openTui: (appId) => openTui(appId),
+          });
           const r = await termInterpret(line, o);
           if (r.clear) clear();
           out.textContent = r.text;
           out.classList.toggle('tcsh-err', !r.ok);
-          setPill('Ready');
+          if (!el.classList.contains('is-tui')) setPill('Ready');
           toBottom();
           return { ok: !!r.ok, text: String(r.text) };
         }
@@ -427,6 +650,12 @@ SHELL_JS = r"""
 
         el.querySelector('form').addEventListener('submit', (ev) => { ev.preventDefault(); submit(); });
         el.querySelector('[data-act="clear"]').addEventListener('click', clear);
+        el.querySelectorAll('[data-tui]').forEach(btn => btn.addEventListener('click', () => {
+          openTui(btn.getAttribute('data-tui')).catch(() => {});
+        }));
+        if (syncBtn) syncBtn.addEventListener('click', () => syncTuiSpace(false));
+        if (shellBtn) shellBtn.addEventListener('click', showCommandShell);
+        if (stopBtn) stopBtn.addEventListener('click', () => stopTui());
         scroll.addEventListener('click', (ev) => { if (!window.getSelection || window.getSelection().isCollapsed) input.focus(); });
         input.addEventListener('keydown', (ev) => {
           if (ev.key === 'ArrowUp') { if (hIdx > 0) { hIdx--; input.value = history[hIdx]; } ev.preventDefault(); }
@@ -437,7 +666,8 @@ SHELL_JS = r"""
 
         refreshPrompt();
         intro();
-        const inst = { el, history, exec, submit, clear, note, focus: () => input.focus(), refreshPrompt, destroy() {
+        const inst = { el, history, exec, submit, clear, note, openTui, stopTui, syncTuiSpace, showCommandShell, focus: () => (el.classList.contains('is-tui') && tuiState && tuiState.term ? tuiState.term.focus() : input.focus()), refreshPrompt, destroy() {
+          stopTui();
           const i = instances.indexOf(inst); if (i >= 0) instances.splice(i, 1);
           el.__tcShell = null; el.innerHTML = '';
         } };
