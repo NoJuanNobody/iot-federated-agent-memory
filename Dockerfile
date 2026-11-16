@@ -69,7 +69,34 @@ RUN useradd --create-home --shell /bin/bash linuxbrew \
 COPY scripts/brew-shim.sh /usr/local/bin/brew
 RUN chmod 0755 /usr/local/bin/brew
 
-ENV PATH=/usr/local/bin:/usr/local/cargo/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV PATH=/usr/local/bin:/usr/local/cargo/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin \
+    IS_SANDBOX=1
+
+# Non-interactive coding agent harnesses (Claude Code, OpenCode, Codex CLI,
+# Gemini CLI, DSX OpenRouter harness, and Goose CLI). Antigravity (`agy`) is
+# proprietary/macOS-only and not published on npm, so it is omitted here.
+COPY vendor/dsx /opt/dsx
+RUN npm install -g --no-audit --no-fund \
+      --allow-scripts=@anthropic-ai/claude-code,opencode-ai \
+      @anthropic-ai/claude-code \
+      opencode-ai \
+      @openai/codex \
+      @google/gemini-cli \
+ && npm cache clean --force \
+ && (cd /opt/dsx && npm ci --no-audit --no-fund && npm run build && npm prune --omit=dev) \
+ && chmod +x /opt/dsx/dist/index.js \
+ && ln -sf /opt/dsx/dist/index.js /usr/local/bin/dsx \
+ && arch="$(uname -m)" \
+ && case "$arch" in \
+      x86_64) goose_arch="x86_64-unknown-linux-gnu" ;; \
+      aarch64|arm64) goose_arch="aarch64-unknown-linux-gnu" ;; \
+      *) echo "Unsupported arch: $arch" >&2; exit 1 ;; \
+    esac \
+ && tmpdir="$(mktemp -d)" \
+ && curl -fsSL "https://github.com/aaif-goose/goose/releases/latest/download/goose-${goose_arch}.tar.gz" \
+    | tar -xz -C "$tmpdir" \
+ && install -m 0755 "$tmpdir/goose" /usr/local/bin/goose \
+ && rm -rf "$tmpdir"
 
 WORKDIR /app
 
@@ -77,9 +104,11 @@ RUN pip install --no-cache-dir pynacl cryptography "webauthn==3.0.1"
 
 COPY . .
 
-# Fail the build early if any tool is missing.
+# Fail the build early if any tool or non-interactive coding harness is missing.
 RUN node -v && npm -v && npx -v && cargo --version && rustc --version \
- && brew --version && git --version && python3 -m venv --help >/dev/null
+ && brew --version && git --version && python3 -m venv --help >/dev/null \
+ && claude --version && opencode --version && codex --version \
+ && gemini --version && dsx --help >/dev/null && goose --version
 
 ENV PORT=8080
 EXPOSE 8080

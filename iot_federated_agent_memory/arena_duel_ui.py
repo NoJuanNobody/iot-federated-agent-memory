@@ -265,7 +265,9 @@ ARENA_DUEL_SCRIPT = r"""
   const SIDES = ['A', 'B'];
   const lastDuel = {};
   const ragStats = {};
-  const MODELS_KEY = 'tincan_arena_models';   // shared with the #12 pickers
+  const _arenaUrlParams = (typeof window !== 'undefined' && window.location && window.location.search) ? new URLSearchParams(window.location.search) : null;
+  const _arenaInst = _arenaUrlParams ? (_arenaUrlParams.get('instance') || '') : '';
+  const MODELS_KEY = _arenaInst ? ('tincan_arena_models::' + _arenaInst) : 'tincan_arena_models';   // scoped per instance when spawned
   let driveAllowed = false;
   let modelList = [];
   let lastTokenBalance = null;
@@ -440,7 +442,7 @@ ARENA_DUEL_SCRIPT = r"""
   }
   window.arenaRenderSavings = renderSavingsDelta;
 
-  function settingsKey(side) { return 'tincan_arena_brain_' + side; }
+  function settingsKey(side) { return (_arenaInst ? ('tincan_arena_brain_' + _arenaInst + '_') : 'tincan_arena_brain_') + side; }
   function loadSettings() {
     SIDES.forEach((side) => {
       let st = {};
@@ -483,11 +485,16 @@ ARENA_DUEL_SCRIPT = r"""
   function setPair(pair) {
     try { localStorage.setItem(MODELS_KEY, JSON.stringify(pair)); } catch (e) {}
     VIEWS.forEach((q) => {
-      const a = el(q + 'ModelAInput'), b = el(q + 'ModelBInput');
+      const a = el(q + 'Model' + 'A' + 'Input'), b = el(q + 'Model' + 'B' + 'Input');
       if (a && pair.a) a.value = pair.a;
       if (b && pair.b) b.value = pair.b;
       labels(q);
     });
+    const _sw = _arenaUrlParams ? (_arenaUrlParams.get('window') || '') : '';
+    const _isArenaWin = _sw === 'win-arena' || _sw === 'arena' || _sw === 'win-quests' || _sw === 'quests';
+    if (_isArenaWin && typeof window.notifyParentInstanceTitle === 'function' && pair.a && pair.b) {
+      try { window.notifyParentInstanceTitle(pair.a + ' vs ' + pair.b); } catch (e) {}
+    }
   }
 
   window.arenaPresetLocalVsCloud = function (p) {
@@ -545,7 +552,12 @@ ARENA_DUEL_SCRIPT = r"""
     try { saved = JSON.parse(localStorage.getItem(MODELS_KEY) || 'null'); } catch (e) {}
     const ids = new Set(modelList.map((m) => m.id));
     const def = data.default || {a: 'gemini-brain', b: 'claude-brain'};
-    setPair({a: saved && ids.has(saved.a) ? saved.a : def.a, b: saved && ids.has(saved.b) ? saved.b : def.b});
+    const urlModelA = _arenaUrlParams ? _arenaUrlParams.get('modelA') : '';
+    const urlModelB = _arenaUrlParams ? _arenaUrlParams.get('modelB') : '';
+    setPair({
+      a: (urlModelA && ids.has(urlModelA)) ? urlModelA : (saved && ids.has(saved.a) ? saved.a : def.a),
+      b: (urlModelB && ids.has(urlModelB)) ? urlModelB : (saved && ids.has(saved.b) ? saved.b : def.b),
+    });
   }
   window.arenaDuelModelChange = function (p) { setPair({a: modelOf(p, 'A'), b: modelOf(p, 'B')}); };
   window.arenaDuelSwap = function (p) { setPair({a: modelOf(p, 'B'), b: modelOf(p, 'A')}); };
@@ -1280,6 +1292,15 @@ ARENA_DUEL_SCRIPT = r"""
 
   function boot() {
     loadSettings();
+    if (_arenaUrlParams) {
+      const urlPrompt = _arenaUrlParams.get('prompt');
+      if (urlPrompt) {
+        VIEWS.forEach((p) => {
+          const inp = el(p + 'PromptInput');
+          if (inp) inp.value = urlPrompt;
+        });
+      }
+    }
     VIEWS.forEach((p) => { window.arenaUpdatePreAuthCap(p); hoistVoteModal(p); });
     loadModels();
     status();

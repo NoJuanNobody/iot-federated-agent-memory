@@ -22,7 +22,7 @@ import threading
 import time
 import uuid
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 
 # ---------------------------------------------------------------------------
@@ -1376,6 +1376,25 @@ TOOL_RUNTIMES = {"npm": "npm", "npx": "npx", "cargo": "cargo", "rustc": "rustc",
 # Directories never synced back from a run into the .space VFS (dependency
 # trees, build output and tool caches can be huge).
 SANDBOX_NO_SYNC_DIRS = {"node_modules", "target", ".npm", ".cache", ".cargo", ".rustup", ".linuxbrew", "__pycache__"}
+HARNESS_NO_SYNC_DIRS = SANDBOX_NO_SYNC_DIRS | {".dsx", ".claude", ".codex", ".gemini", ".opencode", ".config", ".local", ".aider"}
+HARNESS_AUTH_ENV_KEYS = (
+    "OPENROUTER_API_KEY",
+    "OPENROUTER_BASE_URL",
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_BASE_URL",
+    "OPENAI_API_KEY",
+    "OPENAI_BASE_URL",
+    "CODEX_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+    "NANOGPT_API_KEY",
+    "GOOSE_PROVIDER",
+    "GOOSE_MODEL",
+    "DSX_MODEL",
+    "OPENCODE_MODEL",
+    "CLAUDE_MODEL",
+    "IS_SANDBOX",
+)
 _TOOLCHAIN_DIRS = (
     "/usr/local/cargo/bin",
     "/home/linuxbrew/.linuxbrew/bin",
@@ -1408,6 +1427,8 @@ def build_toolchain_env(tmpdir: str, cache_dir: str, base_env: Optional[Dict[str
     home = env_in.get("HOME")
     extra = list(_TOOLCHAIN_DIRS)
     if home:
+        extra.insert(0, os.path.join(home, ".opencode", "bin"))
+        extra.insert(0, os.path.join(home, ".local", "bin"))
         extra.insert(0, os.path.join(home, ".cargo", "bin"))
     for d in extra:
         if d not in parts and os.path.isdir(d):
@@ -1559,18 +1580,7 @@ class WasmAndCodePlaygroundRunner:
         # Ephemeral directory sandbox execution for Python, Node, Shell, and Wasm
         with tempfile.TemporaryDirectory(prefix="agent_space_run_") as tmpdir, \
                 tempfile.TemporaryDirectory(prefix="agent_space_cache_") as cache_dir:
-            initial_hashes: Dict[str, str] = {}
-            # Materialize all files from space into tmpdir
-            for f in vfs.list_files():
-                fpath = f["path"]
-                rel_path = fpath.lstrip("/")
-                disk_path = os.path.join(tmpdir, rel_path)
-                os.makedirs(os.path.dirname(disk_path), exist_ok=True)
-                raw_rec = vfs.read_file(fpath, as_text=False)
-                blob = base64.b64decode(raw_rec["content_b64"])
-                with open(disk_path, "wb") as fp:
-                    fp.write(blob)
-                initial_hashes[rel_path] = f["sha256"]
+            initial_hashes = self._materialize_space(vfs, tmpdir)
 
             rel_entry = entrypoint.lstrip("/")
             full_entry = os.path.join(tmpdir, rel_entry)
@@ -1616,46 +1626,11 @@ class WasmAndCodePlaygroundRunner:
                     cmd.extend(args)
 
                 sandbox_env = build_toolchain_env(tmpdir, cache_dir)
+                stdout, stderr, exit_code = self._run_subprocess(
+                    cmd, tmpdir=tmpdir, env=sandbox_env, timeout_sec=timeout_sec, stdin_text=stdin_text
+                )
 
-                try:
-                    proc = subprocess.run(
-                        cmd,
-                        cwd=tmpdir,
-                        input=stdin_text.encode("utf-8") if stdin_text else None,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        env=sandbox_env,
-                        timeout=timeout_sec,
-                    )
-                    stdout = proc.stdout.decode("utf-8", errors="replace")
-                    stderr = proc.stderr.decode("utf-8", errors="replace")
-                    exit_code = proc.returncode
-                except subprocess.TimeoutExpired:
-                    exit_code = 124
-                    stderr = f"Execution timed out after {timeout_sec} seconds."
-                except FileNotFoundError as err:
-                    exit_code = 127
-                    stderr = f"Runtime command not found: {err}"
-                except Exception as err:
-                    exit_code = 1
-                    stderr = f"Execution failed: {err}"
-
-            # Post-execution directory scan: any newly created or modified files are synced back
-            for root, dirnames, filenames in os.walk(tmpdir):
-                dirnames[:] = [d for d in dirnames if d not in SANDBOX_NO_SYNC_DIRS]
-                for fname in filenames:
-                    disk_file = os.path.join(root, fname)
-                    rel = os.path.relpath(disk_file, tmpdir)
-                    vfs_path = "/" + rel.replace(os.path.sep, "/")
-                    try:
-                        with open(disk_file, "rb") as dfp:
-                            data = dfp.read()
-                        new_hash = hashlib.sha256(data).hexdigest()
-                        if initial_hashes.get(rel) != new_hash:
-                            vfs.write_file(vfs_path, data, updated_by="runner")
-                            synced_files.append(vfs_path)
-                    except Exception:
-                        pass
+            synced_files = self._sync_space_changes(vfs, tmpdir, initial_hashes)
 
         duration_ms = round((time.time() - t_start) * 1000.0, 2)
         self._record_run(
@@ -1682,6 +1657,144 @@ class WasmAndCodePlaygroundRunner:
             "wasm_host_bridge": None,
             "wasm_bridge": True,
         }
+
+    def execute_command(
+        self,
+        vfs: SingleFileSpaceVFS,
+        cmd: List[str],
+        *,
+        runtime: str = "harness",
+        entrypoint: str = "(harness)",
+        extra_env: Optional[Dict[str, str]] = None,
+        no_sync_dirs: Optional[Iterable[str]] = None,
+        timeout_sec: Optional[float] = None,
+        updated_by: str = "harness",
+    ) -> Dict[str, Any]:
+        """Run an arbitrary tool/harness command inside a materialized .space sandbox and sync edits back."""
+        run_id = f"run_{uuid.uuid4().hex[:12]}"
+        t_start = time.time()
+        effective_timeout = _tool_timeout(120.0) if timeout_sec is None else float(timeout_sec)
+        skip_dirs = set(no_sync_dirs) if no_sync_dirs is not None else set(HARNESS_NO_SYNC_DIRS)
+
+        with tempfile.TemporaryDirectory(prefix="agent_space_run_") as tmpdir, \
+                tempfile.TemporaryDirectory(prefix="agent_space_cache_") as cache_dir:
+            initial_hashes = self._materialize_space(vfs, tmpdir)
+            sandbox_env = build_toolchain_env(tmpdir, cache_dir)
+            for key in HARNESS_AUTH_ENV_KEYS:
+                val = os.environ.get(key)
+                if val:
+                    sandbox_env[key] = val
+            if extra_env:
+                sandbox_env.update({k: v for k, v in extra_env.items() if v is not None})
+            sandbox_env.setdefault("IS_SANDBOX", "1")
+            stdout, stderr, exit_code = self._run_subprocess(
+                cmd, tmpdir=tmpdir, env=sandbox_env, timeout_sec=effective_timeout
+            )
+            synced_files = self._sync_space_changes(
+                vfs, tmpdir, initial_hashes, no_sync_dirs=skip_dirs, updated_by=updated_by
+            )
+
+        duration_ms = round((time.time() - t_start) * 1000.0, 2)
+        self._record_run(
+            vfs=vfs,
+            run_id=run_id,
+            runtime=runtime,
+            entrypoint=entrypoint,
+            stdout=stdout,
+            stderr=stderr,
+            exit_code=exit_code,
+            duration_ms=duration_ms,
+            artifacts={"synced_files": synced_files, "cmd": cmd},
+        )
+        return {
+            "run_id": run_id,
+            "runtime": runtime,
+            "entrypoint": entrypoint,
+            "stdout": stdout,
+            "stderr": stderr,
+            "exit_code": exit_code,
+            "duration_ms": duration_ms,
+            "synced_files": synced_files,
+        }
+
+    @staticmethod
+    def _materialize_space(vfs: SingleFileSpaceVFS, tmpdir: str) -> Dict[str, str]:
+        """Write every file in the VFS into tmpdir and return relative-path -> sha256."""
+        initial_hashes: Dict[str, str] = {}
+        for f in vfs.list_files():
+            fpath = f["path"]
+            rel_path = fpath.lstrip("/")
+            disk_path = os.path.join(tmpdir, rel_path)
+            os.makedirs(os.path.dirname(disk_path), exist_ok=True)
+            raw_rec = vfs.read_file(fpath, as_text=False)
+            blob = base64.b64decode(raw_rec["content_b64"])
+            with open(disk_path, "wb") as fp:
+                fp.write(blob)
+            initial_hashes[rel_path] = f["sha256"]
+        return initial_hashes
+
+    @staticmethod
+    def _run_subprocess(
+        cmd: List[str],
+        *,
+        tmpdir: str,
+        env: Dict[str, str],
+        timeout_sec: float,
+        stdin_text: str = "",
+    ) -> Tuple[str, str, int]:
+        """Run a sandboxed subprocess with non-interactive stdin fallback."""
+        try:
+            run_kwargs: Dict[str, Any] = {
+                "cwd": tmpdir,
+                "stdout": subprocess.PIPE,
+                "stderr": subprocess.PIPE,
+                "env": env,
+                "timeout": timeout_sec,
+            }
+            if stdin_text:
+                run_kwargs["input"] = stdin_text.encode("utf-8")
+            else:
+                run_kwargs["stdin"] = subprocess.DEVNULL
+            proc = subprocess.run(cmd, **run_kwargs)
+            return (
+                proc.stdout.decode("utf-8", errors="replace"),
+                proc.stderr.decode("utf-8", errors="replace"),
+                proc.returncode,
+            )
+        except subprocess.TimeoutExpired:
+            return "", f"Execution timed out after {timeout_sec} seconds.", 124
+        except FileNotFoundError as err:
+            return "", f"Runtime command not found: {err}", 127
+        except Exception as err:
+            return "", f"Execution failed: {err}", 1
+
+    @staticmethod
+    def _sync_space_changes(
+        vfs: SingleFileSpaceVFS,
+        tmpdir: str,
+        initial_hashes: Dict[str, str],
+        no_sync_dirs: Optional[Set[str]] = None,
+        updated_by: str = "runner",
+    ) -> List[str]:
+        """Sync created or modified files from tmpdir back into the .space VFS."""
+        skip = no_sync_dirs if no_sync_dirs is not None else SANDBOX_NO_SYNC_DIRS
+        synced_files: List[str] = []
+        for root, dirnames, filenames in os.walk(tmpdir):
+            dirnames[:] = [d for d in dirnames if d not in skip]
+            for fname in filenames:
+                disk_file = os.path.join(root, fname)
+                rel = os.path.relpath(disk_file, tmpdir)
+                vfs_path = "/" + rel.replace(os.path.sep, "/")
+                try:
+                    with open(disk_file, "rb") as dfp:
+                        data = dfp.read()
+                    new_hash = hashlib.sha256(data).hexdigest()
+                    if initial_hashes.get(rel) != new_hash:
+                        vfs.write_file(vfs_path, data, updated_by=updated_by)
+                        synced_files.append(vfs_path)
+                except Exception:
+                    pass
+        return synced_files
 
     def _record_run(
         self,

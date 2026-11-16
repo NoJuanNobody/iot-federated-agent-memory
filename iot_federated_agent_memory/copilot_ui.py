@@ -1096,12 +1096,37 @@ def _build_copilot_script() -> str:
     return raw || resolvePeerId() || 'alejandro';
   }
 
+  function _getUrlParams() {
+    try {
+      if (typeof window !== 'undefined' && window.location && window.location.search) {
+        return new URLSearchParams(window.location.search);
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function _notifyCopilotInstanceTitle() {
+    const q = _getUrlParams();
+    const sw = q ? (q.get('window') || '') : '';
+    if (sw && sw !== 'win-copilot' && sw !== 'copilot') return;
+    if (typeof window.notifyParentInstanceTitle === 'function') {
+      try {
+        window.notifyParentInstanceTitle((state.threadName || 'thread') + ' · ' + (state.model || ''));
+      } catch (e) {}
+    }
+  }
+
   function resolveSpaceContext() {
+    const q = _getUrlParams();
+    const qScope = q ? q.get('scope') : '';
+    const qOwner = q ? q.get('owner') : '';
     const scopeEl = el('spaceScopeSelect');
     const ownerEl = el('spaceOwnerInput');
-    if (scopeEl && scopeEl.value) state.scope = scopeEl.value;
+    if (qScope) state.scope = qScope;
+    else if (scopeEl && scopeEl.value) state.scope = scopeEl.value;
     else if (typeof window.currentSpaceScope === 'string' && window.currentSpaceScope) state.scope = window.currentSpaceScope;
-    if (ownerEl && ownerEl.value) state.ownerId = ownerEl.value;
+    if (qOwner) state.ownerId = qOwner;
+    else if (ownerEl && ownerEl.value) state.ownerId = ownerEl.value;
     else if (typeof window.currentSpaceOwner === 'string' && window.currentSpaceOwner) state.ownerId = window.currentSpaceOwner;
     else state.ownerId = resolvePeerId() || 'default_user';
   }
@@ -1276,6 +1301,10 @@ def _build_copilot_script() -> str:
     if (!sel) return;
     const seen = new Set();
     const opts = [];
+    if (state.model && !state.models.some((m) => m && m.id === state.model)) {
+      seen.add(state.model);
+      opts.push('<option value="' + esc(state.model) + '">' + esc(state.model) + '</option>');
+    }
     state.models.forEach((m) => {
       if (!m || !m.id || seen.has(m.id)) return;
       seen.add(m.id);
@@ -2685,6 +2714,7 @@ def _build_copilot_script() -> str:
     if (nameEl) nameEl.textContent = state.threadName;
     renderThreadLog();
     renderArbitrageStats();
+    _notifyCopilotInstanceTitle();
     const inp = el('copilotPromptInput');
     if (inp && typeof inp.focus === 'function') inp.focus();
   }
@@ -2764,6 +2794,28 @@ def _build_copilot_script() -> str:
     if (state.initialized) return;
     state.initialized = true;
     resolveSpaceContext();
+    const q = _getUrlParams();
+    if (q) {
+      if (q.get('fresh') === '1') {
+        state.turns = [];
+        state.seededOnly = false;
+        state.threadId = '';
+      }
+      if (q.get('thread')) {
+        state.threadName = q.get('thread');
+        const nameEl = el('copilotThreadName');
+        if (nameEl) nameEl.textContent = state.threadName;
+      }
+      if (q.get('priority') && PRIORITIES[q.get('priority')]) {
+        state.priority = q.get('priority');
+      }
+      if (q.get('model')) {
+        state.model = q.get('model');
+      }
+      if (q.get('prompt') && el('copilotPromptInput')) {
+        el('copilotPromptInput').value = q.get('prompt');
+      }
+    }
     renderPriorityUI();
     renderModelSelect();
     renderContextFiles();
@@ -2771,6 +2823,7 @@ def _build_copilot_script() -> str:
     renderArbitrageStats();
     renderThreadLog();
     wireDomEvents();
+    _notifyCopilotInstanceTitle();
   }
 
   window.TinCanCopilot = {

@@ -918,11 +918,20 @@ def _workstation_js() -> str:
         }
 
         function resolveSpaceCtx() {
+          let qScope = '';
+          let qOwner = '';
+          try {
+            if (typeof window !== 'undefined' && window.location && window.location.search) {
+              const qp = new URLSearchParams(window.location.search);
+              qScope = qp.get('scope') || '';
+              qOwner = qp.get('owner') || '';
+            }
+          } catch (e) {}
           const domOwner = (el('spaceOwnerInput') && el('spaceOwnerInput').value) ? String(el('spaceOwnerInput').value).trim() : '';
-          const scope = (typeof window.currentSpaceScope !== 'undefined' && window.currentSpaceScope)
-            ? String(window.currentSpaceScope) : state.scope;
-          const owner = (typeof window.currentSpaceOwner !== 'undefined' && window.currentSpaceOwner)
-            ? String(window.currentSpaceOwner) : (domOwner || resolvePeerId());
+          const scope = qScope || ((typeof window.currentSpaceScope !== 'undefined' && window.currentSpaceScope)
+            ? String(window.currentSpaceScope) : state.scope);
+          const owner = qOwner || ((typeof window.currentSpaceOwner !== 'undefined' && window.currentSpaceOwner)
+            ? String(window.currentSpaceOwner) : (domOwner || resolvePeerId()));
           return { scope: scope || 'user', ownerId: owner || 'default_user' };
         }
 

@@ -272,15 +272,21 @@ SHELL_JS = r"""
           }
           return termDone(r.ok, d.output || (Array.isArray(d.lines) ? d.lines.join('\n') : JSON.stringify(d)));
         }
-        if (['harnesses', 'harness', 'agy', 'antigravity', 'claude', 'claude-code', 'opencode', 'dsx', 'codex', 'aider', 'goose'].includes(verb)) {
-          progress('Inspecting & routing coding harness...');
+        if (['harnesses', 'harness', 'agy', 'antigravity', 'claude', 'claude-code', 'opencode', 'dsx', 'codex', 'gemini', 'gemini-cli', 'aider', 'goose'].includes(verb)) {
+          progress('Running coding harness in your .space...');
           const r = await fetch('/api/terminal/harness', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ command: cmd, peer_id: (typeof myPeerId !== 'undefined' && myPeerId) || 'aeonik' })
+            body: JSON.stringify({
+              command: cmd,
+              scope: c.scope,
+              owner_id: c.owner,
+              peer_id: (typeof myPeerId !== 'undefined' && myPeerId) || c.owner || 'aeonik'
+            })
           });
           const d = await r.json();
-          return termDone(r.ok, d.output || (Array.isArray(d.lines) ? d.lines.join('\n') : JSON.stringify(d)));
+          if (d && Array.isArray(d.synced_files) && d.synced_files.length) termSpaceChanged(c);
+          return termDone(r.ok && d.status !== 'error', d.output || (Array.isArray(d.lines) ? d.lines.join('\n') : JSON.stringify(d)));
         }
         if (verb === 'ask' && !arg) return termDone(false, 'ask: usage: ask <question>');
         const prompt = cmd.replace(/^(ask|tincan chat)\s+/i, '');

@@ -17,11 +17,12 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from .tincan_actions import enqueue_action
 
@@ -793,8 +794,8 @@ HARNESS_CATALOG: List[Dict[str, Any]] = [
         "vendor": "Google DeepMind",
         "tier": 1,
         "recommended": True,
-        "print_flag": "chat --print",
-        "install_cmd": "npm i -g @google/antigravity || brew install antigravity",
+        "print_flag": "-p",
+        "install_cmd": "Install Antigravity CLI on macOS (~/.local/bin/agy)",
         "repo": "https://antigravity.google/",
         "capabilities": ["multi-agent-swarm", "subagents", "mcp", "skills", "workflows"],
         "local_paths": [
@@ -846,7 +847,7 @@ HARNESS_CATALOG: List[Dict[str, Any]] = [
         "install_cmd": "git clone https://github.com/NoJuanNobody/dsx ~/dev/harness && cd ~/dev/harness && npm install && npm run build",
         "repo": "https://github.com/NoJuanNobody/dsx",
         "capabilities": ["openrouter", "ink-tui", "mcp", "skills", "nyx"],
-        "local_paths": ["~/dev/harness/dist/index.js", "~/dev/harness/src/index.tsx"],
+        "local_paths": ["/opt/dsx/dist/index.js", "~/dev/harness/dist/index.js", "~/dev/harness/src/index.tsx"],
         "desc": "Lightweight Ink + OpenRouter terminal agent harness on GitHub (NoJuanNobody/dsx).",
     },
     {
@@ -904,12 +905,35 @@ HARNESS_CATALOG: List[Dict[str, Any]] = [
         "recommended": False,
         "print_flag": "run -t",
         "install_cmd": "brew install block-goose-cli",
-        "repo": "https://github.com/block/goose",
+        "repo": "https://github.com/aaif-goose/goose",
         "capabilities": ["mcp", "tool-loop"],
         "local_paths": [],
         "desc": "Extensible open-source developer agent harness by Block.",
     },
 ]
+
+_HARNESS_NONINTERACTIVE_FLAGS: Dict[str, List[str]] = {
+    "antigravity": ["-p", "--mode", "accept-edits"],
+    "claude-code": ["-p", "--permission-mode", "acceptEdits", "--no-session-persistence"],
+    "opencode": ["run", "--standalone", "--auto"],
+    "dsx": ["--yes", "-p"],
+    "codex": ["exec", "--skip-git-repo-check", "--full-auto"],
+    "gemini-cli": ["--approval-mode", "yolo", "-p"],
+    "aider": ["--yes-always", "--no-auto-commits", "--no-git", "--message"],
+    "goose": ["run", "-t"],
+}
+
+
+def _find_harness_binary(cli: str) -> Optional[str]:
+    """Locate a harness CLI on PATH or standard per-user bin folders."""
+    found = shutil.which(cli)
+    if found:
+        return found
+    for prefix in ("~/.local/bin", "~/.opencode/bin"):
+        cand = os.path.expanduser(os.path.join(prefix, cli))
+        if os.path.isfile(cand) and os.access(cand, os.X_OK):
+            return cand
+    return None
 
 
 def discover_harnesses(workspace_dir: Optional[str] = None) -> Dict[str, Any]:
@@ -918,7 +942,7 @@ def discover_harnesses(workspace_dir: Optional[str] = None) -> Dict[str, Any]:
     installed_kegs = cellar.get("installed", {}) if isinstance(cellar, dict) else {}
     entries: List[Dict[str, Any]] = []
     for item in HARNESS_CATALOG:
-        bin_path = shutil.which(item["cli"])
+        bin_path = _find_harness_binary(item["cli"])
         detected_local = []
         for raw_p in item.get("local_paths", []):
             expanded = os.path.expanduser(raw_p)
@@ -935,17 +959,17 @@ def discover_harnesses(workspace_dir: Optional[str] = None) -> Dict[str, Any]:
             "detected_local": detected_local,
         })
 
-    # Prefer top-tier installed harness (Antigravity > Claude Code > OpenCode), else DSX fallback.
+    # Prefer genuinely installed harnesses over virtual cellar entries (Antigravity > Claude Code > OpenCode > DSX fallback).
     best = None
-    for candidate in entries:
-        if candidate["available"] and not candidate.get("fallback"):
-            best = candidate
+    for matcher in (
+        lambda c: c["installed_on_host"] and not c.get("fallback"),
+        lambda c: c["installed_on_host"],
+        lambda c: c["in_cellar"] and not c.get("fallback"),
+        lambda c: c["in_cellar"],
+    ):
+        best = next((c for c in entries if matcher(c)), None)
+        if best is not None:
             break
-    if best is None:
-        for candidate in entries:
-            if candidate["available"]:
-                best = candidate
-                break
     if best is None:
         best = entries[0]
 
@@ -970,13 +994,132 @@ def resolve_harness(name_or_cli: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _unwrap_prompt_text(raw_args: str) -> str:
+    """Strip balanced surrounding shell quotes from a single-argument prompt."""
+    text = (raw_args or "").strip()
+    if not text:
+        return ""
+    try:
+        parts = shlex.split(text)
+    except ValueError:
+        return text
+    if len(parts) == 1:
+        return parts[0]
+    return text
+
+
+def _build_harness_exec_argv(target: Dict[str, Any], task_args: str) -> Tuple[List[str], str]:
+    """Build non-interactive argv and human-readable command string for a harness invocation."""
+    bin_path = target.get("bin_path")
+    detected = target.get("detected_local") or []
+    js_entry = next((p for p in detected if p.endswith("dist/index.js")), None)
+    if target["id"] == "dsx" and not bin_path and js_entry:
+        base_argv = ["node", js_entry]
+    else:
+        base_argv = [bin_path or target["cli"]]
+
+    stripped = (task_args or "").strip()
+    if not stripped:
+        return base_argv, shlex.join(base_argv)
+
+    if stripped.startswith("-"):
+        try:
+            extra_flags = shlex.split(stripped)
+        except ValueError:
+            extra_flags = stripped.split()
+        argv = [*base_argv, *extra_flags]
+        return argv, shlex.join(argv)
+
+    prompt_text = _unwrap_prompt_text(stripped)
+    flags = list(_HARNESS_NONINTERACTIVE_FLAGS.get(target["id"], shlex.split(target.get("print_flag", "-p"))))
+    argv = [*base_argv, *flags, prompt_text]
+    return argv, shlex.join(argv)
+
+
+def _harness_extra_env(target: Dict[str, Any]) -> Dict[str, str]:
+    """Derive provider-specific environment defaults from existing server keys."""
+    extra: Dict[str, str] = {}
+    if target["id"] == "goose" and os.environ.get("OPENROUTER_API_KEY") and not os.environ.get("GOOSE_PROVIDER"):
+        extra["GOOSE_PROVIDER"] = "openrouter"
+    return extra
+
+
+def _run_harness_subprocess(
+    target: Dict[str, Any],
+    argv: List[str],
+    *,
+    space_vfs: Optional[Any] = None,
+    space_runner: Optional[Any] = None,
+    timeout_sec: Optional[float] = None,
+) -> Dict[str, Any]:
+    """Execute a harness CLI inside the caller's .space sandbox when available, else cwd."""
+    extra_env = _harness_extra_env(target)
+    if space_vfs is not None:
+        runner = space_runner
+        if runner is None:
+            from .agent_space import WasmAndCodePlaygroundRunner
+            runner = WasmAndCodePlaygroundRunner()
+        return runner.execute_command(
+            space_vfs,
+            argv,
+            runtime=f"harness:{target['id']}",
+            entrypoint=target["cli"],
+            extra_env=extra_env,
+            timeout_sec=timeout_sec,
+        )
+
+    eff_timeout = 120.0 if timeout_sec is None else float(timeout_sec)
+    t_start = time.time()
+    env = dict(os.environ)
+    env.update(extra_env)
+    env.setdefault("IS_SANDBOX", "1")
+    try:
+        proc = subprocess.run(
+            argv,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            timeout=eff_timeout,
+        )
+        stdout = proc.stdout.decode("utf-8", errors="replace")
+        stderr = proc.stderr.decode("utf-8", errors="replace")
+        exit_code = proc.returncode
+    except subprocess.TimeoutExpired:
+        stdout, stderr, exit_code = "", f"Execution timed out after {eff_timeout} seconds.", 124
+    except FileNotFoundError as err:
+        stdout, stderr, exit_code = "", f"Runtime command not found: {err}", 127
+    except Exception as err:
+        stdout, stderr, exit_code = "", f"Execution failed: {err}", 1
+    return {
+        "stdout": stdout,
+        "stderr": stderr,
+        "exit_code": exit_code,
+        "duration_ms": round((time.time() - t_start) * 1000.0, 2),
+        "synced_files": [],
+    }
+
+
+def _can_execute_harness_locally(target: Dict[str, Any]) -> bool:
+    """Return True when a runnable harness binary (or DSX JS bundle) was resolved."""
+    if target.get("bin_path"):
+        return True
+    if target["id"] == "dsx":
+        return any(p.endswith("dist/index.js") and os.path.exists(p) for p in (target.get("detected_local") or []))
+    return False
+
+
 def handle_harness_command(
     cmd_str: str,
     peer_id: str = "aeonik",
     config_dir: Optional[str] = None,
     queue_hitl: bool = True,
+    execute: bool = False,
+    space_vfs: Optional[Any] = None,
+    space_runner: Optional[Any] = None,
+    timeout_sec: Optional[float] = None,
 ) -> Dict[str, Any]:
-    """Handle `harnesses`, `harness ...`, or direct `agy|claude|opencode|dsx|codex|aider|goose ...` CLI lines."""
+    """Handle `harnesses`, `harness ...`, or direct `agy|claude|opencode|dsx|codex|gemini|aider|goose ...` CLI lines."""
     raw = (cmd_str or "").strip()
     tokens = [t for t in re.split(r"\s+", raw) if t]
     snap = discover_harnesses()
@@ -991,7 +1134,7 @@ def handle_harness_command(
             badge = " [BEST]" if h["id"] == snap["best_harness"] else (" [FALLBACK]" if h.get("fallback") else "")
             loc = h["bin_path"] or (h["detected_local"][0] if h["detected_local"] else h["install_cmd"])
             lines.append(f"  {h['cli']:<10} {h['name']:<13} [{tag}]{badge}  caps={','.join(h['capabilities'][:3])}  ({loc})")
-        lines.append("Usage: `harnesses`, `harness best`, `harness inspect <name>`, `harness run <name> <prompt>`, or `<agy|claude|opencode|dsx> <prompt>`")
+        lines.append("Usage: `harnesses`, `harness best`, `harness inspect <name>`, `harness run <name> <prompt>`, or `<claude|opencode|dsx|codex|gemini|goose> <prompt>`")
         return lines
 
     if not tokens or tokens[0].lower() in ("harnesses", "harness") and len(tokens) == 1:
@@ -1011,7 +1154,7 @@ def handle_harness_command(
                 f"Best harness selected: {best['name']} (`{best['cli']}`)",
                 f"  Capabilities: {', '.join(best['capabilities'])}",
                 f"  Print mode:   {best['cli']} {best['print_flag']} \"<task>\"",
-                f"  Fallback:     dsx (NoJuanNobody/dsx -> node ~/dev/harness/dist/index.js)",
+                f"  Fallback:     dsx (NoJuanNobody/dsx -> /usr/local/bin/dsx)",
                 f"  Repo:         {best['repo']}",
             ]
             return {**snap, "harness": best, "output": "\n".join(lines), "lines": lines}
@@ -1033,6 +1176,10 @@ def handle_harness_command(
             target = resolve_harness(rest[0])
             if not target:
                 return handle_brew_command(f"brew install {rest[0]}", peer_id=peer_id, config_dir=config_dir, queue_hitl=queue_hitl)
+            if target["installed_on_host"] and (target["bin_path"] or target["detected_local"]):
+                loc = target["bin_path"] or target["detected_local"][0]
+                msg = f"[{target['name']} · `{target['cli']}`] already installed at {loc}"
+                return {"status": "ok", "harness": target, "already_installed": True, "output": msg, "lines": [msg]}
             brew_res = handle_brew_command(f"brew install {target['id']}", peer_id=peer_id, config_dir=config_dir, queue_hitl=queue_hitl)
             return {**brew_res, "harness": target}
         if sub in ("run", "exec", "launch") and rest:
@@ -1054,13 +1201,63 @@ def handle_harness_command(
             return {"status": "error", "output": msg, "lines": [msg]}
         task_args = " ".join(tokens[1:]).strip()
 
-    if target["id"] == "dsx" and target["detected_local"] and target["detected_local"][0].endswith("dist/index.js"):
-        launch_cmd = f"node {target['detected_local'][0]}"
-    else:
-        launch_cmd = target["cli"]
-    full_cmd = f"{launch_cmd} {task_args}".strip()
-    if task_args and not task_args.startswith("-"):
-        full_cmd = f"{launch_cmd} {target['print_flag']} {json.dumps(task_args)}"
+    argv, full_cmd = _build_harness_exec_argv(target, task_args)
+
+    # Interactive bare CLI (no prompt): explain non-interactive usage instead of blocking on a TTY.
+    if execute and _can_execute_harness_locally(target) and not task_args:
+        loc = target["bin_path"] or ", ".join(target["detected_local"])
+        lines = [
+            f"[{target['name']} · `{target['cli']}`] ready at {loc}",
+            f"Pass a prompt for non-interactive execution in your .space, e.g.: {target['cli']} \"summarize /src/main.py\"",
+            f"Or check version: {target['cli']} --version",
+        ]
+        return {
+            "status": "ok",
+            "harness": target,
+            "command": full_cmd,
+            "argv": argv,
+            "executed": False,
+            "queued_action": None,
+            "output": "\n".join(lines),
+            "lines": lines,
+        }
+
+    # Live non-interactive execution inside the caller's .space sandbox.
+    if execute and _can_execute_harness_locally(target) and task_args:
+        run_res = _run_harness_subprocess(
+            target,
+            argv,
+            space_vfs=space_vfs,
+            space_runner=space_runner,
+            timeout_sec=timeout_sec,
+        )
+        exit_code = int(run_res.get("exit_code", 1))
+        stdout = (run_res.get("stdout") or "").rstrip()
+        stderr = (run_res.get("stderr") or "").rstrip()
+        synced = list(run_res.get("synced_files") or [])
+        duration_ms = run_res.get("duration_ms", 0.0)
+        lines = [f"[{target['name']} · `{target['cli']}`] exit {exit_code} · {duration_ms}ms"]
+        if stdout:
+            lines.append(stdout)
+        if stderr:
+            lines.append(stderr if not stdout else f"[stderr]\n{stderr}")
+        if synced:
+            lines.append(f"Synced to .space ({len(synced)}): {', '.join(synced)}")
+        return {
+            "status": "ok" if exit_code == 0 else "error",
+            "harness": target,
+            "command": full_cmd,
+            "argv": argv,
+            "executed": True,
+            "exit_code": exit_code,
+            "stdout": stdout,
+            "stderr": stderr,
+            "duration_ms": duration_ms,
+            "synced_files": synced,
+            "queued_action": None,
+            "output": "\n".join(lines),
+            "lines": lines,
+        }
 
     queued = None
     if queue_hitl:
@@ -1087,6 +1284,8 @@ def handle_harness_command(
         "status": "ok",
         "harness": target,
         "command": full_cmd,
+        "argv": argv,
+        "executed": False,
         "queued_action": queued,
         "output": "\n".join(lines),
         "lines": lines,

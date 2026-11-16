@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -103,6 +104,32 @@ def execute_action(action_id_or_seq: str, config_dir: Optional[str] = None) -> D
             execute_native=False,
         )
         result_output = f"Approved & executed via TinCan Homebrew Bridge:\n{brew_res.get('output', cmd_text)}"
+    elif act_type == "harness":
+        try:
+            argv = shlex.split(cmd_text)
+        except ValueError:
+            argv = cmd_text.split()
+        if not argv:
+            status = "error"
+            result_output = "Empty harness command."
+        else:
+            try:
+                proc = subprocess.run(
+                    argv,
+                    stdin=subprocess.DEVNULL,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
+                combined = "\n".join(part for part in (proc.stdout.strip(), proc.stderr.strip()) if part)
+                if proc.returncode != 0:
+                    status = "error"
+                result_output = f"Approved & executed harness (exit {proc.returncode}): {cmd_text}" + (
+                    f"\n{combined}" if combined else ""
+                )
+            except Exception as exc:
+                status = "error"
+                result_output = f"Failed executing harness '{cmd_text}': {exc}"
     elif "open gemini" in cmd_text.lower():
         if sys.platform == "darwin":
             subprocess.run(["open", "https://gemini.google.com"])

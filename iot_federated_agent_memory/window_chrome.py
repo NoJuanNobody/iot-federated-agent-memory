@@ -75,6 +75,8 @@ def render_titlebar(win_id: str, title: str, icon: str = "", badge: str = "",
     if extra_controls_html:
         parts.append(extra_controls_html)
     parts.append(
+        f'<button type="button" class="tc-ctl tc-ctl--new" onclick="openWindowInstance(\'{wid}\')" '
+        f'title="Open another independent {t} window" aria-label="New {t} window">&#x2B; New</button>'
         f'<button type="button" class="tc-ctl tc-ctl--pop" onclick="openPopoutWindow(\'{wid}\')" '
         f'title="Pop out into a separate window" aria-label="Pop out">&#x2197;&#xFE0E; Pop Out</button>'
         f'<button type="button" class="tc-ctl tc-ctl--max" onclick="maximizeWindow(\'{wid}\')" '
@@ -392,9 +394,15 @@ CELADON_HEAD = r"""
       color: var(--tc-ink) !important; background: transparent !important; border: 1px solid transparent !important;
       border-radius: var(--tc-r-pill) !important; cursor: pointer; transition: background 120ms, color 120ms, border-color 120ms;
     }
+    .mesh-window .tc-titlebar .tc-ctl--new,
     .mesh-window .tc-titlebar .tc-ctl--pop { border-color: var(--tc-ink) !important; padding: 0 10px !important; }
     .mesh-window .tc-titlebar .tc-ctl:hover, .mesh-window .tc-titlebar .tc-ctl:focus-visible { background: var(--tc-ink) !important; color: var(--tc-bg) !important; outline: none; }
     .tc-titlebar__controls a { white-space: nowrap; }
+    .tc-dragging-window iframe { pointer-events: none !important; }
+    .mesh-window-instance .window-body { padding: 0 !important; flex: 1 1 auto !important; min-height: 0 !important; max-height: none !important; overflow: hidden !important; background: var(--tc-bg) !important; }
+    .mesh-window-instance .tc-titlebar__badge { flex-shrink: 0 !important; }
+    .mesh-window-instance .tc-titlebar__title { max-width: 14rem; }
+    .tc-instance-count { display: inline-flex; align-items: center; justify-content: center; margin-left: 4px; padding: 0 5px; height: 15px; border-radius: 9999px; background: var(--tc-ink); color: var(--tc-bg); font-family: var(--tc-mono); font-size: 9px; font-weight: 700; line-height: 1; }
 
     /* ---------- body surfaces the compiler cannot express ---------- */
     .mesh-window .window-body [class*="bg-[#f4f8f0]"] { border-color: rgba(17, 17, 17, 0.15); }
@@ -462,6 +470,12 @@ CELADON_HEAD = r"""
     body.tc-single #meshOsHud, body.tc-single #meshOsDock { display: none !important; }
     body.tc-single .mesh-window.popout-fullscreen { top: 8px !important; height: calc(100vh - 16px) !important; min-height: calc(100vh - 16px) !important; max-height: calc(100vh - 16px) !important; }
     body.tc-single .mesh-window.popout-fullscreen .window-body { height: calc(100vh - 62px) !important; max-height: calc(100vh - 62px) !important; }
+    /* Embedded desktop instance iframe: parent frame already provides titlebar & drag/resize */
+    body.tc-embed #accountSetupModal { display: none !important; }
+    body.tc-embed #desktopWorkspace { padding: 0 !important; min-height: 100vh !important; }
+    body.tc-embed .mesh-window.popout-fullscreen { top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; min-height: 100vh !important; max-height: 100vh !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+    body.tc-embed .mesh-window.popout-fullscreen .tc-titlebar, body.tc-embed .mesh-window.popout-fullscreen .window-resize-handle { display: none !important; }
+    body.tc-embed .mesh-window.popout-fullscreen .window-body { height: 100vh !important; max-height: 100vh !important; }
     #meshOsHud { background: rgba(236, 241, 230, 0.94) !important; border-bottom: var(--tc-hair) !important; backdrop-filter: blur(8px); }
   </style>
 """

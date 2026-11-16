@@ -2727,7 +2727,18 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 data = json.loads(post_data.decode("utf-8")) if post_data else {}
                 cmd = (data.get("command") or data.get("cmd") or "harnesses").strip()
                 peer_id = (data.get("peer_id") or data.get("owner_id") or "aeonik").strip()
-                out = handle_harness_command(cmd, peer_id=peer_id, queue_hitl=True)
+                scope = (data.get("scope") or "user").strip()
+                owner_id = (data.get("owner_id") or data.get("peer_id") or "default").strip()
+                sm = _get_space_manager()
+                space_vfs = sm.get_or_create_space(scope=scope, owner_id=owner_id)
+                out = handle_harness_command(
+                    cmd,
+                    peer_id=peer_id,
+                    queue_hitl=True,
+                    execute=True,
+                    space_vfs=space_vfs,
+                    space_runner=getattr(sm, "runner", None),
+                )
                 self._send_json(out, 200 if out.get("status") != "error" else 400)
             except Exception as e:
                 self._send_json({"status": "error", "error": str(e), "output": f"Error: {e}", "lines": [f"Error: {e}"]}, 500)

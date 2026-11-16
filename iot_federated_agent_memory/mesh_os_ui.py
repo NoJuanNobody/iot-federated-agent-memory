@@ -2803,6 +2803,20 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     localStorage.setItem('tincan_peer_id', myPeerId);
     const currentRoom = urlParams.get('room') || 'main';
     let singleWindowParam = urlParams.get('window');
+    const instanceParam = urlParams.get('instance') || '';
+    const isEmbedInstance = urlParams.get('embed') === '1';
+    window.TINCAN_INSTANCE_ID = instanceParam;
+    function scopedStorageKey(baseKey) {
+      return instanceParam ? (baseKey + '::' + instanceParam) : baseKey;
+    }
+    function notifyParentInstanceTitle(subtitle) {
+      if (!instanceParam || typeof window === 'undefined' || !window.parent || window.parent === window) return;
+      try {
+        window.parent.postMessage({ type: 'TC_INSTANCE_TITLE', instanceId: instanceParam, subtitle: String(subtitle || '') }, window.location.origin);
+      } catch (e) {}
+    }
+    window.scopedStorageKey = scopedStorageKey;
+    window.notifyParentInstanceTitle = notifyParentInstanceTitle;
 
     // Route alias normalization: support /tv, /call, or window=tv, window=call, etc.
     if (!singleWindowParam) {
@@ -2996,8 +3010,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       document.getElementById('osThemeSelect').value = themeName;
     }
 
-    // Window Manager: Draggable, Resizable, Focus, Minimize, Maximize, Pop Out
-    let highestZ = 30;
+    // Window Manager: Draggable, Resizable, Focus, Minimize, Maximize, Pop Out, Multi-Instance
+    let highestZ = 45;
     const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-call', 'win-comms', 'win-quests', 'win-moderator', 'win-billing', 'win-board', 'win-network', 'win-agentspace', 'win-workstation', 'win-copilot', 'win-ai-home'];
     const poppedOutWindows = new Set();
 
@@ -3039,6 +3053,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           return;
         }
         bringToFront(winEl);
+        document.body.classList.add('tc-dragging-window');
         let startX = e.clientX;
         let startY = e.clientY;
         const rect = winEl.getBoundingClientRect();
@@ -3054,6 +3069,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         }
 
         function onMouseUp() {
+          document.body.classList.remove('tc-dragging-window');
           window.removeEventListener('mousemove', onMouseMove);
           window.removeEventListener('mouseup', onMouseUp);
         }
@@ -3079,6 +3095,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         e.stopPropagation();
         e.preventDefault();
         bringToFront(winEl);
+        document.body.classList.add('tc-dragging-window');
 
         const startX = e.clientX;
         const startY = e.clientY;
@@ -3093,6 +3110,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         }
 
         function onMouseUp() {
+          document.body.classList.remove('tc-dragging-window');
           window.removeEventListener('mousemove', onMouseMove);
           window.removeEventListener('mouseup', onMouseUp);
         }
@@ -3172,14 +3190,65 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       syncDockIndicators();
     }
 
+    const windowInstances = new Map();
+    const windowInstanceCounters = new Map();
+    window.windowInstances = windowInstances;
+
+    function _escapeInstHtml(v) {
+      return String(v == null ? '' : v).replace(/[&<>"']/g, (c) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      ));
+    }
+
+    function resolveBaseWindowId(winId) {
+      const raw = String(winId || '').trim();
+      const el = document.getElementById(raw);
+      if (el && el.dataset && el.dataset.baseWindow) return el.dataset.baseWindow;
+      const idx = raw.indexOf('--inst-');
+      return idx !== -1 ? raw.slice(0, idx) : raw;
+    }
+
+    function buildWindowInstanceUrl(baseWinId, opts, instanceSlug) {
+      const o = opts || {};
+      const params = new URLSearchParams();
+      params.set('window', baseWinId);
+      params.set('embed', o.popout ? '0' : '1');
+      if (o.popout) params.delete('embed');
+      params.set('instance', instanceSlug);
+      params.set('room', o.room || currentRoom || 'main');
+      params.set('peer', o.peer || myPeerId || '');
+      [
+        'scope', 'owner', 'file', 'cmd', 'topic', 'boardTab', 'feedFilter',
+        'q', 'channel', 'dm', 'dmLabel', 'modelA', 'modelB', 'prompt',
+        'thread', 'model', 'priority', 'fresh', 'video', 'ask', 'job',
+      ].forEach((k) => {
+        if (o[k] !== undefined && o[k] !== null && String(o[k]) !== '') {
+          params.set(k, String(o[k]));
+        }
+      });
+      return '/?' + params.toString();
+    }
+
     function syncDockIndicators() {
       allWindows.forEach(id => {
         const win = document.getElementById(id);
         const dockBtn = getDockButton(id);
         if (!win || !dockBtn) return;
 
-        const isClosed = win.style.display === 'none' || win.classList.contains('hidden') || win.classList.contains('minimized');
-        const isFocused = !isClosed && win.classList.contains('window-focused');
+        let openInstances = 0;
+        let focusedInstance = false;
+        windowInstances.forEach((meta, instId) => {
+          if (meta.baseWinId !== id) return;
+          const el = document.getElementById(instId);
+          if (!el || el.style.display === 'none' || el.classList.contains('hidden') || el.classList.contains('minimized')) return;
+          openInstances += 1;
+          if (el.classList.contains('window-focused')) focusedInstance = true;
+        });
+
+        const baseClosed = win.style.display === 'none' || win.classList.contains('hidden') || win.classList.contains('minimized');
+        const totalOpen = (baseClosed ? 0 : 1) + openInstances;
+        const isClosed = totalOpen === 0;
+        const isFocused = (!baseClosed && win.classList.contains('window-focused')) || focusedInstance;
 
         if (isFocused) {
           dockBtn.classList.add('ring-2', 'ring-cyan-400');
@@ -3192,8 +3261,146 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           dockBtn.classList.remove('ring-1', 'ring-2', 'ring-cyan-400', 'ring-slate-500');
           dockBtn.classList.add('opacity-70');
         }
+
+        let countEl = dockBtn.querySelector('.tc-instance-count');
+        if (totalOpen > 1) {
+          if (!countEl && typeof document.createElement === 'function') {
+            countEl = document.createElement('span');
+            countEl.className = 'tc-instance-count';
+            dockBtn.appendChild(countEl);
+          }
+          if (countEl) countEl.textContent = `${totalOpen}×`;
+        } else if (countEl && typeof countEl.remove === 'function') {
+          countEl.remove();
+        }
       });
     }
+
+    function closeWindowInstance(instanceId) {
+      const meta = windowInstances.get(instanceId);
+      const win = document.getElementById(instanceId);
+      if (win && typeof win.remove === 'function') {
+        win.remove();
+      }
+      windowInstances.delete(instanceId);
+      if (meta && meta.baseWinId) {
+        const base = document.getElementById(meta.baseWinId);
+        if (base && base.style.display !== 'none' && !base.classList.contains('hidden')) {
+          bringToFront(base);
+        }
+      }
+      syncDockIndicators();
+    }
+    window.closeWindowInstance = closeWindowInstance;
+
+    function openWindowInstance(winId, opts) {
+      // Forward calls inside an embedded iframe up to the parent desktop window manager cleanly.
+      if (isEmbedInstance && window.parent && window.parent !== window && typeof window.parent.openWindowInstance === 'function') {
+        return window.parent.openWindowInstance(winId, opts);
+      }
+      const o = Object.assign({}, opts || {});
+      const baseWinId = resolveBaseWindowId(winId);
+      const baseWin = document.getElementById(baseWinId);
+      const nextSeq = (windowInstanceCounters.get(baseWinId) || 1) + 1;
+      windowInstanceCounters.set(baseWinId, nextSeq);
+
+      const instanceSlug = o.instance || (`inst-${nextSeq}-${Math.random().toString(36).slice(2, 6)}`);
+      const instanceDomId = `${baseWinId}--${instanceSlug}`;
+
+      if (baseWinId === 'win-copilot' && !o.thread && o.fresh === undefined) {
+        o.fresh = '1';
+        o.thread = `tincan-thread-${nextSeq}`;
+      }
+      const existingSubtitle =
+        o.subtitle || o.title ||
+        (o.owner ? `${o.scope || 'topic'}: ${o.owner}` : '') ||
+        (o.channel ? `#${String(o.channel).replace(/^#/, '')}` : '') ||
+        (o.dmLabel ? `DM ${o.dmLabel}` : (o.dm ? `DM ${o.dm}` : '')) ||
+        (o.thread ? `thread: ${o.thread}` : '') ||
+        (o.modelA && o.modelB ? `${o.modelA} vs ${o.modelB}` : '') ||
+        `Instance #${nextSeq}`;
+
+      const titleEl = baseWin ? baseWin.querySelector('.tc-titlebar__title') : null;
+      const iconEl = baseWin ? baseWin.querySelector('.tc-titlebar__icon') : null;
+      const baseTitle = (titleEl && titleEl.textContent) || baseWinId;
+      const baseIcon = (iconEl && iconEl.textContent) || '';
+
+      const baseRect = (baseWin && baseWin.getBoundingClientRect && baseWin.style.display !== 'none' && !baseWin.classList.contains('hidden'))
+        ? baseWin.getBoundingClientRect()
+        : null;
+      const vw = Math.max(800, window.innerWidth || 1280);
+      const vh = Math.max(600, window.innerHeight || 820);
+      const width = Math.min(vw - 32, Math.max(460, Math.round((baseRect && baseRect.width) || (baseWin && parseInt(baseWin.style.width || '0', 10)) || 880)));
+      const height = Math.min(vh - 130, Math.max(380, Math.round((baseRect && baseRect.height) || 580)));
+      const offset = ((nextSeq - 1) % 6) * 28;
+      const left = Math.min(Math.max(16, vw - width - 20), Math.max(16, Math.round((baseRect ? baseRect.left : 96) + offset)));
+      const top = Math.min(Math.max(58, vh - height - 76), Math.max(58, Math.round((baseRect ? baseRect.top : 74) + offset)));
+
+      const iframeUrl = buildWindowInstanceUrl(baseWinId, o, instanceSlug);
+      const winEl = document.createElement('div');
+      winEl.id = instanceDomId;
+      winEl.className = 'mesh-window mesh-window-instance max-w-full';
+      winEl.dataset.zenWindow = 'true';
+      winEl.dataset.windowId = instanceDomId;
+      winEl.dataset.baseWindow = baseWinId;
+      winEl.dataset.instanceId = instanceSlug;
+      winEl.style.top = `${top}px`;
+      winEl.style.left = `${left}px`;
+      winEl.style.width = `${width}px`;
+      winEl.style.height = `${height}px`;
+      winEl.style.display = 'flex';
+
+      const iconSpan = baseIcon ? `<span class="tc-titlebar__icon" aria-hidden="true">${_escapeInstHtml(baseIcon)}</span>` : '';
+      const optsLiteral = JSON.stringify(Object.assign({}, o, { instance: instanceSlug })).replace(/"/g, '&quot;');
+      winEl.innerHTML =
+        `<div class="window-header tc-titlebar" data-tc-titlebar="${_escapeInstHtml(instanceDomId)}">` +
+          `<div class="tc-titlebar__lead">` +
+            iconSpan +
+            `<span class="window-title tc-titlebar__title" title="${_escapeInstHtml(baseTitle)}">${_escapeInstHtml(baseTitle)}</span>` +
+            `<span class="tc-titlebar__badge" title="Window Instance #${nextSeq}">#${nextSeq}</span>` +
+            `<span id="${_escapeInstHtml(instanceDomId)}--subtitle" class="tc-titlebar__meta" title="${_escapeInstHtml(existingSubtitle)}">${_escapeInstHtml(existingSubtitle)}</span>` +
+          `</div>` +
+          `<div class="window-controls tc-titlebar__controls">` +
+            `<button type="button" class="tc-ctl tc-ctl--new" onclick="openWindowInstance('${_escapeInstHtml(baseWinId)}')" title="Open another independent ${_escapeInstHtml(baseTitle)} window" aria-label="New ${_escapeInstHtml(baseTitle)} window">+ New</button>` +
+            `<button type="button" class="tc-ctl tc-ctl--pop" onclick="openPopoutWindow('${_escapeInstHtml(baseWinId)}', JSON.parse('${optsLiteral}'))" title="Pop out into a separate browser window" aria-label="Pop out">&#x2197;&#xFE0E; Pop Out</button>` +
+            `<button type="button" class="tc-ctl tc-ctl--max" onclick="maximizeWindow('${_escapeInstHtml(instanceDomId)}')" title="Maximize" aria-label="Maximize">&#x25A1;</button>` +
+            `<button type="button" class="tc-ctl tc-ctl--close" onclick="closeWindowInstance('${_escapeInstHtml(instanceDomId)}')" title="Close window" aria-label="Close">&#x2715;</button>` +
+          `</div>` +
+        `</div>` +
+        `<div class="window-body p-0 overflow-hidden">` +
+          `<iframe src="${_escapeInstHtml(iframeUrl)}" data-instance-frame="${_escapeInstHtml(instanceDomId)}" class="w-full h-full border-0 block" style="width:100%;height:100%;border:0;display:block;" title="${_escapeInstHtml(baseTitle)} — ${_escapeInstHtml(existingSubtitle)}" allow="clipboard-read; clipboard-write; microphone; camera"></iframe>` +
+        `</div>`;
+
+      const host = document.getElementById('desktopWorkspace') || document.body;
+      host.appendChild(winEl);
+      windowInstances.set(instanceDomId, { baseWinId, instanceSlug, seq: nextSeq, subtitle: existingSubtitle, opts: o });
+
+      makeWindowDraggable(winEl);
+      makeWindowResizable(winEl);
+      if (document.body.classList.contains('zen')) {
+        document.body.classList.add('zen-working');
+      }
+      bringToFront(winEl);
+      syncDockIndicators();
+      return winEl;
+    }
+    window.openWindowInstance = openWindowInstance;
+
+    window.addEventListener('message', (ev) => {
+      if (ev.origin && window.location && ev.origin !== window.location.origin) return;
+      const d = ev.data;
+      if (!d || d.type !== 'TC_INSTANCE_TITLE' || !d.instanceId) return;
+      windowInstances.forEach((meta, instDomId) => {
+        if (meta.instanceSlug === d.instanceId && d.subtitle) {
+          meta.subtitle = d.subtitle;
+          const subEl = document.getElementById(`${instDomId}--subtitle`);
+          if (subEl) {
+            subEl.textContent = d.subtitle;
+            subEl.title = d.subtitle;
+          }
+        }
+      });
+    });
 
     function toggleWindow(winId) {
       if (poppedOutWindows.has(winId)) {
@@ -3248,8 +3455,16 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     function minimizeWindow(winId) {
+      if (windowInstances.has(winId)) {
+        closeWindowInstance(winId);
+        return;
+      }
       const win = document.getElementById(winId);
       if (!win) return;
+      if (win.classList.contains('mesh-window-instance')) {
+        closeWindowInstance(winId);
+        return;
+      }
       win.classList.add('minimized', 'hidden');
       win.style.display = 'none';
       win.classList.remove('window-focused');
@@ -3272,7 +3487,17 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     const popoutWindowHandles = new Map();
 
-    function openPopoutWindow(winId) {
+    function openPopoutWindow(winId, opts) {
+      if (opts && opts.instance) {
+        const baseWinId = resolveBaseWindowId(winId);
+        const popOpts = Object.assign({}, opts, { popout: true });
+        const popUrl = buildWindowInstanceUrl(baseWinId, popOpts, opts.instance);
+        const popWin = window.open(popUrl, `_tincan_popout_${baseWinId}_${opts.instance}`, 'width=1120,height=760,menubar=no,toolbar=no,location=no,status=no');
+        if (!popWin || popWin.closed || typeof popWin.closed === 'undefined') {
+          alert('⚠️ Pop-up was blocked by your browser!\n\nPlease click the pop-up icon in your address bar and select "Always allow pop-ups for this site" to open windows in separate monitors.');
+        }
+        return;
+      }
       const targetUrl = `/?window=${encodeURIComponent(winId)}&room=${encodeURIComponent(currentRoom)}&peer=${encodeURIComponent(myPeerId)}`;
       const popWin = window.open(targetUrl, `_tincan_popout_${winId}`, 'width=1120,height=760,menubar=no,toolbar=no,location=no,status=no');
 
@@ -3295,6 +3520,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
       meshBus.postMessage({ type: 'WINDOW_POPOUT', winId: winId });
     }
+    window.toggleWindow = toggleWindow;
+    window.minimizeWindow = minimizeWindow;
+    window.maximizeWindow = maximizeWindow;
+    window.openPopoutWindow = openPopoutWindow;
 
     let currentDesktopLayout = localStorage.getItem('tincan_layout_mode') || 'free';
 
@@ -3454,6 +3683,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             if (maxBtn) maxBtn.style.display = 'none';
 
             document.body.classList.add('tc-single');
+            if (isEmbedInstance) document.body.classList.add('tc-embed');
 
             // If this is the TV watch party, ensure video starts playing
             if (id === 'win-tv') {
@@ -3479,9 +3709,11 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
       document.title = `[Pop-Out] TinCan Mesh OS — ${singleWindowParam}`;
 
-      window.addEventListener('beforeunload', () => {
-        meshBus.postMessage({ type: 'WINDOW_REDOCK', winId: singleWindowParam });
-      });
+      if (!isEmbedInstance && !instanceParam) {
+        window.addEventListener('beforeunload', () => {
+          meshBus.postMessage({ type: 'WINDOW_REDOCK', winId: singleWindowParam });
+        });
+      }
     }
 
     // =========================================================================
@@ -3525,6 +3757,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     function openAccountModal(isMandatory = false) {
+      if (isEmbedInstance && window.parent && window.parent !== window && typeof window.parent.openAccountModal === 'function') {
+        try { return window.parent.openAccountModal(isMandatory); } catch (e) {}
+      }
       const modal = document.getElementById('accountSetupModal');
       const peerLabel = document.getElementById('modalPeerIdLabel');
       const nameInp = document.getElementById('accInputFullName');
@@ -5393,6 +5628,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       _updateChatBannerAndInputs();
       _renderChatChannelsSidebar();
       _renderActiveChatStream();
+      if (typeof notifyParentInstanceTitle === 'function') {
+        notifyParentInstanceTitle(activeChatTarget.mode === 'direct' ? ('DM ' + (activeChatTarget.label || activeChatTarget.peerId)) : ('#' + activeChatTarget.id));
+      }
     }
     window.selectChatTarget = selectChatTarget;
     window.onChatModeSelectChange = onChatModeSelectChange;
@@ -7201,8 +7439,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                     <span>▲ ${upvotes} upvotes · ${posts.length} thread msgs</span>
                     <div class="flex flex-wrap items-center gap-2 font-semibold">
                       <button type="button" onclick="openBoardThreadFromFeed('${escapeHtml(t.topic_id)}')" class="text-[#111111] hover:text-[#107a47]">[Open Thread →]</button>
+                      <button type="button" onclick="openWindowInstance('win-board', { topic: '${escapeHtml(t.topic_id)}', boardTab: 'discussions', subtitle: '${escapeHtml(String(t.title || t.topic_id).slice(0, 42))}' })" class="text-[#111111] hover:text-[#107a47]" title="Open thread in a new Cyberspace Board window">[↗ New Board]</button>
                       <button type="button" onclick="curateCyberspaceTopic('${escapeHtml(t.topic_id)}', ${t.curated ? 'false' : 'true'})" class="text-[#111111] hover:text-[#107a47]">[${t.curated ? 'Curate ★' : 'Curate ☆'}]</button>
                       <button type="button" onclick="loadTopicIntoWorkstation('${escapeHtml(t.topic_id)}')" class="text-[#107a47] hover:underline">[Load in Workstation]</button>
+                      <button type="button" onclick="openWindowInstance('win-agentspace', { scope: 'topic', owner: '${escapeHtml(t.topic_id)}', subtitle: 'Topic · ${escapeHtml(String(t.title || t.topic_id).slice(0, 36))}' })" class="text-[#107a47] hover:underline" title="Open topic files in a new Workstation window">[↗ New Win]</button>
                     </div>
                   </div>
                 </div>
@@ -7335,6 +7575,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       activeBoardTopicId = topicId;
       switchBoardTab('discussions');
       loadCyberspaceBoard();
+      if (typeof notifyParentInstanceTitle === 'function') {
+        const meta = _boardTopicsById[topicId];
+        notifyParentInstanceTitle(meta && meta.title ? meta.title.slice(0, 48) : ('Topic: ' + topicId));
+      }
     }
 
     function promptNewBoardThread() {
@@ -7653,6 +7897,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
               </div>
               <div class="flex flex-wrap items-center gap-1.5 font-mono text-[10px]">
                 <button type="button" onclick="loadTopicIntoWorkstation('${t.topic_id}')" class="px-2.5 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#111111] border border-[#111111] font-bold transition" title="Load topic in Workstation">[Load in Workstation]</button>
+                <button type="button" onclick="openWindowInstance('win-agentspace', { scope: 'topic', owner: '${t.topic_id}', subtitle: 'Topic · ${escapeHtml(String(t.title || t.topic_id).slice(0, 36))}' })" class="px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#111111] hover:text-[#ecf1e6] text-[#107a47] border border-[#107a47] font-bold transition" title="Open topic in a new Workstation window">[↗ New Win]</button>
                 <button type="button" onclick="togglePinTopic('${t.topic_id}', ${Boolean(t.pinned)})" class="px-2 py-0.5 rounded-full bg-[#f4f8f0] hover:bg-[#ecf1e6] text-[#111111] border border-[#111111]/20" title="Pin/Unpin Topic">📌 ${t.pinned ? 'Unpin' : 'Pin'}</button>
                 ${canModifyTopic ? `<button type="button" onclick="deleteCyberspaceTopic('${t.topic_id}')" class="px-2 py-0.5 rounded-full bg-[#ffffff] hover:bg-[#8a1c1c]/10 text-[#8a1c1c] border border-[#8a1c1c]/40" title="Delete Topic">🗑️</button>` : ''}
                 <button type="button" onclick="toggleBoardTopicThread('${t.topic_id}')" class="px-2.5 py-1 rounded-full bg-[#111111] hover:bg-[#107a47] text-[#ecf1e6] font-bold transition">
@@ -8224,6 +8469,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       currentSpaceOwner = (ownerInput && ownerInput.value.trim()) || (myPeerId || 'default');
       window.currentSpaceScope = currentSpaceScope;
       window.currentSpaceOwner = currentSpaceOwner;
+      if (typeof notifyParentInstanceTitle === 'function' && (singleWindowParam === 'win-agentspace' || singleWindowParam === 'win-workstation')) {
+        notifyParentInstanceTitle(`${currentSpaceScope}: ${currentSpaceOwner}${currentSpaceFile ? (' · ' + currentSpaceFile.split('/').pop()) : ''}`);
+      }
       ideSpaceChanged();
       if (!background && window.TinCanWorkstation && typeof window.TinCanWorkstation.refresh === 'function') {
         try { window.TinCanWorkstation.refresh({ immediate: false }); } catch (e) {}
@@ -8263,6 +8511,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     async function openAgentSpaceFile(path) {
       currentSpaceFile = path;
+      if (typeof notifyParentInstanceTitle === 'function' && singleWindowParam === 'win-agentspace') {
+        notifyParentInstanceTitle(`${currentSpaceScope}: ${currentSpaceOwner} · ${String(path || '').split('/').pop()}`);
+      }
       const pathEl = document.getElementById('activeFilePath');
       const editor = document.getElementById('agentspaceEditor');
       if (pathEl) pathEl.textContent = path;
@@ -10069,10 +10320,74 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       }
     }
 
+    function applyInstanceContentParams() {
+      const pScope = urlParams.get('scope');
+      const pOwner = urlParams.get('owner');
+      const pFile = urlParams.get('file');
+      const pCmd = urlParams.get('cmd');
+      const pTopic = urlParams.get('topic');
+      const pBoardTab = urlParams.get('boardTab');
+      const pFeedFilter = urlParams.get('feedFilter');
+      const pBoardQ = urlParams.get('q');
+      const pChannel = urlParams.get('channel');
+      const pDm = urlParams.get('dm');
+      const pDmLabel = urlParams.get('dmLabel');
+      const pAsk = urlParams.get('ask');
+
+      if (pScope && typeof switchSpaceScope === 'function') {
+        switchSpaceScope(pScope);
+      }
+      if (pOwner) {
+        const ownerInput = document.getElementById('spaceOwnerInput');
+        if (ownerInput) ownerInput.value = pOwner;
+        currentSpaceOwner = pOwner;
+        window.currentSpaceOwner = pOwner;
+        if (!pScope && /^topic-/i.test(pOwner) && typeof selectWorkstationTopicResult === 'function') {
+          selectWorkstationTopicResult(pOwner);
+        } else if (typeof refreshAgentSpace === 'function') {
+          refreshAgentSpace();
+        }
+      }
+      if (pFile && typeof openAgentSpaceFile === 'function') {
+        setTimeout(() => openAgentSpaceFile(pFile), 250);
+      }
+      if (pCmd && typeof execAeonikShellCommand === 'function') {
+        setTimeout(() => execAeonikShellCommand(pCmd), 350);
+      }
+      if (pTopic) {
+        activeBoardTopicId = pTopic;
+        if (typeof switchBoardTab === 'function') switchBoardTab(pBoardTab || 'discussions');
+        if (typeof loadCyberspaceBoard === 'function') loadCyberspaceBoard();
+        if (typeof notifyParentInstanceTitle === 'function') notifyParentInstanceTitle('Topic: ' + pTopic);
+      } else {
+        if (pFeedFilter && typeof setBoardFeedFilter === 'function') setBoardFeedFilter(pFeedFilter);
+        if (pBoardTab && typeof switchBoardTab === 'function') switchBoardTab(pBoardTab);
+      }
+      if (pBoardQ) {
+        const bInp = document.getElementById('boardSearchInput');
+        if (bInp) bInp.value = pBoardQ;
+        if (typeof searchCyberspaceBoard === 'function') searchCyberspaceBoard(pBoardQ);
+      }
+      if (pDm && typeof selectChatTarget === 'function') {
+        selectChatTarget('direct', pDm, pDmLabel || pDm);
+      } else if (pChannel && typeof selectChatTarget === 'function') {
+        selectChatTarget('channel', pChannel, '#' + String(pChannel).replace(/^#/, ''));
+      }
+      if (pAsk) {
+        const askInp = document.getElementById('aiHomePromptInput') || document.getElementById('aiHomeAskInput');
+        if (askInp) askInp.value = pAsk;
+      }
+    }
+    window.applyInstanceContentParams = applyInstanceContentParams;
+    setTimeout(applyInstanceContentParams, 120);
+
     setTimeout(() => {
+      const hasPinnedSpace = !!(urlParams.get('scope') || urlParams.get('owner') || urlParams.get('topic') || urlParams.get('file'));
       const ownerInput = document.getElementById('spaceOwnerInput');
-      if (ownerInput && myPeerId) ownerInput.value = myPeerId;
-      refreshAgentSpace('background');
+      if (!hasPinnedSpace) {
+        if (ownerInput && myPeerId) ownerInput.value = myPeerId;
+        refreshAgentSpace('background');
+      }
       // Session start: gather the drive's folder structure fresh (never saved).
       gatherDriveMirror('session-start');
     }, 2000);
