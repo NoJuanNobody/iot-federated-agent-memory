@@ -50,6 +50,10 @@ SHELL_CSS = r"""
     .tcsh-out { margin: 0; padding-left: 8px; white-space: pre-wrap; word-break: break-word; font: inherit; color: #262626; }
     .tcsh-out.tcsh-err { color: #8a1c1c; }
     .tcsh-note { margin-top: 6px; color: #262626; word-break: break-word; }
+    .tcsh-media { margin-top: 8px; padding: 8px; border: 1px solid #d4d4d8; border-radius: 6px; background: #fafafa; display: inline-block; max-width: 100%; }
+    .tcsh-media img { display: block; max-width: 340px; max-height: 340px; width: auto; height: auto; border-radius: 4px; border: 1px solid #e4e4e7; }
+    .tcsh-media-meta { margin-top: 6px; font-size: 12px; color: #3f3f46; }
+    .tcsh-media-meta a { color: #059669; text-decoration: underline; word-break: break-all; }
     .tcsh-row { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-top: 1px solid #111111; background: #f4f8f0; flex: 0 0 auto; margin: 0; }
     .tcsh-row .tcsh-ps { flex: 0 0 auto; }
     .tcsh .tcsh-input { flex: 1 1 auto; min-width: 0; background: transparent !important; border: 0 !important; outline: 0; box-shadow: none; color: #111111 !important;
@@ -177,6 +181,48 @@ SHELL_JS = r"""
     const TC_SHELL_INTRO = 'Commands run against your own .space: ls [dir], cat file, open file, tree, run [file], py code, runs, drive, status, ask question, help.';
 
     function termDone(ok, text, extra) { return Object.assign({ ok: !!ok, text: String(text == null ? '' : text) }, extra || {}); }
+    function termArtifactUrl(c, path) {
+      return '/api/space/file?scope=' + encodeURIComponent(c.scope) +
+        '&owner_id=' + encodeURIComponent(c.owner) +
+        '&path=' + encodeURIComponent(path) + '&raw=1';
+    }
+    function termWantsAgentAction(prompt) {
+      const p = String(prompt || '').trim();
+      return /\b(?:make|create|generate|draw|paint|sketch|render|illustrate|design|produce|visualize|edit|write|patch|modify|build|save|run|execute)\b.{0,48}\b(?:picture|pic|image|photo|photograph|illustration|portrait|artwork|drawing|wallpaper|poster|sprite|3d|mesh|glb|rodin|hyper3d|file|script|code|python|dxf|svg)\b|\b(?:picture|pic|image|photo|illustration|portrait|artwork|drawing)\s+of\b|```(?:python|javascript|js)/i.test(p);
+    }
+    function termRenderArtifactsHtml(c, d) {
+      const blocks = [];
+      const shown = new Set();
+      (Array.isArray(d && d.image_assets) ? d.image_assets : []).forEach((img) => {
+        if (!img || !img.ok || !img.path) return;
+        shown.add(img.path);
+        const url = termArtifactUrl(c, img.path);
+        const meta = [img.path, img.model || '', img.size_bytes ? termBytes(img.size_bytes) : ''].filter(Boolean).join(' · ');
+        blocks.push(
+          '<div class="tcsh-media">' +
+          '<a href="' + termEsc(url) + '" target="_blank" rel="noopener"><img src="' + termEsc(url) + '" alt="' + termEsc(img.path) + '" /></a>' +
+          '<div class="tcsh-media-meta"><a href="' + termEsc(url) + '" target="_blank" rel="noopener">' + termEsc(meta) + '</a></div>' +
+          '</div>'
+        );
+      });
+      (Array.isArray(d && d.rodin_assets) ? d.rodin_assets : []).forEach((mesh) => {
+        if (!mesh || !mesh.path) return;
+        shown.add(mesh.path);
+        const url = termArtifactUrl(c, mesh.path);
+        blocks.push(
+          '<div class="tcsh-media-meta">3D Mesh: <a href="' + termEsc(url) + '" target="_blank" rel="noopener">' +
+          termEsc(mesh.path) + '</a>' + (mesh.size_bytes ? ' (' + termBytes(mesh.size_bytes) + ')' : '') + '</div>'
+        );
+      });
+      (Array.isArray(d && d.files_mutated) ? d.files_mutated : []).forEach((fp) => {
+        if (!fp || shown.has(fp)) return;
+        const url = termArtifactUrl(c, fp);
+        blocks.push(
+          '<div class="tcsh-media-meta">Space File: <a href="' + termEsc(url) + '" target="_blank" rel="noopener">' + termEsc(fp) + '</a></div>'
+        );
+      });
+      return blocks.join('');
+    }
     function termChatReply(d) {
       if (!d || typeof d !== 'object') return String(d == null ? '' : d);
       if (d.error) return typeof d.error === 'string' ? d.error : (d.error.message || JSON.stringify(d.error));
@@ -343,8 +389,41 @@ SHELL_JS = r"""
           if (d && Array.isArray(d.synced_files) && d.synced_files.length) termSpaceChanged(c);
           return termDone(r.ok && d.status !== 'error', d.output || (Array.isArray(d.lines) ? d.lines.join('\n') : JSON.stringify(d)));
         }
+        if (verb === 'agent' && !arg) return termDone(false, 'agent: usage: agent <task or prompt>');
         if (verb === 'ask' && !arg) return termDone(false, 'ask: usage: ask <question>');
-        const prompt = cmd.replace(/^(ask|tincan\s+(?:chat|ask))\s+/i, '');
+        const isExplicitAsk = verb === 'ask' || /^tincan\s+(?:chat|ask)\b/i.test(cmd);
+        const prompt = verb === 'agent'
+          ? arg
+          : cmd.replace(/^(ask|tincan\s+(?:chat|ask))\s+/i, '');
+        const useSpaceAgent = (verb === 'agent') || !isExplicitAsk || termWantsAgentAction(prompt);
+        const activeFile = (typeof window !== 'undefined' && window.currentSpaceFile) || null;
+        if (useSpaceAgent) {
+          progress('Running TinCan Agent in .space (' + c.scope + ':' + c.owner + ')…');
+          const r = await fetch('/api/space/agent', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              scope: c.scope,
+              owner_id: c.owner,
+              prompt: prompt,
+              model: 'gemini-brain',
+              author: termHandle(),
+              active_file: activeFile,
+              peer_id: (typeof myPeerId !== 'undefined' && myPeerId) || c.owner || 'terminal'
+            })
+          });
+          const d = await r.json();
+          const mutated = Array.isArray(d && d.files_mutated) ? d.files_mutated : [];
+          if (mutated.length > 0) termSpaceChanged(c);
+          const html = termRenderArtifactsHtml(c, d);
+          const text = (d && (d.reply || d.error)) ? String(d.reply || d.error) : termChatReply(d);
+          const hasImgErr = Array.isArray(d && d.image_assets) && d.image_assets.some((a) => a && a.ok === false) && !mutated.length;
+          return termDone(r.ok && !d.error && !hasImgErr, text, {
+            html: html,
+            files_mutated: mutated,
+            image_assets: (d && d.image_assets) || [],
+            rodin_assets: (d && d.rodin_assets) || []
+          });
+        }
         progress('Asking the AI gateway with .space VFS context…');
         const r = await fetch('/api/chat', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -353,7 +432,7 @@ SHELL_JS = r"""
             prompt: prompt,
             scope: c.scope,
             owner_id: c.owner,
-            active_file: (typeof window !== 'undefined' && window.currentSpaceFile) || null,
+            active_file: activeFile,
             use_space_context: true,
             peer_id: (typeof myPeerId !== 'undefined' && myPeerId) || c.owner || 'terminal'
           })
@@ -372,7 +451,14 @@ SHELL_JS = r"""
       async function run(line, opts) {
         try {
           const r = await termInterpret(line, opts);
-          return { ok: !!r.ok, text: String(r.text == null ? '' : r.text) };
+          return {
+            ok: !!r.ok,
+            text: String(r.text == null ? '' : r.text),
+            html: r.html || '',
+            files_mutated: r.files_mutated || [],
+            image_assets: r.image_assets || [],
+            rodin_assets: r.rodin_assets || [],
+          };
         } catch (e) {
           return { ok: false, text: String(e && e.message ? e.message : e) };
         }
@@ -637,9 +723,10 @@ SHELL_JS = r"""
           if (r.clear) clear();
           out.textContent = r.text;
           out.classList.toggle('tcsh-err', !r.ok);
+          if (r.html) note(r.html);
           if (!el.classList.contains('is-tui')) setPill('Ready');
           toBottom();
-          return { ok: !!r.ok, text: String(r.text) };
+          return { ok: !!r.ok, text: String(r.text), html: r.html || '', files_mutated: r.files_mutated || [] };
         }
 
         function submit() {

@@ -1539,14 +1539,17 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                             sp_vfs,
                             active_file=data.get("active_file"),
                             palace_snippets=_get_palace_snippets(limit=8),
+                            ai_router=router,
+                            include_capabilities=True,
                         )
                         if ctx_summary.get("text"):
                             messages = [
                                 {
                                     "role": "system",
                                     "content": (
-                                        "Use this live TinCan .space VFS and Context Palace context when answering "
-                                        "about the user's files, code, or project.\n\n" + ctx_summary["text"]
+                                        "Use this live TinCan platform capability manifest, .space VFS, and Context Palace "
+                                        "context when answering about TinCan's models, tools, files, code, or project.\n\n"
+                                        + ctx_summary["text"]
                                     ),
                                 },
                                 *messages,
@@ -1560,6 +1563,15 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                             }
                     except Exception:
                         space_ctx_meta = None
+                elif not data.get("arena"):
+                    try:
+                        from iot_federated_agent_memory.agent_space import build_tincan_capability_manifest
+
+                        cap_manifest = build_tincan_capability_manifest(ai_router=router, include_tool_protocol=False)
+                        if cap_manifest and not any(m.get("role") == "system" for m in messages):
+                            messages = [{"role": "system", "content": cap_manifest}, *messages]
+                    except Exception:
+                        pass
                 completion = router.dispatch_completion(
                     alias=model_alias,
                     messages=messages,
@@ -2969,12 +2981,16 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 author = data.get("author", "agent")
 
                 sm = _get_space_manager()
+                if getattr(sm, "ai_router", None) is None:
+                    sm.ai_router = router
                 out = sm.run_agent(
                     scope=scope,
                     owner_id=owner_id,
                     prompt=prompt,
                     model_alias=model_alias,
                     author=author,
+                    palace_snippets=_get_palace_snippets(limit=8),
+                    active_file=data.get("active_file"),
                 )
                 self._send_json(out, 200)
             except Exception as e:
@@ -3823,10 +3839,21 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             scope = query.get("scope", ["user"])[0]
             owner_id = query.get("owner_id", query.get("peer_id", query.get("topic_id", ["default_user"])))[0]
             path = query.get("path", ["/src/main.py"])[0]
+            raw_flag = query.get("raw", ["0"])[0].strip().lower() in ("1", "true", "yes")
             sm = _get_space_manager()
             sp = sm.get_or_create_space(scope, owner_id)
             try:
-                rec = sp.read_file(path)
+                rec = sp.read_file(path, as_text=not raw_flag)
+                if raw_flag:
+                    raw_bytes = base64.b64decode(rec.get("content_b64") or "")
+                    ctype = rec.get("mime_type") or "application/octet-stream"
+                    self.send_response(200)
+                    self.send_header("Content-Type", ctype)
+                    self.send_header("Content-Length", str(len(raw_bytes)))
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                    self.wfile.write(raw_bytes)
+                    return
                 self._send_json(rec, 200)
             except FileNotFoundError as fe:
                 self._send_json({"error": str(fe)}, 404)

@@ -1877,8 +1877,160 @@ class WasmAndCodePlaygroundRunner:
 # 5. Agent Space Harness (Autonomous Actions, Rodin 3D & ArtCraft)
 # ---------------------------------------------------------------------------
 
+_PROMPTY_FILLER_WORDS = {
+    "a", "an", "the", "of", "for", "with", "in", "on", "to", "me", "my", "please",
+    "can", "you", "could", "would", "use", "using", "model", "models", "ai",
+    "make", "create", "generate", "draw", "paint", "sketch", "render", "produce",
+    "show", "picture", "pic", "image", "photo", "photograph", "illustration",
+    "portrait", "artwork", "drawing", "wallpaper", "poster", "sprite", "3d",
+    "mesh", "gltf", "glb", "rodin", "hyper3d", "ronin",
+}
+
+
+def _slug_from_prompt(prompt: str, default: str = "artifact") -> str:
+    """Derive a clean VFS-safe slug from natural-language generation prompts."""
+    clean = (prompt or "").strip()
+    m = re.search(r"\b(?:picture|pic|image|photo|photograph|illustration|portrait|artwork|drawing|mesh|model)\s+(?:of|for)\s+(.+)$", clean, re.IGNORECASE)
+    if not m:
+        m = re.search(r"\b(?:draw|paint|sketch|illustrate|render)\s+(?:me\s+)?(?:a|an|the\s+)?(.+)$", clean, re.IGNORECASE)
+    candidate = m.group(1) if m else clean
+    tokens = [
+        t for t in re.findall(r"[a-zA-Z0-9]+", candidate.lower())
+        if t not in _PROMPTY_FILLER_WORDS and len(t) >= 2
+    ]
+    if not tokens:
+        tokens = [
+            t for t in re.findall(r"[a-zA-Z0-9]+", clean.lower())
+            if t not in _PROMPTY_FILLER_WORDS and len(t) >= 2
+        ]
+    slug = "_".join(tokens[:4])[:36].strip("_")
+    return slug or default
+
+
+def _unique_space_path(vfs: SingleFileSpaceVFS, directory: str, slug: str, ext: str) -> str:
+    """Choose /dir/slug.ext or /dir/slug_2.ext when already present in VFS."""
+    existing = {f["path"] for f in (vfs.list_files() or [])}
+    norm_ext = ext if ext.startswith(".") else f".{ext}"
+    norm_dir = "/" + directory.strip("/")
+    base = f"{norm_dir}/{slug}{norm_ext}"
+    if base not in existing:
+        return base
+    idx = 2
+    while f"{norm_dir}/{slug}_{idx}{norm_ext}" in existing:
+        idx += 1
+    return f"{norm_dir}/{slug}_{idx}{norm_ext}"
+
+
+def _is_3d_request(prompt: str) -> bool:
+    return bool(re.search(r"\b(3d|hyper3d|rodin|ronin|\.glb|mesh|gltf)\b", prompt or "", re.IGNORECASE))
+
+
+def _is_2d_image_request(prompt: str) -> bool:
+    """Return True when natural language clearly asks to create/draw a 2D image."""
+    clean = (prompt or "").strip()
+    if not clean or _is_3d_request(clean):
+        return False
+    if re.search(r"\b(dxf|dwg|cad|fountain|screenplay|deck|slides|presentation)\b", clean, re.IGNORECASE):
+        return False
+    if re.search(r"\bsvg\b", clean, re.IGNORECASE) and not re.search(r"\b(picture|photo|photograph|portrait|painting)\b", clean, re.IGNORECASE):
+        return False
+    if re.match(r"^(?:what|which|how|why|explain|list|tell me about)\b", clean, re.IGNORECASE) and not re.search(
+        r"\b(?:make|create|generate|draw|paint|render|sketch)\b", clean, re.IGNORECASE
+    ):
+        return False
+    if re.search(
+        r"\b(?:make|create|generate|draw|paint|sketch|render|illustrate|design|produce|visualize|show)\b"
+        r".{0,48}\b(?:picture|pic|image|photo|photograph|illustration|portrait|artwork|drawing|wallpaper|poster|sprite|icon|logo|avatar|painting|scene)\b",
+        clean,
+        re.IGNORECASE,
+    ):
+        return True
+    if re.search(
+        r"\b(?:picture|pic|image|photo|photograph|illustration|portrait|artwork|drawing|wallpaper|poster|sprite)\s+of\b",
+        clean,
+        re.IGNORECASE,
+    ):
+        return True
+    if re.match(
+        r"^(?:(?:can|could|will|would)\s+you\s+)?(?:please\s+)?(?:draw|paint|illustrate|sketch)\s+(?:a|an|the|me\s+)?\w+",
+        clean,
+        re.IGNORECASE,
+    ):
+        return True
+    return False
+
+
+def build_tincan_capability_manifest(
+    ai_router: Optional[Any] = None,
+    *,
+    include_tool_protocol: bool = False,
+) -> str:
+    """Build a concise, authoritative manifest of TinCan's AI models, image/3D generators, tools, and TUIs."""
+    chat_aliases: List[str] = []
+    image_models: List[str] = []
+    rodin_models: List[str] = []
+
+    if ai_router is not None:
+        try:
+            for alias, cfg in (getattr(ai_router, "providers", None) or {}).items():
+                if "/" in alias or alias.startswith(("ronin", "rodin", "hyper3d")):
+                    continue
+                target = getattr(cfg, "model_alias", "")
+                chat_aliases.append(f"`{alias}` ({target})" if target else f"`{alias}`")
+        except Exception:
+            pass
+        try:
+            for m in ai_router.get_available_models():
+                mid = str(m.get("id") or "")
+                cat = str(m.get("category") or "").lower()
+                out_mods = m.get("output_modalities") or []
+                if cat.startswith("2d image") or ("image" in out_mods and not mid.startswith("openrouter/auto")):
+                    if mid and mid not in image_models:
+                        image_models.append(mid)
+                elif mid.startswith(("ronin/", "rodin/", "hyper3d/")):
+                    if mid not in rodin_models:
+                        rodin_models.append(mid)
+        except Exception:
+            pass
+
+    if not chat_aliases:
+        chat_aliases = [
+            "`gemini-brain` (google/gemini-2.5-flash)",
+            "`claude-brain` (anthropic/claude-sonnet-5.5)",
+            "`grok-brain` (x-ai/grok-4.7)",
+            "`openai-brain` (openai/gpt-4o)",
+            "`nanogpt-brain` (NanoGPT DeepSeek)",
+        ]
+    if not image_models:
+        image_models = [
+            "google/gemini-2.5-flash-image",
+            "google/gemini-3.1-flash-image-preview",
+            "openai/gpt-5-image-mini",
+            "nanogpt/minimax-h3-image",
+        ]
+    if not rodin_models:
+        rodin_models = ["ronin/hyper3d-rodin-v2", "ronin/regular", "ronin/sketch", "ronin/detail"]
+
+    lines = [
+        "[TinCan AI Models, Media Generators, Tools & TUIs]",
+        "- Chat & Reasoning Models (`/api/chat`, OpenRouter & NanoGPT gateways): " + ", ".join(chat_aliases[:8]) + " (plus OpenRouter/NanoGPT/Ollama models in `/api/models`).",
+        "- 2D Image Generation (OpenRouter multimodal & NanoGPT Image API): " + ", ".join(image_models[:6]) + ". Saves `.png`/`.jpg` into `.space` `/images/`.",
+        "- 3D Mesh Generation (Hyper3D Rodin v2 / Ronin): " + ", ".join(rodin_models[:5]) + ". Saves `.glb` meshes into `.space` `/models3d/`.",
+        "- Code & ArtCraft Tools in `.space`: Python 3 & Node.js sandbox execution, `cadcraft` (`.dxf`), `vectorcraft` (`.svg`), `scriptcraft` (`.fountain`), `deckcraft`, plus `.space` file CRUD.",
+        "- Interactive Terminal TUIs (`xterm.js` PTY): `bash`, `claude`, `codex`, `opencode`, `goose`, `gemini`, `dsx` (launch via `tui <app>` or toolbar buttons).",
+        "- Disambiguation Note: `/models3d/README.txt` inside `.space` ONLY describes the 3D `.glb` mesh storage folder (`/models3d/`). When the user asks 'what models do?', explain TinCan's chat/reasoning LLMs, 2D image models, and Hyper3D Rodin 3D models (and briefly clarify `/models3d/`).",
+        "- CRITICAL: Never say 'My capabilities are limited to text' or 'I cannot generate images' — TinCan supports real 2D image generation, 3D Rodin generation, and `.space` code/file tools.",
+    ]
+    if include_tool_protocol:
+        lines.extend([
+            "- Tool Protocol (ONLY emit when the user asks to create/edit/run/generate something that was not already executed in this turn):",
+            '  Emit fenced ```tincan_action JSON blocks, e.g. {"action":"write_file","path":"/src/app.py","content":"..."}, {"action":"exec_python","entrypoint":"/src/app.py"}, {"action":"generate_image","prompt":"..."}, or {"action":"generate_3d","prompt":"..."}.',
+        ])
+    return "\n".join(lines)
+
+
 class AgentSpaceHarness:
-    """Autonomous agent harness executing code, synthesizing 3D Rodin models, and generating ArtCraft bridges."""
+    """Autonomous agent harness executing code, synthesizing 2D/3D assets, and running .space tools."""
 
     def __init__(
         self,
@@ -1890,55 +2042,239 @@ class AgentSpaceHarness:
         self.runner = runner or WasmAndCodePlaygroundRunner()
         self.ai_router = ai_router
 
+    def _run_2d_image_tool(
+        self,
+        image_prompt: str,
+        *,
+        author: str,
+        files_mutated: List[str],
+        image_assets: List[Dict[str, Any]],
+        tool_calls: List[Dict[str, Any]],
+        model: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Dispatch 2D raster image generation and persist the artifact in .space VFS."""
+        if self.ai_router is None or not hasattr(self.ai_router, "dispatch_image_generation"):
+            err = "2D image router is unavailable in this harness."
+            asset = {"ok": False, "prompt": image_prompt, "error": err}
+            image_assets.append(asset)
+            tool_calls.append({"tool": "generate_2d_image", "status": "error", "error": err})
+            return asset
+
+        try:
+            res = self.ai_router.dispatch_image_generation(prompt=image_prompt, model=model)
+        except Exception as err:
+            res = {"ok": False, "error": str(err)}
+
+        if not res.get("ok") or not res.get("image_bytes"):
+            err = res.get("error") or "2D image generation did not return image bytes."
+            asset = {"ok": False, "prompt": image_prompt, "error": err, "simulated": bool(res.get("simulated"))}
+            image_assets.append(asset)
+            tool_calls.append({"tool": "generate_2d_image", "status": "error", "error": err})
+            return asset
+
+        raw_bytes = res["image_bytes"]
+        mime_type = str(res.get("mime_type") or "image/png")
+        ext = str(res.get("ext") or ".png")
+        slug = _slug_from_prompt(image_prompt, default="generated_image")
+        img_path = _unique_space_path(self.vfs, "/images", slug, ext)
+        self.vfs.write_file(img_path, raw_bytes, mime_type=mime_type, updated_by=author)
+        files_mutated.append(img_path)
+        asset = {
+            "ok": True,
+            "path": img_path,
+            "mime_type": mime_type,
+            "size_bytes": len(raw_bytes),
+            "model": res.get("model") or "",
+            "gateway": res.get("gateway") or "",
+            "caption": res.get("caption") or "",
+            "cost_usd": float(res.get("cost_usd") or 0.0),
+        }
+        image_assets.append(asset)
+        tool_calls.append({
+            "tool": "generate_2d_image",
+            "path": img_path,
+            "model": asset["model"],
+            "gateway": asset["gateway"],
+            "status": "Done",
+        })
+        return asset
+
+    def _run_3d_rodin_tool(
+        self,
+        rodin_prompt: str,
+        *,
+        author: str,
+        files_mutated: List[str],
+        rodin_assets: List[Dict[str, Any]],
+        tool_calls: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        slug = _slug_from_prompt(rodin_prompt, default="rodin_mesh")
+        glb_path = _unique_space_path(self.vfs, "/models3d", slug, ".glb")
+
+        glb_bytes: Optional[bytes] = None
+        rodin_res: Dict[str, Any] = {}
+        if self.ai_router is not None and hasattr(self.ai_router, "dispatch_rodin_generation"):
+            try:
+                rodin_res = self.ai_router.dispatch_rodin_generation(prompt=rodin_prompt, geometry_file_format="glb")
+                b64_str = rodin_res.get("glb_bytes_b64")
+                if b64_str:
+                    glb_bytes = base64.b64decode(b64_str)
+            except Exception as err:
+                rodin_res = {"error": str(err)}
+
+        if not glb_bytes:
+            glb_bytes = generate_minimal_glb_bytes(name=slug)
+            rodin_res = rodin_res or {
+                "prompt": rodin_prompt,
+                "format": "glb",
+                "status": "Done",
+                "simulated": True,
+            }
+
+        self.vfs.write_file(glb_path, glb_bytes, mime_type="model/gltf-binary", updated_by=author)
+        files_mutated.append(glb_path)
+        asset = {"path": glb_path, "size_bytes": len(glb_bytes), "meta": rodin_res}
+        rodin_assets.append(asset)
+        tool_calls.append({"tool": "generate_rodin_3d", "path": glb_path, "status": "Done"})
+        return asset
+
+    def _execute_tincan_action_blocks(
+        self,
+        reply_text: str,
+        *,
+        author: str,
+        auto_exec: bool,
+        files_mutated: List[str],
+        exec_results: List[Dict[str, Any]],
+        image_assets: List[Dict[str, Any]],
+        rodin_assets: List[Dict[str, Any]],
+        tool_calls: List[Dict[str, Any]],
+    ) -> str:
+        """Parse and execute any ```tincan_action blocks from an LLM reply, returning cleaned reply."""
+        pattern = re.compile(r"```tincan_action\s*(.*?)\s*```", re.DOTALL | re.IGNORECASE)
+        matches = list(pattern.finditer(reply_text or ""))
+        if not matches:
+            return reply_text
+
+        notes: List[str] = []
+        for m in matches:
+            raw_block = m.group(1).strip()
+            if not raw_block:
+                continue
+            try:
+                parsed = json.loads(raw_block)
+            except Exception:
+                continue
+            items = parsed if isinstance(parsed, list) else [parsed]
+            for item in items[:8]:
+                if not isinstance(item, dict):
+                    continue
+                act = str(item.get("action") or "").strip().lower()
+                if act == "write_file" and item.get("path"):
+                    fpath = self.vfs.normalize_path(str(item["path"]))
+                    fcontent = str(item.get("content") or "")
+                    self.vfs.write_file(fpath, fcontent, updated_by=author)
+                    if fpath not in files_mutated:
+                        files_mutated.append(fpath)
+                    tool_calls.append({"tool": "write_file", "path": fpath, "status": "Done"})
+                    notes.append(f"Wrote `{fpath}` ({len(fcontent)} chars)")
+                elif act == "patch_file" and item.get("path"):
+                    fpath = self.vfs.normalize_path(str(item["path"]))
+                    self.vfs.patch_file(
+                        fpath,
+                        str(item.get("target") or ""),
+                        str(item.get("replacement") or ""),
+                        updated_by=author,
+                    )
+                    if fpath not in files_mutated:
+                        files_mutated.append(fpath)
+                    tool_calls.append({"tool": "patch_file", "path": fpath, "status": "Done"})
+                    notes.append(f"Patched `{fpath}`")
+                elif act == "delete_file" and item.get("path"):
+                    fpath = self.vfs.normalize_path(str(item["path"]))
+                    self.vfs.delete_file(fpath)
+                    if fpath not in files_mutated:
+                        files_mutated.append(fpath)
+                    tool_calls.append({"tool": "delete_file", "path": fpath, "status": "Done"})
+                    notes.append(f"Deleted `{fpath}`")
+                elif act in ("exec_python", "exec_node") and auto_exec:
+                    entry = self.vfs.normalize_path(str(item.get("entrypoint") or item.get("path") or "/src/main.py"))
+                    rt = "node" if act == "exec_node" else "python"
+                    run_res = self.runner.execute(self.vfs, entrypoint=entry, runtime=rt)
+                    exec_results.append(run_res)
+                    tool_calls.append({"tool": act, "entrypoint": entry, "exit_code": run_res.get("exit_code")})
+                    notes.append(f"Ran `{entry}` (exit {run_res.get('exit_code')})")
+                elif act in ("generate_image", "generate_2d_image"):
+                    iprompt = str(item.get("prompt") or "").strip()
+                    if iprompt:
+                        res = self._run_2d_image_tool(
+                            iprompt,
+                            author=author,
+                            files_mutated=files_mutated,
+                            image_assets=image_assets,
+                            tool_calls=tool_calls,
+                            model=item.get("model"),
+                        )
+                        if res and res.get("ok"):
+                            notes.append(f"Generated 2D image `{res['path']}` ({res.get('model')})")
+                        elif res:
+                            notes.append(f"Image generation error: {res.get('error')}")
+                elif act in ("generate_3d", "generate_rodin_3d"):
+                    rprompt = str(item.get("prompt") or "").strip()
+                    if rprompt:
+                        res = self._run_3d_rodin_tool(
+                            rprompt,
+                            author=author,
+                            files_mutated=files_mutated,
+                            rodin_assets=rodin_assets,
+                            tool_calls=tool_calls,
+                        )
+                        notes.append(f"Generated 3D mesh `{res['path']}`")
+
+        cleaned = pattern.sub("", reply_text).strip()
+        if notes:
+            summary_block = "\n".join(f"- {n}" for n in notes)
+            cleaned = f"{cleaned}\n\n{summary_block}".strip() if cleaned else summary_block
+        return cleaned
+
     def run_agent(
         self,
         prompt: str,
         model_alias: str = "gemini-brain",
         author: str = "agent",
         auto_exec: bool = True,
+        palace_snippets: Optional[List[Dict[str, Any]]] = None,
+        active_file: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Execute autonomous agent reasoning, file mutations, 3D generation, and tool runs."""
+        """Execute autonomous agent reasoning, file mutations, 2D/3D generation, and tool runs."""
         turn_id = f"turn_{uuid.uuid4().hex[:12]}"
         files_mutated: List[str] = []
         exec_results: List[Dict[str, Any]] = []
+        image_assets: List[Dict[str, Any]] = []
         rodin_assets: List[Dict[str, Any]] = []
         wasm_bridges: List[Dict[str, Any]] = []
         tool_calls: List[Dict[str, Any]] = []
         clean_prompt = prompt.strip()
 
         # 1. 3D / Hyper3D Rodin Asset Generation Action
-        is_3d_request = bool(re.search(r"\b(3d|hyper3d|rodin|ronin|\.glb|mesh|gltf)\b", clean_prompt, re.IGNORECASE))
-        if is_3d_request:
-            slug_match = re.search(r"(\b[a-zA-Z0-9_\-]{3,24}\b)\s+(?:mesh|model|3d)", clean_prompt, re.IGNORECASE)
-            slug = slug_match.group(1).lower() if slug_match else "rodin_mesh"
-            slug = re.sub(r"[^a-zA-Z0-9_\-]", "_", slug)
-            glb_path = f"/models3d/{slug}.glb"
+        if _is_3d_request(clean_prompt):
+            self._run_3d_rodin_tool(
+                clean_prompt,
+                author=author,
+                files_mutated=files_mutated,
+                rodin_assets=rodin_assets,
+                tool_calls=tool_calls,
+            )
 
-            glb_bytes: Optional[bytes] = None
-            rodin_res: Dict[str, Any] = {}
-
-            if self.ai_router is not None and hasattr(self.ai_router, "dispatch_rodin_generation"):
-                try:
-                    rodin_res = self.ai_router.dispatch_rodin_generation(prompt=clean_prompt, geometry_file_format="glb")
-                    b64_str = rodin_res.get("glb_bytes_b64")
-                    if b64_str:
-                        glb_bytes = base64.b64decode(b64_str)
-                except Exception as err:
-                    rodin_res = {"error": str(err)}
-
-            if not glb_bytes:
-                glb_bytes = generate_minimal_glb_bytes(name=slug)
-                rodin_res = rodin_res or {
-                    "prompt": clean_prompt,
-                    "format": "glb",
-                    "status": "Done",
-                    "simulated": True,
-                }
-
-            self.vfs.write_file(glb_path, glb_bytes, mime_type="model/gltf-binary", updated_by=author)
-            files_mutated.append(glb_path)
-            rodin_assets.append({"path": glb_path, "size_bytes": len(glb_bytes), "meta": rodin_res})
-            tool_calls.append({"tool": "generate_rodin_3d", "path": glb_path, "status": "Done"})
+        # 1b. 2D Raster Image Generation Action (OpenRouter / NanoGPT)
+        if _is_2d_image_request(clean_prompt):
+            self._run_2d_image_tool(
+                clean_prompt,
+                author=author,
+                files_mutated=files_mutated,
+                image_assets=image_assets,
+                tool_calls=tool_calls,
+            )
 
         # 2. ArtCraft Application Document Generation
         mentioned_artcraft: Optional[str] = None
@@ -1999,7 +2335,6 @@ class AgentSpaceHarness:
             tool_calls.append({"tool": "artcraft_bridge", "app": mentioned_artcraft, "path": art_path})
 
         # 3. Python / Code Execution Action
-        # Extract explicit code blocks if provided in prompt
         py_code_match = re.search(r"```python\s*(.*?)\s*```", clean_prompt, re.DOTALL)
         js_code_match = re.search(r"```(?:javascript|js)\s*(.*?)\s*```", clean_prompt, re.DOTALL)
 
@@ -2022,7 +2357,6 @@ class AgentSpaceHarness:
                 exec_results.append(run_res)
                 tool_calls.append({"tool": "execute_node", "entrypoint": target_path, "exit_code": run_res["exit_code"]})
         elif re.search(r"\b(solve|simulate|monte carlo|fibonacci|prime|calculate|run code|execute)\b", clean_prompt, re.IGNORECASE):
-            # Autonomous simulation generator
             target_path = "/src/solution.py"
             sim_code = (
                 'import math, time\n\n'
@@ -2039,19 +2373,54 @@ class AgentSpaceHarness:
                 exec_results.append(run_res)
                 tool_calls.append({"tool": "execute_python", "entrypoint": target_path, "exit_code": run_res["exit_code"]})
 
-        # 4. Generate AI Completion Reply grounded in VFS
+        # 4. Generate AI Completion Reply grounded in VFS + Capabilities
         reply = ""
-        current_files = [f["path"] for f in self.vfs.list_files()]
         exec_stdout = "\n".join(r.get("stdout", "") for r in exec_results).strip()
+        ok_images = [a for a in image_assets if a.get("ok")]
+        failed_images = [a for a in image_assets if not a.get("ok")]
+        already_ran_tools = bool(ok_images or rodin_assets or wasm_bridges or exec_results)
 
-        if self.ai_router is not None and hasattr(self.ai_router, "dispatch_completion"):
+        if ok_images and not rodin_assets and not exec_results and not wasm_bridges:
+            lines = []
+            for img in ok_images:
+                line = f"Generated 2D image `{img['path']}` ({img['size_bytes']} bytes, {img['mime_type']})"
+                if img.get("model"):
+                    line += f" via {img['model']}"
+                lines.append(line)
+                if img.get("caption"):
+                    lines.append(img["caption"])
+            reply = "\n".join(lines)
+        elif failed_images and not ok_images:
+            errs = "; ".join(str(a.get("error") or "Image generation failed") for a in failed_images)
+            reply = f"Image generation failed: {errs}"
+        elif self.ai_router is not None and hasattr(self.ai_router, "dispatch_completion"):
             try:
-                system_context = (
-                    f"You are an autonomous AI Agent in Single-File Space VFS '{self.vfs.scope}:{self.vfs.owner_id}'.\n"
-                    f"Current space files: {current_files}\n"
-                    f"Files mutated in this turn: {files_mutated}\n"
-                    f"Execution stdout:\n{exec_stdout}\n"
+                ctx_snap = build_space_context_summary(
+                    self.vfs,
+                    active_file=active_file,
+                    palace_snippets=palace_snippets,
+                    ai_router=self.ai_router,
+                    include_capabilities=True,
+                    max_total_chars=16000,
                 )
+                cap_protocol = build_tincan_capability_manifest(
+                    self.ai_router,
+                    include_tool_protocol=not already_ran_tools,
+                )
+                tool_state = (
+                    f"Already executed tools in this turn: files_mutated={files_mutated}, "
+                    f"rodin_assets={[a['path'] for a in rodin_assets]}, "
+                    f"wasm_bridges={[b['app'] for b in wasm_bridges]}."
+                    if already_ran_tools
+                    else ""
+                )
+                system_context = (
+                    f"You are the TinCan Agent operating inside Single-File Space VFS '{self.vfs.scope}:{self.vfs.owner_id}'.\n\n"
+                    f"{cap_protocol}\n\n"
+                    f"{ctx_snap.get('text', '')}\n"
+                    + (f"\n{tool_state}\n" if tool_state else "")
+                    + (f"\nExecution stdout:\n{exec_stdout}\n" if exec_stdout else "")
+                ).strip()
                 messages = [
                     {"role": "system", "content": system_context},
                     {"role": "user", "content": clean_prompt},
@@ -2060,6 +2429,17 @@ class AgentSpaceHarness:
                 choices = comp_res.get("choices", [])
                 if choices:
                     reply = choices[0].get("message", {}).get("content", "")
+                if reply and not already_ran_tools:
+                    reply = self._execute_tincan_action_blocks(
+                        reply,
+                        author=author,
+                        auto_exec=auto_exec,
+                        files_mutated=files_mutated,
+                        exec_results=exec_results,
+                        image_assets=image_assets,
+                        rodin_assets=rodin_assets,
+                        tool_calls=tool_calls,
+                    )
             except Exception:
                 reply = ""
 
@@ -2069,6 +2449,8 @@ class AgentSpaceHarness:
                 f"- **Prompt:** {clean_prompt}",
                 f"- **Files Mutated ({len(files_mutated)}):** {', '.join(files_mutated) if files_mutated else 'None'}",
             ]
+            if ok_images:
+                reply_lines.append(f"- **2D Images ({len(ok_images)}):** {', '.join(a['path'] for a in ok_images)}")
             if rodin_assets:
                 reply_lines.append(f"- **3D Rodin Assets ({len(rodin_assets)}):** {', '.join(a['path'] for a in rodin_assets)}")
             if wasm_bridges:
@@ -2105,6 +2487,7 @@ class AgentSpaceHarness:
             "tool_calls": tool_calls,
             "files_mutated": files_mutated,
             "exec_results": exec_results,
+            "image_assets": image_assets,
             "rodin_assets": rodin_assets,
             "wasm_bridges": wasm_bridges,
             "merkle_root": self.vfs.compute_merkle_root(),
@@ -2268,11 +2651,19 @@ class AgentSpaceManager:
         prompt: str,
         model_alias: str = "gemini-brain",
         author: str = "agent",
+        palace_snippets: Optional[List[Dict[str, Any]]] = None,
+        active_file: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Execute autonomous agent reasoning and actions on target space."""
         space = self.get_space(scope=scope, owner_id=owner_id)
         harness = AgentSpaceHarness(vfs=space, runner=self.runner, ai_router=self.ai_router)
-        return harness.run_agent(prompt=prompt, model_alias=model_alias, author=author)
+        return harness.run_agent(
+            prompt=prompt,
+            model_alias=model_alias,
+            author=author,
+            palace_snippets=palace_snippets,
+            active_file=active_file,
+        )
 
     def fork_file(
         self,
@@ -2441,6 +2832,8 @@ def build_space_context_summary(
     palace_snippets: Optional[List[Dict[str, Any]]] = None,
     max_total_chars: int = 24000,
     max_file_chars: int = 4000,
+    ai_router: Optional[Any] = None,
+    include_capabilities: bool = False,
 ) -> Dict[str, Any]:
     """Build a bounded system-context snapshot of a .space VFS and optional Context Palace items."""
     files = list(vfs.list_files() or [])
@@ -2495,6 +2888,8 @@ def build_space_context_summary(
         + "]"
     )
     sections = [header]
+    if include_capabilities:
+        sections.append(build_tincan_capability_manifest(ai_router=ai_router, include_tool_protocol=False))
     sections.append("Files in VFS:\n" + ("\n".join(tree_lines) if tree_lines else "(empty)"))
     if excerpts:
         sections.append("VFS File Contents:\n" + "\n\n".join(excerpts))

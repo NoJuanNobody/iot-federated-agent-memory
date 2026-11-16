@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import struct
 import subprocess
 import threading
@@ -429,6 +430,37 @@ DEFAULT_OPENROUTER_MODELS: List[Dict[str, Any]] = [
         "context_length": 32768,
         "pricing": {"prompt": "0.0", "completion": "0.0"},
     },
+    # OpenRouter 2D Image Generative models
+    {
+        "id": "google/gemini-2.5-flash-image",
+        "name": "Google Gemini 2.5 Flash Image",
+        "provider": "Google",
+        "description": "Fast 2D raster image generation and editing via OpenRouter multimodal completions.",
+        "category": "2D Image Generative",
+        "context_length": 32768,
+        "output_modalities": ["image", "text"],
+        "pricing": {"prompt": "0.0000003", "completion": "0.0000025", "image": "0.039"},
+    },
+    {
+        "id": "google/gemini-3.1-flash-image-preview",
+        "name": "Google Gemini 3.1 Flash Image Preview",
+        "provider": "Google",
+        "description": "High-detail 2D image generation via OpenRouter.",
+        "category": "2D Image Generative",
+        "context_length": 65536,
+        "output_modalities": ["image", "text"],
+        "pricing": {"prompt": "0.0000005", "completion": "0.000003"},
+    },
+    {
+        "id": "openai/gpt-5-image-mini",
+        "name": "OpenAI GPT-5 Image Mini",
+        "provider": "OpenAI",
+        "description": "Fast instruction-following 2D raster image generator via OpenRouter.",
+        "category": "2D Image Generative",
+        "context_length": 32768,
+        "output_modalities": ["image", "text"],
+        "pricing": {"prompt": "0.0000025", "completion": "0.000008"},
+    },
 ]
 
 
@@ -574,8 +606,12 @@ class DynamicAIGatewayRouter:
     OPENROUTER_KEY_URL = "https://openrouter.ai/api/v1/auth/key"
 
     NANOGPT_ENDPOINT = "https://api.nano-gpt.com/api/v1/chat/completions"
+    NANOGPT_IMAGE_ENDPOINT = "https://api.nano-gpt.com/v1/images/generations"
     NANOGPT_MODELS_URL = "https://api.nano-gpt.com/api/v1/models?detailed=true"
     NANOGPT_BALANCE_URL = "https://api.nano-gpt.com/api/check-balance"
+    DEFAULT_IMAGE_MODEL = "google/gemini-2.5-flash-image"
+    FALLBACK_IMAGE_MODEL = "google/gemini-3.1-flash-image-preview"
+    NANOGPT_DEFAULT_IMAGE_MODEL = "minimax-h3-image"
 
     # Hyper3D Rodin (Ronin) v2 3D Generation Endpoints
     RODIN_GENERATE_URL = "https://api.hyper3d.com/api/v2/rodin"
@@ -1091,7 +1127,8 @@ class DynamicAIGatewayRouter:
             mid = m.get("id")
             if not mid or mid in seen or mid.startswith(self._NON_CHAT_PREFIXES):
                 continue
-            if str(m.get("category", "")).lower().startswith("3d"):
+            cat = str(m.get("category", "")).lower()
+            if cat.startswith("3d") or cat.startswith("2d image"):
                 continue
             out.append({
                 "id": mid,
@@ -2069,3 +2106,275 @@ class DynamicAIGatewayRouter:
         data.setdefault("endpoint", config.endpoint)
         self.record_usage(alias, prompt_toks, comp_toks, total_toks, cost)
         return data
+
+    @staticmethod
+    def _detect_image_mime(raw_bytes: bytes, declared_mime: Optional[str] = None) -> tuple[str, str]:
+        """Return (mime_type, ext) inferred from magic bytes or declared MIME."""
+        if raw_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+            return "image/png", ".png"
+        if raw_bytes.startswith(b"\xff\xd8\xff"):
+            return "image/jpeg", ".jpg"
+        if len(raw_bytes) >= 12 and raw_bytes[:4] == b"RIFF" and raw_bytes[8:12] == b"WEBP":
+            return "image/webp", ".webp"
+        if raw_bytes.startswith((b"GIF87a", b"GIF89a")):
+            return "image/gif", ".gif"
+        if declared_mime:
+            clean = declared_mime.split(";")[0].strip().lower()
+            ext_map = {
+                "image/png": ".png",
+                "image/jpeg": ".jpg",
+                "image/jpg": ".jpg",
+                "image/webp": ".webp",
+                "image/gif": ".gif",
+            }
+            if clean in ext_map:
+                return ("image/jpeg" if clean == "image/jpg" else clean), ext_map[clean]
+        return "image/png", ".png"
+
+    @classmethod
+    def _decode_data_url_or_b64(cls, value: str, declared_mime: Optional[str] = None) -> tuple[Optional[bytes], str, str]:
+        """Decode either a data:image/... URI or raw base64 string into (bytes, mime, ext)."""
+        if not value or not isinstance(value, str):
+            return None, "image/png", ".png"
+        m = re.match(r"^data:(image/[a-zA-Z0-9.+-]+);base64,(.+)$", value.strip(), re.DOTALL)
+        if m:
+            declared_mime = m.group(1)
+            b64_part = re.sub(r"\s+", "", m.group(2))
+        else:
+            b64_part = re.sub(r"\s+", "", value.strip())
+        try:
+            raw = base64.b64decode(b64_part)
+        except Exception:
+            return None, "image/png", ".png"
+        mime, ext = cls._detect_image_mime(raw, declared_mime=declared_mime)
+        return raw, mime, ext
+
+    @classmethod
+    def _extract_openrouter_image(cls, data: Dict[str, Any]) -> tuple[Optional[bytes], str, str, str]:
+        """Extract (image_bytes, mime_type, ext, caption) from an OpenRouter image completion payload."""
+        choices = data.get("choices") or []
+        if not choices:
+            return None, "image/png", ".png", ""
+        msg = choices[0].get("message") or {}
+        caption_parts: List[str] = []
+
+        # 1. OpenRouter standard msg["images"] list
+        for img_item in msg.get("images") or []:
+            if not isinstance(img_item, dict):
+                continue
+            url = (
+                (img_item.get("image_url") or {}).get("url")
+                if isinstance(img_item.get("image_url"), dict)
+                else img_item.get("image_url")
+            ) or img_item.get("url")
+            b64 = img_item.get("b64_json") or img_item.get("data")
+            if url and str(url).startswith("data:image/"):
+                raw, mime, ext = cls._decode_data_url_or_b64(str(url))
+                if raw:
+                    return raw, mime, ext, ""
+            if b64:
+                raw, mime, ext = cls._decode_data_url_or_b64(str(b64))
+                if raw:
+                    return raw, mime, ext, ""
+            if url and str(url).startswith(("http://", "https://")):
+                try:
+                    with urllib.request.urlopen(str(url), timeout=20.0) as r:
+                        raw = r.read()
+                        mime, ext = cls._detect_image_mime(raw, declared_mime=r.headers.get("Content-Type"))
+                        if raw:
+                            return raw, mime, ext, ""
+                except Exception:
+                    pass
+
+        # 2. Structured list or data URI inside msg["content"]
+        content = msg.get("content")
+        if isinstance(content, list):
+            for block in content:
+                if not isinstance(block, dict):
+                    continue
+                if block.get("type") == "text" and block.get("text"):
+                    caption_parts.append(str(block["text"]))
+                elif block.get("type") in ("image_url", "image", "output_image"):
+                    url = (
+                        (block.get("image_url") or {}).get("url")
+                        if isinstance(block.get("image_url"), dict)
+                        else block.get("image_url")
+                    ) or block.get("url")
+                    b64 = block.get("b64_json") or block.get("data")
+                    if url and str(url).startswith("data:image/"):
+                        raw, mime, ext = cls._decode_data_url_or_b64(str(url))
+                        if raw:
+                            return raw, mime, ext, " ".join(caption_parts).strip()
+                    if b64:
+                        raw, mime, ext = cls._decode_data_url_or_b64(str(b64))
+                        if raw:
+                            return raw, mime, ext, " ".join(caption_parts).strip()
+        elif isinstance(content, str) and content:
+            m = re.search(r"(data:image/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=\s]+)", content)
+            if m:
+                raw, mime, ext = cls._decode_data_url_or_b64(m.group(1))
+                cleaned_caption = re.sub(r"!\[[^\]]*\]\(data:image/[^)]+\)", "", content)
+                cleaned_caption = cleaned_caption.replace(m.group(1), "").strip()
+                if raw:
+                    return raw, mime, ext, cleaned_caption
+            caption_parts.append(content.strip())
+
+        return None, "image/png", ".png", " ".join(caption_parts).strip()
+
+    def dispatch_image_generation(
+        self,
+        prompt: str,
+        *,
+        model: Optional[str] = None,
+        aspect_ratio: Optional[str] = None,
+        gateway: Optional[str] = None,
+        timeout: float = 60.0,
+    ) -> Dict[str, Any]:
+        """Generate a 2D raster image using OpenRouter image modalities or NanoGPT image API."""
+        clean_prompt = (prompt or "").strip()
+        if not clean_prompt:
+            return {"ok": False, "error": "Image generation prompt is required."}
+
+        openrouter_key = self.openrouter_key if self.openrouter_key is not None else os.environ.get("OPENROUTER_API_KEY")
+        nanogpt_key = self.nanogpt_key if self.nanogpt_key is not None else os.environ.get("NANOGPT_API_KEY")
+        errors: List[str] = []
+
+        # 1. Try OpenRouter chat completions with modalities=["image", "text"]
+        if gateway != "nanogpt" and openrouter_key:
+            candidates: List[str] = []
+            for m in (model, self.DEFAULT_IMAGE_MODEL, self.FALLBACK_IMAGE_MODEL):
+                if m and not m.startswith("nanogpt/") and m not in candidates:
+                    candidates.append(m)
+            headers = {
+                "Authorization": f"Bearer {openrouter_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://github.com/NoJuanNobody/tin-can",
+                "X-Title": "TinCan 2 / IoT Federated Agent Memory",
+            }
+            for idx, candidate in enumerate(candidates):
+                payload: Dict[str, Any] = {
+                    "model": candidate,
+                    "modalities": ["image", "text"],
+                    "messages": [{"role": "user", "content": clean_prompt}],
+                }
+                if aspect_ratio:
+                    payload["image_config"] = {"aspect_ratio": aspect_ratio}
+                req = urllib.request.Request(
+                    self.OPENROUTER_ENDPOINT,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers=headers,
+                    method="POST",
+                )
+                try:
+                    with urllib.request.urlopen(req, timeout=timeout) as resp:
+                        data = json.loads(resp.read().decode("utf-8"))
+                    raw, mime, ext, caption = self._extract_openrouter_image(data)
+                    if raw:
+                        usage = data.get("usage") or {}
+                        p_toks = int(usage.get("prompt_tokens", 0))
+                        c_toks = int(usage.get("completion_tokens", 0))
+                        t_toks = int(usage.get("total_tokens", p_toks + c_toks))
+                        cost = float(usage.get("cost") or 0.039)
+                        self.record_usage(candidate, p_toks, c_toks, t_toks, cost)
+                        return {
+                            "ok": True,
+                            "gateway": "openrouter",
+                            "model": data.get("model") or candidate,
+                            "mime_type": mime,
+                            "ext": ext,
+                            "size_bytes": len(raw),
+                            "image_bytes": raw,
+                            "image_b64": base64.b64encode(raw).decode("ascii"),
+                            "caption": caption,
+                            "cost_usd": cost,
+                            "usage": usage,
+                            "simulated": False,
+                        }
+                    errors.append(f"{candidate}: OpenRouter response contained no image payload")
+                except urllib.error.HTTPError as http_err:
+                    detail = ""
+                    try:
+                        detail = http_err.read().decode("utf-8", errors="replace").strip()[:240]
+                    except Exception:
+                        pass
+                    errors.append(f"{candidate}: HTTP {http_err.code}{' — ' + detail if detail else ''}")
+                    if http_err.code in (400, 404, 422) and idx + 1 < len(candidates):
+                        continue
+                    if http_err.code == 402:
+                        break
+                except Exception as err:
+                    errors.append(f"{candidate}: {err}")
+
+        # 2. Try NanoGPT Image API fallback or explicit gateway="nanogpt"
+        if nanogpt_key:
+            nano_model = model[len("nanogpt/"):] if model and model.startswith("nanogpt/") else (
+                model if gateway == "nanogpt" and model else self.NANOGPT_DEFAULT_IMAGE_MODEL
+            )
+            headers = {
+                "Authorization": f"Bearer {nanogpt_key}",
+                "Content-Type": "application/json",
+            }
+            payload = {
+                "model": nano_model,
+                "prompt": clean_prompt,
+                "n": 1,
+                "response_format": "b64_json",
+            }
+            req = urllib.request.Request(
+                self.NANOGPT_IMAGE_ENDPOINT,
+                data=json.dumps(payload).encode("utf-8"),
+                headers=headers,
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                items = data.get("data") or []
+                first = items[0] if items and isinstance(items[0], dict) else {}
+                raw = None
+                mime, ext = "image/png", ".png"
+                if first.get("b64_json"):
+                    raw, mime, ext = self._decode_data_url_or_b64(str(first["b64_json"]))
+                elif first.get("url"):
+                    with urllib.request.urlopen(str(first["url"]), timeout=20.0) as img_r:
+                        raw = img_r.read()
+                        mime, ext = self._detect_image_mime(raw, declared_mime=img_r.headers.get("Content-Type"))
+                if raw:
+                    cost = float(data.get("cost") or 0.04)
+                    self.record_usage(f"nanogpt/{nano_model}", len(clean_prompt.split()), 0, len(clean_prompt.split()), cost)
+                    return {
+                        "ok": True,
+                        "gateway": "nanogpt",
+                        "model": f"nanogpt/{nano_model}",
+                        "mime_type": mime,
+                        "ext": ext,
+                        "size_bytes": len(raw),
+                        "image_bytes": raw,
+                        "image_b64": base64.b64encode(raw).decode("ascii"),
+                        "caption": str(first.get("revised_prompt") or ""),
+                        "cost_usd": cost,
+                        "usage": {"cost": cost},
+                        "simulated": False,
+                    }
+                errors.append(f"nanogpt/{nano_model}: empty image response")
+            except urllib.error.HTTPError as http_err:
+                detail = ""
+                try:
+                    detail = http_err.read().decode("utf-8", errors="replace").strip()[:240]
+                except Exception:
+                    pass
+                errors.append(f"nanogpt/{nano_model}: HTTP {http_err.code}{' — ' + detail if detail else ''}")
+            except Exception as err:
+                errors.append(f"nanogpt/{nano_model}: {err}")
+
+        if not openrouter_key and not nanogpt_key:
+            return {
+                "ok": False,
+                "simulated": True,
+                "error": "No OPENROUTER_API_KEY or NANOGPT_API_KEY configured for 2D image generation.",
+            }
+        return {
+            "ok": False,
+            "simulated": False,
+            "error": "; ".join(errors) or "2D image generation failed.",
+        }
