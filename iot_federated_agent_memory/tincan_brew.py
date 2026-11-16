@@ -1035,7 +1035,7 @@ def _build_harness_exec_argv(target: Dict[str, Any], task_args: str) -> Tuple[Li
     or_key = os.environ.get("OPENROUTER_API_KEY")
 
     if target["id"] == "claude-code" and or_key and not os.environ.get("ANTHROPIC_API_KEY"):
-        flags.extend(["--model", os.environ.get("CLAUDE_MODEL") or "anthropic/claude-sonnet-4"])
+        flags.extend(["--model", os.environ.get("CLAUDE_MODEL") or "anthropic/claude-sonnet-5.5"])
     elif target["id"] == "opencode" and or_key:
         flags.extend(["-m", os.environ.get("OPENCODE_MODEL") or "openrouter/google/gemini-2.5-flash"])
     elif target["id"] == "codex" and or_key and not os.environ.get("OPENAI_API_KEY"):

@@ -1680,11 +1680,34 @@ class WasmAndCodePlaygroundRunner:
                 tempfile.TemporaryDirectory(prefix="agent_space_cache_") as cache_dir:
             initial_hashes = self._materialize_space(vfs, tmpdir)
             sandbox_home = os.path.join(cache_dir, "home")
-            os.makedirs(sandbox_home, exist_ok=True)
+            codex_home = os.path.join(sandbox_home, ".codex")
+            opencode_cfg_dir = os.path.join(sandbox_home, ".config", "opencode")
+            os.makedirs(codex_home, exist_ok=True)
+            os.makedirs(opencode_cfg_dir, exist_ok=True)
+            if os.environ.get("OPENROUTER_API_KEY"):
+                with open(os.path.join(opencode_cfg_dir, "opencode.json"), "w", encoding="utf-8") as ocf:
+                    json.dump(
+                        {
+                            "provider": {
+                                "openrouter": {
+                                    "options": {
+                                        "baseURL": "https://openrouter.ai/api/v1",
+                                        "apiKey": "{env:OPENROUTER_API_KEY}",
+                                    },
+                                    "models": {
+                                        "google/gemini-2.5-flash": {"name": "Gemini 2.5 Flash"},
+                                        "anthropic/claude-sonnet-5.5": {"name": "Claude Sonnet 5.5"},
+                                        "openai/gpt-4o-mini": {"name": "GPT-4o Mini"},
+                                    },
+                                }
+                            }
+                        },
+                        ocf,
+                    )
             sandbox_env = build_toolchain_env(tmpdir, cache_dir)
             # Keep tool config/cache dotfiles out of the .space workspace directory.
             sandbox_env["HOME"] = sandbox_home
-            sandbox_env["CODEX_HOME"] = os.path.join(sandbox_home, ".codex")
+            sandbox_env["CODEX_HOME"] = codex_home
             for key in HARNESS_AUTH_ENV_KEYS:
                 val = os.environ.get(key)
                 if val:

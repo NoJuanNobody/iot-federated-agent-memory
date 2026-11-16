@@ -104,6 +104,8 @@ print("ARGS:" + "|".join(sys.argv[1:]))
 print("KEY:" + os.environ.get("OPENROUTER_API_KEY", ""))
 # Tool writing dotfiles into $HOME must NOT leak into the .space workspace cwd.
 home_dir = pathlib.Path(os.environ["HOME"])
+assert pathlib.Path(os.environ["CODEX_HOME"]).is_dir()
+assert (home_dir / ".config" / "opencode" / "opencode.json").is_file()
 (home_dir / ".claude.json").write_text("{}", encoding="utf-8")
 pathlib.Path("harness_out.txt").write_text("from claude\\n", encoding="utf-8")
 pathlib.Path(".claude").mkdir(exist_ok=True)
