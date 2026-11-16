@@ -605,8 +605,12 @@ class DynamicAIGatewayRouter:
     OPENROUTER_CREDITS_URL = "https://openrouter.ai/api/v1/credits"
     OPENROUTER_KEY_URL = "https://openrouter.ai/api/v1/auth/key"
 
+    NANOGPT_BASE_URL = "https://api.nano-gpt.com"
     NANOGPT_ENDPOINT = "https://api.nano-gpt.com/api/v1/chat/completions"
     NANOGPT_IMAGE_ENDPOINT = "https://api.nano-gpt.com/api/v1/images/generations"
+    NANOGPT_MEDIA_SUBMIT_URL = "https://api.nano-gpt.com/api/generate-video"
+    NANOGPT_MEDIA_STATUS_URL = "https://api.nano-gpt.com/api/video/status"
+    NANOGPT_3D_MODELS_URL = "https://api.nano-gpt.com/api/v1/3d-models"
     NANOGPT_MODELS_URL = "https://api.nano-gpt.com/api/v1/models?detailed=true"
     NANOGPT_BALANCE_URL = "https://api.nano-gpt.com/api/check-balance"
     DEFAULT_IMAGE_MODEL = "google/gemini-2.5-flash-image"
@@ -614,6 +618,7 @@ class DynamicAIGatewayRouter:
     TERTIARY_IMAGE_MODEL = "openai/gpt-5-image-mini"
     NANOGPT_DEFAULT_IMAGE_MODEL = "minimax-h3-image"
     NANOGPT_FALLBACK_IMAGE_MODEL = "blackforestlabs/flux-3/klein/text-to-image"
+    NANOGPT_DEFAULT_RODIN_MODEL = "hyper3d/rodin-v2.5"
 
     # Hyper3D Rodin (Ronin) v2 3D Generation Endpoints
     RODIN_GENERATE_URL = "https://api.hyper3d.com/api/v2/rodin"
@@ -1666,6 +1671,137 @@ class DynamicAIGatewayRouter:
         parts.append(f"--{boundary}--\r\n".encode("utf-8"))
         return b"".join(parts), f"multipart/form-data; boundary={boundary}"
 
+    @staticmethod
+    def _map_nanogpt_rodin_payload(
+        prompt: str,
+        *,
+        images: Optional[List[str]] = None,
+        tier: str = "Regular",
+        material: str = "PBR",
+        quality: str = "medium",
+        mesh_mode: str = "Quad",
+    ) -> Dict[str, Any]:
+        """Build JSON request body for NanoGPT's `hyper3d/rodin-v2.5` endpoint (/api/generate-video)."""
+        tier_map = {
+            "Sketch": "Gen-2.5-Low",
+            "Regular": "Gen-2.5-Medium",
+            "Detail": "Gen-2.5-High",
+            "Smooth": "Gen-2.5-Medium",
+        }
+        nano_tier = tier if str(tier).startswith("Gen-2.5-") else tier_map.get(tier, "Gen-2.5-Medium")
+        if str(mesh_mode).lower() == "quad":
+            qmesh = "50K Quad" if str(quality).lower() == "high" else "18K Quad"
+        else:
+            qmesh = "150K Triangle" if str(quality).lower() == "high" else "20K Triangle"
+        body: Dict[str, Any] = {
+            "model": DynamicAIGatewayRouter.NANOGPT_DEFAULT_RODIN_MODEL,
+            "prompt": prompt,
+            "tier": nano_tier,
+            "material": material if material in ("All", "PBR", "Shaded", "None") else "PBR",
+            "quality_and_mesh": qmesh,
+        }
+        if images:
+            first_img = str(images[0])
+            if first_img.startswith("data:"):
+                body["imageDataUrl"] = first_img
+            elif first_img.startswith(("http://", "https://")):
+                body["imageUrl"] = first_img
+            body["images"] = images
+        return body
+
+    @classmethod
+    def _extract_nanogpt_glb_urls(cls, data: Any) -> List[str]:
+        """Extract all output asset URLs from a NanoGPT /api/video/status payload, preferring .glb."""
+        urls: List[str] = []
+
+        def _add(val: Any) -> None:
+            raw_u = val.get("url") if isinstance(val, dict) else (val if isinstance(val, str) else None)
+            if not raw_u or not isinstance(raw_u, str):
+                return
+            u = raw_u.strip()
+            if u.startswith("/api/"):
+                u = cls.NANOGPT_BASE_URL + u
+            if u.startswith(("http://", "https://")) and u not in urls:
+                urls.append(u)
+
+        def _walk(node: Any) -> None:
+            if isinstance(node, dict):
+                for k in ("model_url", "glb_url", "model_mesh", "url", "outputUrl", "output_url", "videoUrl", "video_url", "video", "model"):
+                    if k in node:
+                        _add(node[k])
+                for k in ("model3d_assets", "videoUrls", "files", "list", "assets", "outputs"):
+                    if isinstance(node.get(k), list):
+                        for item in node[k]:
+                            _add(item)
+                for v in node.values():
+                    if isinstance(v, (dict, list)):
+                        _walk(v)
+            elif isinstance(node, list):
+                for item in node:
+                    _walk(item)
+
+        _walk(data)
+        glb_first = [u for u in urls if ".glb" in u.lower()]
+        other = [u for u in urls if ".glb" not in u.lower()]
+        return glb_first + other
+
+    def _dispatch_nanogpt_rodin(
+        self,
+        *,
+        prompt: str,
+        images: Optional[List[str]] = None,
+        tier: str = "Regular",
+        material: str = "PBR",
+        quality: str = "medium",
+        mesh_mode: str = "Quad",
+    ) -> Dict[str, Any]:
+        """Submit a Rodin 2.5 3D generation job to NanoGPT (/api/generate-video)."""
+        nanogpt_key = self.nanogpt_key if self.nanogpt_key is not None else os.environ.get("NANOGPT_API_KEY")
+        if not nanogpt_key:
+            return {"ok": False, "error": "NANOGPT_API_KEY not configured"}
+        payload = self._map_nanogpt_rodin_payload(
+            prompt, images=images, tier=tier, material=material, quality=quality, mesh_mode=mesh_mode
+        )
+        headers = {
+            "Authorization": f"Bearer {nanogpt_key}",
+            "x-api-key": nanogpt_key,
+            "Content-Type": "application/json",
+        }
+        req = urllib.request.Request(
+            self.NANOGPT_MEDIA_SUBMIT_URL,
+            data=json.dumps(payload).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=45.0) as resp:
+                resp_data = json.loads(resp.read().decode("utf-8")) or {}
+            run_id = (
+                resp_data.get("runId")
+                or resp_data.get("requestId")
+                or resp_data.get("id")
+                or resp_data.get("jobId")
+            )
+            if not run_id:
+                return {"ok": False, "error": f"NanoGPT 3D submit returned no runId: {json.dumps(resp_data)[:200]}"}
+            return {
+                "ok": True,
+                "run_id": str(run_id),
+                "model_slug": str(resp_data.get("modelSlug") or resp_data.get("model") or self.NANOGPT_DEFAULT_RODIN_MODEL),
+                "status": str(resp_data.get("status") or "pending"),
+                "cost_usd": float(resp_data.get("cost") or 0.48),
+                "raw": resp_data,
+            }
+        except urllib.error.HTTPError as http_err:
+            detail = ""
+            try:
+                detail = http_err.read().decode("utf-8", errors="replace").strip()[:240]
+            except Exception:
+                pass
+            return {"ok": False, "error": f"NanoGPT HTTP {http_err.code}{' — ' + detail if detail else ''}"}
+        except Exception as err:
+            return {"ok": False, "error": f"NanoGPT 3D submit failed: {err}"}
+
     def dispatch_rodin_generation(
         self,
         prompt: str,
@@ -1676,13 +1812,17 @@ class DynamicAIGatewayRouter:
         quality: str = "medium",
         mesh_mode: str = "Quad",
     ) -> Dict[str, Any]:
-        """Dispatch 3D generative task to Hyper3D Rodin v2 API (multipart + fallback host) or return simulated receipt."""
+        """Dispatch 3D generative task to Hyper3D Rodin v2 API or NanoGPT Rodin v2.5 fallback."""
         cost_usd = float(self.RODIN_TIER_COSTS.get(tier, 0.50))
         task_uuid = f"rodin-{uuid.uuid4().hex[:12]}"
         sub_key = f"sub-{uuid.uuid4().hex[:12]}"
         status = "Done"
         simulated = True
+        gateway = "hyper3d"
+        provider_model = "rodin-v2"
+        model_slug: Optional[str] = None
         remote_error: Optional[str] = None
+        hyper3d_direct_error: Optional[str] = None
 
         api_key = self.hyper3d_key or _resolve_hyper3d_key_fallback()
         if api_key:
@@ -1753,10 +1893,36 @@ class DynamicAIGatewayRouter:
                     status = "Done"
                     break
 
+        # Fallback to NanoGPT hyper3d/rodin-v2.5 when direct Hyper3D is unconfigured or rejected (e.g. API_NO_ACTIVE_SUBSCRIPTION)
+        nanogpt_key = self.nanogpt_key if self.nanogpt_key is not None else os.environ.get("NANOGPT_API_KEY")
+        if simulated and nanogpt_key:
+            hyper3d_direct_error = remote_error
+            nano_res = self._dispatch_nanogpt_rodin(
+                prompt=prompt,
+                images=images,
+                tier=tier,
+                material=material,
+                quality=quality,
+                mesh_mode=mesh_mode,
+            )
+            if nano_res.get("ok"):
+                task_uuid = nano_res["run_id"]
+                sub_key = nano_res["run_id"]
+                model_slug = nano_res.get("model_slug") or self.NANOGPT_DEFAULT_RODIN_MODEL
+                provider_model = model_slug
+                gateway = "nanogpt"
+                status = nano_res.get("status") or "pending"
+                cost_usd = float(nano_res.get("cost_usd") or 0.48)
+                simulated = False
+                remote_error = None
+            else:
+                nano_err = nano_res.get("error") or "NanoGPT Rodin submission failed"
+                remote_error = f"{hyper3d_direct_error}; {nano_err}" if hyper3d_direct_error else nano_err
+
         glb_bytes = generate_minimal_glb_bytes(name=prompt[:24] if prompt else "rodin_mesh")
         glb_b64 = base64.b64encode(glb_bytes).decode("utf-8")
 
-        task_record = {
+        task_record: Dict[str, Any] = {
             "uuid": task_uuid,
             "subscription_key": sub_key,
             "prompt": prompt,
@@ -1770,9 +1936,15 @@ class DynamicAIGatewayRouter:
             "created_at": time.time(),
             "glb_bytes_b64": glb_b64,
             "simulated": simulated,
+            "gateway": gateway,
+            "model": provider_model,
         }
+        if model_slug:
+            task_record["model_slug"] = model_slug
         if remote_error:
             task_record["remote_error"] = remote_error
+        if hyper3d_direct_error and not remote_error:
+            task_record["hyper3d_direct_error"] = hyper3d_direct_error
 
         self.rodin_tasks[task_uuid] = task_record
         self.rodin_total_calls += 1
@@ -1780,9 +1952,72 @@ class DynamicAIGatewayRouter:
         return dict(task_record)
 
     def check_rodin_status(self, subscription_key: str) -> Dict[str, Any]:
-        """Check status of Rodin generation task via API or local task registry."""
+        """Check status of Rodin generation task via NanoGPT, Hyper3D API, or local task registry."""
+        matching_task = self.rodin_tasks.get(subscription_key)
+        if not matching_task:
+            for t in self.rodin_tasks.values():
+                if t.get("subscription_key") == subscription_key or t.get("uuid") == subscription_key:
+                    matching_task = t
+                    break
+
+        is_nanogpt_task = bool(
+            (matching_task and matching_task.get("gateway") == "nanogpt" and not matching_task.get("simulated"))
+            or str(subscription_key).startswith("vid_")
+        )
+        nanogpt_key = self.nanogpt_key if self.nanogpt_key is not None else os.environ.get("NANOGPT_API_KEY")
+        if is_nanogpt_task and nanogpt_key:
+            req_id = (matching_task.get("uuid") if matching_task else None) or subscription_key
+            params: Dict[str, str] = {"requestId": str(req_id), "runId": str(req_id)}
+            if matching_task and matching_task.get("model_slug"):
+                params["modelSlug"] = str(matching_task["model_slug"])
+            url = f"{self.NANOGPT_MEDIA_STATUS_URL}?{urllib.parse.urlencode(params)}"
+            headers = {
+                "Authorization": f"Bearer {nanogpt_key}",
+                "x-api-key": nanogpt_key,
+            }
+            req = urllib.request.Request(url, headers=headers, method="GET")
+            try:
+                with urllib.request.urlopen(req, timeout=20.0) as resp:
+                    raw_data = json.loads(resp.read().decode("utf-8")) or {}
+                job = raw_data.get("data") if isinstance(raw_data.get("data"), dict) else raw_data
+                raw_st = str(job.get("status") or job.get("state") or raw_data.get("status") or "pending").lower()
+                if raw_st in ("succeeded", "success", "completed", "complete", "done"):
+                    norm_st = "Done"
+                elif raw_st in ("failed", "error", "canceled", "cancelled", "timed_out"):
+                    norm_st = "Failed"
+                else:
+                    norm_st = "Processing"
+                urls = self._extract_nanogpt_glb_urls(raw_data)
+                if matching_task is not None:
+                    matching_task["status"] = norm_st
+                    if urls:
+                        matching_task["glb_url"] = urls[0]
+                        matching_task["urls"] = urls
+                err_txt = job.get("error") or raw_data.get("error")
+                out: Dict[str, Any] = {
+                    "subscription_key": subscription_key,
+                    "gateway": "nanogpt",
+                    "status": norm_st,
+                    "raw_status": raw_st,
+                    "jobs": [{"uuid": str(req_id), "status": norm_st}],
+                    "urls": urls,
+                }
+                if err_txt:
+                    out["error"] = err_txt
+                return out
+            except urllib.error.HTTPError as http_err:
+                if http_err.code == 404:
+                    return {
+                        "subscription_key": subscription_key,
+                        "gateway": "nanogpt",
+                        "status": "Processing",
+                        "jobs": [{"uuid": str(req_id), "status": "Processing"}],
+                    }
+            except Exception:
+                pass
+
         api_key = self.hyper3d_key or _resolve_hyper3d_key_fallback()
-        if api_key and not subscription_key.startswith("sub-"):
+        if api_key and not subscription_key.startswith("sub-") and not is_nanogpt_task:
             headers = {
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
@@ -1798,13 +2033,6 @@ class DynamicAIGatewayRouter:
                     return json.loads(resp.read().decode("utf-8"))
             except Exception:
                 pass
-
-        matching_task = self.rodin_tasks.get(subscription_key)
-        if not matching_task:
-            for t in self.rodin_tasks.values():
-                if t.get("subscription_key") == subscription_key or t.get("uuid") == subscription_key:
-                    matching_task = t
-                    break
 
         if matching_task:
             t_uuid = matching_task.get("uuid", subscription_key)
@@ -1822,13 +2050,40 @@ class DynamicAIGatewayRouter:
         }
 
     def download_rodin_assets(self, task_uuid: str) -> Dict[str, Any]:
-        """Download Rodin assets via API or return deterministic asset manifest."""
-        api_key = self.hyper3d_key or _resolve_hyper3d_key_fallback()
+        """Download Rodin assets via NanoGPT, Hyper3D API, or return deterministic asset manifest."""
         task = self.rodin_tasks.get(task_uuid, {})
         is_simulated = task.get("simulated", True)
-
         download_error: Optional[str] = None
-        if api_key and not is_simulated:
+
+        if task.get("gateway") == "nanogpt" and not is_simulated:
+            glb_url = task.get("glb_url")
+            if not glb_url:
+                st = self.check_rodin_status(task.get("subscription_key") or task_uuid)
+                urls = st.get("urls") or []
+                glb_url = urls[0] if urls else None
+            if glb_url:
+                try:
+                    mesh_req = urllib.request.Request(str(glb_url), method="GET")
+                    with urllib.request.urlopen(mesh_req, timeout=60.0) as mesh_resp:
+                        raw_mesh = mesh_resp.read()
+                    if raw_mesh:
+                        b64_str = base64.b64encode(raw_mesh).decode("ascii")
+                        task["glb_bytes_b64"] = b64_str
+                        return {
+                            "task_uuid": task_uuid,
+                            "gateway": "nanogpt",
+                            "format": task.get("format", "glb"),
+                            "url": glb_url,
+                            "urls": task.get("urls") or [glb_url],
+                            "files": [{"name": f"{task_uuid}.glb", "format": "glb", "url": glb_url, "bytes_b64": b64_str}],
+                            "glb_bytes_b64": b64_str,
+                            "simulated": False,
+                        }
+                except Exception as err:
+                    download_error = str(err)
+
+        api_key = self.hyper3d_key or _resolve_hyper3d_key_fallback()
+        if api_key and not is_simulated and task.get("gateway") != "nanogpt":
             headers = {
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
@@ -1842,7 +2097,6 @@ class DynamicAIGatewayRouter:
             try:
                 with urllib.request.urlopen(req, timeout=15.0) as resp:
                     dl_data = json.loads(resp.read().decode("utf-8")) or {}
-                # Extract direct .glb download URL from Hyper3D v2 response ("list" or "files") and hydrate glb_bytes_b64
                 glb_url = None
                 for item in (dl_data.get("list") or []):
                     if isinstance(item, dict) and str(item.get("name", "")).lower().endswith(".glb") and item.get("url"):
@@ -1883,12 +2137,14 @@ class DynamicAIGatewayRouter:
             out["download_error"] = download_error
         return out
 
-    def wait_for_rodin_glb(self, task_record: Dict[str, Any], max_wait_sec: float = 45.0) -> Dict[str, Any]:
-        """Poll a live Rodin task briefly and hydrate glb_bytes_b64 with the real downloaded mesh."""
+    def wait_for_rodin_glb(self, task_record: Dict[str, Any], max_wait_sec: float = 90.0) -> Dict[str, Any]:
+        """Poll a live Rodin task (Hyper3D or NanoGPT) and hydrate glb_bytes_b64 with the real downloaded mesh."""
         if not task_record or task_record.get("simulated"):
             return task_record
         sub_key = task_record.get("subscription_key") or ""
         task_uuid = task_record.get("uuid") or ""
+        is_nano = task_record.get("gateway") == "nanogpt"
+        poll_interval = 3.0 if is_nano else 2.0
         deadline = time.time() + float(max_wait_sec)
         while time.time() < deadline:
             st_data = self.check_rodin_status(sub_key) if sub_key else {}
@@ -1901,13 +2157,17 @@ class DynamicAIGatewayRouter:
                     task_record["glb_bytes_b64"] = dl["glb_bytes_b64"]
                     task_record["status"] = "Done"
                     task_record["downloaded"] = True
+                    if dl.get("url"):
+                        task_record["url"] = dl["url"]
                 elif dl.get("download_error"):
                     task_record["download_error"] = dl["download_error"]
                 break
             if top_status == "Failed" or any(s == "Failed" for s in statuses):
                 task_record["status"] = "Failed"
+                if st_data.get("error"):
+                    task_record["remote_error"] = str(st_data["error"])
                 break
-            time.sleep(2.0)
+            time.sleep(min(poll_interval, max(0.05, deadline - time.time())))
         return task_record
 
     def get_analytics(self, include_live_billing: bool = True) -> Dict[str, Any]:

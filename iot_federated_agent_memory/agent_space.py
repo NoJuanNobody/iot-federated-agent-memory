@@ -1522,11 +1522,16 @@ def main() -> int:
     p_img.add_argument("--model", default=None, help="Optional model ID override")
     p_img.add_argument("--out", default=None, help="Optional VFS / relative path (e.g. /images/out.png)")
 
-    p_3d = sub.add_parser("3d", help="Generate a 3D .glb mesh via TinCan Server Hyper3D Rodin v2")
+    p_3d = sub.add_parser("3d", help="Generate a 3D .glb mesh via Hyper3D Rodin / NanoGPT Rodin v2.5")
     p_3d.add_argument("prompt", help="3D asset description prompt")
     p_3d.add_argument("--tier", default="Regular", choices=["Regular", "Sketch", "Detail", "Smooth"])
     p_3d.add_argument("--out", default=None, help="Optional VFS / relative path (e.g. /models3d/goose.glb)")
     p_3d.add_argument("--no-wait", action="store_true", help="Do not wait for async Rodin job download")
+    p_3d.add_argument("--wait-sec", type=float, default=110.0, help="Seconds to wait for async 3D GLB completion")
+
+    p_3ds = sub.add_parser("3d-status", help="Poll/download an already-submitted Rodin / NanoGPT 3D runId")
+    p_3ds.add_argument("run_id", help="Run ID / UUID / subscription_key to check and download")
+    p_3ds.add_argument("--out", default=None, help="Optional VFS / relative output path")
 
     sub.add_parser("models", help="Inspect live TinCan chat, 2D image, and 3D Rodin availability")
 
@@ -1579,7 +1584,8 @@ def main() -> int:
             "save_path": args.out,
             "peer_id": owner,
             "wait": not args.no_wait,
-        }, timeout=120.0)
+            "wait_sec": args.wait_sec,
+        }, timeout=160.0)
         saved = res.get("saved_to_space") or {}
         vfs_path = saved.get("path") or args.out or f"/models3d/{res.get('uuid', 'rodin_mesh')}.glb"
         local_rel = vfs_path.lstrip("/")
@@ -1591,6 +1597,22 @@ def main() -> int:
         res_out = {k: v for k, v in res.items() if k != "glb_bytes_b64"}
         res_out["local_path"] = local_rel
         print(json.dumps(res_out, indent=2))
+        return 0
+
+    if args.cmd == "3d-status":
+        st = _req_json("/api/3d/status", {"subscription_key": args.run_id}, timeout=30.0)
+        if st.get("status") == "Done":
+            dl = _req_json("/api/3d/download", {"task_uuid": args.run_id, "uuid": args.run_id}, timeout=60.0)
+            if dl.get("glb_bytes_b64"):
+                vfs_path = args.out or f"/models3d/{args.run_id}.glb"
+                local_rel = vfs_path.lstrip("/")
+                local_abs = os.path.join(os.getcwd(), local_rel)
+                os.makedirs(os.path.dirname(local_abs), exist_ok=True)
+                with open(local_abs, "wb") as f:
+                    f.write(base64.b64decode(dl["glb_bytes_b64"]))
+                print(json.dumps({"status": "Done", "local_path": local_rel, "url": dl.get("url")}, indent=2))
+                return 0
+        print(json.dumps(st, indent=2))
         return 0
 
     return 1
@@ -2335,7 +2357,7 @@ class AgentSpaceHarness:
             try:
                 rodin_res = self.ai_router.dispatch_rodin_generation(prompt=rodin_prompt, geometry_file_format="glb")
                 if not rodin_res.get("simulated") and hasattr(self.ai_router, "wait_for_rodin_glb"):
-                    rodin_res = self.ai_router.wait_for_rodin_glb(rodin_res, max_wait_sec=45.0)
+                    rodin_res = self.ai_router.wait_for_rodin_glb(rodin_res, max_wait_sec=90.0)
                 b64_str = rodin_res.get("glb_bytes_b64")
                 if b64_str:
                     glb_bytes = base64.b64decode(b64_str)

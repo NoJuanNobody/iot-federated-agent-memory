@@ -672,3 +672,66 @@ def test_pty_tui_session_exposes_tincan_gen_and_capabilities(tmp_path, monkeypat
         assert "/images/cartoon_sponge.png" in paths
         assert "/models3d/goose.glb" in paths
         pty_mgr.close(sid)
+
+
+def test_nanogpt_rodin_v25_fallback_and_status_polling(monkeypatch):
+    router = DynamicAIGatewayRouter(hyper3d_key="direct-no-sub-key", nanogpt_key="ng-live-key")
+    calls = []
+
+    class _BinResp:
+        def __init__(self, body: bytes):
+            self._b = body
+
+        def read(self):
+            return self._b
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def fake_urlopen(req, timeout=45.0):
+        url = req.full_url
+        calls.append({"url": url, "method": req.get_method(), "data": req.data})
+        if url in (router.RODIN_GENERATE_URL, router.RODIN_FALLBACK_GENERATE_URL):
+            return _DummyHTTPResp(
+                {"error": "API_NO_ACTIVE_SUBSCRIPTION", "message": "Your account does not have API access."}
+            )
+        if url == router.NANOGPT_MEDIA_SUBMIT_URL:
+            body = json.loads(req.data.decode("utf-8"))
+            assert body["model"] == "hyper3d/rodin-v2.5"
+            assert body["tier"] == "Gen-2.5-Medium"
+            assert body["material"] == "PBR"
+            assert body["quality_and_mesh"] == "18K Quad"
+            return _DummyHTTPResp(
+                {"runId": "vid_rodin_nanogpt_123", "modelSlug": "hyper3d/rodin-v2.5", "status": "pending", "cost": 0.48}
+            )
+        if url.startswith(router.NANOGPT_MEDIA_STATUS_URL):
+            return _DummyHTTPResp(
+                {
+                    "requestId": "vid_rodin_nanogpt_123",
+                    "data": {
+                        "status": "COMPLETED",
+                        "output": {"model_url": "https://media.nano-gpt.cloud/assets/goose_rodin.glb"},
+                    },
+                }
+            )
+        if url == "https://media.nano-gpt.cloud/assets/goose_rodin.glb":
+            return _BinResp(b"glTF_NANOGPT_RODIN_V25_REAL_MESH")
+        raise AssertionError(f"Unexpected URL: {url}")
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    rec = router.dispatch_rodin_generation(prompt="a stylized origami goose", tier="Regular", mesh_mode="Quad")
+    assert rec["simulated"] is False
+    assert rec["gateway"] == "nanogpt"
+    assert rec["model"] == "hyper3d/rodin-v2.5"
+    assert rec["uuid"] == "vid_rodin_nanogpt_123"
+    assert "API_NO_ACTIVE_SUBSCRIPTION" in rec.get("hyper3d_direct_error", "")
+    assert abs(rec["cost_usd"] - 0.48) < 1e-6
+
+    hydrated = router.wait_for_rodin_glb(rec, max_wait_sec=10.0)
+    assert hydrated.get("downloaded") is True
+    assert hydrated["status"] == "Done"
+    assert hydrated["url"] == "https://media.nano-gpt.cloud/assets/goose_rodin.glb"
+    assert base64.b64decode(hydrated["glb_bytes_b64"]) == b"glTF_NANOGPT_RODIN_V25_REAL_MESH"

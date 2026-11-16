@@ -2739,7 +2739,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     mesh_mode=mesh_mode,
                 )
                 if data.get("wait") and not res.get("simulated") and hasattr(router, "wait_for_rodin_glb"):
-                    res = router.wait_for_rodin_glb(res, max_wait_sec=float(data.get("wait_sec") or 45.0))
+                    res = router.wait_for_rodin_glb(res, max_wait_sec=float(data.get("wait_sec") or 90.0))
 
                 # If save_path or owner_id passed, write into .space VFS
                 sm = _get_space_manager()
