@@ -2742,6 +2742,18 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json(out, 200 if out.get("status") != "error" else 400)
             except Exception as e:
                 self._send_json({"status": "error", "error": str(e), "output": f"Error: {e}", "lines": [f"Error: {e}"]}, 500)
+        elif parsed.path == "/api/terminal/actions":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                from iot_federated_agent_memory.tincan_actions import handle_actions_command
+
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                cmd = (data.get("command") or data.get("cmd") or "actions").strip()
+                out = handle_actions_command(cmd)
+                self._send_json(out, 200 if out.get("status") != "error" else 400)
+            except Exception as e:
+                self._send_json({"status": "error", "error": str(e), "output": f"Error: {e}", "lines": [f"Error: {e}"]}, 500)
         elif parsed.path == "/api/space/agent":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)

@@ -168,3 +168,58 @@ def dismiss_action(action_id_or_seq: str, config_dir: Optional[str] = None) -> D
     target["status"] = "dismissed"
     save_pending_actions(actions, config_dir)
     return target
+
+
+def handle_actions_command(cmd_str: str, config_dir: Optional[str] = None) -> Dict[str, Any]:
+    """Handle `tincan actions|trigger <seq>|dismiss <seq>` for the web Terminal."""
+    tokens = [t for t in (cmd_str or "").strip().split() if t]
+    if tokens and tokens[0].lower() == "tincan":
+        tokens = tokens[1:]
+    sub = tokens[0].lower() if tokens else "actions"
+    arg = tokens[1] if len(tokens) > 1 else ""
+
+    if sub == "actions":
+        actions = load_pending_actions(config_dir)
+        pending = [a for a in actions if a.get("status") == "pending_approval"]
+        if not pending:
+            msg = "No pending HITL actions queued on this host."
+            return {"status": "ok", "actions": [], "output": msg, "lines": [msg]}
+        lines = ["Pending HITL Accessibility Gate actions:"]
+        for a in pending:
+            lines.append(f"  [{a['seq']}] ({a.get('action_type', 'command')}) {a['command']}")
+        lines.append("Run `tincan trigger <seq>` to execute or `tincan dismiss <seq>` to cancel.")
+        return {"status": "ok", "actions": pending, "output": "\n".join(lines), "lines": lines}
+
+    if sub == "trigger":
+        if not arg:
+            msg = "tincan trigger: usage: tincan trigger <seq>"
+            return {"status": "error", "output": msg, "lines": [msg]}
+        try:
+            act = execute_action(arg, config_dir=config_dir)
+            out_text = f"Triggered #{act['seq']}: {act['command']}\n{act.get('result', '')}".strip()
+            return {
+                "status": "ok" if act.get("status") == "completed" else "error",
+                "action": act,
+                "output": out_text,
+                "lines": out_text.splitlines(),
+            }
+        except ValueError as err:
+            msg = (
+                f"{err} Note: actions queued locally on your Mac stay in ~/.tin-can/pending_actions.json "
+                "and must be triggered from your Mac shell, while web-queued actions run here."
+            )
+            return {"status": "error", "output": msg, "lines": [msg]}
+
+    if sub == "dismiss":
+        if not arg:
+            msg = "tincan dismiss: usage: tincan dismiss <seq>"
+            return {"status": "error", "output": msg, "lines": [msg]}
+        try:
+            act = dismiss_action(arg, config_dir=config_dir)
+            msg = f"Dismissed #{act['seq']}: {act['command']}"
+            return {"status": "ok", "action": act, "output": msg, "lines": [msg]}
+        except ValueError as err:
+            return {"status": "error", "output": str(err), "lines": [str(err)]}
+
+    msg = f"tincan: unknown actions subcommand '{sub}'. Try: tincan actions, tincan trigger <seq>, tincan dismiss <seq>"
+    return {"status": "error", "output": msg, "lines": [msg]}

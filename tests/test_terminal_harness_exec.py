@@ -181,8 +181,70 @@ def test_tincan_actions_executes_harness_type(tmp_path):
 
 def test_shell_js_and_dockerfile_harness_wiring():
     assert "'gemini'" in SHELL_JS and "scope: c.scope" in SHELL_JS and "termSpaceChanged(c)" in SHELL_JS
+    assert "/api/terminal/actions" in SHELL_JS and "termChatReply(d)" in SHELL_JS
     dockerfile = (Path(__file__).resolve().parent.parent / "Dockerfile").read_text(encoding="utf-8")
     for pkg in ("@anthropic-ai/claude-code", "opencode-ai", "@openai/codex", "@google/gemini-cli", "vendor/dsx", "aaif-goose/goose"):
         assert pkg in dockerfile
     for check in ("claude --version", "opencode --version", "codex --version", "gemini --version", "dsx --help", "goose --version"):
         assert check in dockerfile
+
+
+def test_chat_reply_extracts_openrouter_choices_across_shells():
+    from iot_federated_agent_memory.ai_home_shell import AI_HOME_SHELL_JS
+    from iot_federated_agent_memory.zen_shell import ZEN_BODY
+    from tests.test_tincan_ux_updates import _extract_js_range, _run_node
+
+    for js_blob in (AI_HOME_SHELL_JS, ZEN_BODY):
+        assert "choices[0].message.content" in js_blob
+
+    fn_src = _extract_js_range(SHELL_JS, "function termChatReply(d) {", "\n    function termSpaceChanged")
+    out = _run_node(
+        fn_src
+        + """
+const openrouter = {
+  id: 'gen-123',
+  choices: [{ message: { role: 'assistant', content: 'Hello from Gemini' } }]
+};
+const errObj = { error: { message: 'Rate limited' } };
+console.log(JSON.stringify({
+  openrouter: termChatReply(openrouter),
+  errObj: termChatReply(errObj),
+  legacy: termChatReply({ content: 'Direct content' }),
+}));
+"""
+    )
+    assert out == {
+        "openrouter": "Hello from Gemini",
+        "errObj": "Rate limited",
+        "legacy": "Direct content",
+    }
+
+
+def test_http_terminal_actions_endpoint(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    cfg = str(tmp_path / ".tin-can")
+    fake_bin = _write_fake_cli(
+        tmp_path / "echo_act",
+        "#!/usr/bin/env python3\nimport sys\nprint('EXEC_OK:' + ' '.join(sys.argv[1:]))\n",
+    )
+    enqueue_action(
+        seq=5512,
+        sender="tc:test",
+        sender_alias="tester",
+        command_text=f"{fake_bin} hi",
+        config_dir=cfg,
+        action_type="harness",
+    )
+    with _live_server() as addr:
+        st_list, d_list = _http_json(addr, "POST", "/api/terminal/actions", {"command": "tincan actions"})
+        assert st_list == 200
+        assert any(a["seq"] == 5512 for a in d_list["actions"])
+
+        st_trig, d_trig = _http_json(addr, "POST", "/api/terminal/actions", {"command": "tincan trigger 5512"})
+        assert st_trig == 200
+        assert "EXEC_OK:hi" in d_trig["output"]
+
+        st_miss, d_miss = _http_json(addr, "POST", "/api/terminal/actions", {"command": "tincan trigger 99999"})
+        assert st_miss == 400
+        assert "not found in pending queue" in d_miss["output"]
+

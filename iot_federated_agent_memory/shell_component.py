@@ -172,6 +172,18 @@ SHELL_JS = r"""
     const TC_SHELL_INTRO = 'Commands run against your own .space: ls [dir], cat file, open file, tree, run [file], py code, runs, drive, status, ask question, help.';
 
     function termDone(ok, text, extra) { return Object.assign({ ok: !!ok, text: String(text == null ? '' : text) }, extra || {}); }
+    function termChatReply(d) {
+      if (!d || typeof d !== 'object') return String(d == null ? '' : d);
+      if (d.error) return typeof d.error === 'string' ? d.error : (d.error.message || JSON.stringify(d.error));
+      const choice = Array.isArray(d.choices) && d.choices[0];
+      const msg = choice && (choice.message || choice.delta);
+      if (msg && msg.content != null && msg.content !== '') return String(msg.content);
+      if (choice && typeof choice.text === 'string' && choice.text) return choice.text;
+      for (const k of ['content', 'reply', 'response', 'text']) {
+        if (d[k] != null && d[k] !== '') return String(d[k]);
+      }
+      return JSON.stringify(d);
+    }
     function termSpaceChanged(c) {
       try { window.dispatchEvent(new CustomEvent('tincan:space-changed', { detail: { scope: c.scope, owner: c.owner } })); } catch (e) {}
     }
@@ -272,13 +284,40 @@ SHELL_JS = r"""
           }
           return termDone(r.ok, d.output || (Array.isArray(d.lines) ? d.lines.join('\n') : JSON.stringify(d)));
         }
-        if (['harnesses', 'harness', 'agy', 'antigravity', 'claude', 'claude-code', 'opencode', 'dsx', 'codex', 'gemini', 'gemini-cli', 'aider', 'goose'].includes(verb)) {
+        const harnessVerbs = ['harnesses', 'harness', 'agy', 'antigravity', 'claude', 'claude-code', 'opencode', 'dsx', 'codex', 'gemini', 'gemini-cli', 'aider', 'goose'];
+        let effectiveCmd = cmd;
+        let effectiveVerb = verb;
+        if (verb === 'tincan') {
+          const sub = (rest[0] || '').toLowerCase();
+          if (['actions', 'trigger', 'dismiss'].includes(sub)) {
+            progress('Checking TinCan HITL Accessibility Gate...');
+            const r = await fetch('/api/terminal/actions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ command: cmd })
+            });
+            const d = await r.json();
+            return termDone(r.ok && d.status !== 'error', d.output || (Array.isArray(d.lines) ? d.lines.join('\n') : JSON.stringify(d)));
+          }
+          if (harnessVerbs.includes(sub)) {
+            effectiveCmd = rest.join(' ');
+            effectiveVerb = sub;
+          } else if (sub === 'chat' || sub === 'ask') {
+            if (rest.length < 2) return termDone(false, `tincan ${sub}: usage: tincan ${sub} <question>`);
+          } else {
+            return termDone(
+              sub === 'help' || !sub,
+              'TinCan web commands: tincan status, tincan brew ..., tincan actions, tincan trigger <seq>, tincan dismiss <seq>, tincan ask <question>, harnesses. Other `tincan` commands (whoami, connect, mcp) run in your local Mac terminal.'
+            );
+          }
+        }
+        if (harnessVerbs.includes(effectiveVerb)) {
           progress('Running coding harness in your .space...');
           const r = await fetch('/api/terminal/harness', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              command: cmd,
+              command: effectiveCmd,
               scope: c.scope,
               owner_id: c.owner,
               peer_id: (typeof myPeerId !== 'undefined' && myPeerId) || c.owner || 'aeonik'
@@ -289,14 +328,14 @@ SHELL_JS = r"""
           return termDone(r.ok && d.status !== 'error', d.output || (Array.isArray(d.lines) ? d.lines.join('\n') : JSON.stringify(d)));
         }
         if (verb === 'ask' && !arg) return termDone(false, 'ask: usage: ask <question>');
-        const prompt = cmd.replace(/^(ask|tincan chat)\s+/i, '');
+        const prompt = cmd.replace(/^(ask|tincan\s+(?:chat|ask))\s+/i, '');
         progress('Asking the AI gateway…');
         const r = await fetch('/api/chat', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ model: 'gemini-brain', prompt: prompt, peer_id: (typeof myPeerId !== 'undefined' && myPeerId) || 'terminal' })
         });
         const d = await r.json();
-        const text = d.content || d.response || d.error || JSON.stringify(d);
+        const text = termChatReply(d);
         return termDone(r.ok && !d.error, text);
       } catch (e) {
         return termDone(false, verb + ': ' + (e && e.message ? e.message : e));

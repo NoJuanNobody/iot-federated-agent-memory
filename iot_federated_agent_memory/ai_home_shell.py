@@ -876,11 +876,13 @@ AI_HOME_SHELL_JS = r"""
           });
           const data = await resp.json().catch(() => ({}));
           if (!resp.ok || data.error) {
-            const errMsg = data.error || `HTTP ${resp.status}`;
+            const errMsg = (data.error && typeof data.error === 'object' ? data.error.message : data.error) || `HTTP ${resp.status}`;
             showOutput(`${state.model} · error`, errMsg, true);
             return { ok: false, text: errMsg };
           }
-          const reply = data.content || data.response || JSON.stringify(data);
+          const reply =
+            (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ||
+            data.content || data.reply || data.response || data.text || JSON.stringify(data);
           const isLocal = state.gateway === 'ollama' || state.gateway === 'owlchat';
           bumpTelemetry(isLocal);
           showOutput(`${state.model} · ${isLocal ? '0 CR local' : 'routed'}`, reply, false);

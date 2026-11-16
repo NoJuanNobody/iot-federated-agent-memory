@@ -795,7 +795,9 @@ ZEN_BODY = r"""
       }
       async function askAI(prompt) {
         const d = await postJson('/api/chat', { model: 'gemini-brain', prompt: prompt, peer_id: peerId() });
-        return d.content || d.response || JSON.stringify(d);
+        if (d && d.error) return typeof d.error === 'string' ? d.error : (d.error.message || JSON.stringify(d.error));
+        return (d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content) ||
+          d.content || d.reply || d.response || d.text || JSON.stringify(d);
       }
       // Room chat: reuse the Talk window's send path so the message also lands in this user's own log.
       async function sendRoom(text) {
