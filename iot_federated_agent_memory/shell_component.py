@@ -173,12 +173,13 @@ SHELL_JS = r"""
       'harnesses     list coding harnesses (Antigravity, Claude Code, OpenCode, DSX, Codex)',
       'harness <cmd> inspect or queue best harness / run `<agy|claude|opencode|dsx> <prompt>`',
       'tui [app]     launch full interactive TUI (claude, opencode, dsx, codex, goose, bash)',
-      'ask <q>       ask the AI gateway (grounded in current .space VFS + Context Palace)',
+      'ask <q>       ask the AI gateway or generate 2D/3D art (e.g. "make a picture of ...")',
+      '<cli> <task>  run a coding harness (goose, claude, opencode, dsx, codex; or `hey goose ...`)',
       'clear         clear the screen',
       'help          this list'
     ].join('\n');
 
-    const TC_SHELL_INTRO = 'Commands run against your own .space: ls [dir], cat file, open file, tree, run [file], py code, runs, drive, status, ask question, help.';
+    const TC_SHELL_INTRO = 'Commands run against your own .space: ls [dir], cat file, open file, tree, run [file], py code, runs, drive, status, ask question, help — or prompt naturally ("make a picture of pikachu", "hey goose summarize /src/main.py").';
 
     function termDone(ok, text, extra) { return Object.assign({ ok: !!ok, text: String(text == null ? '' : text) }, extra || {}); }
     function termArtifactUrl(c, path) {
@@ -186,9 +187,25 @@ SHELL_JS = r"""
         '&owner_id=' + encodeURIComponent(c.owner) +
         '&path=' + encodeURIComponent(path) + '&raw=1';
     }
+    function termWantsMediaGen(prompt) {
+      const p = String(prompt || '').trim();
+      return /\b(?:make|create|generate|gen|draw|paint|sketch|render|illustrate|design|produce|visualize|show)\b.{0,56}\b(?:pictu?re|picutre|pciture|piture|pic|im(?:a)?ge|iamge|imgae|photo|photograph|illustration|portrait|artwork|drawing|wallpaper|poster|sprite|3d|mesh|glb|rodin|hyper3d)\b|\b(?:pictu?re|picutre|pciture|pic|im(?:a)?ge|iamge|photo|illustration|portrait|artwork|drawing)\s+(?:of|for)\b|\b(?:draw|paint|illustrate|sketch)\s+(?:(?:me|us)\s+)?(?:(?:a|an|the)\s+)?[a-zA-Z0-9]{2,}|\bpass\s+my\s+prompt\b/i.test(p);
+    }
     function termWantsAgentAction(prompt) {
       const p = String(prompt || '').trim();
-      return /\b(?:make|create|generate|draw|paint|sketch|render|illustrate|design|produce|visualize|edit|write|patch|modify|build|save|run|execute)\b.{0,48}\b(?:picture|pic|image|photo|photograph|illustration|portrait|artwork|drawing|wallpaper|poster|sprite|3d|mesh|glb|rodin|hyper3d|file|script|code|python|dxf|svg)\b|\b(?:picture|pic|image|photo|illustration|portrait|artwork|drawing)\s+of\b|```(?:python|javascript|js)/i.test(p);
+      return termWantsMediaGen(p) || /\b(?:edit|write|patch|modify|build|save|run|execute)\b.{0,48}\b(?:file|script|code|python|dxf|svg)\b|```(?:python|javascript|js)/i.test(p);
+    }
+    function termParseNaturalHarness(cmd) {
+      const s = String(cmd || '').trim();
+      let m = s.match(/^(?:(?:hey|hi|yo|ok)\s+|@)(goose|claude|claude-code|opencode|dsx|codex|aider|agy|antigravity|gemini|gemini-cli)\b[:,]?\s*(.*)$/i);
+      if (!m) {
+        m = s.match(/^(goose|claude-code|opencode|dsx|codex|aider|agy|antigravity|gemini-cli)\s*[:,]\s*(.+)$/i);
+      }
+      if (!m) return null;
+      const cli = m[1].toLowerCase();
+      const body = (m[2] || '').trim();
+      if (body && termWantsMediaGen(body)) return null;
+      return { verb: cli, cmd: body ? `${cli} ${body}` : `harness run ${cli}` };
     }
     function termRenderArtifactsHtml(c, d) {
       const blocks = [];
@@ -338,7 +355,11 @@ SHELL_JS = r"""
         const harnessVerbs = ['harnesses', 'harness', 'agy', 'antigravity', 'claude', 'claude-code', 'opencode', 'dsx', 'codex', 'gemini', 'gemini-cli', 'aider', 'goose'];
         let effectiveCmd = cmd;
         let effectiveVerb = verb;
-        if (verb === 'tincan') {
+        const naturalHarness = !harnessVerbs.includes(verb) ? termParseNaturalHarness(cmd) : null;
+        if (naturalHarness) {
+          effectiveCmd = naturalHarness.cmd;
+          effectiveVerb = naturalHarness.verb;
+        } else if (verb === 'tincan') {
           const sub = (rest[0] || '').toLowerCase();
           if (['actions', 'trigger', 'dismiss'].includes(sub)) {
             progress('Checking TinCan HITL Accessibility Gate...');

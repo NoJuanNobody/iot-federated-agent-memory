@@ -606,12 +606,14 @@ class DynamicAIGatewayRouter:
     OPENROUTER_KEY_URL = "https://openrouter.ai/api/v1/auth/key"
 
     NANOGPT_ENDPOINT = "https://api.nano-gpt.com/api/v1/chat/completions"
-    NANOGPT_IMAGE_ENDPOINT = "https://api.nano-gpt.com/v1/images/generations"
+    NANOGPT_IMAGE_ENDPOINT = "https://api.nano-gpt.com/api/v1/images/generations"
     NANOGPT_MODELS_URL = "https://api.nano-gpt.com/api/v1/models?detailed=true"
     NANOGPT_BALANCE_URL = "https://api.nano-gpt.com/api/check-balance"
     DEFAULT_IMAGE_MODEL = "google/gemini-2.5-flash-image"
     FALLBACK_IMAGE_MODEL = "google/gemini-3.1-flash-image-preview"
+    TERTIARY_IMAGE_MODEL = "openai/gpt-5-image-mini"
     NANOGPT_DEFAULT_IMAGE_MODEL = "minimax-h3-image"
+    NANOGPT_FALLBACK_IMAGE_MODEL = "blackforestlabs/flux-3/klein/text-to-image"
 
     # Hyper3D Rodin (Ronin) v2 3D Generation Endpoints
     RODIN_GENERATE_URL = "https://api.hyper3d.com/api/v2/rodin"
@@ -2242,7 +2244,7 @@ class DynamicAIGatewayRouter:
         # 1. Try OpenRouter chat completions with modalities=["image", "text"]
         if gateway != "nanogpt" and openrouter_key:
             candidates: List[str] = []
-            for m in (model, self.DEFAULT_IMAGE_MODEL, self.FALLBACK_IMAGE_MODEL):
+            for m in (model, self.DEFAULT_IMAGE_MODEL, self.FALLBACK_IMAGE_MODEL, self.TERTIARY_IMAGE_MODEL):
                 if m and not m.startswith("nanogpt/") and m not in candidates:
                     candidates.append(m)
             headers = {
@@ -2307,65 +2309,70 @@ class DynamicAIGatewayRouter:
 
         # 2. Try NanoGPT Image API fallback or explicit gateway="nanogpt"
         if nanogpt_key:
-            nano_model = model[len("nanogpt/"):] if model and model.startswith("nanogpt/") else (
+            primary_nano = model[len("nanogpt/"):] if model and model.startswith("nanogpt/") else (
                 model if gateway == "nanogpt" and model else self.NANOGPT_DEFAULT_IMAGE_MODEL
             )
+            nano_candidates: List[str] = []
+            for nm in (primary_nano, self.NANOGPT_DEFAULT_IMAGE_MODEL, self.NANOGPT_FALLBACK_IMAGE_MODEL):
+                if nm and nm not in nano_candidates:
+                    nano_candidates.append(nm)
             headers = {
                 "Authorization": f"Bearer {nanogpt_key}",
                 "Content-Type": "application/json",
             }
-            payload = {
-                "model": nano_model,
-                "prompt": clean_prompt,
-                "n": 1,
-                "response_format": "b64_json",
-            }
-            req = urllib.request.Request(
-                self.NANOGPT_IMAGE_ENDPOINT,
-                data=json.dumps(payload).encode("utf-8"),
-                headers=headers,
-                method="POST",
-            )
-            try:
-                with urllib.request.urlopen(req, timeout=timeout) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-                items = data.get("data") or []
-                first = items[0] if items and isinstance(items[0], dict) else {}
-                raw = None
-                mime, ext = "image/png", ".png"
-                if first.get("b64_json"):
-                    raw, mime, ext = self._decode_data_url_or_b64(str(first["b64_json"]))
-                elif first.get("url"):
-                    with urllib.request.urlopen(str(first["url"]), timeout=20.0) as img_r:
-                        raw = img_r.read()
-                        mime, ext = self._detect_image_mime(raw, declared_mime=img_r.headers.get("Content-Type"))
-                if raw:
-                    cost = float(data.get("cost") or 0.04)
-                    self.record_usage(f"nanogpt/{nano_model}", len(clean_prompt.split()), 0, len(clean_prompt.split()), cost)
-                    return {
-                        "ok": True,
-                        "gateway": "nanogpt",
-                        "model": f"nanogpt/{nano_model}",
-                        "mime_type": mime,
-                        "ext": ext,
-                        "size_bytes": len(raw),
-                        "image_bytes": raw,
-                        "image_b64": base64.b64encode(raw).decode("ascii"),
-                        "caption": str(first.get("revised_prompt") or ""),
-                        "cost_usd": cost,
-                        "usage": {"cost": cost},
-                        "simulated": False,
-                    }
-                errors.append(f"nanogpt/{nano_model}: empty image response")
-            except urllib.error.HTTPError as http_err:
-                detail = ""
+            for nano_model in nano_candidates:
+                payload = {
+                    "model": nano_model,
+                    "prompt": clean_prompt,
+                    "n": 1,
+                    "response_format": "b64_json",
+                }
+                req = urllib.request.Request(
+                    self.NANOGPT_IMAGE_ENDPOINT,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers=headers,
+                    method="POST",
+                )
                 try:
-                    detail = http_err.read().decode("utf-8", errors="replace").strip()[:240]
-                except Exception:
-                    pass
-                errors.append(f"nanogpt/{nano_model}: HTTP {http_err.code}{' — ' + detail if detail else ''}")
-            except Exception as err:
-                errors.append(f"nanogpt/{nano_model}: {err}")
+                    with urllib.request.urlopen(req, timeout=timeout) as resp:
+                        data = json.loads(resp.read().decode("utf-8"))
+                    items = data.get("data") or []
+                    first = items[0] if items and isinstance(items[0], dict) else {}
+                    raw = None
+                    mime, ext = "image/png", ".png"
+                    if first.get("b64_json"):
+                        raw, mime, ext = self._decode_data_url_or_b64(str(first["b64_json"]))
+                    elif first.get("url"):
+                        with urllib.request.urlopen(str(first["url"]), timeout=20.0) as img_r:
+                            raw = img_r.read()
+                            mime, ext = self._detect_image_mime(raw, declared_mime=img_r.headers.get("Content-Type"))
+                    if raw:
+                        cost = float(data.get("cost") or 0.04)
+                        self.record_usage(f"nanogpt/{nano_model}", len(clean_prompt.split()), 0, len(clean_prompt.split()), cost)
+                        return {
+                            "ok": True,
+                            "gateway": "nanogpt",
+                            "model": f"nanogpt/{nano_model}",
+                            "mime_type": mime,
+                            "ext": ext,
+                            "size_bytes": len(raw),
+                            "image_bytes": raw,
+                            "image_b64": base64.b64encode(raw).decode("ascii"),
+                            "caption": str(first.get("revised_prompt") or ""),
+                            "cost_usd": cost,
+                            "usage": {"cost": cost},
+                            "simulated": False,
+                        }
+                    errors.append(f"nanogpt/{nano_model}: empty image response")
+                except urllib.error.HTTPError as http_err:
+                    detail = ""
+                    try:
+                        detail = http_err.read().decode("utf-8", errors="replace").strip()[:240]
+                    except Exception:
+                        pass
+                    errors.append(f"nanogpt/{nano_model}: HTTP {http_err.code}{' — ' + detail if detail else ''}")
+                except Exception as err:
+                    errors.append(f"nanogpt/{nano_model}: {err}")
 
         if not openrouter_key and not nanogpt_key:
             return {

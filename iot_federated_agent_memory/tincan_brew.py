@@ -1247,7 +1247,7 @@ def handle_harness_command(
         loc = target["bin_path"] or ", ".join(target["detected_local"])
         lines = [
             f"[{target['name']} · `{target['cli']}`] ready at {loc}",
-            f"Pass a prompt for non-interactive execution in your .space, e.g.: {target['cli']} \"summarize /src/main.py\"",
+            f"Pass a prompt for non-interactive execution in your .space, e.g.: {target['cli']} \"summarize /src/main.py\" (or `hey {target['cli']} can you see my files`), or click the [{target['name']}] TUI button above.",
             f"Or check version: {target['cli']} --version",
         ]
         return {

@@ -224,6 +224,83 @@ def test_harness_replays_pikachu_trajectory_cleanly(tmp_path):
     assert len(mock_router.image_calls) == 2
 
 
+def test_spongebob_rodin_and_followup_disambiguation(tmp_path):
+    vfs = SingleFileSpaceVFS(scope="user", owner_id="spongebob_user", base_dir=str(tmp_path))
+
+    class TrajectoryRouter:
+        def __init__(self):
+            self.providers = DynamicAIGatewayRouter(openrouter_key="", nanogpt_key="").providers
+            self.image_calls = []
+            self.rodin_calls = []
+            self.chat_calls = []
+
+        def get_available_models(self):
+            return DynamicAIGatewayRouter(openrouter_key="", nanogpt_key="").get_available_models()
+
+        def dispatch_image_generation(self, prompt, model=None):
+            self.image_calls.append(prompt)
+            return {
+                "ok": True,
+                "gateway": "openrouter",
+                "model": "google/gemini-2.5-flash-image",
+                "mime_type": "image/png",
+                "ext": ".png",
+                "size_bytes": len(_TINY_PNG),
+                "image_bytes": _TINY_PNG,
+                "caption": "",
+                "cost_usd": 0.039,
+            }
+
+        def dispatch_rodin_generation(self, prompt, geometry_file_format="glb"):
+            self.rodin_calls.append(prompt)
+            return {"uuid": "rodin-test", "status": "Done"}
+
+        def dispatch_completion(self, alias, messages):
+            self.chat_calls.append(messages)
+            return {
+                "choices": [{"message": {"role": "assistant", "content": "Rodin generates 3D .glb meshes; 2D images use OpenRouter."}}]
+            }
+
+    rtr = TrajectoryRouter()
+    h = AgentSpaceHarness(vfs=vfs, ai_router=rtr)
+
+    # Typo "picutre" stripped cleanly from slug -> /images/spongebob.png
+    t1 = h.run_agent("can you draw a picutre of spongebob?", author="nojuan")
+    assert t1["files_mutated"] == ["/images/spongebob.png"]
+    assert t1["rodin_assets"] == []
+
+    # Follow-up "can you pass my prompt to an image model?" reuses prior subject cleanly
+    t2 = h.run_agent("can you pass my prompt to an image model?", author="nojuan")
+    assert t2["files_mutated"] == ["/images/spongebob_2.png"]
+    assert t2["image_assets"][0]["ok"] is True
+
+    # Bare "rodin" MUST NOT create a 3D asset or charge Rodin
+    t3 = h.run_agent("rodin", author="nojuan")
+    assert t3["rodin_assets"] == []
+    assert t3["files_mutated"] == []
+    assert len(rtr.rodin_calls) == 0
+    assert len(rtr.chat_calls) == 1
+
+    # "generate an image using rodin a picture of spongebob or pikachu" -> 2D image + strips "using rodin"
+    t4 = h.run_agent("generate an image using rodin a picture of spongebob or pikachu", author="nojuan")
+    assert t4["rodin_assets"] == []
+    assert t4["files_mutated"] == ["/images/spongebob_or_pikachu.png"]
+    assert "rodin" not in rtr.image_calls[-1].lower()
+    assert "Hyper3D Rodin" in t4["reply"]
+
+    # "a picture of a mouse" & "generate an image of a mouse using rodin" -> 2D images
+    t5 = h.run_agent("a picture of a mouse", author="nojuan")
+    assert t5["files_mutated"] == ["/images/mouse.png"]
+    t6 = h.run_agent("generate an image of a mouse using rodin", author="nojuan")
+    assert t6["rodin_assets"] == []
+    assert t6["files_mutated"] == ["/images/mouse_2.png"]
+
+    # Explicit 3D still triggers Rodin
+    t7 = h.run_agent("generate a 3d model of pikachu with rodin", author="nojuan")
+    assert len(t7["rodin_assets"]) == 1
+    assert t7["rodin_assets"][0]["path"].startswith("/models3d/")
+
+
 def test_harness_executes_tincan_action_blocks(tmp_path):
     vfs = SingleFileSpaceVFS(scope="user", owner_id="action_peer", base_dir=str(tmp_path))
 
@@ -425,6 +502,13 @@ def test_terminal_js_routes_natural_language_and_renders_image():
           json: async () => ({{ choices: [{{ message: {{ content: 'Model manifest reply' }} }}] }}),
         }};
       }}
+      if (url === '/api/terminal/harness') {{
+        return {{
+          ok: true,
+          status: 200,
+          json: async () => ({{ status: 'ok', output: 'Goose saw /src/main.py', lines: ['Goose saw /src/main.py'], synced_files: [] }}),
+        }};
+      }}
       return {{ ok: true, status: 200, json: async () => ({{}}) }};
     }}
     {SHELL_JS}
@@ -432,7 +516,9 @@ def test_terminal_js_routes_natural_language_and_renders_image():
       const r1 = await window.TinCanShell.run('can you make a picture of pikachu?');
       const r2 = await window.TinCanShell.run('ask what models do?');
       const r3 = await window.TinCanShell.run('ask make a picture of pikachu');
-      console.log(JSON.stringify({{ r1, r2, r3, fetchCalls, dispatched }}));
+      const r4 = await window.TinCanShell.run('hey goose can you see my files');
+      const r5 = await window.TinCanShell.run('hey goose draw spongebob');
+      console.log(JSON.stringify({{ r1, r2, r3, r4, r5, fetchCalls, dispatched }}));
     }})();
     """
     proc = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
@@ -444,3 +530,6 @@ def test_terminal_js_routes_natural_language_and_renders_image():
     assert data["fetchCalls"][1]["url"] == "/api/chat"
     assert data["fetchCalls"][1]["body"]["use_space_context"] is True
     assert data["fetchCalls"][2]["url"] == "/api/space/agent"
+    assert data["fetchCalls"][3]["url"] == "/api/terminal/harness"
+    assert data["fetchCalls"][3]["body"]["command"] == "goose can you see my files"
+    assert data["fetchCalls"][4]["url"] == "/api/space/agent"

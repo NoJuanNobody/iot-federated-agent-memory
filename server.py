@@ -992,7 +992,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("ETag", etag)
-        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
         self.send_header("Vary", "Accept-Encoding")
         if use_gzip:
             self.send_header("Content-Encoding", "gzip")
@@ -3218,7 +3218,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("ETag", etag)
-        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
         self.send_header("Vary", "Accept-Encoding")
         if use_gzip:
             self.send_header("Content-Encoding", "gzip")

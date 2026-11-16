@@ -1879,18 +1879,30 @@ class WasmAndCodePlaygroundRunner:
 
 _PROMPTY_FILLER_WORDS = {
     "a", "an", "the", "of", "for", "with", "in", "on", "to", "me", "my", "please",
-    "can", "you", "could", "would", "use", "using", "model", "models", "ai",
-    "make", "create", "generate", "draw", "paint", "sketch", "render", "produce",
-    "show", "picture", "pic", "image", "photo", "photograph", "illustration",
-    "portrait", "artwork", "drawing", "wallpaper", "poster", "sprite", "3d",
-    "mesh", "gltf", "glb", "rodin", "hyper3d", "ronin",
+    "can", "you", "could", "would", "use", "using", "via", "model", "models", "ai",
+    "make", "create", "generate", "gen", "draw", "paint", "sketch", "render", "produce",
+    "show", "pass", "prompt", "try", "another", "again", "picture", "picutre",
+    "pciture", "piture", "pictuer", "pic", "image", "imge", "iamge", "imgae",
+    "photo", "photograph", "illustration", "portrait", "artwork", "drawing",
+    "wallpaper", "poster", "sprite", "3d", "mesh", "gltf", "glb", "rodin",
+    "hyper3d", "ronin", "hey", "hi", "ok",
 }
+
+_IMAGE_NOUN_PAT = (
+    r"(?:pictu?re|picutre|pciture|piture|pictuer|pic|im(?:a)?ge|iamge|imgae|"
+    r"photo|photograph|illustration|portrait|artwork|drawing|wallpaper|poster|"
+    r"sprite|icon|logo|avatar|painting|scene)"
+)
 
 
 def _slug_from_prompt(prompt: str, default: str = "artifact") -> str:
     """Derive a clean VFS-safe slug from natural-language generation prompts."""
     clean = (prompt or "").strip()
-    m = re.search(r"\b(?:picture|pic|image|photo|photograph|illustration|portrait|artwork|drawing|mesh|model)\s+(?:of|for)\s+(.+)$", clean, re.IGNORECASE)
+    m = re.search(
+        r"\b(?:" + _IMAGE_NOUN_PAT + r"|mesh|model)\s+(?:of|for)\s+(.+)$",
+        clean,
+        re.IGNORECASE,
+    )
     if not m:
         m = re.search(r"\b(?:draw|paint|sketch|illustrate|render)\s+(?:me\s+)?(?:a|an|the\s+)?(.+)$", clean, re.IGNORECASE)
     candidate = m.group(1) if m else clean
@@ -1921,43 +1933,80 @@ def _unique_space_path(vfs: SingleFileSpaceVFS, directory: str, slug: str, ext: 
     return f"{norm_dir}/{slug}_{idx}{norm_ext}"
 
 
+def _sanitize_2d_prompt(prompt: str) -> tuple[str, bool]:
+    """Strip mistaken 3D engine phrases like 'using rodin' from 2D image prompts."""
+    cleaned = re.sub(r"\b(?:using|with|via|from)\s+(?:hyper3d\s+)?(?:rodin|ronin)\b", "", prompt or "", flags=re.IGNORECASE)
+    mentioned_rodin = bool(cleaned != (prompt or "") or re.search(r"\b(?:hyper3d|rodin|ronin)\b", prompt or "", re.IGNORECASE))
+    cleaned = re.sub(r"\s{2,}", " ", cleaned).strip(" ,.")
+    return (cleaned or (prompt or "").strip()), mentioned_rodin
+
+
+def _has_explicit_3d_syntax(prompt: str) -> bool:
+    return bool(re.search(r"\b(?:3d|mesh|gltf|3d\s+model)\b|\.glb\b", prompt or "", re.IGNORECASE))
+
+
 def _is_3d_request(prompt: str) -> bool:
-    return bool(re.search(r"\b(3d|hyper3d|rodin|ronin|\.glb|mesh|gltf)\b", prompt or "", re.IGNORECASE))
+    """Return True only when user explicitly wants a 3D mesh/model (never bare 'rodin' or 2D-only 'image using rodin')."""
+    clean = (prompt or "").strip()
+    if not clean:
+        return False
+    # If user explicitly asked for a 2D picture/image without 3D/mesh/glb words, route to 2D image generator
+    if re.search(r"\b" + _IMAGE_NOUN_PAT + r"\b", clean, re.IGNORECASE) and not _has_explicit_3d_syntax(clean):
+        return False
+    if _has_explicit_3d_syntax(clean):
+        return True
+    # Only route bare rodin/hyper3d/ronin when paired with creation/build/sculpt intent
+    return bool(
+        re.search(
+            r"\b(?:make|create|generate|build|render|sculpt|export|stage|synthesize)\b.{0,45}\b(?:rodin|hyper3d|ronin)\b",
+            clean,
+            re.IGNORECASE,
+        )
+    )
 
 
 def _is_2d_image_request(prompt: str) -> bool:
-    """Return True when natural language clearly asks to create/draw a 2D image."""
+    """Return True when natural language asks to create/draw a 2D image (including common typos like 'picutre')."""
     clean = (prompt or "").strip()
     if not clean or _is_3d_request(clean):
         return False
     if re.search(r"\b(dxf|dwg|cad|fountain|screenplay|deck|slides|presentation)\b", clean, re.IGNORECASE):
         return False
-    if re.search(r"\bsvg\b", clean, re.IGNORECASE) and not re.search(r"\b(picture|photo|photograph|portrait|painting)\b", clean, re.IGNORECASE):
+    if re.search(r"\bsvg\b", clean, re.IGNORECASE) and not re.search(r"\b" + _IMAGE_NOUN_PAT + r"\b", clean, re.IGNORECASE):
         return False
     if re.match(r"^(?:what|which|how|why|explain|list|tell me about)\b", clean, re.IGNORECASE) and not re.search(
         r"\b(?:make|create|generate|draw|paint|render|sketch)\b", clean, re.IGNORECASE
     ):
         return False
     if re.search(
-        r"\b(?:make|create|generate|draw|paint|sketch|render|illustrate|design|produce|visualize|show)\b"
-        r".{0,48}\b(?:picture|pic|image|photo|photograph|illustration|portrait|artwork|drawing|wallpaper|poster|sprite|icon|logo|avatar|painting|scene)\b",
+        r"\b(?:make|create|generate|gen|draw|paint|sketch|render|illustrate|design|produce|visualize|show)\b"
+        r".{0,56}\b" + _IMAGE_NOUN_PAT + r"\b",
         clean,
         re.IGNORECASE,
     ):
         return True
-    if re.search(
-        r"\b(?:picture|pic|image|photo|photograph|illustration|portrait|artwork|drawing|wallpaper|poster|sprite)\s+of\b",
-        clean,
-        re.IGNORECASE,
-    ):
+    if re.search(r"\b" + _IMAGE_NOUN_PAT + r"\s+(?:of|for)\b", clean, re.IGNORECASE):
         return True
-    if re.match(
-        r"^(?:(?:can|could|will|would)\s+you\s+)?(?:please\s+)?(?:draw|paint|illustrate|sketch)\s+(?:a|an|the|me\s+)?\w+",
+    if not re.search(r"\b(?:how|what|why|when|explain)\b", clean, re.IGNORECASE) and re.search(
+        r"\b(?:draw|paint|illustrate|sketch)\s+(?:(?:me|us)\s+)?(?:(?:a|an|the)\s+)?[a-zA-Z0-9]{2,}",
         clean,
         re.IGNORECASE,
     ):
         return True
     return False
+
+
+def _is_image_reroute_followup(prompt: str) -> bool:
+    """Detect conversational follow-ups like 'can you pass my prompt to an image model?'."""
+    clean = (prompt or "").strip()
+    return bool(
+        re.search(
+            r"\b(?:pass|send|route|forward|use|try)\b.{0,35}\b(?:my\s+prompt|previous\s+prompt|that|it|image\s+model)\b"
+            r"|\bpass\s+my\s+prompt\s+to\s+(?:an?\s+)?image\s+model\b",
+            clean,
+            re.IGNORECASE,
+        )
+    )
 
 
 def build_tincan_capability_manifest(
@@ -2017,8 +2066,8 @@ def build_tincan_capability_manifest(
         "- 2D Image Generation (OpenRouter multimodal & NanoGPT Image API): " + ", ".join(image_models[:6]) + ". Saves `.png`/`.jpg` into `.space` `/images/`.",
         "- 3D Mesh Generation (Hyper3D Rodin v2 / Ronin): " + ", ".join(rodin_models[:5]) + ". Saves `.glb` meshes into `.space` `/models3d/`.",
         "- Code & ArtCraft Tools in `.space`: Python 3 & Node.js sandbox execution, `cadcraft` (`.dxf`), `vectorcraft` (`.svg`), `scriptcraft` (`.fountain`), `deckcraft`, plus `.space` file CRUD.",
-        "- Interactive Terminal TUIs (`xterm.js` PTY): `bash`, `claude`, `codex`, `opencode`, `goose`, `gemini`, `dsx` (launch via `tui <app>` or toolbar buttons).",
-        "- Disambiguation Note: `/models3d/README.txt` inside `.space` ONLY describes the 3D `.glb` mesh storage folder (`/models3d/`). When the user asks 'what models do?', explain TinCan's chat/reasoning LLMs, 2D image models, and Hyper3D Rodin 3D models (and briefly clarify `/models3d/`).",
+        "- Interactive Terminal TUIs (`xterm.js` PTY) & Coding Harnesses: `bash`, `claude`, `codex`, `opencode`, `goose`, `gemini`, `dsx` (run `<cli> \"prompt\"`, `hey <cli> <prompt>`, or click TUI buttons).",
+        "- Disambiguation Note: `/models3d/README.txt` inside `.space` ONLY documents the `/models3d/` folder for 3D `.glb` meshes from Hyper3D Rodin. Hyper3D Rodin is ONLY for 3D `.glb` meshes — 2D images use OpenRouter / NanoGPT image models and save to `/images/`. When the user asks 'what models do?' or 'rodin', explain both clearly.",
         "- CRITICAL: Never say 'My capabilities are limited to text' or 'I cannot generate images' — TinCan supports real 2D image generation, 3D Rodin generation, and `.space` code/file tools.",
     ]
     if include_tool_protocol:
@@ -2232,10 +2281,30 @@ class AgentSpaceHarness:
                         notes.append(f"Generated 3D mesh `{res['path']}`")
 
         cleaned = pattern.sub("", reply_text).strip()
+        if any(a.get("ok") for a in image_assets) and re.search(
+            r"\b(?:cannot|can't|unable to|limited to)\b.{0,45}\b(?:create|generate|draw|images?|text)\b",
+            cleaned,
+            re.IGNORECASE,
+        ):
+            cleaned = ""
         if notes:
             summary_block = "\n".join(f"- {n}" for n in notes)
             cleaned = f"{cleaned}\n\n{summary_block}".strip() if cleaned else summary_block
         return cleaned
+
+    def _resolve_reroute_image_prompt(self, clean_prompt: str, recent_turns: List[Dict[str, Any]]) -> Optional[str]:
+        """Extract prior visual subject when user says 'pass my prompt to an image model'."""
+        if not _is_image_reroute_followup(clean_prompt):
+            return None
+        for turn in recent_turns:
+            prev = str(turn.get("prompt") or "").strip()
+            if not prev or _is_image_reroute_followup(prev):
+                continue
+            if re.match(r"^(?:rodin|what|which|status|ls|tree|help)\b", prev, re.IGNORECASE):
+                continue
+            if _is_2d_image_request(prev) or len(prev.split()) >= 2:
+                return prev
+        return None
 
     def run_agent(
         self,
@@ -2255,6 +2324,11 @@ class AgentSpaceHarness:
         wasm_bridges: List[Dict[str, Any]] = []
         tool_calls: List[Dict[str, Any]] = []
         clean_prompt = prompt.strip()
+        recent_turns: List[Dict[str, Any]] = []
+        try:
+            recent_turns = list(self.vfs.list_agent_turns(limit=4) or [])
+        except Exception:
+            recent_turns = []
 
         # 1. 3D / Hyper3D Rodin Asset Generation Action
         if _is_3d_request(clean_prompt):
@@ -2267,9 +2341,18 @@ class AgentSpaceHarness:
             )
 
         # 1b. 2D Raster Image Generation Action (OpenRouter / NanoGPT)
+        rodin_redirect_note = False
+        effective_img_prompt: Optional[str] = None
         if _is_2d_image_request(clean_prompt):
+            effective_img_prompt, rodin_redirect_note = _sanitize_2d_prompt(clean_prompt)
+        else:
+            rerouted = self._resolve_reroute_image_prompt(clean_prompt, recent_turns)
+            if rerouted:
+                effective_img_prompt, rodin_redirect_note = _sanitize_2d_prompt(rerouted)
+
+        if effective_img_prompt:
             self._run_2d_image_tool(
-                clean_prompt,
+                effective_img_prompt,
                 author=author,
                 files_mutated=files_mutated,
                 image_assets=image_assets,
@@ -2389,6 +2472,10 @@ class AgentSpaceHarness:
                 lines.append(line)
                 if img.get("caption"):
                     lines.append(img["caption"])
+            if rodin_redirect_note:
+                lines.append(
+                    "(Note: Generated a 2D image via TinCan's image router; Hyper3D Rodin is specifically for 3D `.glb` meshes.)"
+                )
             reply = "\n".join(lines)
         elif failed_images and not ok_images:
             errs = "; ".join(str(a.get("error") or "Image generation failed") for a in failed_images)
@@ -2407,6 +2494,17 @@ class AgentSpaceHarness:
                     self.ai_router,
                     include_tool_protocol=not already_ran_tools,
                 )
+                history_lines: List[str] = []
+                for prev in reversed(recent_turns):
+                    up = str(prev.get("prompt") or "").strip()[:180]
+                    ar = str(prev.get("reply") or "").strip()[:180].replace("\n", " ")
+                    if up:
+                        history_lines.append(f"- User: {up}\n  Assistant: {ar}")
+                history_block = (
+                    "[Recent Conversation History in .space]\n" + "\n".join(history_lines)
+                    if history_lines
+                    else ""
+                )
                 tool_state = (
                     f"Already executed tools in this turn: files_mutated={files_mutated}, "
                     f"rodin_assets={[a['path'] for a in rodin_assets]}, "
@@ -2418,6 +2516,7 @@ class AgentSpaceHarness:
                     f"You are the TinCan Agent operating inside Single-File Space VFS '{self.vfs.scope}:{self.vfs.owner_id}'.\n\n"
                     f"{cap_protocol}\n\n"
                     f"{ctx_snap.get('text', '')}\n"
+                    + (f"\n{history_block}\n" if history_block else "")
                     + (f"\n{tool_state}\n" if tool_state else "")
                     + (f"\nExecution stdout:\n{exec_stdout}\n" if exec_stdout else "")
                 ).strip()
