@@ -102,11 +102,14 @@ def test_handle_harness_command_executes_and_syncs_space(tmp_path, monkeypatch):
 import os, pathlib, sys
 print("ARGS:" + "|".join(sys.argv[1:]))
 print("KEY:" + os.environ.get("OPENROUTER_API_KEY", ""))
-# Tool writing dotfiles into $HOME must NOT leak into the .space workspace cwd.
+# Tool writing dotfiles into $HOME or temp files into $TMPDIR must NOT leak into .space cwd.
 home_dir = pathlib.Path(os.environ["HOME"])
+tmp_dir = pathlib.Path(os.environ["TMPDIR"])
 assert pathlib.Path(os.environ["CODEX_HOME"]).is_dir()
+assert tmp_dir.is_dir() and tmp_dir.resolve() != pathlib.Path.cwd().resolve()
 assert (home_dir / ".config" / "opencode" / "opencode.json").is_file()
 (home_dir / ".claude.json").write_text("{}", encoding="utf-8")
+(tmp_dir / ".bun-test.so").write_bytes(b"so")
 pathlib.Path("harness_out.txt").write_text("from claude\\n", encoding="utf-8")
 pathlib.Path(".claude").mkdir(exist_ok=True)
 pathlib.Path(".claude/session.json").write_text("{}", encoding="utf-8")

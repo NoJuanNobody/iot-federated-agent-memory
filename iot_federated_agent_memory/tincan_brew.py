@@ -1037,7 +1037,7 @@ def _build_harness_exec_argv(target: Dict[str, Any], task_args: str) -> Tuple[Li
     if target["id"] == "claude-code" and or_key and not os.environ.get("ANTHROPIC_API_KEY"):
         flags.extend(["--model", os.environ.get("CLAUDE_MODEL") or "anthropic/claude-sonnet-5.5"])
     elif target["id"] == "opencode" and or_key:
-        flags.extend(["-m", os.environ.get("OPENCODE_MODEL") or "openrouter/google/gemini-2.5-flash"])
+        flags.extend(["-m", os.environ.get("OPENCODE_MODEL") or "openrouter/openai/gpt-4o-mini"])
     elif target["id"] == "codex" and or_key and not os.environ.get("OPENAI_API_KEY"):
         codex_model = os.environ.get("CODEX_MODEL") or "openai/gpt-4o-mini"
         flags = [
@@ -1279,8 +1279,9 @@ def handle_harness_command(
             timeout_sec=timeout_sec,
         )
         exit_code = int(run_res.get("exit_code", 1))
-        stdout = (run_res.get("stdout") or "").rstrip()
-        stderr = (run_res.get("stderr") or "").rstrip()
+        ansi_re = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+        stdout = ansi_re.sub("", run_res.get("stdout") or "").rstrip()
+        stderr = ansi_re.sub("", run_res.get("stderr") or "").rstrip()
         synced = list(run_res.get("synced_files") or [])
         duration_ms = run_res.get("duration_ms", 0.0)
         lines = [f"[{target['name']} · `{target['cli']}`] exit {exit_code} · {duration_ms}ms"]

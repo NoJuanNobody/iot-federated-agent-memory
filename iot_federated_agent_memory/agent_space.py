@@ -1680,8 +1680,10 @@ class WasmAndCodePlaygroundRunner:
                 tempfile.TemporaryDirectory(prefix="agent_space_cache_") as cache_dir:
             initial_hashes = self._materialize_space(vfs, tmpdir)
             sandbox_home = os.path.join(cache_dir, "home")
+            sandbox_tmp = os.path.join(cache_dir, "tmp")
             codex_home = os.path.join(sandbox_home, ".codex")
             opencode_cfg_dir = os.path.join(sandbox_home, ".config", "opencode")
+            os.makedirs(sandbox_tmp, exist_ok=True)
             os.makedirs(codex_home, exist_ok=True)
             os.makedirs(opencode_cfg_dir, exist_ok=True)
             if os.environ.get("OPENROUTER_API_KEY"):
@@ -1695,9 +1697,8 @@ class WasmAndCodePlaygroundRunner:
                                         "apiKey": "{env:OPENROUTER_API_KEY}",
                                     },
                                     "models": {
-                                        "google/gemini-2.5-flash": {"name": "Gemini 2.5 Flash"},
-                                        "anthropic/claude-sonnet-5.5": {"name": "Claude Sonnet 5.5"},
                                         "openai/gpt-4o-mini": {"name": "GPT-4o Mini"},
+                                        "anthropic/claude-sonnet-5.5": {"name": "Claude Sonnet 5.5"},
                                     },
                                 }
                             }
@@ -1705,8 +1706,11 @@ class WasmAndCodePlaygroundRunner:
                         ocf,
                     )
             sandbox_env = build_toolchain_env(tmpdir, cache_dir)
-            # Keep tool config/cache dotfiles out of the .space workspace directory.
+            # Keep tool config/cache dotfiles and Bun/CLI temp files out of the .space workspace.
             sandbox_env["HOME"] = sandbox_home
+            sandbox_env["TMPDIR"] = sandbox_tmp
+            sandbox_env["TMP"] = sandbox_tmp
+            sandbox_env["TEMP"] = sandbox_tmp
             sandbox_env["CODEX_HOME"] = codex_home
             for key in HARNESS_AUTH_ENV_KEYS:
                 val = os.environ.get(key)
