@@ -119,35 +119,87 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      min-width: 320px;
+      min-width: 300px;
       min-height: 180px;
-      resize: both;
+      max-width: calc(100vw - 12px);
+      max-height: calc(100vh - 70px);
+    }
+    .mesh-window > .window-body {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    .mesh-window[data-resized="true"] > .window-body,
+    .mesh-window.maximized > .window-body,
+    .mesh-window.popout-fullscreen > .window-body {
+      height: auto !important;
+      max-height: none !important;
+      flex: 1 1 auto !important;
     }
 
     .window-resize-handle {
       position: absolute;
       bottom: 0;
       right: 0;
-      width: 18px;
-      height: 18px;
+      width: 22px;
+      height: 22px;
       cursor: nwse-resize;
-      z-index: 50;
+      z-index: 52;
       display: flex;
       align-items: flex-end;
       justify-content: flex-end;
-      padding: 3px;
+      padding: 4px;
       user-select: none;
+      touch-action: none;
     }
     .window-resize-handle::after {
       content: "";
-      width: 8px;
-      height: 8px;
-      border-right: 2px solid rgba(255, 255, 255, 0.4);
-      border-bottom: 2px solid rgba(255, 255, 255, 0.4);
+      width: 9px;
+      height: 9px;
+      border-right: 2px solid rgba(17, 17, 17, 0.45);
+      border-bottom: 2px solid rgba(17, 17, 17, 0.45);
       border-bottom-right-radius: 2px;
     }
     .window-resize-handle:hover::after {
-      border-color: var(--accent-color);
+      border-color: #111111;
+    }
+    .window-resize-e {
+      position: absolute;
+      top: 44px;
+      bottom: 18px;
+      right: 0;
+      width: 7px;
+      cursor: ew-resize;
+      z-index: 51;
+      touch-action: none;
+    }
+    .window-resize-s {
+      position: absolute;
+      left: 16px;
+      right: 18px;
+      bottom: 0;
+      height: 7px;
+      cursor: ns-resize;
+      z-index: 51;
+      touch-action: none;
+    }
+    .window-resize-e:hover,
+    .window-resize-s:hover {
+      background: rgba(17, 17, 17, 0.12);
+    }
+    @media (max-width: 768px) {
+      .mesh-window:not(.hidden) {
+        left: 6px !important;
+        right: 6px !important;
+        width: calc(100vw - 12px) !important;
+        max-width: calc(100vw - 12px) !important;
+        max-height: calc(100vh - 78px) !important;
+      }
+      #meshOsDock {
+        max-width: calc(100vw - 12px);
+        overflow-x: auto;
+        justify-content: flex-start;
+        scrollbar-width: none;
+      }
     }
 
     .mesh-window.window-focused {
@@ -187,7 +239,12 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       overflow-y: auto !important;
     }
 
-    .mesh-window.popout-fullscreen .window-resize-handle {
+    .mesh-window.maximized .window-resize-handle,
+    .mesh-window.maximized .window-resize-e,
+    .mesh-window.maximized .window-resize-s,
+    .mesh-window.popout-fullscreen .window-resize-handle,
+    .mesh-window.popout-fullscreen .window-resize-e,
+    .mesh-window.popout-fullscreen .window-resize-s {
       display: none !important;
     }
 
@@ -197,7 +254,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     .mesh-window.minimized .window-body,
-    .mesh-window.minimized .window-resize-handle {
+    .mesh-window.minimized .window-resize-handle,
+    .mesh-window.minimized .window-resize-e,
+    .mesh-window.minimized .window-resize-s {
       display: none !important;
     }
 
@@ -2254,7 +2313,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       <!--TC_TITLEBAR {"id": "win-agentspace", "icon": "📁", "title": "Workstation", "badge": "VFS · 3D"}-->
       <style>
         /* Space IDE: Celadon, VS Code layout (explorer | tabbed editor | bottom terminal | status bar) */
-        #win-agentspace .ide { display: flex; flex-direction: column; height: min(720px, calc(100vh - 150px)); overflow: hidden; padding: 0; background: #ecf1e6; color: #111111; font-family: "Inter", -apple-system, sans-serif; font-size: 12px; }
+        #win-agentspace .ide { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 320px; height: min(720px, calc(100vh - 150px)); overflow: hidden; padding: 0; background: #ecf1e6; color: #111111; font-family: "Inter", -apple-system, sans-serif; font-size: 12px; }
+        #win-agentspace[data-resized="true"] .ide,
+        #win-agentspace.maximized .ide,
+        #win-agentspace.popout-fullscreen .ide { height: 100% !important; max-height: none !important; flex: 1 1 auto !important; }
         #win-agentspace .hidden:not(#rangerSplitter) { display: none !important; }
         #win-agentspace .ide-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 6px 10px; border-bottom: 1px solid #111111; flex: 0 0 auto; }
         #win-agentspace .ide-group { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
@@ -2274,7 +2336,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         #win-agentspace .ide-count { font: 10px "JetBrains Mono", monospace; padding: 1px 8px; border: 1px solid #111111; border-radius: 9999px; background: #ffffff; }
         #win-agentspace #finderTab-files { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
         #win-agentspace #finderTab-3dstudio { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-        #win-agentspace #finderTab-vscode, #win-agentspace #finderTab-artcraft { flex: 1 1 auto; min-height: 0; overflow: auto; margin: 10px; }
+        #win-agentspace #finderTab-vscode:not(.hidden), #win-agentspace #finderTab-artcraft:not(.hidden) { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: auto; margin: 10px; }
         #win-agentspace #rangerSplit { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: row; }
         #win-agentspace #rangerListPane { width: var(--ranger-list-w, 24%); min-width: 170px; flex: 0 0 auto; display: flex; flex-direction: column; min-height: 0; background: #f4f8f0; }
         #win-agentspace #rangerSplitter { width: 6px; flex: 0 0 auto; border-left: 1px solid #111111; }
@@ -2288,7 +2350,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         #win-agentspace .ide-details > summary::before { content: "\25B8"; margin-right: 4px; }
         #win-agentspace .ide-details[open] > summary::before { content: "\25BE"; }
         #win-agentspace .ide-details > summary > span:first-child { flex: 1; min-width: 0; }
-        #win-agentspace .ide-details-body { padding: 4px 8px 8px; max-height: 190px; overflow-y: auto; }
+        #win-agentspace .ide-details-body { padding: 4px 8px 8px; min-height: 80px; max-height: 45vh; resize: vertical; overflow-y: auto; }
         #win-agentspace .ide-tabs { display: flex; align-items: stretch; overflow-x: auto; background: #f4f8f0; border-bottom: 1px solid #111111; flex: 0 0 auto; min-height: 30px; }
         #win-agentspace .ide-tabs-empty { padding: 6px 12px; font-size: 11px; color: #5c5c5c; }
         #win-agentspace .ide-tab { display: flex; align-items: center; gap: 6px; padding: 0 6px 0 12px; border-right: 1px solid rgba(17,17,17,0.22); font: 11px "JetBrains Mono", monospace; cursor: pointer; white-space: nowrap; color: #4a4a4a; border-top: 2px solid transparent; }
@@ -2315,7 +2377,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         #win-agentspace .ide-panel { flex: 0 0 auto; height: var(--ide-panel-h, 210px); display: flex; flex-direction: column; border-top: 1px solid #111111; background: #ffffff; min-height: 0; position: relative; }
         #win-agentspace .ide-panel.is-collapsed { height: auto; }
         #win-agentspace .ide-panel.is-collapsed .ide-panel-body, #win-agentspace .ide-panel.is-collapsed #idePanelHandle { display: none; }
-        #win-agentspace #idePanelHandle { position: absolute; left: 0; right: 0; top: -3px; height: 6px; cursor: row-resize; z-index: 3; touch-action: none; }
+        #win-agentspace #idePanelHandle { position: absolute; left: 0; right: 0; top: -4px; height: 8px; cursor: row-resize; z-index: 4; touch-action: none; display: flex; align-items: center; justify-content: center; }
+        #win-agentspace #idePanelHandle::after { content: ""; width: 42px; height: 3px; border-radius: 9999px; background: rgba(17,17,17,0.28); transition: background 120ms ease, width 120ms ease; }
+        #win-agentspace #idePanelHandle:hover::after { background: #111111; width: 64px; }
         #win-agentspace .ide-panel-head { display: flex; align-items: center; gap: 2px; padding: 0 6px; background: #f4f8f0; border-bottom: 1px solid rgba(17,17,17,0.22); flex: 0 0 auto; }
         #win-agentspace .ide-panel-tab { padding: 4px 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: transparent; border: 0; border-bottom: 2px solid transparent; cursor: pointer; color: #4a4a4a; }
         #win-agentspace .ide-panel-tab.is-active { color: #111111; border-bottom-color: #111111; }
@@ -2716,7 +2780,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             </div>
           </div>
           <!-- ArtCraft Iframe Container -->
-          <div id="artcraftIframeWrapper" class="hidden relative w-full aspect-video bg-black rounded-lg border border-purple-500/40 overflow-hidden shadow-2xl">
+          <div id="artcraftIframeWrapper" class="hidden relative w-full flex-1 min-h-[320px] bg-black rounded-lg border border-purple-500/40 overflow-hidden shadow-2xl" style="resize: vertical;">
             <iframe id="artcraftWasmFrame" src="about:blank" class="w-full h-full border-0"></iframe>
           </div>
         </div>
@@ -3087,40 +3151,130 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       if (!handle) {
         handle = document.createElement('div');
         handle.className = 'window-resize-handle';
-        handle.title = 'Drag to resize window';
+        handle.title = 'Drag to resize window (double-click to reset)';
         winEl.appendChild(handle);
       }
+      let handleE = winEl.querySelector('.window-resize-e');
+      if (!handleE) {
+        handleE = document.createElement('div');
+        handleE.className = 'window-resize-e';
+        handleE.title = 'Drag right edge to resize width (double-click to reset)';
+        winEl.appendChild(handleE);
+      }
+      let handleS = winEl.querySelector('.window-resize-s');
+      if (!handleS) {
+        handleS = document.createElement('div');
+        handleS.className = 'window-resize-s';
+        handleS.title = 'Drag bottom edge to resize height (double-click to reset)';
+        winEl.appendChild(handleS);
+      }
 
-      handle.addEventListener('mousedown', (e) => {
-        if (winEl.classList.contains('maximized') || winEl.classList.contains('popout-fullscreen')) {
-          return;
-        }
-        e.stopPropagation();
-        e.preventDefault();
-        bringToFront(winEl);
-        document.body.classList.add('tc-dragging-window');
+      const geomKey = winEl.id ? ('tincan_win_geom_' + winEl.id) : null;
+      const bodyEl = winEl.querySelector('.window-body');
+      if (geomKey && !winEl.classList.contains('popout-fullscreen')) {
+        try {
+          const saved = JSON.parse(localStorage.getItem(geomKey) || 'null');
+          if (saved && saved.w >= 300 && saved.h >= 180) {
+            const maxW = Math.max(320, (window.innerWidth || 1280) - 16);
+            const maxH = Math.max(220, (window.innerHeight || 820) - 74);
+            winEl.style.width = Math.min(maxW, saved.w) + 'px';
+            winEl.style.height = Math.min(maxH, saved.h) + 'px';
+            winEl.dataset.resized = 'true';
+            if (bodyEl) {
+              bodyEl.style.maxHeight = 'none';
+              bodyEl.style.height = 'auto';
+            }
+          }
+        } catch (e) {}
+      }
 
-        const startX = e.clientX;
-        const startY = e.clientY;
-        const startW = winEl.offsetWidth;
-        const startH = winEl.offsetHeight;
+      function bindEdge(target, axis) {
+        target.addEventListener('pointerdown', (e) => {
+          if (winEl.classList.contains('maximized') || winEl.classList.contains('popout-fullscreen')) {
+            return;
+          }
+          e.stopPropagation();
+          e.preventDefault();
+          bringToFront(winEl);
+          document.body.classList.add('tc-dragging-window');
+          if (target.setPointerCapture) {
+            try { target.setPointerCapture(e.pointerId); } catch (err) {}
+          }
 
-        function onMouseMove(moveEvent) {
-          const newW = Math.max(320, startW + (moveEvent.clientX - startX));
-          const newH = Math.max(180, startH + (moveEvent.clientY - startY));
-          winEl.style.width = `${newW}px`;
-          winEl.style.height = `${newH}px`;
-        }
+          const startX = e.clientX;
+          const startY = e.clientY;
+          const rect = winEl.getBoundingClientRect();
+          const startW = winEl.offsetWidth || rect.width;
+          const startH = winEl.offsetHeight || rect.height;
+          if (winEl.style.right && winEl.style.right !== 'auto') {
+            winEl.style.left = Math.max(8, rect.left) + 'px';
+            winEl.style.right = 'auto';
+          }
+          winEl.dataset.resized = 'true';
+          if (bodyEl) {
+            bodyEl.style.maxHeight = 'none';
+            bodyEl.style.height = 'auto';
+          }
 
-        function onMouseUp() {
-          document.body.classList.remove('tc-dragging-window');
-          window.removeEventListener('mousemove', onMouseMove);
-          window.removeEventListener('mouseup', onMouseUp);
-        }
+          function onPointerMove(moveEvent) {
+            const vw = window.innerWidth || 1280;
+            const vh = window.innerHeight || 820;
+            const maxW = Math.max(320, vw - Math.max(8, winEl.getBoundingClientRect().left) - 8);
+            const maxH = Math.max(220, vh - Math.max(8, winEl.getBoundingClientRect().top) - 14);
+            if (axis === 'se' || axis === 'e') {
+              const newW = Math.min(maxW, Math.max(300, startW + (moveEvent.clientX - startX)));
+              winEl.style.width = `${Math.round(newW)}px`;
+            }
+            if (axis === 'se' || axis === 's') {
+              const newH = Math.min(maxH, Math.max(180, startH + (moveEvent.clientY - startY)));
+              winEl.style.height = `${Math.round(newH)}px`;
+            }
+            try { window.dispatchEvent(new Event('resize')); } catch (err) {}
+          }
 
-        window.addEventListener('mousemove', onMouseMove);
-        window.addEventListener('mouseup', onMouseUp);
-      });
+          function onPointerUp(upEvent) {
+            document.body.classList.remove('tc-dragging-window');
+            if (target.releasePointerCapture) {
+              try { target.releasePointerCapture(upEvent.pointerId); } catch (err) {}
+            }
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', onPointerUp);
+            window.removeEventListener('pointercancel', onPointerUp);
+            if (geomKey) {
+              try {
+                localStorage.setItem(geomKey, JSON.stringify({
+                  w: winEl.offsetWidth,
+                  h: winEl.offsetHeight,
+                }));
+              } catch (err) {}
+            }
+            try { window.dispatchEvent(new Event('resize')); } catch (err) {}
+          }
+
+          window.addEventListener('pointermove', onPointerMove);
+          window.addEventListener('pointerup', onPointerUp);
+          window.addEventListener('pointercancel', onPointerUp);
+        });
+
+        target.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          delete winEl.dataset.resized;
+          winEl.style.width = '';
+          winEl.style.height = '';
+          if (bodyEl) {
+            bodyEl.style.height = '';
+            bodyEl.style.maxHeight = '';
+          }
+          if (geomKey) {
+            try { localStorage.removeItem(geomKey); } catch (err) {}
+          }
+          try { window.dispatchEvent(new Event('resize')); } catch (err) {}
+        });
+      }
+
+      bindEdge(handle, 'se');
+      bindEdge(handleE, 'e');
+      bindEdge(handleS, 's');
     }
 
     function getDockButton(winId) {
@@ -3433,7 +3587,25 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       if (isHidden) {
         win.style.display = 'flex';
         win.classList.remove('hidden', 'minimized');
+        // Clamp initial position inside viewport on smaller laptops/tablets
+        try {
+          const vw = window.innerWidth || 1280;
+          const vh = window.innerHeight || 820;
+          const rect = win.getBoundingClientRect();
+          if (rect.width > vw - 16) {
+            win.style.left = '8px';
+            win.style.right = 'auto';
+            win.style.width = (vw - 16) + 'px';
+          } else if (rect.right > vw - 8) {
+            win.style.left = Math.max(8, vw - rect.width - 8) + 'px';
+            win.style.right = 'auto';
+          }
+          if (rect.top > vh - 120) {
+            win.style.top = Math.max(58, vh - rect.height - 76) + 'px';
+          }
+        } catch (e) {}
         bringToFront(win);
+        try { window.dispatchEvent(new Event('resize')); } catch (e) {}
       } else {
         if (win.classList.contains('window-focused')) {
           minimizeWindow(winId);
@@ -8713,8 +8885,58 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           })
         });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const data = await resp.json();
-        if (notice) notice.textContent = `✅ Generated 3D: ${data.uuid} (Saved: ${savePath})`;
+        let data = await resp.json();
+        let activeUuid = data.uuid || '';
+        let subKey = data.subscription_key || activeUuid;
+        let activeModel = data.model || 'hyper3d/rodin-v2.5';
+        let finalPath = (data.saved_to_space && data.saved_to_space.path) || data.pending_save_path || savePath;
+        let ready = Boolean(data.glb_bytes_b64) && (Boolean(data.simulated) || Boolean(data.downloaded) || String(data.status || '') === 'Done');
+        if (!ready) {
+          if (String(data.status || '') === 'Failed') {
+            throw new Error(data.remote_error || data.error || '3D generation failed');
+          }
+          const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
+          for (let attempt = 1; attempt <= 45; attempt++) {
+            if (notice) notice.textContent = `Rendering 3D (${activeModel})… poll ${attempt}/45`;
+            await sleepMs(3000);
+            const stResp = await fetch('/api/3d/status', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ subscription_key: subKey, key: subKey })
+            });
+            const st = await stResp.json();
+            if (st.subscription_key) subKey = st.subscription_key;
+            if (st.uuid) activeUuid = st.uuid;
+            if (st.model) activeModel = st.model;
+            const stVal = String(st.status || (st.jobs && st.jobs[0] && st.jobs[0].status) || 'Processing');
+            if (stVal === 'Failed') throw new Error(st.error || 'Upstream 3D generation failed');
+            if (stVal === 'Done') {
+              const dlResp = await fetch('/api/3d/download', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  task_uuid: activeUuid,
+                  uuid: activeUuid,
+                  prompt: promptVal,
+                  scope: currentSpaceScope,
+                  owner_id: currentSpaceOwner,
+                  save_path: finalPath,
+                  peer_id: myPeerId || 'user'
+                })
+              });
+              const dl = await dlResp.json();
+              if (dl.download_error && !dl.glb_bytes_b64) throw new Error(dl.download_error);
+              if (dl.glb_bytes_b64) {
+                if (dl.saved_to_space && dl.saved_to_space.path) finalPath = dl.saved_to_space.path;
+                data = Object.assign({}, data, dl, { uuid: activeUuid, status: 'Done' });
+                ready = true;
+                break;
+              }
+            }
+          }
+          if (!ready) throw new Error('Timed out waiting for real 3D GLB mesh');
+        }
+        if (notice) notice.textContent = `✅ Generated 3D: ${activeUuid} (Saved: ${finalPath})`;
         refreshAgentSpace();
         refreshBillingWindow();
       } catch (err) {

@@ -2739,9 +2739,9 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     mesh_mode=mesh_mode,
                 )
                 if data.get("wait") and not res.get("simulated") and hasattr(router, "wait_for_rodin_glb"):
-                    res = router.wait_for_rodin_glb(res, max_wait_sec=float(data.get("wait_sec") or 90.0))
+                    res = router.wait_for_rodin_glb(res, max_wait_sec=float(data.get("wait_sec") or 120.0))
 
-                # If save_path or owner_id passed, write into .space VFS
+                # If save_path or owner_id passed and mesh is ready, write into .space VFS
                 sm = _get_space_manager()
                 if sm and (save_path or owner_id):
                     try:
@@ -2752,10 +2752,16 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                             sp_pre = sm.get_or_create_space(scope, owner_id)
                             slug = _slug_from_prompt(prompt, default=str(res.get("uuid", "rodin_mesh")))
                             sp_path = _unique_space_path(sp_pre, "/models3d", slug, f".{fmt}")
-                        sp = sm.get_or_create_space(scope, owner_id)
                         glb_b64 = res.get("glb_bytes_b64", "")
-                        sp.write_file(sp_path, glb_b64, is_base64=True, mime_type="model/gltf-binary", updated_by=peer_id)
-                        res["saved_to_space"] = {"scope": scope, "owner_id": owner_id, "path": sp_path}
+                        is_ready_to_save = bool(glb_b64) and bool(
+                            res.get("downloaded") or res.get("simulated") or res.get("status") == "Done"
+                        )
+                        if is_ready_to_save:
+                            sp = sm.get_or_create_space(scope, owner_id)
+                            sp.write_file(sp_path, glb_b64, is_base64=True, mime_type="model/gltf-binary", updated_by=peer_id)
+                            res["saved_to_space"] = {"scope": scope, "owner_id": owner_id, "path": sp_path}
+                        else:
+                            res["pending_save_path"] = sp_path
                     except Exception as err:
                         res["space_save_error"] = str(err)
 
@@ -2773,7 +2779,10 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             try:
                 data = json.loads(post_data.decode("utf-8")) if post_data else {}
                 sub_key = data.get("subscription_key") or data.get("key") or ""
-                res = _check_rodin_status(router, sub_key)
+                if data.get("auto_fallback") is False and hasattr(router, "check_rodin_status"):
+                    res = router.check_rodin_status(sub_key, allow_fallback=False)
+                else:
+                    res = _check_rodin_status(router, sub_key)
                 self._send_json(res, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
@@ -2784,6 +2793,29 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 data = json.loads(post_data.decode("utf-8")) if post_data else {}
                 task_uuid = data.get("task_uuid") or data.get("uuid") or ""
                 res = _download_rodin_assets(router, task_uuid)
+                sm = _get_space_manager()
+                scope = data.get("scope", "user")
+                peer_id = data.get("peer_id") or "user"
+                owner_id = data.get("owner_id") or peer_id
+                save_path = data.get("save_path") or ""
+                glb_b64 = res.get("glb_bytes_b64", "") if isinstance(res, dict) else ""
+                can_save = bool(glb_b64) and bool(
+                    res.get("downloaded") or not res.get("simulated") or data.get("force_save")
+                )
+                if sm and can_save and (save_path or data.get("owner_id") or data.get("peer_id")):
+                    try:
+                        if save_path:
+                            sp_path = save_path
+                        else:
+                            from iot_federated_agent_memory.agent_space import _slug_from_prompt, _unique_space_path
+                            sp_pre = sm.get_or_create_space(scope, owner_id)
+                            slug = _slug_from_prompt(data.get("prompt") or task_uuid, default="rodin_mesh")
+                            sp_path = _unique_space_path(sp_pre, "/models3d", slug, f".{res.get('format', 'glb')}")
+                        sp = sm.get_or_create_space(scope, owner_id)
+                        sp.write_file(sp_path, glb_b64, is_base64=True, mime_type="model/gltf-binary", updated_by=peer_id)
+                        res["saved_to_space"] = {"scope": scope, "owner_id": owner_id, "path": sp_path}
+                    except Exception as err:
+                        res["space_save_error"] = str(err)
                 self._send_json(res, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)

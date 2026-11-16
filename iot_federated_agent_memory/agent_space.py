@@ -1527,7 +1527,7 @@ def main() -> int:
     p_3d.add_argument("--tier", default="Regular", choices=["Regular", "Sketch", "Detail", "Smooth"])
     p_3d.add_argument("--out", default=None, help="Optional VFS / relative path (e.g. /models3d/goose.glb)")
     p_3d.add_argument("--no-wait", action="store_true", help="Do not wait for async Rodin job download")
-    p_3d.add_argument("--wait-sec", type=float, default=110.0, help="Seconds to wait for async 3D GLB completion")
+    p_3d.add_argument("--wait-sec", type=float, default=130.0, help="Seconds to wait for async 3D GLB completion")
 
     p_3ds = sub.add_parser("3d-status", help="Poll/download an already-submitted Rodin / NanoGPT 3D runId")
     p_3ds.add_argument("run_id", help="Run ID / UUID / subscription_key to check and download")
@@ -1585,35 +1585,46 @@ def main() -> int:
             "peer_id": owner,
             "wait": not args.no_wait,
             "wait_sec": args.wait_sec,
-        }, timeout=160.0)
+        }, timeout=175.0)
         saved = res.get("saved_to_space") or {}
-        vfs_path = saved.get("path") or args.out or f"/models3d/{res.get('uuid', 'rodin_mesh')}.glb"
+        vfs_path = saved.get("path") or res.get("pending_save_path") or args.out or f"/models3d/{res.get('uuid', 'rodin_mesh')}.glb"
         local_rel = vfs_path.lstrip("/")
         local_abs = os.path.join(os.getcwd(), local_rel)
-        os.makedirs(os.path.dirname(local_abs), exist_ok=True)
-        if res.get("glb_bytes_b64"):
+        is_ready = bool(res.get("glb_bytes_b64")) and bool(res.get("downloaded") or res.get("simulated") or res.get("status") == "Done")
+        if is_ready:
+            os.makedirs(os.path.dirname(local_abs), exist_ok=True)
             with open(local_abs, "wb") as f:
                 f.write(base64.b64decode(res["glb_bytes_b64"]))
         res_out = {k: v for k, v in res.items() if k != "glb_bytes_b64"}
-        res_out["local_path"] = local_rel
+        if is_ready:
+            res_out["local_path"] = local_rel
         print(json.dumps(res_out, indent=2))
-        return 0
+        return 1 if res.get("status") == "Failed" else 0
 
     if args.cmd == "3d-status":
-        st = _req_json("/api/3d/status", {"subscription_key": args.run_id}, timeout=30.0)
+        st = _req_json("/api/3d/status", {"subscription_key": args.run_id}, timeout=45.0)
         if st.get("status") == "Done":
-            dl = _req_json("/api/3d/download", {"task_uuid": args.run_id, "uuid": args.run_id}, timeout=60.0)
+            active_id = st.get("uuid") or args.run_id
+            dl = _req_json("/api/3d/download", {
+                "task_uuid": active_id,
+                "uuid": active_id,
+                "scope": scope,
+                "owner_id": owner,
+                "peer_id": owner,
+                "save_path": args.out,
+            }, timeout=60.0)
             if dl.get("glb_bytes_b64"):
-                vfs_path = args.out or f"/models3d/{args.run_id}.glb"
+                saved = dl.get("saved_to_space") or {}
+                vfs_path = saved.get("path") or args.out or f"/models3d/{active_id}.glb"
                 local_rel = vfs_path.lstrip("/")
                 local_abs = os.path.join(os.getcwd(), local_rel)
                 os.makedirs(os.path.dirname(local_abs), exist_ok=True)
                 with open(local_abs, "wb") as f:
                     f.write(base64.b64decode(dl["glb_bytes_b64"]))
-                print(json.dumps({"status": "Done", "local_path": local_rel, "url": dl.get("url")}, indent=2))
+                print(json.dumps({"status": "Done", "uuid": active_id, "model": dl.get("model"), "local_path": local_rel, "url": dl.get("url")}, indent=2))
                 return 0
         print(json.dumps(st, indent=2))
-        return 0
+        return 1 if st.get("status") == "Failed" else 0
 
     return 1
 
@@ -2357,14 +2368,14 @@ class AgentSpaceHarness:
             try:
                 rodin_res = self.ai_router.dispatch_rodin_generation(prompt=rodin_prompt, geometry_file_format="glb")
                 if not rodin_res.get("simulated") and hasattr(self.ai_router, "wait_for_rodin_glb"):
-                    rodin_res = self.ai_router.wait_for_rodin_glb(rodin_res, max_wait_sec=90.0)
+                    rodin_res = self.ai_router.wait_for_rodin_glb(rodin_res, max_wait_sec=120.0)
                 b64_str = rodin_res.get("glb_bytes_b64")
                 if b64_str:
                     glb_bytes = base64.b64decode(b64_str)
             except Exception as err:
                 rodin_res = {"error": str(err)}
 
-        if not glb_bytes:
+        if not glb_bytes and (not rodin_res or rodin_res.get("simulated", True)):
             glb_bytes = generate_minimal_glb_bytes(name=slug)
             rodin_res = rodin_res or {
                 "prompt": rodin_prompt,
@@ -2373,11 +2384,24 @@ class AgentSpaceHarness:
                 "simulated": True,
             }
 
-        self.vfs.write_file(glb_path, glb_bytes, mime_type="model/gltf-binary", updated_by=author)
-        files_mutated.append(glb_path)
-        asset = {"path": glb_path, "size_bytes": len(glb_bytes), "meta": rodin_res}
+        if glb_bytes:
+            self.vfs.write_file(glb_path, glb_bytes, mime_type="model/gltf-binary", updated_by=author)
+            files_mutated.append(glb_path)
+            asset = {"path": glb_path, "size_bytes": len(glb_bytes), "meta": rodin_res}
+            rodin_assets.append(asset)
+            tool_calls.append({"tool": "generate_rodin_3d", "path": glb_path, "status": "Done"})
+            return asset
+
+        fail_status = str(rodin_res.get("status") or "Failed")
+        asset = {
+            "path": glb_path,
+            "size_bytes": 0,
+            "status": fail_status,
+            "error": rodin_res.get("remote_error") or rodin_res.get("download_error") or rodin_res.get("error") or "Live 3D mesh unavailable",
+            "meta": rodin_res,
+        }
         rodin_assets.append(asset)
-        tool_calls.append({"tool": "generate_rodin_3d", "path": glb_path, "status": "Done"})
+        tool_calls.append({"tool": "generate_rodin_3d", "path": glb_path, "status": fail_status, "error": asset["error"]})
         return asset
 
     def _execute_tincan_action_blocks(

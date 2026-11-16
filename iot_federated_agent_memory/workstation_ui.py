@@ -207,8 +207,9 @@ def _workstation_css() -> str:
         #win-workstation .ws-body {
           display: flex;
           flex-direction: column;
+          flex: 1 1 auto;
           height: min(740px, calc(100vh - 140px));
-          min-height: 440px;
+          min-height: 340px;
           overflow: hidden;
           padding: 0;
           background: var(--ws-bg);
@@ -219,9 +220,12 @@ def _workstation_css() -> str:
           container-name: wsbody;
         }
         #win-workstation.maximized .ws-body,
-        #win-workstation.popout-fullscreen .ws-body {
+        #win-workstation.popout-fullscreen .ws-body,
+        #win-workstation[data-resized="true"] .ws-body,
+        #finderTab-3dstudio .ws-body {
           height: 100%;
           max-height: none;
+          flex: 1 1 auto;
         }
         #win-workstation .ws-topbar {
           display: flex;
@@ -365,13 +369,30 @@ def _workstation_css() -> str:
         #win-workstation .ws-btn--sm { padding: 3px 9px; font-size: 10px; }
         #win-workstation .ws-btn--full { width: 100%; padding: 7px 14px; font-size: 12px; }
 
-        /* 3-pane studio grid */
+        /* 3-pane studio grid with draggable splitters */
         #win-workstation .ws-grid {
+          --ws-left-w: 310px;
+          --ws-right-w: 310px;
           flex: 1 1 auto;
           min-height: 0;
           display: grid;
-          grid-template-columns: 310px minmax(0, 1fr) 310px;
+          grid-template-columns: minmax(190px, var(--ws-left-w, 310px)) 6px minmax(260px, 1fr) 6px minmax(190px, var(--ws-right-w, 310px));
           overflow: hidden;
+        }
+        #win-workstation .ws-grid.is-left-collapsed {
+          grid-template-columns: 0px 0px minmax(260px, 1fr) 6px minmax(190px, var(--ws-right-w, 310px));
+        }
+        #win-workstation .ws-grid.is-right-collapsed {
+          grid-template-columns: minmax(190px, var(--ws-left-w, 310px)) 6px minmax(260px, 1fr) 0px 0px;
+        }
+        #win-workstation .ws-grid.is-left-collapsed.is-right-collapsed {
+          grid-template-columns: 0px 0px minmax(260px, 1fr) 0px 0px;
+        }
+        #win-workstation .ws-grid.is-left-collapsed .ws-pane--left,
+        #win-workstation .ws-grid.is-left-collapsed #wsSplitterLeft,
+        #win-workstation .ws-grid.is-right-collapsed .ws-pane--right,
+        #win-workstation .ws-grid.is-right-collapsed #wsSplitterRight {
+          display: none;
         }
         #win-workstation .ws-pane {
           min-width: 0;
@@ -382,16 +403,54 @@ def _workstation_css() -> str:
           flex-direction: column;
           gap: 10px;
         }
+        #win-workstation .ws-splitter {
+          position: relative;
+          background: transparent;
+          touch-action: none;
+          user-select: none;
+          z-index: 4;
+          transition: background 120ms ease;
+        }
+        #win-workstation .ws-splitter--v {
+          cursor: col-resize;
+          border-left: var(--ws-hair-soft);
+          border-right: var(--ws-hair-soft);
+          width: 6px;
+        }
+        #win-workstation .ws-splitter--h {
+          cursor: row-resize;
+          height: 8px;
+          flex: 0 0 auto;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        #win-workstation .ws-splitter--h::before {
+          content: "";
+          width: 44px;
+          height: 3px;
+          border-radius: 9999px;
+          background: rgba(17, 17, 17, 0.25);
+          transition: background 120ms ease, width 120ms ease;
+        }
+        #win-workstation .ws-splitter:hover,
+        #win-workstation .ws-splitter.is-dragging {
+          background: rgba(17, 17, 17, 0.08);
+        }
+        #win-workstation .ws-splitter--h:hover::before,
+        #win-workstation .ws-splitter--h.is-dragging::before {
+          background: var(--ws-ink);
+          width: 64px;
+        }
         #win-workstation .ws-pane--left {
           background: var(--ws-card);
-          border-right: var(--ws-hair);
         }
         #win-workstation .ws-pane--center {
           background: var(--ws-bg);
+          overflow-y: auto;
         }
         #win-workstation .ws-pane--right {
           background: var(--ws-card);
-          border-left: var(--ws-hair);
         }
 
         /* Cards & inputs */
@@ -481,7 +540,10 @@ def _workstation_css() -> str:
 
         /* Context picker */
         #win-workstation .ws-ctx-list {
-          max-height: 164px;
+          min-height: 92px;
+          height: 152px;
+          max-height: 45vh;
+          resize: vertical;
           overflow-y: auto;
           border: var(--ws-hair-soft);
           border-radius: 8px;
@@ -533,12 +595,13 @@ def _workstation_css() -> str:
           flex-direction: column;
           gap: 8px;
           flex: 1 1 auto;
-          min-height: 230px;
+          min-height: 220px;
         }
         #win-workstation .ws-3d-viewport {
           position: relative;
           flex: 1 1 auto;
-          min-height: 210px;
+          min-height: 200px;
+          resize: vertical;
           background: var(--ws-paper);
           background-image:
             linear-gradient(to right, rgba(17, 17, 17, 0.05) 1px, transparent 1px),
@@ -599,13 +662,18 @@ def _workstation_css() -> str:
           font-size: 11px;
           line-height: 1.5;
           overflow: auto;
-          min-height: 130px;
-          max-height: 240px;
+          min-height: 120px;
+          height: 220px;
+          max-height: 60vh;
+          resize: vertical;
           white-space: pre;
         }
         #win-workstation .ws-diff-box--compact {
-          min-height: 78px;
-          max-height: 135px;
+          min-height: 60px;
+          height: auto;
+          max-height: none;
+          resize: none;
+          flex: 1 1 auto;
         }
         #win-workstation .ws-diff-line { display: block; padding: 0 4px; border-radius: 2px; }
         #win-workstation .ws-diff-add { color: var(--ws-pos); background: var(--ws-pos-bg); }
@@ -622,6 +690,16 @@ def _workstation_css() -> str:
           flex-direction: column;
           gap: 6px;
           flex: 0 0 auto;
+          height: var(--ws-patch-h, 148px);
+          min-height: 38px;
+          max-height: 55vh;
+          overflow: hidden;
+        }
+        #win-workstation .ws-patch-frame.is-collapsed {
+          height: auto !important;
+        }
+        #win-workstation .ws-patch-frame.is-collapsed #wsPatchPreviewDiff {
+          display: none;
         }
 
         /* Arena 2-column benchmark */
@@ -673,8 +751,9 @@ def _workstation_css() -> str:
         }
         #win-workstation .ws-arena-out {
           flex: 1 1 auto;
-          min-height: 110px;
-          max-height: 190px;
+          min-height: 120px;
+          max-height: 60vh;
+          resize: vertical;
           overflow-y: auto;
           background: var(--ws-paper);
           border: var(--ws-hair-soft);
@@ -754,7 +833,9 @@ def _workstation_css() -> str:
           display: flex;
           flex-direction: column;
           gap: 5px;
-          max-height: 122px;
+          min-height: 68px;
+          max-height: 40vh;
+          resize: vertical;
           overflow-y: auto;
         }
         #win-workstation .ws-queue-item {
@@ -811,10 +892,13 @@ def _workstation_css() -> str:
             max-height: calc(100vh - 120px);
             overflow-y: auto;
           }
-          #win-workstation .ws-grid {
+          #win-workstation .ws-grid,
+          #win-workstation .ws-grid.is-left-collapsed,
+          #win-workstation .ws-grid.is-right-collapsed {
             grid-template-columns: 1fr;
             overflow: visible;
           }
+          #win-workstation .ws-splitter { display: none; }
           #win-workstation .ws-pane { overflow-y: visible; }
           #win-workstation .ws-pane--left { border-right: 0; border-bottom: var(--ws-hair); }
           #win-workstation .ws-pane--right { border-left: 0; border-top: var(--ws-hair); }
@@ -825,10 +909,13 @@ def _workstation_css() -> str:
           #win-workstation .ws-body {
             overflow-y: auto;
           }
-          #win-workstation .ws-grid {
+          #win-workstation .ws-grid,
+          #win-workstation .ws-grid.is-left-collapsed,
+          #win-workstation .ws-grid.is-right-collapsed {
             grid-template-columns: 1fr;
             overflow: visible;
           }
+          #win-workstation .ws-splitter { display: none; }
           #win-workstation .ws-pane { overflow-y: visible; }
           #win-workstation .ws-pane--left { border-right: 0; border-bottom: var(--ws-hair); }
           #win-workstation .ws-pane--right { border-left: 0; border-top: var(--ws-hair); }
@@ -1618,11 +1705,77 @@ def _workstation_js() -> str:
                 max_cost_usd: cap,
               },
             });
-            const cost = Number(res.cost_usd ?? tierPrice);
+            let activeRes = res;
+            let cost = Number(res.cost_usd ?? tierPrice);
+            let activeUuid = res.uuid || ('rodin-' + Date.now());
+            let subKey = res.subscription_key || activeUuid;
+            let activeModel = res.model || 'hyper3d/rodin-v2.5';
+            let glbB64 = res.glb_bytes_b64 || '';
+            let savedPath = (res.saved_to_space && res.saved_to_space.path) || res.pending_save_path || savePath;
+            const sleepMs = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+            let isDone = Boolean(glbB64) && (Boolean(res.simulated) || Boolean(res.downloaded) || String(res.status || '') === 'Done');
+
+            if (!isDone) {
+              if (String(res.status || '') === 'Failed') {
+                throw new Error(res.remote_error || res.error || '3D generation failed upstream');
+              }
+              addJob(activeUuid, 'rodin', tier + ' GLB', 'RENDERING', '$' + cost.toFixed(2));
+              const maxPolls = 45;
+              for (let attempt = 1; attempt <= maxPolls; attempt++) {
+                if (noteEl) {
+                  noteEl.textContent = 'Rendering 3D GLB (' + activeModel + ')… poll ' + attempt + '/' + maxPolls;
+                }
+                await sleepMs(3000);
+                const st = await apiJson('/api/3d/status', {
+                  body: { subscription_key: subKey, key: subKey },
+                });
+                if (st.subscription_key) subKey = st.subscription_key;
+                if (st.uuid) activeUuid = st.uuid;
+                if (st.model) activeModel = st.model;
+                const stVal = String(st.status || (st.jobs && st.jobs[0] && st.jobs[0].status) || 'Processing');
+                if (st.fallback_from && noteEl) {
+                  noteEl.textContent = 'Retrying 3D via ' + activeModel + ' (' + st.fallback_from + ' rejected)…';
+                }
+                if (stVal === 'Failed') {
+                  throw new Error(st.error || 'Upstream 3D generation failed');
+                }
+                if (stVal === 'Done') {
+                  if (noteEl) noteEl.textContent = 'Downloading real GLB mesh from ' + activeModel + '…';
+                  const dl = await apiJson('/api/3d/download', {
+                    body: {
+                      task_uuid: activeUuid,
+                      uuid: activeUuid,
+                      prompt: promptVal,
+                      peer_id: resolvePeerId(),
+                      scope: state.scope,
+                      owner_id: state.ownerId,
+                      save_path: savedPath,
+                    },
+                  });
+                  if (dl.download_error && !dl.glb_bytes_b64) {
+                    throw new Error(dl.download_error);
+                  }
+                  if (dl.glb_bytes_b64) {
+                    glbB64 = dl.glb_bytes_b64;
+                    if (dl.saved_to_space && dl.saved_to_space.path) savedPath = dl.saved_to_space.path;
+                    activeRes = Object.assign({}, res, dl, {
+                      status: 'Done',
+                      saved_to_space: dl.saved_to_space || res.saved_to_space,
+                    });
+                    isDone = true;
+                    break;
+                  }
+                }
+              }
+              if (!isDone) {
+                throw new Error('3D job timed out while waiting for real GLB mesh download');
+              }
+            }
+
             state.sessionSpendUsd += cost;
-            state.lastRodinUuid = res.uuid || ('rodin-' + Date.now());
-            state.lastGlbB64 = res.glb_bytes_b64 || '';
-            state.lastGlbPath = (res.saved_to_space && res.saved_to_space.path) || savePath;
+            state.lastRodinUuid = activeUuid;
+            state.lastGlbB64 = glbB64;
+            state.lastGlbPath = savedPath;
 
             if (state.lastGlbB64) {
               mountGlbPreview(state.lastGlbB64, state.lastGlbPath);
@@ -1631,8 +1784,8 @@ def _workstation_js() -> str:
             recordStagedOutput({
               key: 'glb:' + state.lastGlbPath,
               label: state.lastGlbPath,
-              status: res.saved_to_space ? 'SAVED' : 'STAGED',
-              committed: Boolean(res.saved_to_space),
+              status: activeRes.saved_to_space ? 'SAVED' : 'STAGED',
+              committed: Boolean(activeRes.saved_to_space),
             });
             renderTrace();
             notify('3D GLB ready: ' + state.lastGlbPath + ' ($' + cost.toFixed(2) + ')', false);
@@ -2273,9 +2426,176 @@ def _workstation_js() -> str:
           visObserver.observe(winEl, { attributes: true, attributeFilter: ['class', 'style'] });
         }
 
+        function initWorkstationSplitters() {
+          const grid = el('wsGrid');
+          if (!grid) return;
+
+          const readStore = (k) => {
+            try { return typeof localStorage !== 'undefined' ? localStorage.getItem(k) : null; } catch (e) { return null; }
+          };
+          const writeStore = (k, v) => {
+            try { if (typeof localStorage !== 'undefined') localStorage.setItem(k, v); } catch (e) {}
+          };
+          const setCssVar = (node, prop, val) => {
+            if (!node || !node.style) return;
+            if (typeof node.style.setProperty === 'function') node.style.setProperty(prop, val);
+            else node.style[prop] = val;
+          };
+          const notifyResize = () => {
+            try {
+              if (typeof window.dispatchEvent === 'function' && typeof Event === 'function') {
+                window.dispatchEvent(new Event('resize'));
+              }
+            } catch (e) {}
+          };
+
+          function bindVerticalPane(splitterId, cssVar, storageKey, fromRight) {
+            const handle = el(splitterId);
+            if (!handle) return;
+            const DEFAULT_PX = 310;
+            const saved = parseFloat(readStore(storageKey) || '');
+            let widthPx = (!isNaN(saved) && saved >= 190 && saved <= 560) ? saved : DEFAULT_PX;
+            const applyW = (w, persist) => {
+              const rect = typeof grid.getBoundingClientRect === 'function' ? grid.getBoundingClientRect() : { width: 1080 };
+              const maxAllowed = rect && rect.width ? Math.min(540, Math.max(210, Math.floor(rect.width * 0.42))) : 480;
+              widthPx = Math.max(190, Math.min(maxAllowed, Math.round(w)));
+              setCssVar(grid, cssVar, widthPx + 'px');
+              if (persist) writeStore(storageKey, String(widthPx));
+              notifyResize();
+            };
+            applyW(widthPx, false);
+
+            let dragging = false;
+            let startX = 0;
+            let startW = widthPx;
+            handle.addEventListener('pointerdown', (ev) => {
+              dragging = true;
+              startX = ev.clientX;
+              const currentStr = (typeof getComputedStyle === 'function')
+                ? getComputedStyle(grid).getPropertyValue(cssVar)
+                : (grid.style && grid.style[cssVar]) || '';
+              startW = parseFloat(currentStr) || widthPx;
+              handle.classList.add('is-dragging');
+              if (handle.setPointerCapture) {
+                try { handle.setPointerCapture(ev.pointerId); } catch (e) {}
+              }
+              if (document.body && document.body.style) document.body.style.userSelect = 'none';
+              if (ev.preventDefault) ev.preventDefault();
+            });
+            handle.addEventListener('pointermove', (ev) => {
+              if (!dragging) return;
+              const dx = ev.clientX - startX;
+              applyW(fromRight ? (startW - dx) : (startW + dx), false);
+            });
+            const finishDrag = (ev) => {
+              if (!dragging) return;
+              dragging = false;
+              handle.classList.remove('is-dragging');
+              if (document.body && document.body.style) document.body.style.userSelect = '';
+              if (handle.releasePointerCapture) {
+                try { handle.releasePointerCapture(ev.pointerId); } catch (e) {}
+              }
+              applyW(widthPx, true);
+            };
+            handle.addEventListener('pointerup', finishDrag);
+            handle.addEventListener('pointercancel', finishDrag);
+            handle.addEventListener('dblclick', () => applyW(DEFAULT_PX, true));
+            handle.addEventListener('keydown', (ev) => {
+              if (ev.key === 'ArrowLeft') { ev.preventDefault(); applyW(widthPx + (fromRight ? 16 : -16), true); }
+              else if (ev.key === 'ArrowRight') { ev.preventDefault(); applyW(widthPx + (fromRight ? -16 : 16), true); }
+            });
+          }
+
+          bindVerticalPane('wsSplitterLeft', '--ws-left-w', 'tincan_ws_left_w', false);
+          bindVerticalPane('wsSplitterRight', '--ws-right-w', 'tincan_ws_right_w', true);
+
+          // Horizontal stage vs patch preview splitter
+          const hSplitter = el('wsStageSplitter');
+          const patchFrame = el('wsPatchPreviewFrame');
+          if (hSplitter && patchFrame) {
+            const DEFAULT_PATCH_H = 148;
+            const savedPatchH = parseFloat(readStore('tincan_ws_patch_h') || '');
+            let patchH = (!isNaN(savedPatchH) && savedPatchH >= 64 && savedPatchH <= 420) ? savedPatchH : DEFAULT_PATCH_H;
+            const applyH = (h, persist) => {
+              patchH = Math.max(64, Math.min(420, Math.round(h)));
+              setCssVar(patchFrame, '--ws-patch-h', patchH + 'px');
+              if (persist) writeStore('tincan_ws_patch_h', String(patchH));
+              notifyResize();
+            };
+            applyH(patchH, false);
+
+            let draggingH = false;
+            let startY = 0;
+            let startH = patchH;
+            hSplitter.addEventListener('pointerdown', (ev) => {
+              draggingH = true;
+              startY = ev.clientY;
+              const pRect = typeof patchFrame.getBoundingClientRect === 'function' ? patchFrame.getBoundingClientRect() : null;
+              startH = (pRect && pRect.height) || patchH;
+              patchFrame.classList.remove('is-collapsed');
+              hSplitter.classList.add('is-dragging');
+              if (hSplitter.setPointerCapture) {
+                try { hSplitter.setPointerCapture(ev.pointerId); } catch (e) {}
+              }
+              if (document.body && document.body.style) document.body.style.userSelect = 'none';
+              if (ev.preventDefault) ev.preventDefault();
+            });
+            hSplitter.addEventListener('pointermove', (ev) => {
+              if (!draggingH) return;
+              applyH(startH - (ev.clientY - startY), false);
+            });
+            const endH = (ev) => {
+              if (!draggingH) return;
+              draggingH = false;
+              hSplitter.classList.remove('is-dragging');
+              if (document.body && document.body.style) document.body.style.userSelect = '';
+              if (hSplitter.releasePointerCapture) {
+                try { hSplitter.releasePointerCapture(ev.pointerId); } catch (e) {}
+              }
+              applyH(patchH, true);
+            };
+            hSplitter.addEventListener('pointerup', endH);
+            hSplitter.addEventListener('pointercancel', endH);
+            hSplitter.addEventListener('dblclick', () => applyH(DEFAULT_PATCH_H, true));
+            hSplitter.addEventListener('keydown', (ev) => {
+              if (ev.key === 'ArrowUp') { ev.preventDefault(); applyH(patchH + 16, true); }
+              else if (ev.key === 'ArrowDown') { ev.preventDefault(); applyH(patchH - 16, true); }
+            });
+          }
+
+          // Collapse/expand toggles for side panes & patch preview
+          const leftBtn = el('wsToggleLeftBtn');
+          if (leftBtn) {
+            leftBtn.onclick = () => {
+              const collapsed = grid.classList.toggle('is-left-collapsed');
+              leftBtn.classList.toggle('is-active', collapsed);
+              leftBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+              notifyResize();
+            };
+          }
+          const rightBtn = el('wsToggleRightBtn');
+          if (rightBtn) {
+            rightBtn.onclick = () => {
+              const collapsed = grid.classList.toggle('is-right-collapsed');
+              rightBtn.classList.toggle('is-active', collapsed);
+              rightBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+              notifyResize();
+            };
+          }
+          const patchBtn = el('wsTogglePatchBtn');
+          if (patchBtn && patchFrame) {
+            patchBtn.onclick = () => {
+              const collapsed = patchFrame.classList.toggle('is-collapsed');
+              patchBtn.textContent = collapsed ? 'Show' : 'Hide';
+              notifyResize();
+            };
+          }
+        }
+
         function init() {
           if (!state.initialized) {
             bindEvents();
+            initWorkstationSplitters();
             populateModelSelect();
             populateArenaSelects();
             renderContextList();
@@ -2344,13 +2664,15 @@ def render_workstation_window_html() -> str:
           </div>
           <div class="ws-top-group">
             <span id="wsStatusPill" class="ws-badge ws-badge--pos">READY</span>
+            <button id="wsToggleLeftBtn" type="button" class="ws-pill" title="Toggle Left Controls pane" aria-expanded="true">&#x25E7; Controls</button>
+            <button id="wsToggleRightBtn" type="button" class="ws-pill" title="Toggle Right Inspector pane" aria-expanded="true">&#x25E8; Inspector</button>
             <button id="wsRefreshBtn" type="button" class="ws-pill" onclick="window.TinCanWorkstation && window.TinCanWorkstation.refresh({{immediate: true}})" title="Refresh status, catalogs, and Space VFS">&#x21BB;&#xFE0E; Refresh</button>
             <button id="wsTileSpaceBtn" type="button" class="ws-pill" onclick="window.TinCanWorkstation && window.TinCanWorkstation.tileWithSpace()" title="Dock 3D Studio inside Workstation or open floating window">Dock in Workstation</button>
           </div>
         </div>
 
-        <!-- 3-Pane Studio Workspace -->
-        <div class="ws-grid">
+        <!-- 3-Pane Studio Workspace (draggable pane splitters) -->
+        <div id="wsGrid" class="ws-grid">
           <!-- LEFT PANE (310px): Gateway, Model Card, Context Picker, Directive & Guardrails -->
           <aside class="ws-pane ws-pane--left" aria-label="Model gateway and context controls">
             <section class="ws-card">
@@ -2408,6 +2730,9 @@ def render_workstation_window_html() -> str:
               <button id="wsDispatchBtn" type="button" class="ws-btn ws-btn--solid ws-btn--full" onclick="window.TinCanWorkstation && window.TinCanWorkstation.dispatch()">Dispatch Run -&gt;</button>
             </section>
           </aside>
+
+          <!-- Draggable Left Vertical Splitter -->
+          <div id="wsSplitterLeft" class="ws-splitter ws-splitter--v" role="separator" aria-orientation="vertical" aria-label="Resize left controls pane" tabindex="0" title="Drag to resize Controls pane (double-click to reset)"></div>
 
           <!-- CENTER PANE: Mode Switch, Active Stage (3D / TEE Audit / Arena), Persistent Patch Preview -->
           <main class="ws-pane ws-pane--center" aria-label="Workstation active stage">
@@ -2485,6 +2810,9 @@ def render_workstation_window_html() -> str:
               </div>
             </section>
 
+            <!-- Draggable Horizontal Stage Splitter -->
+            <div id="wsStageSplitter" class="ws-splitter ws-splitter--h" role="separator" aria-orientation="horizontal" aria-label="Resize active stage and patch preview" tabindex="0" title="Drag to resize Stage vs Patch Preview (double-click to reset)"></div>
+
             <!-- Persistent Space Notes Patch Preview Box -->
             <section id="wsPatchPreviewFrame" class="ws-patch-frame" aria-label="Space Notes Patch Preview">
               <div class="ws-sec-head">
@@ -2494,6 +2822,7 @@ def render_workstation_window_html() -> str:
                   <span id="wsPlanIdBadge" class="ws-badge">no plan</span>
                 </div>
                 <div class="ws-top-group">
+                  <button id="wsTogglePatchBtn" type="button" class="ws-btn ws-btn--sm" title="Collapse or expand Patch Preview">Hide</button>
                   <button id="wsPreviewRefreshBtn" type="button" class="ws-btn ws-btn--sm">Notes</button>
                   <button id="wsPreviewCommitBtn" type="button" class="ws-btn ws-btn--sm ws-btn--pos">Commit</button>
                   <button id="wsPreviewRevertBtn" type="button" class="ws-btn ws-btn--sm ws-btn--danger">Revert</button>
@@ -2502,6 +2831,9 @@ def render_workstation_window_html() -> str:
               <div id="wsPatchPreviewDiff" class="ws-diff-box ws-diff-box--compact"><span class="ws-diff-ctx">Pending Space Notes and staged unified diffs appear here across all studio modes.</span></div>
             </section>
           </main>
+
+          <!-- Draggable Right Vertical Splitter -->
+          <div id="wsSplitterRight" class="ws-splitter ws-splitter--v" role="separator" aria-orientation="vertical" aria-label="Resize right inspector pane" tabindex="0" title="Drag to resize Inspector pane (double-click to reset)"></div>
 
           <!-- RIGHT PANE (310px): Telemetry Stats, Job Queue, Attestation Trace, Staged Outputs, Handoff -->
           <aside class="ws-pane ws-pane--right" aria-label="Telemetry, queue, and Space handoff">

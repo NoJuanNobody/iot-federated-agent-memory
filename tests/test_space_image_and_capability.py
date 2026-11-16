@@ -700,10 +700,7 @@ def test_nanogpt_rodin_v25_fallback_and_status_polling(monkeypatch):
             )
         if url == router.NANOGPT_MEDIA_SUBMIT_URL:
             body = json.loads(req.data.decode("utf-8"))
-            assert body["model"] == "hyper3d/rodin-v2.5"
-            assert body["tier"] == "Gen-2.5-Medium"
-            assert body["material"] == "PBR"
-            assert body["quality_and_mesh"] == "18K Quad"
+            assert body == {"model": "hyper3d/rodin-v2.5", "prompt": "a stylized origami goose"}
             return _DummyHTTPResp(
                 {"runId": "vid_rodin_nanogpt_123", "modelSlug": "hyper3d/rodin-v2.5", "status": "pending", "cost": 0.48}
             )
@@ -727,6 +724,7 @@ def test_nanogpt_rodin_v25_fallback_and_status_polling(monkeypatch):
     assert rec["gateway"] == "nanogpt"
     assert rec["model"] == "hyper3d/rodin-v2.5"
     assert rec["uuid"] == "vid_rodin_nanogpt_123"
+    assert rec["glb_bytes_b64"] == ""
     assert "API_NO_ACTIVE_SUBSCRIPTION" in rec.get("hyper3d_direct_error", "")
     assert abs(rec["cost_usd"] - 0.48) < 1e-6
 
@@ -735,3 +733,195 @@ def test_nanogpt_rodin_v25_fallback_and_status_polling(monkeypatch):
     assert hydrated["status"] == "Done"
     assert hydrated["url"] == "https://media.nano-gpt.cloud/assets/goose_rodin.glb"
     assert base64.b64decode(hydrated["glb_bytes_b64"]) == b"glTF_NANOGPT_RODIN_V25_REAL_MESH"
+
+
+def test_nanogpt_3d_upstream_rejected_auto_fallback_to_tripo3d(monkeypatch):
+    router = DynamicAIGatewayRouter(hyper3d_key="direct-no-sub-key", nanogpt_key="ng-live-key")
+    submitted_models = []
+
+    class _BinResp:
+        def __init__(self, body: bytes):
+            self._b = body
+
+        def read(self):
+            return self._b
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def fake_urlopen(req, timeout=45.0):
+        url = req.full_url
+        if url in (router.RODIN_GENERATE_URL, router.RODIN_FALLBACK_GENERATE_URL):
+            return _DummyHTTPResp(
+                {"error": "API_NO_ACTIVE_SUBSCRIPTION", "message": "Your account does not have API access."}
+            )
+        if url == router.NANOGPT_MEDIA_SUBMIT_URL:
+            body = json.loads(req.data.decode("utf-8"))
+            submitted_models.append(body["model"])
+            if body["model"] == "hyper3d/rodin-v2.5":
+                return _DummyHTTPResp(
+                    {"runId": "vid_rodin_reject_1", "modelSlug": "hyper3d/rodin-v2.5", "status": "pending", "cost": 0.48}
+                )
+            if body["model"] == "tripo3d/h3.0":
+                return _DummyHTTPResp(
+                    {"runId": "vid_tripo_ok_2", "modelSlug": "tripo3d/h3.0", "status": "pending", "cost": 0.24}
+                )
+        if url.startswith(router.NANOGPT_MEDIA_STATUS_URL):
+            if "vid_rodin_reject_1" in url:
+                return _DummyHTTPResp(
+                    {
+                        "requestId": "vid_rodin_reject_1",
+                        "data": {
+                            "status": "FAILED",
+                            "error": "Upstream service rejected the request. Please check your inputs and try again.",
+                        },
+                    }
+                )
+            if "vid_tripo_ok_2" in url:
+                return _DummyHTTPResp(
+                    {
+                        "requestId": "vid_tripo_ok_2",
+                        "data": {
+                            "status": "COMPLETED",
+                            "output": {"model_url": "https://media.nano-gpt.cloud/assets/mouse_tripo.glb"},
+                        },
+                    }
+                )
+        if url == "https://media.nano-gpt.cloud/assets/mouse_tripo.glb":
+            return _BinResp(b"glTF_TRIPO3D_H3_REAL_MESH_BYTES")
+        raise AssertionError(f"Unexpected URL: {url}")
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    rec = router.dispatch_rodin_generation(prompt="low poly stylized mouse", tier="Regular", mesh_mode="Quad")
+    assert rec["uuid"] == "vid_rodin_reject_1"
+    assert rec["model"] == "hyper3d/rodin-v2.5"
+
+    hydrated = router.wait_for_rodin_glb(rec, max_wait_sec=12.0)
+    assert submitted_models == ["hyper3d/rodin-v2.5", "tripo3d/h3.0"]
+    assert hydrated["status"] == "Done"
+    assert hydrated.get("downloaded") is True
+    assert hydrated["model"] == "tripo3d/h3.0"
+    assert hydrated["uuid"] == "vid_tripo_ok_2"
+    assert hydrated.get("fallback_from") == "hyper3d/rodin-v2.5"
+    assert abs(hydrated["cost_usd"] - 0.24) < 1e-6
+    assert base64.b64decode(hydrated["glb_bytes_b64"]) == b"glTF_TRIPO3D_H3_REAL_MESH_BYTES"
+
+
+def test_http_3d_async_does_not_save_triangle_placeholder_until_download(tmp_path, monkeypatch):
+    import tests.test_tincan_ux_updates as ux_mod
+
+    srv = ux_mod.server
+    temp_mgr = AgentSpaceManager(base_dir=str(tmp_path), ai_router=srv.router)
+    monkeypatch.setattr(srv, "_space_manager", temp_mgr)
+    monkeypatch.setattr(srv, "_get_space_manager", lambda: temp_mgr)
+
+    test_router = DynamicAIGatewayRouter(hyper3d_key=None, nanogpt_key="ng-http-key")
+    monkeypatch.setattr(srv, "router", test_router)
+    monkeypatch.setattr(ux_mod, "router", test_router, raising=False)
+
+    orig_urlopen = urllib.request.urlopen
+
+    class _BinResp:
+        def __init__(self, body: bytes):
+            self._b = body
+
+        def read(self):
+            return self._b
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def fake_urlopen(req, timeout=45.0):
+        url = req.full_url if hasattr(req, "full_url") else str(req)
+        if url.startswith("http://127.0.0.1") or url.startswith("http://localhost"):
+            return orig_urlopen(req, timeout=timeout)
+        if url == test_router.NANOGPT_MEDIA_SUBMIT_URL:
+            body = json.loads(req.data.decode("utf-8"))
+            if body["model"] == "hyper3d/rodin-v2.5":
+                return _DummyHTTPResp({"runId": "vid_http_1", "modelSlug": "hyper3d/rodin-v2.5", "status": "pending", "cost": 0.48})
+            if body["model"] == "tripo3d/h3.0":
+                return _DummyHTTPResp({"runId": "vid_http_2", "modelSlug": "tripo3d/h3.0", "status": "pending", "cost": 0.24})
+        if url.startswith(test_router.NANOGPT_MEDIA_STATUS_URL):
+            if "vid_http_1" in url:
+                return _DummyHTTPResp({"data": {"status": "FAILED", "error": "Upstream service rejected the request."}})
+            if "vid_http_2" in url:
+                return _DummyHTTPResp({"data": {"status": "COMPLETED", "output": {"model_url": "https://cdn.nano.test/mouse.glb"}}})
+        if url == "https://cdn.nano.test/mouse.glb":
+            return _BinResp(b"glTF_REAL_HTTP_MOUSE_MESH_DATA")
+        return orig_urlopen(req, timeout=timeout)
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    with ux_mod._live_server() as (host, port):
+        addr = f"http://{host}:{port}"
+
+        def _post(path, payload):
+            req = urllib.request.Request(
+                f"{addr}{path}",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with orig_urlopen(req, timeout=15) as r:
+                return json.loads(r.read().decode("utf-8"))
+
+        gen = _post(
+            "/api/3d/generate",
+            {"prompt": "cartoon mouse", "tier": "Regular", "format": "glb", "scope": "user", "owner_id": "mouse_user", "save_path": "/models3d/mouse.glb"},
+        )
+        assert gen["simulated"] is False
+        assert gen["glb_bytes_b64"] == ""
+        assert "saved_to_space" not in gen
+        assert gen["pending_save_path"] == "/models3d/mouse.glb"
+        sp = temp_mgr.get_space("user", "mouse_user")
+        assert "/models3d/mouse.glb" not in {f["path"] for f in sp.list_files()}
+
+        # First /api/3d/status detects Rodin v2.5 upstream rejection -> falls back to tripo3d/h3.0
+        st1 = _post("/api/3d/status", {"subscription_key": gen["subscription_key"]})
+        assert st1["status"] == "Processing"
+        assert st1["model"] == "tripo3d/h3.0"
+        assert st1["uuid"] == "vid_http_2"
+        assert st1["fallback_from"] == "hyper3d/rodin-v2.5"
+
+        # Second poll sees tripo3d/h3.0 Done
+        st2 = _post("/api/3d/status", {"subscription_key": st1["subscription_key"]})
+        assert st2["status"] == "Done"
+
+        # Download persists real GLB into .space VFS
+        dl = _post(
+            "/api/3d/download",
+            {"task_uuid": st2["uuid"], "scope": "user", "owner_id": "mouse_user", "peer_id": "mouse_user", "save_path": "/models3d/mouse.glb"},
+        )
+        assert dl["downloaded"] is True
+        assert dl["saved_to_space"]["path"] == "/models3d/mouse.glb"
+        saved_rec = sp.read_file("/models3d/mouse.glb", as_text=False)
+        assert base64.b64decode(saved_rec["content_b64"]) == b"glTF_REAL_HTTP_MOUSE_MESH_DATA"
+
+
+def test_workstation_and_mesh_ui_poll_async_3d_before_mounting():
+    from iot_federated_agent_memory.workstation_ui import render_workstation_window_html
+    from iot_federated_agent_memory.mesh_os_ui import MESH_OS_HTML_UI
+
+    ws_html = render_workstation_window_html()
+    assert "apiJson('/api/3d/status'" in ws_html
+    assert "apiJson('/api/3d/download'" in ws_html
+    assert "pending_save_path" in ws_html
+    assert 'id="wsSplitterLeft"' in ws_html
+    assert 'id="wsSplitterRight"' in ws_html
+    assert 'id="wsStageSplitter"' in ws_html
+    assert 'id="wsToggleLeftBtn"' in ws_html
+    assert 'id="wsToggleRightBtn"' in ws_html
+    assert 'id="wsTogglePatchBtn"' in ws_html
+
+    mesh_html = MESH_OS_HTML_UI
+    assert "fetch('/api/3d/status'" in mesh_html
+    assert "fetch('/api/3d/download'" in mesh_html
+    assert "window-resize-e" in mesh_html
+    assert "window-resize-s" in mesh_html
+    assert '[data-resized="true"]' in mesh_html
