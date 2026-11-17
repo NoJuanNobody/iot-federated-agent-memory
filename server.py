@@ -60,6 +60,12 @@ from iot_federated_agent_memory.sponsor_ads import SponsorAdManager
 from iot_federated_agent_memory.arena_context import ArenaContextRegistry, ContextStoreError
 from iot_federated_agent_memory.arena_context_api import ArenaContextAPI
 from iot_federated_agent_memory import drive_mirror
+from iot_federated_agent_memory.file_inspector import guess_mime_type, inspect_binary_file
+from iot_federated_agent_memory.pages_proxy import (
+    list_space_page_entrypoints,
+    proxy_localhost_port,
+    serve_space_pages,
+)
 from iot_federated_agent_memory.cyberspace_board import CyberspaceBoardEngine
 from iot_federated_agent_memory.crdt_mesh import CRDTMeshGossipSync, CRDTDeltaMessage
 from iot_federated_agent_memory.edge_telemetry import (
@@ -963,7 +969,7 @@ HTML_UI = MESH_OS_HTML_UI
 SINGLE_WINDOW_ROUTES = frozenset({
     "/tv", "/call", "/comms", "/chat", "/copilot", "/ai", "/home", "/arena", "/terminal", "/billing", "/tokens",
     "/board", "/cyberspace", "/space", "/files", "/finder", "/agentspace",
-    "/quests", "/rewards", "/network", "/workstation", "/3dstudio",
+    "/quests", "/rewards", "/network", "/workstation", "/3dstudio", "/browser", "/localhost",
 })
 
 
@@ -1269,6 +1275,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_private_json(drive_mirror.read_text_preview(root, rel), 200)
             elif parsed.path == "/api/drive/raw":
                 abs_path, size, mime = drive_mirror.open_raw(root, rel)
+                mime = guess_mime_type(abs_path, mime)
                 self.send_response(200)
                 self.send_header("Content-Type", mime)
                 self.send_header("Content-Length", str(size))
@@ -1471,8 +1478,28 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         except Exception:
             self._send_json({"error": "Something went wrong with passkey sign-in. Please try again.", "code": "server_error"}, 500)
 
+    def do_PUT(self):
+        parsed = urlparse(self.path)
+        if parsed.path.startswith("/localhost/"):
+            return proxy_localhost_port(self, "PUT", parsed.path, parsed.query)
+        self._send_json({"error": "Method not allowed"}, 405)
+
+    def do_DELETE(self):
+        parsed = urlparse(self.path)
+        if parsed.path.startswith("/localhost/"):
+            return proxy_localhost_port(self, "DELETE", parsed.path, parsed.query)
+        self._send_json({"error": "Method not allowed"}, 405)
+
+    def do_PATCH(self):
+        parsed = urlparse(self.path)
+        if parsed.path.startswith("/localhost/"):
+            return proxy_localhost_port(self, "PATCH", parsed.path, parsed.query)
+        self._send_json({"error": "Method not allowed"}, 405)
+
     def do_POST(self):
         parsed = urlparse(self.path)
+        if parsed.path.startswith("/localhost/"):
+            return proxy_localhost_port(self, "POST", parsed.path, parsed.query)
         if ARENA_CONTEXT_API.handle_post(self, parsed):
             return
         if parsed.path == "/api/tincan/send":
@@ -2967,6 +2994,36 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json(out, 200)
             except Exception as e:
                 self._send_json({"ok": False, "error": str(e)}, 500)
+        elif parsed.path == "/api/file/inspect":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                fpath = str(data.get("path") or "/file.bin").strip()
+                source = str(data.get("source") or "space").strip().lower()
+                raw_b64 = str(data.get("bytes_b64") or "").strip()
+                if raw_b64:
+                    raw_bytes = base64.b64decode(raw_b64)
+                elif source == "drive":
+                    if not self._drive_mirror_allowed():
+                        return self._send_json({"ok": False, "error": "Drive mirror forbidden from remote host"}, 403)
+                    abs_path, _sz, _mime = drive_mirror.open_raw(drive_mirror.mirror_root(), fpath)
+                    with open(abs_path, "rb") as fh:
+                        raw_bytes = fh.read()
+                else:
+                    scope = str(data.get("scope") or "user")
+                    owner_id = str(data.get("owner_id") or data.get("peer_id") or "default")
+                    sm = _get_space_manager()
+                    sp = sm.get_or_create_space(scope, owner_id)
+                    rec = sp.read_file(fpath, as_text=False)
+                    raw_bytes = base64.b64decode(rec.get("content_b64") or "")
+                self._send_json(inspect_binary_file(raw_bytes, fpath), 200)
+            except FileNotFoundError as fe:
+                self._send_json({"ok": False, "error": str(fe)}, 404)
+            except drive_mirror.MirrorAccessError as me:
+                self._send_json({"ok": False, "error": str(me)}, 403)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
         elif parsed.path == "/api/browser/navigate":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
@@ -3499,6 +3556,12 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         if clean_path in SINGLE_WINDOW_ROUTES:
             # Single-window routes: the shell reads location.pathname and opens that window.
             self._send_shell_html()
+            return
+        if parsed.path in ("/pages", "/site") or parsed.path.startswith(("/pages/", "/site/")):
+            serve_space_pages(self, _get_space_manager(), parsed.path)
+            return
+        if parsed.path.startswith("/localhost/"):
+            proxy_localhost_port(self, getattr(self, "command", "GET"), parsed.path, parsed.query)
             return
         if clean_path in ("/designs", "/mockups") or clean_path.startswith("/designs/") or clean_path.startswith("/mockups/"):
             if render_designs_gallery_html is not None:
@@ -4138,6 +4201,12 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             sm = _get_space_manager()
             sp = sm.get_or_create_space(scope, owner_id)
             self._send_json(sp.get_summary(), 200)
+        elif parsed.path == "/api/pages/list":
+            query = parse_qs(parsed.query)
+            scope, owner_id = self._resolve_space_query(query)
+            sm = _get_space_manager()
+            sp = sm.get_or_create_space(scope, owner_id)
+            self._send_json(list_space_page_entrypoints(sp, scope, owner_id), 200)
         elif parsed.path == "/api/space/file":
             query = parse_qs(parsed.query)
             scope = query.get("scope", ["user"])[0]
@@ -4150,13 +4219,15 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 rec = sp.read_file(path, as_text=not raw_flag)
                 if raw_flag:
                     raw_bytes = base64.b64decode(rec.get("content_b64") or "")
-                    ctype = rec.get("mime_type") or "application/octet-stream"
+                    ctype = guess_mime_type(path, rec.get("mime_type") or "")
                     self.send_response(200)
                     self.send_header("Content-Type", ctype)
                     self.send_header("Content-Length", str(len(raw_bytes)))
+                    self.send_header("Access-Control-Allow-Origin", "*")
                     self.send_header("Cache-Control", "no-store")
                     self.end_headers()
-                    self.wfile.write(raw_bytes)
+                    if getattr(self, "command", "GET") != "HEAD":
+                        self.wfile.write(raw_bytes)
                     return
                 self._send_json(rec, 200)
             except FileNotFoundError as fe:

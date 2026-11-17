@@ -2579,11 +2579,30 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                   </button>
                 </div>
 
+                <!-- PDF Document Preview -->
+                <div id="finderPdfContainer" class="hidden relative bg-white rounded-lg overflow-hidden border border-slate-700 min-h-[380px] flex-1 flex flex-col">
+                  <iframe id="finderPdfFrame" class="w-full h-full flex-1 border-0 bg-white" title="PDF Document Preview"></iframe>
+                </div>
+
+                <!-- HTML Live Web App Preview -->
+                <div id="finderHtmlContainer" class="hidden relative bg-white rounded-lg overflow-hidden border border-emerald-700/50 min-h-[380px] flex-1 flex flex-col">
+                  <div class="flex items-center justify-between gap-2 px-2.5 py-1.5 bg-slate-950 text-slate-200 border-b border-slate-800 text-[11px] font-mono">
+                    <span id="finderHtmlUrlLabel" class="truncate text-emerald-300">HTML Live Preview</span>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                      <button type="button" onclick="openCurrentHtmlInLocalhostBrowser()" class="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-semibold rounded transition">🌐 Open in Localhost Browser ↗</button>
+                    </div>
+                  </div>
+                  <iframe id="finderHtmlFrame" class="w-full h-full flex-1 border-0 bg-white" title="HTML Web Preview"></iframe>
+                </div>
+
+                <!-- Universal Rich File / Data / Doc / Archive / Font / DXF / Hex Inspector -->
+                <div id="finderRichContainer" class="hidden p-3 bg-slate-900 rounded-lg border border-slate-800 overflow-auto flex-1 font-mono text-xs text-slate-200 space-y-3"></div>
+
                 <!-- Binary / too-large notice -->
                 <div id="finderBinaryContainer" class="hidden p-4 bg-slate-900 rounded-lg border border-slate-800 text-center font-mono space-y-1">
                   <div class="text-2xl">📦</div>
                   <div id="finderBinaryText" class="text-xs text-slate-300">Binary file</div>
-                  <div class="text-[10px] text-slate-500">No inline preview for this type. Use ⬇ Download.</div>
+                  <div class="text-[10px] text-slate-500">Use ⬇ Download for raw binary transfer.</div>
                 </div>
 
                 <!-- Read-only viewer: highlighted code with line numbers, or rendered Markdown -->
@@ -2821,6 +2840,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     <!--TC_BROWSER_WINDOW-->
 
+    <!--TC_LOCALHOST_WINDOW-->
+
     <!--TC_COPILOT_WINDOW-->
 
     <!-- Window 10: TinCan AI Command Shell & Hub (Aeonik Home Overlay Window) -->
@@ -2868,6 +2889,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     </button>
     <button id="dockBtn-win-browser" onclick="toggleWindow('win-browser')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="TinCan Browser · Playwright Chromium &amp; Reader">
       <span>🧭</span> <span class="hidden md:inline">Browser</span>
+    </button>
+    <button id="dockBtn-win-localhost" onclick="toggleWindow('win-localhost')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Localhost &amp; .space Pages Browser (gh-pages + :port proxy)">
+      <span>🌐</span> <span class="hidden md:inline">Localhost</span>
     </button>
     <button id="dockBtn-win-ai-home" onclick="toggleWindow('win-ai-home')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="TinCan AI Command Shell &amp; Workflow Hub">
       <span>⌘</span> <span class="hidden md:inline">AI Hub</span>
@@ -2924,6 +2948,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       else if (window.location.pathname === '/board' || window.location.pathname === '/cyberspace') singleWindowParam = 'win-board';
       else if (['/space', '/files', '/finder', '/agentspace', '/workstation'].includes(window.location.pathname)) singleWindowParam = 'win-agentspace';
       else if (window.location.pathname === '/3dstudio') singleWindowParam = 'win-workstation';
+      else if (window.location.pathname === '/browser') singleWindowParam = 'win-browser';
+      else if (window.location.pathname === '/localhost') singleWindowParam = 'win-localhost';
       else if (window.location.pathname === '/copilot') singleWindowParam = 'win-copilot';
       else if (window.location.pathname === '/ai' || window.location.pathname === '/home') singleWindowParam = 'win-ai-home';
       else if (window.location.pathname === '/rewards' || window.location.pathname === '/quests') singleWindowParam = 'win-quests';
@@ -3107,7 +3133,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     // Window Manager: Draggable, Resizable, Focus, Minimize, Maximize, Pop Out, Multi-Instance
     let highestZ = 45;
-    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-call', 'win-comms', 'win-quests', 'win-moderator', 'win-billing', 'win-board', 'win-network', 'win-agentspace', 'win-workstation', 'win-browser', 'win-copilot', 'win-ai-home'];
+    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-call', 'win-comms', 'win-quests', 'win-moderator', 'win-billing', 'win-board', 'win-network', 'win-agentspace', 'win-workstation', 'win-browser', 'win-localhost', 'win-copilot', 'win-ai-home'];
     const poppedOutWindows = new Set();
 
     function switchNetTab(tabName) {
@@ -8733,15 +8759,23 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         if (editor) {
           editor.value = isText ? rec.content : `[Binary Asset: ${rec.size_bytes} bytes | SHA256: ${rec.sha256}]\n(Base64 payload available in .space)`;
         }
+        const fpath = rec.path || path;
+        const kind = rangerKind(fpath, rec.mime_type);
         let mediaUrl = null;
-        if (!isText && rec.content_b64 && (rec.size_bytes || 0) <= 48 * 1024 * 1024) {
-          mediaUrl = rangerObjectUrl(b64ToBlob(rec.content_b64, rec.mime_type));
+        if (['image', 'video', 'audio', 'model', 'pdf', 'html', 'font'].includes(kind)) {
+          if (rec.content_b64 && (rec.size_bytes || 0) <= 48 * 1024 * 1024) {
+            mediaUrl = rangerObjectUrl(b64ToBlob(rec.content_b64, rec.mime_type || 'application/octet-stream'));
+          } else if (isText) {
+            const extMime = kind === 'html' ? 'text/html' : (rangerExt(fpath) === 'svg' ? 'image/svg+xml' : (rec.mime_type || 'text/plain'));
+            mediaUrl = rangerObjectUrl(new Blob([rec.content], { type: extMime }));
+          }
         }
+        const pagesUrl = `/pages/${encodeURIComponent(currentSpaceScope || 'user')}/${encodeURIComponent(currentSpaceOwner || 'default')}${fpath.startsWith('/') ? fpath : '/' + fpath}`;
         showFileInViewer({
-          source: 'space', path: rec.path || path, name: (rec.path || path).split('/').pop(),
+          source: 'space', path: fpath, name: fpath.split('/').pop(),
           size: rec.size_bytes, mtime: rec.updated_at, mime: rec.mime_type || 'text/plain',
-          text: isText ? rec.content : null, binary: !isText, mediaUrl,
-          b64: isText ? null : rec.content_b64,
+          text: isText ? rec.content : null, binary: !isText, mediaUrl, pagesUrl,
+          b64: rec.content_b64 || null,
         });
       } catch (err) {
         if (editor) editor.value = `Error loading file: ${err.message}`;
@@ -9602,21 +9636,29 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     function rangerExt(p) { const m = /\.([^.\/]+)$/.exec(p || ''); return m ? m[1].toLowerCase() : ''; }
     function rangerKind(path, mime) {
       const e = rangerExt(path);
-      if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif'].includes(e)) return 'image';
-      if (['mp4', 'webm', 'mov', 'm4v', 'ogv'].includes(e)) return 'video';
+      if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif', 'tif', 'tiff'].includes(e)) return 'image';
+      if (['mp4', 'webm', 'mov', 'm4v', 'ogv', 'mkv'].includes(e)) return 'video';
       if (['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac', 'opus'].includes(e)) return 'audio';
-      if (['glb', 'gltf'].includes(e)) return 'model';
+      if (['glb', 'gltf', 'obj', 'stl', 'ply'].includes(e)) return 'model';
+      if (e === 'pdf' || mime === 'application/pdf') return 'pdf';
+      if (['html', 'htm', 'xhtml'].includes(e) || mime === 'text/html') return 'html';
+      if (['csv', 'tsv'].includes(e)) return 'table';
+      if (e === 'ipynb') return 'notebook';
+      if (['woff', 'woff2', 'ttf', 'otf'].includes(e)) return 'font';
+      if (e === 'dxf') return 'dxf';
+      if (['zip', 'whl', 'jar', 'epub', '3mf', 'tar', 'gz', 'tgz', 'tbz2', 'docx', 'xlsx', 'pptx', 'odt', 'sqlite', 'sqlite3', 'db', 'space', 'wasm', 'bin', 'exe', 'so', 'dylib', 'dll', 'npy', 'npz', 'pkl', 'onnx', 'pt', 'safetensors'].includes(e)) return 'inspectable';
       if (['md', 'markdown', 'mdx'].includes(e)) return 'markdown';
       if (mime && /^image\//.test(mime) && !/^image\/vnd\./.test(mime)) return 'image';
       if (mime && /^video\//.test(mime)) return 'video';
       if (mime && /^audio\//.test(mime)) return 'audio';
+      if (mime && /^font\//.test(mime)) return 'font';
       return 'text';
     }
     function rangerIcon(item) {
       if (item.kind === 'up') return '↰';
       if (item.kind === 'dir') return '📁';
       const k = rangerKind(item.path, item.mime);
-      return { image: '🖼', video: '🎬', audio: '🎵', model: '🧊', markdown: '📝' }[k] ||
+      return { image: '🖼', video: '🎬', audio: '🎵', model: '🧊', markdown: '📝', pdf: '📕', html: '🌐', table: '📊', notebook: '📓', font: '🔤', dxf: '📐', inspectable: '🗜️' }[k] ||
         ({ py: '🐍', js: '⚡', ts: '⚡', rs: '🦀', json: '🔧', sh: '💲' }[rangerExt(item.path)] || '📄');
     }
     function rangerObjectUrl(blob) { const u = URL.createObjectURL(blob); rangerUrls.push(u); return u; }
@@ -9941,7 +9983,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           showFileInViewer({
             source: 'drive', path, name, size: rec.size_bytes, mtime: rec.mtime, mime: rec.mime_type,
             text: rec.content, binary: rec.is_binary, truncated: rec.truncated, absPath: rec.abs_path,
-            mediaUrl: ['image', 'video', 'audio', 'model'].includes(kind) ? rawUrl : null,
+            mediaUrl: ['image', 'video', 'audio', 'model', 'pdf', 'html', 'font'].includes(kind) ? rawUrl : null,
             downloadUrl: rawUrl + '&download=1',
           });
           return;
@@ -9957,9 +9999,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         if (!file) throw new Error('File not found');
         const kind = rangerKind(path, file.type);
         const view = { source: 'drive', path, name, size: file.size, mtime: file.lastModified, mime: file.type || 'application/octet-stream', file };
-        if (['image', 'video', 'audio', 'model'].includes(kind)) {
+        if (['image', 'video', 'audio', 'model', 'pdf', 'html', 'font'].includes(kind)) {
           view.mediaUrl = rangerObjectUrl(file);
-        } else {
+        }
+        if (['markdown', 'text', 'html', 'table', 'notebook', 'dxf'].includes(kind) || !view.mediaUrl) {
           const head = new Uint8Array(await file.slice(0, 8192).arrayBuffer());
           view.binary = head.includes(0);
           if (!view.binary) {
@@ -9974,13 +10017,226 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     // ---- Viewer -------------------------------------------------------------
-    const RANGER_PANES = ['finderVideoContainer', 'finderAudioContainer', 'finderImageContainer', 'finder3dContainer', 'finderBinaryContainer', 'finderViewerContainer', 'finderCodeContainer', 'ideEmptyPane'];
+    const RANGER_PANES = ['finderVideoContainer', 'finderAudioContainer', 'finderImageContainer', 'finder3dContainer', 'finderPdfContainer', 'finderHtmlContainer', 'finderRichContainer', 'finderBinaryContainer', 'finderViewerContainer', 'finderCodeContainer', 'ideEmptyPane'];
     function rangerShowPane(id) { RANGER_PANES.forEach(p => { const el = document.getElementById(p); if (el) el.classList.toggle('hidden', p !== id); }); }
 
     function showViewerError(path, msg) {
       rangerShowPane('finderBinaryContainer');
       const t = document.getElementById('finderBinaryText');
       if (t) t.textContent = `Couldn't open ${path}: ${msg}`;
+    }
+
+    function openCurrentHtmlInLocalhostBrowser() {
+      const v = rangerView;
+      if (!v) return;
+      if (v.source === 'space' && typeof window.openInLocalhostBrowser === 'function') {
+        window.openInLocalhostBrowser(v.path, { scope: currentSpaceScope || 'user', ownerId: currentSpaceOwner || 'default' });
+        return;
+      }
+      if (v.mediaUrl) window.open(v.mediaUrl, '_blank', 'noopener');
+    }
+
+    function _parseCsvRows(text, delim) {
+      const rows = [];
+      let row = [], cur = '', inQ = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (inQ) {
+          if (ch === '"' && text[i + 1] === '"') { cur += '"'; i++; }
+          else if (ch === '"') { inQ = false; }
+          else cur += ch;
+        } else {
+          if (ch === '"') inQ = true;
+          else if (ch === delim) { row.push(cur); cur = ''; }
+          else if (ch === '\n' || ch === '\r') {
+            if (ch === '\r' && text[i + 1] === '\n') i++;
+            row.push(cur); rows.push(row); row = []; cur = '';
+            if (rows.length >= 250) break;
+          } else cur += ch;
+        }
+      }
+      if (cur.length || row.length) { row.push(cur); rows.push(row); }
+      return rows;
+    }
+
+    function renderCsvTableView(view) {
+      const box = document.getElementById('finderRichContainer');
+      if (!box) return;
+      const delim = rangerExt(view.path) === 'tsv' ? '\t' : ',';
+      const rows = _parseCsvRows(view.text || '', delim);
+      if (!rows.length) { box.innerHTML = '<div class="text-slate-400">Empty table.</div>'; return; }
+      const head = rows[0];
+      const body = rows.slice(1);
+      box.innerHTML = `
+        <div class="flex items-center justify-between text-[11px] text-emerald-300 border-b border-slate-800 pb-1.5">
+          <span>📊 ${rangerEsc(view.name)} (${body.length} row${body.length === 1 ? '' : 's'} shown, ${head.length} cols)</span>
+          <span class="text-slate-400">Click Raw above for source</span>
+        </div>
+        <div class="overflow-auto max-h-[520px] border border-slate-800 rounded">
+          <table class="min-w-full border-collapse text-[11px]">
+            <thead class="bg-slate-950 sticky top-0 text-emerald-200">
+              <tr>${head.map(c => `<th class="px-2 py-1 text-left border-b border-slate-800 font-semibold whitespace-nowrap">${rangerEsc(c)}</th>`).join('')}</tr>
+            </thead>
+            <tbody>
+              ${body.map((r, ri) => `<tr class="${ri % 2 ? 'bg-slate-900/40' : 'bg-slate-900/80'} hover:bg-slate-800/70">${head.map((_, ci) => `<td class="px-2 py-1 border-b border-slate-800/60 whitespace-nowrap max-w-[240px] truncate" title="${rangerEsc(r[ci] || '')}">${rangerEsc(r[ci] || '')}</td>`).join('')}</tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    function renderNotebookView(view) {
+      const box = document.getElementById('finderRichContainer');
+      if (!box) return;
+      let nb;
+      try { nb = JSON.parse(view.text || '{}'); }
+      catch (e) { rangerShowPane('finderViewerContainer'); renderTextView(view); return; }
+      const cells = Array.isArray(nb.cells) ? nb.cells : [];
+      const lang = (nb.metadata && nb.metadata.kernelspec && nb.metadata.kernelspec.language) || 'python';
+      const cards = cells.slice(0, 120).map((cell, idx) => {
+        const src = Array.isArray(cell.source) ? cell.source.join('') : String(cell.source || '');
+        if (cell.cell_type === 'markdown') {
+          return `<div class="p-2.5 rounded border border-slate-800 bg-slate-950/60 ranger-md">${typeof renderMarkdown === 'function' ? renderMarkdown(src) : rangerEsc(src)}</div>`;
+        }
+        const outs = (Array.isArray(cell.outputs) ? cell.outputs : []).map(o => {
+          const data = o.data || {};
+          if (data['image/png']) return `<img src="data:image/png;base64,${data['image/png']}" class="max-w-full rounded mt-1 bg-white p-1">`;
+          const txt = Array.isArray(o.text) ? o.text.join('') : (Array.isArray(data['text/plain']) ? data['text/plain'].join('') : (data['text/plain'] || o.evalue || ''));
+          return txt ? `<pre class="mt-1 p-1.5 rounded bg-black/50 text-emerald-300 text-[10px] overflow-x-auto">${rangerEsc(txt)}</pre>` : '';
+        }).join('');
+        return `<div class="p-2 rounded border border-slate-800 bg-slate-950/90 space-y-1">
+          <div class="text-[10px] text-slate-400">In [${cell.execution_count != null ? cell.execution_count : idx + 1}] · ${rangerEsc(lang)}</div>
+          <pre class="overflow-x-auto text-[11px] text-cyan-200">${rangerEsc(src)}</pre>${outs}
+        </div>`;
+      }).join('');
+      box.innerHTML = `<div class="text-[11px] text-cyan-300 border-b border-slate-800 pb-1">📓 Jupyter Notebook (${cells.length} cell${cells.length === 1 ? '' : 's'})</div>${cards || '<div class="text-slate-400">No cells in notebook.</div>'}`;
+    }
+
+    async function renderFontPreview(view) {
+      const box = document.getElementById('finderRichContainer');
+      if (!box) return;
+      const fam = 'TinCanFont_' + Math.random().toString(36).slice(2, 8);
+      box.innerHTML = `
+        <div class="text-[11px] text-cyan-300 border-b border-slate-800 pb-1.5">🔤 Font Specimen · ${rangerEsc(view.name)}</div>
+        <div id="finderFontStage" class="space-y-3 p-3 bg-white text-slate-900 rounded">
+          <div style="font-size:32px;line-height:1.2">Sphinx of black quartz, judge my vow. 0123456789</div>
+          <div style="font-size:18px">ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz !@#$%&amp;*()</div>
+          <div style="font-size:13px;color:#475569">The quick brown fox jumps over the lazy dog — TinCan Specimen Preview.</div>
+        </div>`;
+      try {
+        if (typeof FontFace !== 'undefined') {
+          const ff = new FontFace(fam, `url("${view.mediaUrl}")`);
+          await ff.load();
+          document.fonts.add(ff);
+          const st = document.getElementById('finderFontStage');
+          if (st) st.style.fontFamily = `"${fam}", sans-serif`;
+        }
+      } catch (e) {}
+    }
+
+    function _renderInspectPayload(box, data) {
+      if (!data || !data.ok) {
+        box.innerHTML = `<div class="text-red-300 text-xs">Inspection failed: ${rangerEsc((data && data.error) || 'unknown error')}</div>`;
+        return;
+      }
+      const header = `<div class="flex flex-wrap items-center justify-between gap-2 text-[11px] border-b border-slate-800 pb-1.5">
+        <span class="text-emerald-300 font-semibold">${rangerEsc(data.signature || data.kind || 'Binary Inspector')} · ${rangerFmtSize(data.size_bytes)}</span>
+        <span class="text-slate-400 truncate max-w-[300px]" title="SHA-256">${rangerEsc((data.sha256 || '').slice(0, 16))}…</span>
+      </div>`;
+
+      if (data.kind === 'archive') {
+        const rows = (data.entries || []).map(e => `<tr><td class="px-2 py-0.5 text-cyan-200">${rangerEsc(e.name)}</td><td class="px-2 py-0.5 text-right text-slate-400">${rangerFmtSize(e.size)}</td></tr>`).join('');
+        box.innerHTML = header + `<div class="text-[11px] text-slate-300">Archive (${rangerEsc(data.format)}) · ${data.entry_count} entries</div><div class="max-h-[480px] overflow-auto border border-slate-800 rounded"><table class="w-full text-[11px]"><tbody>${rows}</tbody></table></div>`;
+        return;
+      }
+      if (data.kind === 'docx') {
+        const paras = (data.paragraphs || []).map(p => `<p class="mb-2 text-slate-100 leading-relaxed">${rangerEsc(p)}</p>`).join('');
+        box.innerHTML = header + `<div class="p-3 bg-slate-950 rounded border border-slate-800 max-h-[500px] overflow-auto font-sans text-xs">${paras || '<em>Empty document</em>'}</div>`;
+        return;
+      }
+      if (data.kind === 'xlsx') {
+        const sheetsHtml = (data.sheets || []).map(sh => {
+          const rws = (sh.rows || []).map((r, ri) => `<tr>${r.map(c => `<td class="px-2 py-0.5 border border-slate-800 ${ri === 0 ? 'font-bold bg-slate-950 text-emerald-200' : ''}">${rangerEsc(c)}</td>`).join('')}</tr>`).join('');
+          return `<div class="space-y-1"><div class="text-cyan-300 font-semibold text-[11px]">Sheet: ${rangerEsc(sh.name)}</div><div class="overflow-auto max-h-[300px] border border-slate-800 rounded"><table class="text-[11px] border-collapse"><tbody>${rws}</tbody></table></div></div>`;
+        }).join('');
+        box.innerHTML = header + (sheetsHtml || '<div class="text-slate-400">No sheets found.</div>');
+        return;
+      }
+      if (data.kind === 'pptx') {
+        const slides = (data.slides || []).map(sl => `<div class="p-2.5 rounded border border-slate-800 bg-slate-950 space-y-1"><div class="text-emerald-300 font-semibold text-[10px]">Slide ${sl.slide}</div>${(sl.texts || []).map(t => `<div class="text-slate-100 text-xs">${rangerEsc(t)}</div>`).join('')}</div>`).join('');
+        box.innerHTML = header + (slides || '<div class="text-slate-400">No slides extracted.</div>');
+        return;
+      }
+      if (data.kind === 'sqlite') {
+        const tbls = (data.tables || []).map(t => {
+          const head = (t.columns || []).map(c => `<th class="px-2 py-0.5 text-left border border-slate-800 bg-slate-950 text-cyan-200">${rangerEsc(c)}</th>`).join('');
+          const rows = (t.rows || []).map(r => `<tr>${r.map(v => `<td class="px-2 py-0.5 border border-slate-800 max-w-[200px] truncate">${rangerEsc(v)}</td>`).join('')}</tr>`).join('');
+          return `<div class="p-2 rounded border border-slate-800 bg-slate-950/70 space-y-1">
+            <div class="text-emerald-300 text-[11px] font-semibold">🗄️ ${rangerEsc(t.name)} (${t.row_count} rows)</div>
+            <div class="overflow-auto max-h-[220px]"><table class="text-[10px] border-collapse"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>
+          </div>`;
+        }).join('');
+        box.innerHTML = header + (tbls || '<div class="text-slate-400">Empty SQLite database.</div>');
+        return;
+      }
+      if (data.kind === 'dxf') {
+        const [minx, miny, maxx, maxy] = data.bounds || [0, 0, 100, 100];
+        const w = Math.max(1, maxx - minx), h = Math.max(1, maxy - miny), pad = Math.max(w, h) * 0.08;
+        const linesSvg = (data.segments || []).map(([x1, y1, x2, y2]) => `<line x1="${x1}" y1="${-y1}" x2="${x2}" y2="${-y2}" stroke="#34d399" stroke-width="${Math.max(w, h) * 0.006}"/>`).join('');
+        const circSvg = (data.circles || []).map(([cx, cy, r]) => `<circle cx="${cx}" cy="${-cy}" r="${r}" fill="none" stroke="#38bdf8" stroke-width="${Math.max(w, h) * 0.006}"/>`).join('');
+        box.innerHTML = header + `
+          <div class="flex items-center justify-between text-[11px] text-slate-300">
+            <span>📐 DXF Wireframe (${(data.segments || []).length} lines, ${(data.circles || []).length} circles)</span>
+            <button type="button" onclick="launchArtCraftWasmApp('cadcraft')" class="px-2 py-0.5 bg-cyan-700 hover:bg-cyan-600 text-white rounded text-[10px]">Open in CadCraft Web ↗</button>
+          </div>
+          <svg viewBox="${minx - pad} ${-maxy - pad} ${w + pad * 2} ${h + pad * 2}" class="w-full h-[380px] bg-slate-950 rounded border border-slate-800">${linesSvg}${circSvg}</svg>`;
+        return;
+      }
+      if (data.kind === 'gzip_text') {
+        box.innerHTML = header + `<div class="text-[11px] text-emerald-300">Gzip decompressed preview (${rangerFmtSize(data.uncompressed_bytes)})</div><pre class="p-2.5 bg-slate-950 rounded border border-slate-800 overflow-auto max-h-[480px] text-[11px] text-slate-200">${rangerEsc(data.text_preview || '')}</pre>`;
+        return;
+      }
+      box.innerHTML = header + `<pre class="p-2.5 bg-slate-950 rounded border border-slate-800 overflow-auto max-h-[500px] text-[11px] text-emerald-200 leading-relaxed">${rangerEsc(data.hex_dump || '')}</pre>`;
+    }
+
+    async function renderBinaryInspectView(view, convert3d) {
+      const box = document.getElementById('finderRichContainer');
+      if (box && !convert3d) {
+        box.innerHTML = `<div class="text-slate-400">Inspecting ${rangerEsc(view.name)}…</div>`;
+      }
+      try {
+        const body = { path: view.path, source: view.source || 'space' };
+        if (view.source === 'space') {
+          body.scope = currentSpaceScope || 'user';
+          body.owner_id = currentSpaceOwner || 'default';
+        } else if (view.b64) {
+          body.bytes_b64 = view.b64;
+        } else if (view.file) {
+          const cap = Math.min(view.file.size, 18 * 1024 * 1024);
+          const buf = new Uint8Array(await view.file.slice(0, cap).arrayBuffer());
+          body.bytes_b64 = _uint8ToBase64(buf);
+        }
+        const resp = await fetch('/api/file/inspect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await resp.json();
+        if (!rangerView || rangerView.path !== view.path) return;
+        if (convert3d && data.kind === 'model_glb' && data.glb_b64) {
+          const nextUrl = rangerObjectUrl(b64ToBlob(data.glb_b64, 'model/gltf-binary'));
+          rangerView.b64 = data.glb_b64;
+          rangerView.mediaUrl = nextUrl;
+          rangerShowPane('finder3dContainer');
+          renderModelPreview(nextUrl);
+          return;
+        }
+        if (box) {
+          rangerShowPane('finderRichContainer');
+          _renderInspectPayload(box, data);
+        }
+      } catch (err) {
+        if (box) box.innerHTML = `<div class="text-red-300">Inspect error: ${rangerEsc(err.message)}</div>`;
+      }
     }
 
     function showFileInViewer(view) {
@@ -9991,7 +10247,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       rangerView = view;
       rangerRaw = false;
       if (view.source !== 'space') rangerEditing = false;
-      const kind = view.binary && !view.mediaUrl ? 'binary' : rangerKind(view.path, view.mime);
+      const kind = view.binary && !view.mediaUrl ? rangerKind(view.path, view.mime) : rangerKind(view.path, view.mime);
       view.kind = kind;
       const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
       const pathEl = document.getElementById('activeFilePath');
@@ -10011,7 +10267,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       const editBtn = document.getElementById('viewerEditBtn');
       if (editBtn) editBtn.classList.toggle('hidden', view.text == null);
       const rawBtn = document.getElementById('viewerRawToggle');
-      if (rawBtn) { rawBtn.classList.toggle('hidden', kind !== 'markdown'); rawBtn.textContent = 'Raw'; }
+      const rawCapable = view.text != null && ['markdown', 'html', 'table', 'notebook', 'dxf', 'image', 'model'].includes(kind);
+      if (rawBtn) { rawBtn.classList.toggle('hidden', !rawCapable); rawBtn.textContent = 'Raw'; }
       const vs = document.getElementById('viewerVsCodeLink');
       if (vs) {
         // Only offered where it can work: a real file on this computer, served by a local TinCan.
@@ -10028,6 +10285,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       if (!view) return;
       const kind = view.kind;
       if (rangerEditing && view.source === 'space' && view.text != null) { rangerShowPane('finderCodeContainer'); return; }
+      if (rangerRaw && view.text != null) { rangerShowPane('finderViewerContainer'); renderTextView(view); return; }
       if (kind === 'image' && view.mediaUrl) {
         rangerShowPane('finderImageContainer');
         const img = document.getElementById('finderImagePreview'); if (img) { img.src = view.mediaUrl; img.alt = view.name; }
@@ -10037,16 +10295,44 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       } else if (kind === 'audio' && view.mediaUrl) {
         rangerShowPane('finderAudioContainer');
         const a = document.getElementById('finderAudioPlayer'); if (a) a.src = view.mediaUrl;
+      } else if (kind === 'pdf' && view.mediaUrl) {
+        rangerShowPane('finderPdfContainer');
+        const pf = document.getElementById('finderPdfFrame'); if (pf) pf.src = view.mediaUrl;
+      } else if (kind === 'html' && (view.pagesUrl || view.mediaUrl)) {
+        rangerShowPane('finderHtmlContainer');
+        const hf = document.getElementById('finderHtmlFrame');
+        const hl = document.getElementById('finderHtmlUrlLabel');
+        const target = view.pagesUrl || view.mediaUrl;
+        if (hf) hf.src = target;
+        if (hl) hl.textContent = view.pagesUrl ? ('Live URL: ' + view.pagesUrl) : ('HTML Preview · ' + view.name);
       } else if (kind === 'model' && view.mediaUrl) {
-        rangerShowPane('finder3dContainer');
-        renderModelPreview(view.mediaUrl);
+        if (['glb', 'gltf'].includes(rangerExt(view.path))) {
+          rangerShowPane('finder3dContainer');
+          renderModelPreview(view.mediaUrl);
+        } else {
+          rangerShowPane('finderRichContainer');
+          const box = document.getElementById('finderRichContainer');
+          if (box) box.innerHTML = `<div class="text-cyan-300">Converting ${rangerEsc(view.name)} to glTF 2.0 3D preview…</div>`;
+          renderBinaryInspectView(view, true);
+        }
+      } else if (kind === 'table' && view.text != null) {
+        rangerShowPane('finderRichContainer');
+        renderCsvTableView(view);
+      } else if (kind === 'notebook' && view.text != null) {
+        rangerShowPane('finderRichContainer');
+        renderNotebookView(view);
+      } else if (kind === 'font' && view.mediaUrl) {
+        rangerShowPane('finderRichContainer');
+        renderFontPreview(view);
+      } else if (kind === 'dxf' || kind === 'inspectable') {
+        rangerShowPane('finderRichContainer');
+        renderBinaryInspectView(view, false);
       } else if (view.text != null) {
         rangerShowPane('finderViewerContainer');
         renderTextView(view);
       } else {
-        rangerShowPane('finderBinaryContainer');
-        const t = document.getElementById('finderBinaryText');
-        if (t) t.textContent = `${view.name} · ${view.mime || 'binary'} · ${rangerFmtSize(view.size)}`;
+        rangerShowPane('finderRichContainer');
+        renderBinaryInspectView(view, false);
       }
     }
 
@@ -10189,9 +10475,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         const scope = (typeof currentSpaceScope !== 'undefined' && currentSpaceScope) ? currentSpaceScope : 'user';
         const ownerId = (typeof currentSpaceOwner !== 'undefined' && currentSpaceOwner) ? currentSpaceOwner : peerId;
         const payload = { scope, owner_id: ownerId, peer_id: peerId, rig_type: rigType, animation };
-        if (view.source === 'space' && view.path) {
+        if (view.source === 'space' && view.path && /\.glb$/i.test(view.path)) {
           payload.path = view.path;
         } else if (view.b64) {
+          if (view.path) payload.path = view.path;
           payload.glb_bytes_b64 = view.b64;
         } else if (view.mediaUrl) {
           const buf = await (await fetch(view.mediaUrl)).arrayBuffer();
@@ -10787,9 +11074,11 @@ MESH_OS_HTML_UI = apply_arena_duel(MESH_OS_HTML_UI)
 # Dedicated TinCan Workstation Studio (NanoGPT OpenRouter/TEE/Heretic + Hyper3D Rodin + Space Bridge).
 from .workstation_ui import render_workstation_window_html  # noqa: E402
 from .browser_ui import render_browser_window_html  # noqa: E402
+from .localhost_ui import render_localhost_window_html  # noqa: E402
 
 MESH_OS_HTML_UI = MESH_OS_HTML_UI.replace("<!--TC_WORKSTATION_WINDOW-->", render_workstation_window_html(), 1)
 MESH_OS_HTML_UI = MESH_OS_HTML_UI.replace("<!--TC_BROWSER_WINDOW-->", render_browser_window_html(), 1)
+MESH_OS_HTML_UI = MESH_OS_HTML_UI.replace("<!--TC_LOCALHOST_WINDOW-->", render_localhost_window_html(), 1)
 
 # TinCan Terminal AI components: Home AI Command Hub, Copilot Router, and Token Vault Store.
 from .ai_home_shell import apply_ai_home_shell  # noqa: E402
