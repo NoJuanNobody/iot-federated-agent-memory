@@ -356,9 +356,177 @@ def test_agent_space_rig_action_and_ui_markers():
     assert "def main(" in _TINCAN_GEN_SCRIPT and '"rig"' in _TINCAN_GEN_SCRIPT
 
     assert "finder3dRigBtn" in MESH_OS_HTML_UI
+    assert "finder3dRigEngine" in MESH_OS_HTML_UI
     assert "rigActiveSpaceGlb" in MESH_OS_HTML_UI
     assert "setAttribute('autoplay'" in MESH_OS_HTML_UI
 
     ws_html = render_workstation_window_html()
     assert "wsRigGlbBtn" in ws_html
+    assert "wsRigEngineSelect" in ws_html
     assert "rigCurrentGlb" in ws_html
+
+
+def test_animate_existing_neural_rig_preserves_skin_and_rest_pose():
+    from iot_federated_agent_memory.glb_rigger import animate_existing_rig_glb_bytes, inspect_glb_rig_summary
+
+    # Start from a skinned mesh, strip animations, rename joints to Mixamo/Hyper3D conventions & set rotated rest pose
+    raw_rigged, _ = rig_glb_bytes(_make_static_creature_glb(), rig_type="biped_creature", animation="walk")
+    gltf, blob = parse_glb(raw_rigged)
+    gltf["animations"] = []
+    skins = gltf["skins"]
+    assert len(skins) == 1
+    orig_ibm = skins[0]["inverseBindMatrices"]
+    nodes = gltf["nodes"]
+    rename = {
+        "TinCan_Pelvis": "Hips",
+        "TinCan_Chest": "UpperChest",
+        "TinCan_Head": "Head",
+        "TinCan_LeftArm": "L_UpperArm",
+        "TinCan_RightArm": "R_UpperArm",
+        "TinCan_LeftLeg": "LeftUpLeg",
+        "TinCan_RightLeg": "RightUpLeg",
+        "TinCan_Tail": "Tail_01",
+    }
+    rot_45 = (0.0, 0.0, math.sin(math.pi / 8), math.cos(math.pi / 8))
+    for j_idx in skins[0]["joints"]:
+        nm = nodes[j_idx].get("name", "")
+        if nm in rename:
+            nodes[j_idx]["name"] = rename[nm]
+        if nm == "TinCan_LeftArm":
+            nodes[j_idx]["rotation"] = list(rot_45)
+
+    unanimated_neural_glb = pack_glb(gltf, blob)
+    pre_sum = inspect_glb_rig_summary(unanimated_neural_glb)
+    assert pre_sum["skin_count"] == 1 and pre_sum["animations"] == []
+
+    animated_glb, anim_meta = animate_existing_rig_glb_bytes(unanimated_neural_glb, animation="walk")
+    assert anim_meta["animations"] == ["TinCan_walk"]
+    g_out, _ = parse_glb(animated_glb)
+    # Original skin, joint hierarchy, and IBM preserved intact
+    assert g_out["skins"][0]["inverseBindMatrices"] == orig_ibm
+    assert g_out["skins"][0]["joints"] == skins[0]["joints"]
+    assert len(g_out.get("animations") or []) == 1
+
+
+def test_nanogpt_neural_rig_dispatch_fallback_and_http_download(live_server, monkeypatch):
+    import io as _io
+    import uuid
+    from iot_federated_agent_memory.ai_gateway import DynamicAIGatewayRouter
+
+    class _DummyHTTPResp:
+        def __init__(self, payload):
+            self._raw = payload if isinstance(payload, bytes) else json.dumps(payload).encode("utf-8")
+
+        def read(self):
+            return self._raw
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    # Prepare a static mesh and a "neural rigged (unassembled walk)" GLB that NanoGPT download returns
+    static_glb = _make_static_creature_glb(quadruped=False)
+    skinned_only, _ = rig_glb_bytes(static_glb, rig_type="biped_creature", animation="walk")
+    g_sk, b_sk = parse_glb(skinned_only)
+    g_sk["animations"] = []
+    neural_rig_glb = pack_glb(g_sk, b_sk)
+
+    submitted_payloads = []
+
+    def _fake_urlopen(req, timeout=20.0):
+        url = req.full_url if hasattr(req, "full_url") else str(req)
+        if "/api/generate-video" in url:
+            body = json.loads(req.data.decode("utf-8"))
+            submitted_payloads.append(body)
+            model = body["model"]
+            if model == "hyper3d/rigging":
+                return _DummyHTTPResp({"runId": "vid_rig_h3d_1", "modelSlug": "hyper3d/rigging", "status": "pending", "cost": 0.20})
+            if model == "meshy/rigging":
+                return _DummyHTTPResp({"runId": "vid_rig_meshy_2", "modelSlug": "meshy/rigging", "status": "pending", "cost": 0.24})
+        if "/api/video/status" in url:
+            if "vid_rig_h3d_1" in url:
+                return _DummyHTTPResp({"status": "failed", "error": "upstream busy"})
+            if "vid_rig_meshy_2" in url:
+                return _DummyHTTPResp({"status": "succeeded", "model_url": "https://cdn.nano-gpt.test/rigged_mesh.glb"})
+        if "cdn.nano-gpt.test/rigged_mesh.glb" in url:
+            return _DummyHTTPResp(neural_rig_glb)
+        raise AssertionError(f"Unexpected remote URL in fake urlopen: {url}")
+
+    monkeypatch.setattr(server.router, "nanogpt_key", "ng-test-key")
+    monkeypatch.setattr("urllib.request.urlopen", _fake_urlopen)
+
+    owner = f"ng-rig-{uuid.uuid4().hex[:8]}"
+    # Stage source static mesh in .space
+    req_w = urllib.request.Request(
+        f"{live_server}/api/space/file",
+        data=json.dumps({
+            "scope": "user",
+            "owner_id": owner,
+            "path": "/models3d/pikachu.glb",
+            "content": base64.b64encode(static_glb).decode("ascii"),
+            "is_base64": True,
+            "mime_type": "model/gltf-binary",
+            "action": "write",
+            "updated_by": owner,
+        }).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    # Note: bypass monkeypatched urllib in local test request using http.client
+    import http.client
+    from urllib.parse import urlparse
+
+    pu = urlparse(live_server)
+
+    def _local_post(path_str: str, obj: dict):
+        conn = http.client.HTTPConnection(pu.hostname, pu.port, timeout=15)
+        conn.request("POST", path_str, body=json.dumps(obj).encode("utf-8"), headers={"Content-Type": "application/json", "Host": f"test.railway.app", "X-Forwarded-Proto": "https"})
+        resp = conn.getresponse()
+        raw = resp.read().decode("utf-8")
+        conn.close()
+        return resp.status, json.loads(raw)
+
+    st_w, _ = _local_post("/api/space/file", {
+        "scope": "user", "owner_id": owner, "path": "/models3d/pikachu.glb",
+        "content": base64.b64encode(static_glb).decode("ascii"),
+        "is_base64": True, "mime_type": "model/gltf-binary", "action": "write", "updated_by": owner,
+    })
+    assert st_w == 200
+
+    # 1. Submit async rig via hyper3d/rigging -> gets public /pages/ model_url
+    st_r, rig_res = _local_post("/api/3d/rig", {
+        "scope": "user", "owner_id": owner, "peer_id": owner,
+        "path": "/models3d/pikachu.glb", "engine": "hyper3d/rigging",
+        "rig_type": "biped_creature", "animation": "walk", "wait": False,
+    })
+    assert st_r == 200
+    assert rig_res["ok"] is True and rig_res["uuid"] == "vid_rig_h3d_1"
+    assert "/pages/user/" in rig_res["model_url"] and rig_res["model_url"].startswith("https://test.railway.app/")
+    assert submitted_payloads[0]["model"] == "hyper3d/rigging"
+    assert submitted_payloads[0]["geometry_file_format"] == "glb"
+
+    # 2. First status poll sees hyper3d failure -> auto-fallback submits meshy/rigging
+    st_s1, s1 = _local_post("/api/3d/status", {"subscription_key": "vid_rig_h3d_1"})
+    assert st_s1 == 200
+    assert s1["uuid"] == "vid_rig_meshy_2" and s1["model"] == "meshy/rigging"
+    assert s1["fallback_from"] == "hyper3d/rigging"
+    assert submitted_payloads[1]["model"] == "meshy/rigging"
+
+    # 3. Second status poll sees Done
+    st_s2, s2 = _local_post("/api/3d/status", {"subscription_key": "vid_rig_meshy_2"})
+    assert st_s2 == 200 and s2["status"] == "Done"
+
+    # 4. Download saves _rigged.glb to .space and injects TinCan_walk onto neural skin
+    st_dl, dl = _local_post("/api/3d/download", {
+        "task_uuid": "vid_rig_meshy_2", "scope": "user", "owner_id": owner, "peer_id": owner,
+        "animation": "walk", "animate_if_empty": True,
+    })
+    assert st_dl == 200
+    assert dl["downloaded"] is True
+    assert dl["saved_to_space"]["path"] == "/models3d/pikachu_rigged.glb"
+    assert dl["animated_with_tincan_walk"] is True
+    assert "TinCan_walk" in dl["animations"]
+    out_g, _ = parse_glb(base64.b64decode(dl["glb_bytes_b64"]))
+    assert len(out_g["skins"]) == 1 and len(out_g["animations"]) == 1

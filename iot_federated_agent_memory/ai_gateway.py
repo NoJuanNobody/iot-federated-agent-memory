@@ -624,6 +624,17 @@ class DynamicAIGatewayRouter:
         "tripo3d/h3.0",
         "wavespeed-ai/hunyuan-3d-v3.1-rapid",
     )
+    NANOGPT_DEFAULT_RIG_MODEL = "hyper3d/rigging"
+    NANOGPT_RIG_FALLBACK_MODELS = (
+        "hyper3d/rigging",
+        "meshy/rigging",
+        "tripo3d/rig",
+    )
+    NANOGPT_RIG_PRICING_USD = {
+        "hyper3d/rigging": 0.20,
+        "meshy/rigging": 0.24,
+        "tripo3d/rig": 0.30,
+    }
 
     # Hyper3D Rodin (Ronin) v2 3D Generation Endpoints
     RODIN_GENERATE_URL = "https://api.hyper3d.com/api/v2/rodin"
@@ -1836,25 +1847,292 @@ class DynamicAIGatewayRouter:
             "error": "; ".join(errors) if errors else "All NanoGPT 3D models failed or exhausted",
         }
 
+    @staticmethod
+    def _map_nanogpt_rig_payload(
+        model: str,
+        model_url: str,
+        *,
+        rig_type: str = "auto",
+        skinning_method: str = "shell",
+        height_meters: float = 1.7,
+        skeleton_description: Optional[str] = None,
+        image_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Build exact schema-compliant payload for NanoGPT 3D rigging models."""
+        rt = (rig_type or "auto").strip().lower()
+        if model == "meshy/rigging":
+            anim_type = "quadruped" if rt in ("quadruped", "dragon", "kaiju", "hexapod", "octopod") else "biped"
+            return {
+                "model": "meshy/rigging",
+                "model_url": model_url,
+                "animation_type": anim_type,
+                "height_meters": float(height_meters or 1.7),
+            }
+        if model == "tripo3d/rig":
+            tripo_map = {
+                "auto": "auto",
+                "human": "biped",
+                "humanoid": "biped",
+                "biped": "biped",
+                "biped_creature": "auto",
+                "quadruped": "quadruped",
+                "bird": "avian",
+                "avian": "avian",
+                "hexapod": "hexapod",
+                "octopod": "octopod",
+                "serpentine": "serpentine",
+                "aquatic": "aquatic",
+                "others": "others",
+            }
+            return {
+                "model": "tripo3d/rig",
+                "model_url": model_url,
+                "out_format": "glb",
+                "rig_type": tripo_map.get(rt, "auto"),
+                "spec": "tripo",
+            }
+        # hyper3d/rigging default
+        h3d_map = {
+            "auto": "auto",
+            "human": "human",
+            "humanoid": "human",
+            "biped": "human",
+            "biped_creature": "auto",
+            "quadruped": "quadruped",
+            "bird": "bird",
+            "avian": "bird",
+            "dragon": "dragon",
+            "kaiju": "kaiju",
+            "custom": "custom",
+        }
+        body: Dict[str, Any] = {
+            "model": "hyper3d/rigging",
+            "model_url": model_url,
+            "bone_template": h3d_map.get(rt, "auto"),
+            "skinning_method": skinning_method if skinning_method in ("shell", "core") else "shell",
+            "geometry_file_format": "glb",
+            "in_place": True,
+        }
+        if skeleton_description:
+            body["skeleton_description"] = str(skeleton_description)[:4000]
+            body["bone_template"] = "custom"
+        if image_url:
+            body["image_url"] = image_url
+        return body
+
+    def _dispatch_nanogpt_rig(
+        self,
+        *,
+        model: str,
+        model_url: str,
+        rig_type: str = "auto",
+        skinning_method: str = "shell",
+        height_meters: float = 1.7,
+        skeleton_description: Optional[str] = None,
+        image_url: Optional[str] = None,
+        data_uri_fallback: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Submit a 3D rigging job to NanoGPT (/api/generate-video)."""
+        nanogpt_key = self.nanogpt_key if self.nanogpt_key is not None else os.environ.get("NANOGPT_API_KEY")
+        if not nanogpt_key:
+            return {"ok": False, "error": "NANOGPT_API_KEY not configured"}
+        active_url = model_url
+        if not active_url or ("127.0.0.1" in active_url or "://localhost" in active_url):
+            if model == "meshy/rigging" and data_uri_fallback:
+                active_url = data_uri_fallback
+            elif not active_url:
+                return {"ok": False, "error": "Public model_url is required for remote NanoGPT rigging."}
+        payload = self._map_nanogpt_rig_payload(
+            model,
+            active_url,
+            rig_type=rig_type,
+            skinning_method=skinning_method,
+            height_meters=height_meters,
+            skeleton_description=skeleton_description,
+            image_url=image_url,
+        )
+        headers = {
+            "Authorization": f"Bearer {nanogpt_key}",
+            "x-api-key": nanogpt_key,
+            "Content-Type": "application/json",
+        }
+        req = urllib.request.Request(
+            self.NANOGPT_MEDIA_SUBMIT_URL,
+            data=json.dumps(payload).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=45.0) as resp:
+                resp_data = json.loads(resp.read().decode("utf-8")) or {}
+            run_id = (
+                resp_data.get("runId")
+                or resp_data.get("requestId")
+                or resp_data.get("id")
+                or resp_data.get("jobId")
+            )
+            if not run_id:
+                return {"ok": False, "error": f"NanoGPT rig submit ({model}) returned no runId: {json.dumps(resp_data)[:200]}"}
+            default_cost = self.NANOGPT_RIG_PRICING_USD.get(model, 0.20)
+            return {
+                "ok": True,
+                "run_id": str(run_id),
+                "model_slug": str(resp_data.get("modelSlug") or resp_data.get("model") or model),
+                "status": str(resp_data.get("status") or "pending"),
+                "cost_usd": float(resp_data.get("cost") or default_cost),
+                "raw": resp_data,
+            }
+        except urllib.error.HTTPError as http_err:
+            detail = ""
+            try:
+                detail = http_err.read().decode("utf-8", errors="replace").strip()[:240]
+            except Exception:
+                pass
+            return {"ok": False, "error": f"NanoGPT ({model}) HTTP {http_err.code}{' — ' + detail if detail else ''}"}
+        except Exception as err:
+            return {"ok": False, "error": f"NanoGPT ({model}) rig submit failed: {err}"}
+
+    def _dispatch_nanogpt_rig_with_fallback(
+        self,
+        *,
+        model_url: str,
+        preferred_model: Optional[str] = None,
+        excluded_models: Optional[List[str]] = None,
+        rig_type: str = "auto",
+        skinning_method: str = "shell",
+        height_meters: float = 1.7,
+        skeleton_description: Optional[str] = None,
+        image_url: Optional[str] = None,
+        data_uri_fallback: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        candidates = list(self.NANOGPT_RIG_FALLBACK_MODELS)
+        if preferred_model and preferred_model in self.NANOGPT_RIG_PRICING_USD:
+            candidates = [preferred_model] + [c for c in candidates if c != preferred_model]
+        tried: List[str] = list(excluded_models or [])
+        errors: List[str] = []
+        for candidate in candidates:
+            if candidate in tried:
+                continue
+            tried.append(candidate)
+            res = self._dispatch_nanogpt_rig(
+                model=candidate,
+                model_url=model_url,
+                rig_type=rig_type,
+                skinning_method=skinning_method,
+                height_meters=height_meters,
+                skeleton_description=skeleton_description,
+                image_url=image_url,
+                data_uri_fallback=data_uri_fallback,
+            )
+            if res.get("ok"):
+                res["attempted_models"] = tried
+                if errors:
+                    res["previous_errors"] = errors
+                return res
+            errors.append(str(res.get("error") or f"{candidate} failed"))
+        return {
+            "ok": False,
+            "attempted_models": tried,
+            "error": "; ".join(errors) if errors else "All NanoGPT rigging models failed or exhausted",
+        }
+
+    def dispatch_nanogpt_rig(
+        self,
+        model_url: str,
+        *,
+        model: Optional[str] = None,
+        rig_type: str = "auto",
+        animation: str = "walk",
+        skinning_method: str = "shell",
+        height_meters: float = 1.7,
+        skeleton_description: Optional[str] = None,
+        image_url: Optional[str] = None,
+        data_uri_fallback: Optional[str] = None,
+        source_path: Optional[str] = None,
+        save_path: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Submit neural auto-rigging job to NanoGPT (hyper3d/rigging -> meshy/rigging -> tripo3d/rig)."""
+        pref = model if model in self.NANOGPT_RIG_PRICING_USD else None
+        nano_res = self._dispatch_nanogpt_rig_with_fallback(
+            model_url=model_url,
+            preferred_model=pref,
+            rig_type=rig_type,
+            skinning_method=skinning_method,
+            height_meters=height_meters,
+            skeleton_description=skeleton_description,
+            image_url=image_url,
+            data_uri_fallback=data_uri_fallback,
+        )
+        if not nano_res.get("ok"):
+            return {
+                "ok": False,
+                "gateway": "nanogpt",
+                "error": nano_res.get("error") or "NanoGPT rigging submission failed",
+                "attempted_models": nano_res.get("attempted_models") or [],
+            }
+        run_id = str(nano_res["run_id"])
+        model_slug = str(nano_res.get("model_slug") or pref or self.NANOGPT_DEFAULT_RIG_MODEL)
+        cost_usd = float(nano_res.get("cost_usd") or self.NANOGPT_RIG_PRICING_USD.get(model_slug, 0.20))
+        task_record: Dict[str, Any] = {
+            "uuid": run_id,
+            "subscription_key": run_id,
+            "task_kind": "rig",
+            "gateway": "nanogpt",
+            "model": model_slug,
+            "model_slug": model_slug,
+            "model_url": model_url,
+            "data_uri_fallback": data_uri_fallback,
+            "rig_type": rig_type,
+            "requested_animation": animation or "walk",
+            "skinning_method": skinning_method,
+            "height_meters": float(height_meters or 1.7),
+            "skeleton_description": skeleton_description,
+            "image_url": image_url,
+            "source_path": source_path,
+            "save_path": save_path,
+            "status": str(nano_res.get("status") or "pending"),
+            "cost_usd": cost_usd,
+            "simulated": False,
+            "glb_bytes_b64": "",
+            "attempted_models": nano_res.get("attempted_models") or [model_slug],
+            "created_at": time.time(),
+        }
+        self.rodin_tasks[run_id] = task_record
+        self.rodin_total_calls += 1
+        self.rodin_total_cost_usd += cost_usd
+        return {"ok": True, **task_record}
+
     def _retry_nanogpt_3d_fallback(
         self,
         matching_task: Dict[str, Any],
         prev_error: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
-        """When an async NanoGPT 3D run transitions to Failed, automatically submit the next fallback 3D model."""
+        """When an async NanoGPT 3D or rig run transitions to Failed, automatically submit the next fallback model."""
         prev_model = str(matching_task.get("model_slug") or matching_task.get("model") or self.NANOGPT_DEFAULT_RODIN_MODEL)
         tried = list(matching_task.get("attempted_models") or [])
         if prev_model not in tried:
             tried.append(prev_model)
-        next_res = self._dispatch_nanogpt_rodin_with_fallback(
-            prompt=str(matching_task.get("prompt") or "3D generative mesh"),
-            images=matching_task.get("images"),
-            excluded_models=tried,
-            tier=str(matching_task.get("tier") or "Regular"),
-            material=str(matching_task.get("material") or "PBR"),
-            quality=str(matching_task.get("quality") or "medium"),
-            mesh_mode=str(matching_task.get("mesh_mode") or "Quad"),
-        )
+        if matching_task.get("task_kind") == "rig":
+            next_res = self._dispatch_nanogpt_rig_with_fallback(
+                model_url=str(matching_task.get("model_url") or ""),
+                excluded_models=tried,
+                rig_type=str(matching_task.get("rig_type") or "auto"),
+                skinning_method=str(matching_task.get("skinning_method") or "shell"),
+                height_meters=float(matching_task.get("height_meters") or 1.7),
+                skeleton_description=matching_task.get("skeleton_description"),
+                image_url=matching_task.get("image_url"),
+                data_uri_fallback=matching_task.get("data_uri_fallback"),
+            )
+        else:
+            next_res = self._dispatch_nanogpt_rodin_with_fallback(
+                prompt=str(matching_task.get("prompt") or "3D generative mesh"),
+                images=matching_task.get("images"),
+                excluded_models=tried,
+                tier=str(matching_task.get("tier") or "Regular"),
+                material=str(matching_task.get("material") or "PBR"),
+                quality=str(matching_task.get("quality") or "medium"),
+                mesh_mode=str(matching_task.get("mesh_mode") or "Quad"),
+            )
         if not next_res.get("ok"):
             matching_task["attempted_models"] = next_res.get("attempted_models", tried)
             if prev_error:
@@ -2210,7 +2488,7 @@ class DynamicAIGatewayRouter:
                         task["status"] = "Done"
                         task["downloaded"] = True
                         task["url"] = glb_url
-                        return {
+                        out_dl = {
                             "task_uuid": active_uuid,
                             "gateway": "nanogpt",
                             "model": task.get("model_slug") or task.get("model"),
@@ -2222,6 +2500,14 @@ class DynamicAIGatewayRouter:
                             "simulated": False,
                             "downloaded": True,
                         }
+                        if task.get("task_kind") == "rig":
+                            out_dl["task_kind"] = "rig"
+                            out_dl["requested_animation"] = task.get("requested_animation") or "walk"
+                            out_dl["source_path"] = task.get("source_path")
+                            out_dl["save_path"] = task.get("save_path")
+                            out_dl["rig_type"] = task.get("rig_type")
+                            out_dl["cost_usd"] = task.get("cost_usd")
+                        return out_dl
                 except Exception as err:
                     download_error = str(err)
             return {

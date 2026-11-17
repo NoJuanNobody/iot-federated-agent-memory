@@ -113,6 +113,18 @@ def _euler_xyz_to_quat(rx: float, ry: float, rz: float) -> Quat:
     return (x / norm, y / norm, z / norm, w / norm)
 
 
+def _quat_mul(a: Quat, b: Quat) -> Quat:
+    """Hamilton product (x, y, z, w) normalized to unit length."""
+    ax, ay, az, aw = a
+    bx, by, bz, bw = b
+    x = aw * bx + ax * bw + ay * bz - az * by
+    y = aw * by - ax * bz + ay * bw + az * bx
+    z = aw * bz + ax * by - ay * bx + az * bw
+    w = aw * bw - ax * bx - ay * by - az * bz
+    norm = math.sqrt(x * x + y * y + z * z + w * w) or 1.0
+    return (x / norm, y / norm, z / norm, w / norm)
+
+
 def parse_glb(glb_bytes: bytes) -> Tuple[Dict[str, Any], bytearray]:
     """Parse binary glTF 2.0 bytes into (json_dict, mutable_bin_bytearray)."""
     if len(glb_bytes) < 20 or glb_bytes[:4] != GLB_MAGIC:
@@ -780,11 +792,91 @@ def rig_glb_bytes(
         scene_nodes.append(joint_node_indices[0])
 
     # Build procedural keyframe animations
+    bone_specs = [
+        {
+            "node_idx": joint_node_indices[bi],
+            "role": b["name"],
+            "rest_rot": (0.0, 0.0, 0.0, 1.0),
+            "rest_pos": tuple(nodes[joint_node_indices[bi]].get("translation") or (0.0, 0.0, 0.0)),
+        }
+        for bi, b in enumerate(bones)
+    ]
+    clip_names = _bake_procedural_animations(gltf, bin_data, bone_specs=bone_specs, scale_h=scale_h, animation=animation)
+
+    out_bytes = pack_glb(gltf, bin_data)
+    meta = {
+        "rig_type": chosen_rig,
+        "bones": [b["name"] for b in bones],
+        "bone_count": len(bones),
+        "animations": clip_names,
+        "vertex_count": len(all_points),
+        "size_bytes": len(out_bytes),
+        "cost_usd": 0.0,
+    }
+    return out_bytes, meta
+
+
+def _map_neural_bone_role(bone_name: str) -> str:
+    """Map Tripo/Mixamo/Hyper3D/Meshy joint names onto gait role names."""
+    s = (bone_name or "").lower().replace("-", "_").replace(":", "_")
+    is_left = ("left" in s) or s.startswith("l_") or s.endswith("_l") or (".l" in s)
+    is_right = ("right" in s) or s.startswith("r_") or s.endswith("_r") or (".r" in s)
+
+    if any(k in s for k in ("hips", "pelvis", "root")):
+        return "Pelvis"
+    if "chest" in s or "upper_chest" in s or "spine2" in s:
+        return "Chest"
+    if "spine" in s or "torso" in s or "abdomen" in s:
+        return "Spine"
+    if "neck" in s:
+        return "Neck"
+    if "head" in s:
+        return "Head"
+    if "ear" in s:
+        return "LeftEar" if is_left else ("RightEar" if is_right else "")
+    if "tail" in s:
+        return "Tail"
+    if any(k in s for k in ("front_leg", "frontleg", "foreleg")) and (is_left or is_right):
+        return "FrontLeftLeg" if is_left else "FrontRightLeg"
+    if any(k in s for k in ("back_leg", "backleg", "hindleg", "rearleg")) and (is_left or is_right):
+        return "BackLeftLeg" if is_left else "BackRightLeg"
+    if any(k in s for k in ("upper_arm", "upperarm", "shoulder", "humerus")) or (s.endswith("arm") and "fore" not in s):
+        if is_left:
+            return "LeftUpperArm"
+        if is_right:
+            return "RightUpperArm"
+    if any(k in s for k in ("forearm", "lower_arm", "lowerarm", "elbow")):
+        if is_left:
+            return "LeftForearm"
+        if is_right:
+            return "RightForearm"
+    if any(k in s for k in ("upleg", "up_leg", "thigh", "femur", "hip_")):
+        if is_left:
+            return "LeftThigh"
+        if is_right:
+            return "RightThigh"
+    if any(k in s for k in ("shin", "calf", "lower_leg", "lowerleg", "tibia")) or (s.endswith("leg") and "up" not in s):
+        if is_left:
+            return "LeftShin"
+        if is_right:
+            return "RightShin"
+    return ""
+
+
+def _bake_procedural_animations(
+    gltf: Dict[str, Any],
+    bin_data: bytearray,
+    *,
+    bone_specs: List[Dict[str, Any]],
+    scale_h: float,
+    animation: str = "walk",
+) -> List[str]:
+    """Append rest-pose-preserving keyframe clips to an already-skinned glTF JSON + BIN buffer."""
     req_anim = (animation or "walk").strip().lower()
+    dur_map = {"walk": 1.2, "run": 0.72, "idle": 2.4, "dance": 1.6}
     if req_anim == "all":
         clip_specs = [("walk", 1.2), ("run", 0.72), ("idle", 2.4), ("dance", 1.6)]
-    elif req_anim in ("walk", "run", "idle", "dance"):
-        dur_map = {"walk": 1.2, "run": 0.72, "idle": 2.4, "dance": 1.6}
+    elif req_anim in dur_map:
         clip_specs = [(req_anim, dur_map[req_anim])]
     else:
         clip_specs = [("walk", 1.2)]
@@ -801,9 +893,13 @@ def rig_glb_bytes(
 
         samplers: List[Dict[str, Any]] = []
         channels: List[Dict[str, Any]] = []
-        pelvis_pos = bones[0]["pos"]
 
-        for bi, b in enumerate(bones):
+        for spec in bone_specs:
+            role = spec["role"]
+            if not role:
+                continue
+            rest_rot: Quat = spec["rest_rot"]
+            rest_pos: Vec3 = spec["rest_pos"]
             rot_frames: List[Quat] = []
             tr_frames: List[Vec3] = []
             has_rot = False
@@ -811,54 +907,110 @@ def rig_glb_bytes(
 
             for fi in range(num_frames):
                 phase = 2.0 * math.pi * (fi / float(num_frames - 1))
-                rq, tv = _anim_pose_for_bone(clip_name, b["name"], phase, pelvis_pos, scale_h)
+                rq, tv = _anim_pose_for_bone(clip_name, role, phase, rest_pos, scale_h)
                 if rq is not None:
                     has_rot = True
-                    rot_frames.append(rq)
+                    rot_frames.append(_quat_mul(rest_rot, rq))
                 else:
-                    rot_frames.append((0.0, 0.0, 0.0, 1.0))
+                    rot_frames.append(rest_rot)
                 if tv is not None:
                     has_tr = True
                     tr_frames.append(tv)
                 else:
-                    tr_frames.append(pelvis_pos)
+                    tr_frames.append(rest_pos)
 
-            j_node_idx = joint_node_indices[bi]
+            j_node_idx = int(spec["node_idx"])
             if has_rot:
-                r_raw = bytearray()
-                for q in rot_frames:
-                    r_raw.extend(struct.pack("<4f", *q))
-                r_bv = _append_buffer_view(gltf, bin_data, bytes(r_raw))
+                r_raw = b"".join(struct.pack("<4f", *q) for q in rot_frames)
+                r_bv = _append_buffer_view(gltf, bin_data, r_raw)
                 r_acc = _append_accessor(gltf, r_bv, 5126, "VEC4", num_frames)
                 s_id = len(samplers)
                 samplers.append({"input": t_acc, "interpolation": "LINEAR", "output": r_acc})
                 channels.append({"sampler": s_id, "target": {"node": j_node_idx, "path": "rotation"}})
 
             if has_tr:
-                tr_raw = bytearray()
-                for tv in tr_frames:
-                    tr_raw.extend(struct.pack("<3f", *tv))
-                tr_bv = _append_buffer_view(gltf, bin_data, bytes(tr_raw))
+                tr_raw = b"".join(struct.pack("<3f", *tv) for tv in tr_frames)
+                tr_bv = _append_buffer_view(gltf, bin_data, tr_raw)
                 tr_acc = _append_accessor(gltf, tr_bv, 5126, "VEC3", num_frames)
                 s_id = len(samplers)
                 samplers.append({"input": t_acc, "interpolation": "LINEAR", "output": tr_acc})
                 channels.append({"sampler": s_id, "target": {"node": j_node_idx, "path": "translation"}})
 
-        animations_out.append({
-            "name": f"TinCan_{clip_name}",
-            "samplers": samplers,
-            "channels": channels,
-        })
-        clip_names.append(f"TinCan_{clip_name}")
+        if channels:
+            animations_out.append({"name": f"TinCan_{clip_name}", "samplers": samplers, "channels": channels})
+            clip_names.append(f"TinCan_{clip_name}")
 
-    out_bytes = pack_glb(gltf, bin_data)
-    meta = {
-        "rig_type": chosen_rig,
-        "bones": [b["name"] for b in bones],
-        "bone_count": len(bones),
-        "animations": clip_names,
-        "vertex_count": len(all_points),
-        "size_bytes": len(out_bytes),
-        "cost_usd": 0.0,
+    return clip_names
+
+
+def inspect_glb_rig_summary(glb_bytes: bytes) -> Dict[str, Any]:
+    """Inspect an arbitrary .glb for existing skins, joint names, and embedded animation clips."""
+    gltf, _ = parse_glb(glb_bytes)
+    nodes = gltf.get("nodes") or []
+    skins = gltf.get("skins") or []
+    anims = gltf.get("animations") or []
+    joints: List[str] = []
+    if skins:
+        for j_idx in skins[0].get("joints") or []:
+            if 0 <= int(j_idx) < len(nodes):
+                joints.append(str(nodes[int(j_idx)].get("name") or f"joint_{j_idx}"))
+    return {
+        "skin_count": len(skins),
+        "bone_count": len(joints),
+        "bones": joints,
+        "animations": [str(a.get("name") or f"clip_{i}") for i, a in enumerate(anims)],
     }
-    return out_bytes, meta
+
+
+def animate_existing_rig_glb_bytes(glb_bytes: bytes, *, animation: str = "walk") -> Tuple[bytes, Dict[str, Any]]:
+    """Attach procedural walk/run/idle/dance keyframes onto an existing neural-rigged GLB skeleton."""
+    gltf, bin_data = parse_glb(glb_bytes)
+    nodes = gltf.get("nodes") or []
+    skins = gltf.get("skins") or []
+    if not skins:
+        return rig_glb_bytes(glb_bytes, rig_type="auto", animation=animation)
+
+    scale_h = 1.0
+    ys: List[float] = []
+    for mesh in gltf.get("meshes") or []:
+        for prim in mesh.get("primitives") or []:
+            pos_idx = (prim.get("attributes") or {}).get("POSITION")
+            if pos_idx is not None and int(pos_idx) < len(gltf.get("accessors") or []):
+                acc = gltf["accessors"][int(pos_idx)]
+                mn, mx = acc.get("min"), acc.get("max")
+                if mn and mx and len(mn) >= 2 and len(mx) >= 2:
+                    ys.extend([float(mn[1]), float(mx[1])])
+    if len(ys) >= 2:
+        scale_h = max(max(ys) - min(ys), 1e-4)
+
+    bone_specs: List[Dict[str, Any]] = []
+    bone_names: List[str] = []
+    for j_idx in skins[0].get("joints") or []:
+        ji = int(j_idx)
+        if not (0 <= ji < len(nodes)):
+            continue
+        nd = nodes[ji]
+        bname = str(nd.get("name") or f"joint_{ji}")
+        bone_names.append(bname)
+        role = _map_neural_bone_role(bname)
+        rot_raw = nd.get("rotation") or (0.0, 0.0, 0.0, 1.0)
+        pos_raw = nd.get("translation") or (0.0, 0.0, 0.0)
+        bone_specs.append({
+            "node_idx": ji,
+            "role": role,
+            "rest_rot": (float(rot_raw[0]), float(rot_raw[1]), float(rot_raw[2]), float(rot_raw[3])),
+            "rest_pos": (float(pos_raw[0]), float(pos_raw[1]), float(pos_raw[2])),
+        })
+
+    if not any(b["role"] for b in bone_specs) and bone_specs:
+        bone_specs[0]["role"] = "Pelvis"
+
+    clip_names = _bake_procedural_animations(gltf, bin_data, bone_specs=bone_specs, scale_h=scale_h, animation=animation)
+    out_bytes = pack_glb(gltf, bin_data)
+    return out_bytes, {
+        "rig_type": "neural_skinned",
+        "bones": bone_names,
+        "bone_count": len(bone_names),
+        "animations": clip_names,
+        "size_bytes": len(out_bytes),
+    }

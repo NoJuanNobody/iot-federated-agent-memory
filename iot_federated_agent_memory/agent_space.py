@@ -1533,9 +1533,10 @@ def main() -> int:
     p_3ds.add_argument("run_id", help="Run ID / UUID / subscription_key to check and download")
     p_3ds.add_argument("--out", default=None, help="Optional VFS / relative output path")
 
-    p_rig = sub.add_parser("rig", help="Free in-house glTF 2.0 auto-rig + walk/run/idle/dance animator ($0.00)")
+    p_rig = sub.add_parser("rig", help="Auto-rig + animate a .glb via NanoGPT neural models (hyper3d/rigging, meshy/rigging, tripo3d/rig) or $0 local heuristic")
     p_rig.add_argument("path", help="VFS path (e.g. /models3d/pikachu.glb) or local .glb file path")
-    p_rig.add_argument("--rig", default="auto", choices=["auto", "biped_creature", "quadruped", "humanoid"])
+    p_rig.add_argument("--engine", default="hyper3d/rigging", choices=["hyper3d/rigging", "meshy/rigging", "tripo3d/rig", "nanogpt", "local"])
+    p_rig.add_argument("--rig", default="auto", choices=["auto", "biped_creature", "quadruped", "humanoid", "human", "bird", "dragon", "kaiju"])
     p_rig.add_argument("--anim", default="walk", choices=["walk", "run", "idle", "dance", "all"])
     p_rig.add_argument("--out", default=None, help="Optional VFS / relative output path (default <stem>_rigged.glb)")
 
@@ -1637,9 +1638,12 @@ def main() -> int:
             "scope": scope,
             "owner_id": owner,
             "peer_id": owner,
+            "engine": args.engine,
             "rig_type": args.rig,
             "animation": args.anim,
             "save_path": args.out or "",
+            "wait": args.engine != "local",
+            "wait_sec": 120.0,
         }
         if os.path.isfile(args.path):
             with open(args.path, "rb") as rf:
@@ -1647,7 +1651,7 @@ def main() -> int:
             payload["path"] = "/" + args.path.lstrip("./")
         else:
             payload["path"] = args.path
-        res = _req_json("/api/3d/rig", payload, timeout=90.0)
+        res = _req_json("/api/3d/rig", payload, timeout=140.0)
         if not res.get("ok"):
             print(json.dumps(res, indent=2), file=sys.stderr)
             return 1
@@ -2419,7 +2423,7 @@ def build_tincan_capability_manifest(
         "- Chat & Reasoning Models (`/api/chat`, OpenRouter & NanoGPT gateways): " + ", ".join(chat_aliases[:8]) + " (plus OpenRouter/NanoGPT/Ollama models in `/api/models`).",
         "- 2D Image Generation (OpenRouter multimodal & NanoGPT Image API): " + ", ".join(image_models[:6]) + ". Saves `.png`/`.jpg` into `.space` `/images/`.",
         "- 3D Mesh Generation (Hyper3D Rodin v2 / Ronin): " + ", ".join(rodin_models[:5]) + ". Saves `.glb` meshes into `.space` `/models3d/`.",
-        "- Free 3D Auto-Rigging & Animation (`$0.00` native TinCan glTF 2.0 rigger): `POST /api/3d/rig` or `tincan-gen rig /models3d/mesh.glb --rig auto --anim walk` fits a real glTF 2.0 skeleton (`biped_creature`, `quadruped`, `humanoid`), vertex `JOINTS_0`/`WEIGHTS_0` skin weights, and looping `walk`/`run`/`idle`/`dance` clips playable in Workstation & Three.js `AnimationMixer` (zero paid credits; optional free external web tools: Cinevva, afk.ai, Rig Bench, or UniRig).",
+        "- 3D Auto-Rigging & Animation (NanoGPT neural models + $0 local fallback): `POST /api/3d/rig` or `tincan-gen rig /models3d/mesh.glb --engine hyper3d/rigging` dispatches real neural rigging (`hyper3d/rigging` $0.20, `meshy/rigging` $0.24, `tripo3d/rig` $0.30 with automatic fallback using `/pages/<scope>/<owner>/...` public `model_url`) OR `--engine local` ($0 procedural glTF 2.0 rig + `walk`/`run`/`idle`/`dance` clips).",
         "- Live GitHub-Pages Hosting & Localhost Browser (`/pages/<scope>/<owner_id>/...` & `/localhost/<port>/...`): builds and HTML/JS/CSS/3D apps written to `.space` (`/index.html`, `/dist/index.html`, `/models3d/...`) serve directly with relative assets at `/pages/<scope>/<owner_id>/` and inside the `#win-localhost` (`Localhost`) desktop browser; running dev servers inside the container can be previewed at `/localhost/<port>/`. Workstation File Viewer renders all file types (PDF, live HTML, CSV/TSV tables, `.ipynb` notebooks, `.docx`/`.xlsx`/`.pptx`, `.sqlite`/`.db`, `.zip`/`.tar`, `.obj`/`.stl`/`.ply`/`.glb`, `.dxf`, fonts, and binary Hex+ASCII).",
         "- Code & ArtCraft Tools in `.space`: Python 3 & Node.js sandbox execution, `cadcraft` (`.dxf`), `vectorcraft` (`.svg`), `scriptcraft` (`.fountain`), `deckcraft`, plus `.space` file CRUD.",
         "- Interactive Terminal TUIs (`xterm.js` PTY) & Coding Harnesses: `bash`, `claude`, `codex`, `opencode`, `goose`, `gemini`, `dsx` (run `<cli> \"prompt\"`, `hey <cli> <prompt>`, or click TUI buttons).\n"

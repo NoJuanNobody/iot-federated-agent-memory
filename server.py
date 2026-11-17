@@ -2828,6 +2828,13 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
             try:
+                import posixpath
+                from iot_federated_agent_memory.agent_space import _slug_from_prompt, _unique_space_path
+                from iot_federated_agent_memory.glb_rigger import (
+                    animate_existing_rig_glb_bytes,
+                    inspect_glb_rig_summary,
+                )
+
                 data = json.loads(post_data.decode("utf-8")) if post_data else {}
                 task_uuid = data.get("task_uuid") or data.get("uuid") or ""
                 res = _download_rodin_assets(router, task_uuid)
@@ -2835,22 +2842,51 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 scope = data.get("scope", "user")
                 peer_id = data.get("peer_id") or "user"
                 owner_id = data.get("owner_id") or peer_id
-                save_path = data.get("save_path") or ""
+                save_path = data.get("save_path") or (res.get("save_path") if isinstance(res, dict) else "") or ""
                 glb_b64 = res.get("glb_bytes_b64", "") if isinstance(res, dict) else ""
+                is_rig_job = isinstance(res, dict) and res.get("task_kind") == "rig"
+
+                # If neural rigger returned a skinned .glb with zero embedded animations, bake walk/idle keyframes
+                if is_rig_job and glb_b64 and data.get("animate_if_empty", True):
+                    try:
+                        raw_dl = base64.b64decode(glb_b64)
+                        summary = inspect_glb_rig_summary(raw_dl)
+                        if summary.get("skin_count", 0) > 0 and not summary.get("animations"):
+                            req_anim = str(data.get("animation") or res.get("requested_animation") or "walk")
+                            anim_bytes, anim_meta = animate_existing_rig_glb_bytes(raw_dl, animation=req_anim)
+                            glb_b64 = base64.b64encode(anim_bytes).decode("ascii")
+                            res["glb_bytes_b64"] = glb_b64
+                            res["bones"] = anim_meta["bones"]
+                            res["bone_count"] = anim_meta["bone_count"]
+                            res["animations"] = anim_meta["animations"]
+                            res["animated_with_tincan_walk"] = True
+                        else:
+                            res["bones"] = summary.get("bones", [])
+                            res["bone_count"] = summary.get("bone_count", 0)
+                            res["animations"] = summary.get("animations", [])
+                    except Exception as rig_post_err:
+                        res["rig_post_note"] = str(rig_post_err)
+
                 can_save = bool(glb_b64) and bool(
                     res.get("downloaded") or not res.get("simulated") or data.get("force_save")
                 )
                 if sm and can_save and (save_path or data.get("owner_id") or data.get("peer_id")):
                     try:
+                        sp = sm.get_or_create_space(scope, owner_id)
                         if save_path:
                             sp_path = save_path
+                        elif is_rig_job and res.get("source_path"):
+                            ref_p = str(res["source_path"])
+                            dname = posixpath.dirname(ref_p) or "/models3d"
+                            base_n = posixpath.splitext(posixpath.basename(ref_p))[0] or "mesh"
+                            if base_n.endswith("_rigged"):
+                                base_n = base_n[:-7] or "mesh"
+                            sp_path = _unique_space_path(sp, dname, f"{base_n}_rigged", ".glb")
                         else:
-                            from iot_federated_agent_memory.agent_space import _slug_from_prompt, _unique_space_path
-                            sp_pre = sm.get_or_create_space(scope, owner_id)
                             slug = _slug_from_prompt(data.get("prompt") or task_uuid, default="rodin_mesh")
-                            sp_path = _unique_space_path(sp_pre, "/models3d", slug, f".{res.get('format', 'glb')}")
-                        sp = sm.get_or_create_space(scope, owner_id)
+                            sp_path = _unique_space_path(sp, "/models3d", slug, f".{res.get('format', 'glb')}")
                         sp.write_file(sp_path, glb_b64, is_base64=True, mime_type="model/gltf-binary", updated_by=peer_id)
+                        res["path"] = sp_path
                         res["saved_to_space"] = {"scope": scope, "owner_id": owner_id, "path": sp_path}
                     except Exception as err:
                         res["space_save_error"] = str(err)
@@ -2862,8 +2898,13 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             post_data = self.rfile.read(content_length)
             try:
                 import posixpath
+                import urllib.parse
                 from iot_federated_agent_memory.agent_space import _unique_space_path
-                from iot_federated_agent_memory.glb_rigger import rig_glb_bytes
+                from iot_federated_agent_memory.glb_rigger import (
+                    animate_existing_rig_glb_bytes,
+                    inspect_glb_rig_summary,
+                    rig_glb_bytes,
+                )
 
                 data = json.loads(post_data.decode("utf-8")) if post_data else {}
                 scope = data.get("scope", "user")
@@ -2873,6 +2914,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 raw_b64 = (data.get("glb_bytes_b64") or "").strip()
                 rig_type = (data.get("rig_type") or "auto").strip()
                 animation = (data.get("animation") or "walk").strip()
+                engine = (data.get("engine") or data.get("model") or "local").strip().lower()
                 save_path = (data.get("save_path") or "").strip()
                 save_to_space = data.get("save_to_space", True)
 
@@ -2896,6 +2938,137 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     src_bytes = base64.b64decode(src_b64)
                 else:
                     return self._send_json({"error": "Provide 'path' (a .glb in .space) or 'glb_bytes_b64'."}, 400)
+
+                use_nanogpt = engine in ("nanogpt", "neural", "cloud") or engine in getattr(router, "NANOGPT_RIG_PRICING_USD", {})
+                if use_nanogpt:
+                    if not sm:
+                        return self._send_json({"error": "Space manager required to stage model_url for NanoGPT rigging"}, 503)
+                    sp = sm.get_or_create_space(scope, owner_id)
+                    # Ensure source .glb exists in .space so /pages/<scope>/<owner>/<path> is publicly reachable
+                    staged_src_path = src_path or _unique_space_path(sp, "/models3d", "source_mesh", ".glb")
+                    if raw_b64 or not src_path:
+                        sp.write_file(
+                            staged_src_path,
+                            base64.b64encode(src_bytes).decode("ascii"),
+                            is_base64=True,
+                            mime_type="model/gltf-binary",
+                            updated_by=peer_id,
+                        )
+                    pub_base = (os.environ.get("TINCAN_PUBLIC_BASE_URL") or "").strip().rstrip("/")
+                    if not pub_base:
+                        fwd_host = (self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "").split(",")[0].strip()
+                        fwd_proto = (self.headers.get("X-Forwarded-Proto") or ("https" if ".railway.app" in fwd_host else "http")).split(",")[0].strip()
+                        if fwd_host:
+                            pub_base = f"{fwd_proto}://{fwd_host}"
+                    norm_src = staged_src_path if staged_src_path.startswith("/") else "/" + staged_src_path
+                    model_url = (data.get("model_url") or "").strip() or (
+                        f"{pub_base}/pages/{urllib.parse.quote(scope, safe='')}/{urllib.parse.quote(owner_id, safe='')}{norm_src}"
+                        if pub_base else ""
+                    )
+                    data_uri = (
+                        "data:model/gltf-binary;base64," + base64.b64encode(src_bytes).decode("ascii")
+                        if len(src_bytes) <= 20 * 1024 * 1024
+                        else None
+                    )
+                    pref_model = None if engine in ("nanogpt", "neural", "cloud") else engine
+                    disp = router.dispatch_nanogpt_rig(
+                        model_url=model_url,
+                        model=pref_model,
+                        rig_type=rig_type,
+                        animation=animation,
+                        skinning_method=str(data.get("skinning_method") or "shell"),
+                        height_meters=float(data.get("height_meters") or 1.7),
+                        skeleton_description=data.get("skeleton_description"),
+                        image_url=data.get("image_url"),
+                        data_uri_fallback=data_uri,
+                        source_path=staged_src_path,
+                        save_path=save_path or None,
+                    )
+                    if not disp.get("ok"):
+                        return self._send_json({"ok": False, "error": disp.get("error") or "NanoGPT rigging dispatch failed"}, 400)
+
+                    # Compute destination _rigged.glb path for pending UI display
+                    dname = posixpath.dirname(norm_src) or "/models3d"
+                    bname = posixpath.splitext(posixpath.basename(norm_src))[0] or "mesh"
+                    if bname.endswith("_rigged"):
+                        bname = bname[:-7] or "mesh"
+                    pending_out = save_path or _unique_space_path(sp, dname, f"{bname}_rigged", ".glb")
+
+                    try:
+                        mesh_os.record_flight(peer_id, "nanogpt-rig", kind="3d_rig", label=disp.get("model", "NanoGPT Rig"))
+                    except Exception:
+                        pass
+
+                    if not data.get("wait"):
+                        return self._send_json({
+                            "ok": True,
+                            "provider": "nanogpt",
+                            "gateway": "nanogpt",
+                            "model": disp.get("model"),
+                            "uuid": disp["uuid"],
+                            "subscription_key": disp["subscription_key"],
+                            "status": disp.get("status", "pending"),
+                            "cost_usd": disp.get("cost_usd", 0.20),
+                            "model_url": model_url,
+                            "source_path": staged_src_path,
+                            "pending_save_path": pending_out,
+                        }, 200)
+
+                    # Wait synchronously (CLI / explicit wait=True)
+                    deadline = time.time() + float(data.get("wait_sec") or 110.0)
+                    active_id = disp["uuid"]
+                    last_st: Dict[str, Any] = {}
+                    while time.time() < deadline:
+                        last_st = _check_rodin_status(router, active_id)
+                        active_id = str(last_st.get("uuid") or active_id)
+                        if last_st.get("status") in ("Done", "Failed"):
+                            break
+                        time.sleep(2.5)
+                    if last_st.get("status") != "Done":
+                        return self._send_json({
+                            "ok": last_st.get("status") != "Failed",
+                            "provider": "nanogpt",
+                            "gateway": "nanogpt",
+                            "model": last_st.get("model") or disp.get("model"),
+                            "uuid": active_id,
+                            "subscription_key": active_id,
+                            "status": last_st.get("status") or "Processing",
+                            "error": last_st.get("error"),
+                            "pending_save_path": pending_out,
+                        }, 200 if last_st.get("status") != "Failed" else 502)
+
+                    dl_res = _download_rodin_assets(router, active_id)
+                    out_b64 = dl_res.get("glb_bytes_b64") or ""
+                    if not out_b64:
+                        return self._send_json({"ok": False, "error": dl_res.get("download_error") or "Downloaded empty rig asset"}, 502)
+                    raw_out = base64.b64decode(out_b64)
+                    summary = inspect_glb_rig_summary(raw_out)
+                    if summary.get("skin_count", 0) > 0 and not summary.get("animations"):
+                        anim_b, anim_meta = animate_existing_rig_glb_bytes(raw_out, animation=animation)
+                        raw_out = anim_b
+                        out_b64 = base64.b64encode(raw_out).decode("ascii")
+                        summary["bones"] = anim_meta["bones"]
+                        summary["bone_count"] = anim_meta["bone_count"]
+                        summary["animations"] = anim_meta["animations"]
+                    if save_to_space:
+                        sp.write_file(pending_out, out_b64, is_base64=True, mime_type="model/gltf-binary", updated_by=peer_id)
+                    return self._send_json({
+                        "ok": True,
+                        "provider": "nanogpt",
+                        "gateway": "nanogpt",
+                        "model": dl_res.get("model") or disp.get("model"),
+                        "status": "Done",
+                        "cost_usd": float(disp.get("cost_usd") or 0.20),
+                        "source_path": staged_src_path,
+                        "path": pending_out,
+                        "rig_type": summary.get("rig_type") or rig_type,
+                        "bones": summary.get("bones", []),
+                        "bone_count": summary.get("bone_count", 0),
+                        "animations": summary.get("animations", []),
+                        "size_bytes": len(raw_out),
+                        "glb_bytes_b64": out_b64,
+                        "saved_to_space": {"scope": scope, "owner_id": owner_id, "path": pending_out} if save_to_space else None,
+                    }, 200)
 
                 try:
                     out_bytes, meta = rig_glb_bytes(src_bytes, rig_type=rig_type, animation=animation)

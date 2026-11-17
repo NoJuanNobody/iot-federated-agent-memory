@@ -2554,6 +2554,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                   </div>
                   <div id="finder3dRigBar" class="absolute top-2 left-2 right-2 z-10 flex flex-wrap items-center justify-between gap-1.5 px-2 py-1.5 rounded bg-slate-950/85 border border-cyan-700/50 backdrop-blur-sm text-left">
                     <div class="flex flex-wrap items-center gap-1.5">
+                      <select id="finder3dRigEngine" title="Auto-Rigging Model / Engine" class="bg-slate-900 border border-emerald-600/60 rounded px-1.5 py-0.5 text-[10px] text-emerald-200 font-semibold">
+                        <option value="hyper3d/rigging">Neural: Hyper3D Rig ($0.20)</option>
+                        <option value="meshy/rigging">Neural: Meshy Rig ($0.24)</option>
+                        <option value="tripo3d/rig">Neural: Tripo3D Rig ($0.30)</option>
+                        <option value="nanogpt">Neural: NanoGPT Auto ($0.20+)</option>
+                        <option value="local">Local Heuristic ($0 Free)</option>
+                      </select>
                       <select id="finder3dRigType" title="Skeleton Archetype" class="bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-[10px] text-slate-200">
                         <option value="auto">Auto Rig</option>
                         <option value="biped_creature">Biped Creature (Pikachu)</option>
@@ -2568,11 +2575,11 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                         <option value="all">All 4 Clips</option>
                       </select>
                       <button id="finder3dRigBtn" type="button" onclick="rigActiveSpaceGlb()" class="px-2 py-0.5 bg-emerald-600/90 hover:bg-emerald-500 text-white text-[10px] font-semibold rounded transition">
-                        🦴 Rig &amp; Animate ($0)
+                        🦴 Rig &amp; Animate
                       </button>
                       <select id="finder3dAnimSelect" onchange="selectFinder3dAnimation(this.value)" title="Play embedded glTF animation clip" class="hidden bg-emerald-950/80 border border-emerald-600/60 rounded px-1.5 py-0.5 text-[10px] text-emerald-200"></select>
                     </div>
-                    <span id="finder3dRigStatus" class="text-[10px] text-slate-300 truncate max-w-[240px]">Free local TinCan glTF 2.0 rigger</span>
+                    <span id="finder3dRigStatus" class="text-[10px] text-slate-300 truncate max-w-[240px]">NanoGPT neural models or $0 local rig</span>
                   </div>
                   <button onclick="launchArtCraftWasmApp('cadcraft')" class="absolute bottom-2 right-2 px-2 py-0.5 bg-cyan-700/80 hover:bg-cyan-600 text-white text-[10px] rounded transition">
                     Open in CadCraft Web ↗
@@ -10463,18 +10470,20 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       if (!view) return;
       const btn = document.getElementById('finder3dRigBtn');
       const statusEl = document.getElementById('finder3dRigStatus');
+      const engine = (document.getElementById('finder3dRigEngine') || {}).value || 'hyper3d/rigging';
       const rigType = (document.getElementById('finder3dRigType') || {}).value || 'auto';
       const animation = (document.getElementById('finder3dAnimClip') || {}).value || 'walk';
+      const isCloud = engine !== 'local';
       if (btn) btn.disabled = true;
       if (statusEl) {
         statusEl.dataset.sticky = '1';
-        statusEl.textContent = 'Fitting bones, weights & walk cycle ($0)...';
+        statusEl.textContent = isCloud ? `Submitting to ${engine}...` : 'Fitting local bones, weights & walk cycle ($0)...';
       }
       try {
         const peerId = (typeof myPeerId !== 'undefined' && myPeerId) ? myPeerId : 'user';
         const scope = (typeof currentSpaceScope !== 'undefined' && currentSpaceScope) ? currentSpaceScope : 'user';
         const ownerId = (typeof currentSpaceOwner !== 'undefined' && currentSpaceOwner) ? currentSpaceOwner : peerId;
-        const payload = { scope, owner_id: ownerId, peer_id: peerId, rig_type: rigType, animation };
+        const payload = { scope, owner_id: ownerId, peer_id: peerId, engine, rig_type: rigType, animation, wait: false };
         if (view.source === 'space' && view.path && /\.glb$/i.test(view.path)) {
           payload.path = view.path;
         } else if (view.b64) {
@@ -10491,18 +10500,49 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-        const data = await resp.json();
+        let data = await resp.json();
         if (!resp.ok || !data.ok) {
           throw new Error((data && data.error) || `HTTP ${resp.status}`);
         }
+        const costUsd = Number(data.cost_usd || 0);
+        if (!data.glb_bytes_b64 && data.uuid) {
+          let activeId = data.uuid;
+          let activeModel = data.model || engine;
+          for (let i = 0; i < 65; i++) {
+            await new Promise(r => setTimeout(r, 2500));
+            const sr = await fetch('/api/3d/status', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ subscription_key: activeId, key: activeId }),
+            });
+            const st = await sr.json();
+            if (st.uuid && st.uuid !== activeId) activeId = st.uuid;
+            if (st.model) activeModel = st.model;
+            if (statusEl) statusEl.textContent = `${activeModel}: ${st.status || 'Processing'} (${(i + 1) * 2.5}s)...`;
+            if (st.status === 'Done') break;
+            if (st.status === 'Failed') throw new Error(st.error || 'Neural rigging failed');
+          }
+          const dr = await fetch('/api/3d/download', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              task_uuid: activeId, uuid: activeId, scope, owner_id: ownerId, peer_id: peerId,
+              save_path: data.pending_save_path || '', animation, animate_if_empty: true,
+            }),
+          });
+          data = await dr.json();
+          if (!dr.ok || (!data.glb_bytes_b64 && !data.downloaded)) {
+            throw new Error((data && (data.download_error || data.error)) || 'Neural rig download not ready');
+          }
+        }
         const animLabel = Array.isArray(data.animations) && data.animations.length ? data.animations.join(', ') : animation;
-        if (statusEl) statusEl.textContent = `✓ ${data.rig_type} (${data.bone_count} bones) · ${animLabel} · $0.00`;
+        if (statusEl) statusEl.textContent = `✓ ${data.model || data.rig_type || engine} (${data.bone_count || 0} bones) · ${animLabel} · $${costUsd.toFixed(2)}`;
         if (typeof refreshAgentSpace === 'function') {
           try { await refreshAgentSpace('background'); } catch (e) {}
         }
         if (data.path && typeof openAgentSpaceFile === 'function') {
           await openAgentSpaceFile(data.path);
-          if (statusEl) statusEl.textContent = `✓ Rigged ${data.path.split('/').pop()} (${data.rig_type}, ${data.bone_count} bones) · $0.00`;
+          if (statusEl) statusEl.textContent = `✓ Rigged ${data.path.split('/').pop()} (${data.bone_count || 0} bones) · $${costUsd.toFixed(2)}`;
         } else if (data.glb_bytes_b64) {
           const nextUrl = rangerObjectUrl(b64ToBlob(data.glb_bytes_b64, 'model/gltf-binary'));
           rangerView = { ...view, mediaUrl: nextUrl, b64: data.glb_bytes_b64 };
@@ -10512,7 +10552,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         if (statusEl) statusEl.textContent = `Rig error: ${err.message}`;
       } finally {
         if (btn) btn.disabled = false;
-        if (statusEl) setTimeout(() => { if (statusEl.dataset) delete statusEl.dataset.sticky; }, 2500);
+        if (statusEl) setTimeout(() => { if (statusEl.dataset) delete statusEl.dataset.sticky; }, 3500);
       }
     }
 

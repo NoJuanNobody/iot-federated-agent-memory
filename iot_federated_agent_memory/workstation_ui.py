@@ -1843,19 +1843,31 @@ def _workstation_js() -> str:
         async function rigCurrentGlb() {
           const btn = el('wsRigGlbBtn');
           const noteEl = el('ws3dStatusNote');
+          const engine = (el('wsRigEngineSelect') && el('wsRigEngineSelect').value) || 'hyper3d/rigging';
           const rigType = (el('wsRigTypeSelect') && el('wsRigTypeSelect').value) || 'auto';
           const animation = (el('wsRigAnimSelect') && el('wsRigAnimSelect').value) || 'walk';
+          const estCost = engine === 'local' ? 0.0 : (engine === 'tripo3d/rig' ? 0.30 : (engine === 'meshy/rigging' ? 0.24 : 0.20));
+          const cap = Number((el('wsMaxCostSelect') && el('wsMaxCostSelect').value) || state.maxCostUsd || 0.50);
+          if (estCost > cap + 1e-9) {
+            const msg = 'Guardrail blocked: ' + engine + ' ($' + estCost.toFixed(2) + ') exceeds max cost cap $' + cap.toFixed(2) + '.';
+            if (noteEl) noteEl.textContent = msg;
+            addJob('rig-guard', 'rig', engine + ' GLB', 'BLOCKED', '$' + estCost.toFixed(2) + ' > $' + cap.toFixed(2));
+            notify(msg, true);
+            return;
+          }
           const targetPath = state.lastGlbPath || '/models3d/studio_mesh.glb';
           if (btn) btn.disabled = true;
-          if (noteEl) noteEl.textContent = 'Fitting free skeleton, skin weights & ' + animation + ' animation ($0.00)...';
+          if (noteEl) noteEl.textContent = (engine === 'local' ? 'Fitting free local skeleton ($0.00)...' : ('Submitting ' + targetPath + ' to NanoGPT ' + engine + ' ($' + estCost.toFixed(2) + ')...'));
           try {
             const payload = {
               scope: state.scope,
               owner_id: state.ownerId,
               peer_id: resolvePeerId(),
               path: targetPath,
+              engine: engine,
               rig_type: rigType,
               animation: animation,
+              wait: false,
             };
             let res = null;
             try {
@@ -1870,7 +1882,42 @@ def _workstation_js() -> str:
                 throw firstErr;
               }
             }
+            let cost = Number(res.cost_usd != null ? res.cost_usd : estCost);
+            if (!res.glb_bytes_b64 && res.uuid) {
+              let activeId = res.uuid;
+              let activeModel = res.model || engine;
+              addJob(activeId, 'rig', activeModel, 'RIGGING', '$' + cost.toFixed(2));
+              for (let i = 0; i < 65; i++) {
+                await new Promise((r) => setTimeout(r, 2500));
+                const st = await apiJson('/api/3d/status', {
+                  channel: 'rig3d_status',
+                  body: { subscription_key: activeId, key: activeId },
+                });
+                if (st.uuid && st.uuid !== activeId) activeId = st.uuid;
+                if (st.model) activeModel = st.model;
+                if (noteEl) noteEl.textContent = activeModel + ': ' + (st.status || 'Processing') + ' (' + ((i + 1) * 2.5) + 's)...';
+                if (st.status === 'Done') break;
+                if (st.status === 'Failed') throw new Error(st.error || 'Neural rigging failed');
+              }
+              res = await apiJson('/api/3d/download', {
+                channel: 'rig3d_dl',
+                body: {
+                  task_uuid: activeId,
+                  uuid: activeId,
+                  scope: state.scope,
+                  owner_id: state.ownerId,
+                  peer_id: resolvePeerId(),
+                  save_path: res.pending_save_path || '',
+                  animation: animation,
+                  animate_if_empty: true,
+                },
+              });
+              if (!res.glb_bytes_b64 && !res.downloaded) {
+                throw new Error(res.download_error || 'Neural rig download incomplete');
+              }
+            }
             const nextPath = res.path || targetPath;
+            state.sessionSpendUsd += cost;
             state.lastGlbPath = nextPath;
             if (res.glb_bytes_b64) {
               state.lastGlbB64 = res.glb_bytes_b64;
@@ -1878,12 +1925,12 @@ def _workstation_js() -> str:
             }
             const metaEl = el('ws3dMeshMeta');
             if (metaEl) {
-              metaEl.textContent = 'Rigged: ' + nextPath + ' · ' + (res.rig_type || rigType) + ' (' + (res.bone_count || 0) + ' bones) · $0.00';
+              metaEl.textContent = 'Rigged: ' + nextPath + ' · ' + (res.model || res.rig_type || rigType) + ' (' + (res.bone_count || 0) + ' bones) · $' + cost.toFixed(2);
             }
             if (noteEl) {
-              noteEl.textContent = '✓ Auto-rigged (' + (res.bone_count || 0) + ' bones, clips: ' + ((res.animations || []).join(', ') || animation) + '). Open in Workstation File Viewer to play!';
+              noteEl.textContent = '✓ Rigged via ' + (res.model || res.provider || engine) + ' (' + (res.bone_count || 0) + ' bones, clips: ' + ((res.animations || []).join(', ') || animation) + '). Open in Workstation File Viewer to play!';
             }
-            addJob('rig-' + Date.now().toString(36).slice(-5), 'rig', nextPath.split('/').pop(), 'DONE', '$0.00 (' + (res.rig_type || rigType) + ')');
+            addJob('rig-' + Date.now().toString(36).slice(-5), 'rig', nextPath.split('/').pop(), 'DONE', '$' + cost.toFixed(2) + ' (' + (res.model || res.rig_type || rigType) + ')');
             recordStagedOutput({
               key: 'glb:' + nextPath,
               label: nextPath,
@@ -1891,7 +1938,7 @@ def _workstation_js() -> str:
               committed: Boolean(res.saved_to_space),
             });
             renderTrace();
-            notify('Rigged ' + nextPath + ' ($0.00 free) — open in Workstation Viewer to watch it walk!', false);
+            notify('Rigged ' + nextPath + ' ($' + cost.toFixed(2) + ') — open in Workstation Viewer to watch it walk!', false);
             await fetchSpaceLs();
             await fetchStatus();
             if (typeof window.refreshAgentSpace === 'function') {
@@ -2830,11 +2877,18 @@ def render_workstation_window_html() -> str:
                   </div>
                   <div class="ws-top-group" style="flex-wrap: wrap;">
                     <button id="wsOpenInWorkstationBtn" type="button" class="ws-btn ws-btn--sm ws-btn--pos" title="Inspect and orbit .glb directly in Workstation File Viewer">View .glb in Workstation ↗</button>
+                    <select id="wsRigEngineSelect" class="ws-select" style="width: auto; min-width: 148px;" aria-label="Auto-rigging model engine">
+                      <option value="hyper3d/rigging">Rig: Hyper3D Neural ($0.20)</option>
+                      <option value="meshy/rigging">Rig: Meshy Neural ($0.24)</option>
+                      <option value="tripo3d/rig">Rig: Tripo3D Neural ($0.30)</option>
+                      <option value="nanogpt">Rig: NanoGPT Auto ($0.20+)</option>
+                      <option value="local">Rig: Local Heuristic ($0 Free)</option>
+                    </select>
                     <select id="wsRigTypeSelect" class="ws-select" style="width: auto; min-width: 118px;" aria-label="Auto-rig skeleton archetype">
-                      <option value="auto">Rig: Auto</option>
-                      <option value="biped_creature">Rig: Biped Creature</option>
-                      <option value="quadruped">Rig: Quadruped</option>
-                      <option value="humanoid">Rig: Humanoid</option>
+                      <option value="auto">Type: Auto</option>
+                      <option value="biped_creature">Type: Biped Creature</option>
+                      <option value="quadruped">Type: Quadruped</option>
+                      <option value="humanoid">Type: Humanoid</option>
                     </select>
                     <select id="wsRigAnimSelect" class="ws-select" style="width: auto; min-width: 108px;" aria-label="Animation clip to bake">
                       <option value="walk">Anim: Walk</option>
@@ -2843,7 +2897,7 @@ def render_workstation_window_html() -> str:
                       <option value="dance">Anim: Dance</option>
                       <option value="all">Anim: All 4</option>
                     </select>
-                    <button id="wsRigGlbBtn" type="button" class="ws-btn ws-btn--sm ws-btn--pos" title="Free local glTF 2.0 skeleton + skin weights + animation clip ($0.00)">🦴 Rig Mesh → Walk ($0)</button>
+                    <button id="wsRigGlbBtn" type="button" class="ws-btn ws-btn--sm ws-btn--pos" title="Auto-rig with NanoGPT neural model ($0.20-$0.30) or free local heuristic ($0)">🦴 Rig Mesh → Walk</button>
                     <button id="wsOpenArtcraftBtn" type="button" class="ws-btn ws-btn--sm">Open in ArtCraft</button>
                     <button id="wsSaveGlbBtn" type="button" class="ws-btn ws-btn--sm ws-btn--solid">Save to .space</button>
                   </div>
