@@ -2830,6 +2830,96 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json(res, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/3d/rig":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                import posixpath
+                from iot_federated_agent_memory.agent_space import _unique_space_path
+                from iot_federated_agent_memory.glb_rigger import rig_glb_bytes
+
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                scope = data.get("scope", "user")
+                peer_id = data.get("peer_id") or "user"
+                owner_id = data.get("owner_id") or peer_id
+                src_path = (data.get("path") or "").strip()
+                raw_b64 = (data.get("glb_bytes_b64") or "").strip()
+                rig_type = (data.get("rig_type") or "auto").strip()
+                animation = (data.get("animation") or "walk").strip()
+                save_path = (data.get("save_path") or "").strip()
+                save_to_space = data.get("save_to_space", True)
+
+                sm = _get_space_manager()
+                if raw_b64:
+                    try:
+                        src_bytes = base64.b64decode(raw_b64, validate=True)
+                    except ValueError as err:
+                        return self._send_json({"error": f"Invalid glb_bytes_b64: {err}"}, 400)
+                elif src_path:
+                    if not sm:
+                        return self._send_json({"error": "Space manager unavailable"}, 503)
+                    sp = sm.get_or_create_space(scope, owner_id)
+                    try:
+                        rec = sp.read_file(src_path, as_text=False)
+                    except FileNotFoundError as err:
+                        return self._send_json({"error": str(err)}, 404)
+                    src_b64 = rec.get("content_b64") or ""
+                    if not src_b64:
+                        return self._send_json({"error": f"Empty file in space: {src_path}"}, 400)
+                    src_bytes = base64.b64decode(src_b64)
+                else:
+                    return self._send_json({"error": "Provide 'path' (a .glb in .space) or 'glb_bytes_b64'."}, 400)
+
+                try:
+                    out_bytes, meta = rig_glb_bytes(src_bytes, rig_type=rig_type, animation=animation)
+                except ValueError as err:
+                    return self._send_json({"error": str(err)}, 400)
+
+                out_b64 = base64.b64encode(out_bytes).decode("ascii")
+                out_path = save_path
+                saved_meta = None
+                space_save_error = None
+                if sm and save_to_space:
+                    try:
+                        sp = sm.get_or_create_space(scope, owner_id)
+                        if not out_path:
+                            ref_path = src_path or "/models3d/mesh.glb"
+                            dname = posixpath.dirname(ref_path) or "/models3d"
+                            base_name = posixpath.splitext(posixpath.basename(ref_path))[0] or "mesh"
+                            if base_name.endswith("_rigged"):
+                                base_name = base_name[:-7] or "mesh"
+                            out_path = _unique_space_path(sp, dname, f"{base_name}_rigged", ".glb")
+                        sp.write_file(out_path, out_b64, is_base64=True, mime_type="model/gltf-binary", updated_by=peer_id)
+                        saved_meta = {"scope": scope, "owner_id": owner_id, "path": out_path}
+                    except Exception as err:
+                        space_save_error = str(err)
+
+                try:
+                    mesh_os.record_flight(peer_id, "tincan-auto-rigger", kind="3d_rig", label="Free Auto-Rig GLB")
+                except Exception:
+                    pass
+
+                res: Dict[str, Any] = {
+                    "ok": True,
+                    "provider": "tincan-auto-rigger",
+                    "cost_usd": 0.0,
+                    "source_path": src_path or None,
+                    "path": out_path or None,
+                    "rig_type": meta["rig_type"],
+                    "bones": meta["bones"],
+                    "bone_count": meta["bone_count"],
+                    "animations": meta["animations"],
+                    "vertex_count": meta["vertex_count"],
+                    "size_bytes": meta["size_bytes"],
+                    "glb_bytes_b64": out_b64,
+                }
+                if saved_meta:
+                    res["saved_to_space"] = saved_meta
+                if space_save_error:
+                    res["space_save_error"] = space_save_error
+                self._send_json(res, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
         elif parsed.path in ("/api/image/generate", "/api/2d/generate"):
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)

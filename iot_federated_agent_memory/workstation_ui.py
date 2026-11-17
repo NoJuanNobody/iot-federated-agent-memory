@@ -1840,6 +1840,73 @@ def _workstation_js() -> str:
           }
         }
 
+        async function rigCurrentGlb() {
+          const btn = el('wsRigGlbBtn');
+          const noteEl = el('ws3dStatusNote');
+          const rigType = (el('wsRigTypeSelect') && el('wsRigTypeSelect').value) || 'auto';
+          const animation = (el('wsRigAnimSelect') && el('wsRigAnimSelect').value) || 'walk';
+          const targetPath = state.lastGlbPath || '/models3d/studio_mesh.glb';
+          if (btn) btn.disabled = true;
+          if (noteEl) noteEl.textContent = 'Fitting free skeleton, skin weights & ' + animation + ' animation ($0.00)...';
+          try {
+            const payload = {
+              scope: state.scope,
+              owner_id: state.ownerId,
+              peer_id: resolvePeerId(),
+              path: targetPath,
+              rig_type: rigType,
+              animation: animation,
+            };
+            let res = null;
+            try {
+              res = await apiJson('/api/3d/rig', { channel: 'rig3d', body: payload });
+            } catch (firstErr) {
+              if (state.lastGlbB64) {
+                res = await apiJson('/api/3d/rig', {
+                  channel: 'rig3d',
+                  body: { ...payload, glb_bytes_b64: state.lastGlbB64 },
+                });
+              } else {
+                throw firstErr;
+              }
+            }
+            const nextPath = res.path || targetPath;
+            state.lastGlbPath = nextPath;
+            if (res.glb_bytes_b64) {
+              state.lastGlbB64 = res.glb_bytes_b64;
+              mountGlbPreview(state.lastGlbB64, state.lastGlbPath);
+            }
+            const metaEl = el('ws3dMeshMeta');
+            if (metaEl) {
+              metaEl.textContent = 'Rigged: ' + nextPath + ' · ' + (res.rig_type || rigType) + ' (' + (res.bone_count || 0) + ' bones) · $0.00';
+            }
+            if (noteEl) {
+              noteEl.textContent = '✓ Auto-rigged (' + (res.bone_count || 0) + ' bones, clips: ' + ((res.animations || []).join(', ') || animation) + '). Open in Workstation File Viewer to play!';
+            }
+            addJob('rig-' + Date.now().toString(36).slice(-5), 'rig', nextPath.split('/').pop(), 'DONE', '$0.00 (' + (res.rig_type || rigType) + ')');
+            recordStagedOutput({
+              key: 'glb:' + nextPath,
+              label: nextPath,
+              status: res.saved_to_space ? 'RIGGED · SAVED' : 'RIGGED',
+              committed: Boolean(res.saved_to_space),
+            });
+            renderTrace();
+            notify('Rigged ' + nextPath + ' ($0.00 free) — open in Workstation Viewer to watch it walk!', false);
+            await fetchSpaceLs();
+            await fetchStatus();
+            if (typeof window.refreshAgentSpace === 'function') {
+              try { window.refreshAgentSpace('background'); } catch (e) {}
+            }
+          } catch (err) {
+            if (err.name === 'AbortError') return;
+            if (noteEl) noteEl.textContent = 'Auto-rig error: ' + err.message;
+            addJob('rig-err', 'rig', 'Auto-Rig GLB', 'ERROR', err.message);
+            notify('Auto-rig failed: ' + err.message, true);
+          } finally {
+            if (btn) btn.disabled = false;
+          }
+        }
+
         async function openInArtCraft() {
           const targetPath = (state.mode === '3d' && state.lastGlbPath)
             ? state.lastGlbPath
@@ -2404,6 +2471,8 @@ def _workstation_js() -> str:
 
           const openWsBtn = el('wsOpenInWorkstationBtn');
           if (openWsBtn) openWsBtn.onclick = openGlbInWorkstationViewer;
+          const rigGlbBtn = el('wsRigGlbBtn');
+          if (rigGlbBtn) rigGlbBtn.onclick = rigCurrentGlb;
           const handoffCommitBtn = el('wsHandoffCommitBtn');
           if (handoffCommitBtn) handoffCommitBtn.onclick = handoffCommitToSpace;
           const handoffBoardBtn = el('wsHandoffBoardBtn');
@@ -2759,8 +2828,22 @@ def render_workstation_window_html() -> str:
                   <div class="ws-tier-row" role="radiogroup" aria-label="Rodin generation tier">
                     {rodin_tiers}
                   </div>
-                  <div class="ws-top-group">
+                  <div class="ws-top-group" style="flex-wrap: wrap;">
                     <button id="wsOpenInWorkstationBtn" type="button" class="ws-btn ws-btn--sm ws-btn--pos" title="Inspect and orbit .glb directly in Workstation File Viewer">View .glb in Workstation ↗</button>
+                    <select id="wsRigTypeSelect" class="ws-select" style="width: auto; min-width: 118px;" aria-label="Auto-rig skeleton archetype">
+                      <option value="auto">Rig: Auto</option>
+                      <option value="biped_creature">Rig: Biped Creature</option>
+                      <option value="quadruped">Rig: Quadruped</option>
+                      <option value="humanoid">Rig: Humanoid</option>
+                    </select>
+                    <select id="wsRigAnimSelect" class="ws-select" style="width: auto; min-width: 108px;" aria-label="Animation clip to bake">
+                      <option value="walk">Anim: Walk</option>
+                      <option value="run">Anim: Run</option>
+                      <option value="idle">Anim: Idle</option>
+                      <option value="dance">Anim: Dance</option>
+                      <option value="all">Anim: All 4</option>
+                    </select>
+                    <button id="wsRigGlbBtn" type="button" class="ws-btn ws-btn--sm ws-btn--pos" title="Free local glTF 2.0 skeleton + skin weights + animation clip ($0.00)">🦴 Rig Mesh → Walk ($0)</button>
                     <button id="wsOpenArtcraftBtn" type="button" class="ws-btn ws-btn--sm">Open in ArtCraft</button>
                     <button id="wsSaveGlbBtn" type="button" class="ws-btn ws-btn--sm ws-btn--solid">Save to .space</button>
                   </div>

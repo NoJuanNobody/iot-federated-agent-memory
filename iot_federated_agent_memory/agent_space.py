@@ -1533,6 +1533,12 @@ def main() -> int:
     p_3ds.add_argument("run_id", help="Run ID / UUID / subscription_key to check and download")
     p_3ds.add_argument("--out", default=None, help="Optional VFS / relative output path")
 
+    p_rig = sub.add_parser("rig", help="Free in-house glTF 2.0 auto-rig + walk/run/idle/dance animator ($0.00)")
+    p_rig.add_argument("path", help="VFS path (e.g. /models3d/pikachu.glb) or local .glb file path")
+    p_rig.add_argument("--rig", default="auto", choices=["auto", "biped_creature", "quadruped", "humanoid"])
+    p_rig.add_argument("--anim", default="walk", choices=["walk", "run", "idle", "dance", "all"])
+    p_rig.add_argument("--out", default=None, help="Optional VFS / relative output path (default <stem>_rigged.glb)")
+
     sub.add_parser("models", help="Inspect live TinCan chat, 2D image, and 3D Rodin availability")
 
     args = parser.parse_args()
@@ -1625,6 +1631,37 @@ def main() -> int:
                 return 0
         print(json.dumps(st, indent=2))
         return 1 if st.get("status") == "Failed" else 0
+
+    if args.cmd == "rig":
+        payload = {
+            "scope": scope,
+            "owner_id": owner,
+            "peer_id": owner,
+            "rig_type": args.rig,
+            "animation": args.anim,
+            "save_path": args.out or "",
+        }
+        if os.path.isfile(args.path):
+            with open(args.path, "rb") as rf:
+                payload["glb_bytes_b64"] = base64.b64encode(rf.read()).decode("ascii")
+            payload["path"] = "/" + args.path.lstrip("./")
+        else:
+            payload["path"] = args.path
+        res = _req_json("/api/3d/rig", payload, timeout=90.0)
+        if not res.get("ok"):
+            print(json.dumps(res, indent=2), file=sys.stderr)
+            return 1
+        vfs_path = res.get("path") or args.out or "/models3d/mesh_rigged.glb"
+        local_rel = vfs_path.lstrip("/")
+        local_abs = os.path.join(os.getcwd(), local_rel)
+        if res.get("glb_bytes_b64"):
+            os.makedirs(os.path.dirname(local_abs), exist_ok=True)
+            with open(local_abs, "wb") as wf:
+                wf.write(base64.b64decode(res["glb_bytes_b64"]))
+        res_out = {k: v for k, v in res.items() if k != "glb_bytes_b64"}
+        res_out["local_path"] = local_rel
+        print(json.dumps(res_out, indent=2))
+        return 0
 
     return 1
 
@@ -2382,17 +2419,18 @@ def build_tincan_capability_manifest(
         "- Chat & Reasoning Models (`/api/chat`, OpenRouter & NanoGPT gateways): " + ", ".join(chat_aliases[:8]) + " (plus OpenRouter/NanoGPT/Ollama models in `/api/models`).",
         "- 2D Image Generation (OpenRouter multimodal & NanoGPT Image API): " + ", ".join(image_models[:6]) + ". Saves `.png`/`.jpg` into `.space` `/images/`.",
         "- 3D Mesh Generation (Hyper3D Rodin v2 / Ronin): " + ", ".join(rodin_models[:5]) + ". Saves `.glb` meshes into `.space` `/models3d/`.",
+        "- Free 3D Auto-Rigging & Animation (`$0.00` native TinCan glTF 2.0 rigger): `POST /api/3d/rig` or `tincan-gen rig /models3d/mesh.glb --rig auto --anim walk` fits a real glTF 2.0 skeleton (`biped_creature`, `quadruped`, `humanoid`), vertex `JOINTS_0`/`WEIGHTS_0` skin weights, and looping `walk`/`run`/`idle`/`dance` clips playable in Workstation & Three.js `AnimationMixer` (zero paid credits; optional free external web tools: Cinevva, afk.ai, Rig Bench, or UniRig).",
         "- Code & ArtCraft Tools in `.space`: Python 3 & Node.js sandbox execution, `cadcraft` (`.dxf`), `vectorcraft` (`.svg`), `scriptcraft` (`.fountain`), `deckcraft`, plus `.space` file CRUD.",
         "- Interactive Terminal TUIs (`xterm.js` PTY) & Coding Harnesses: `bash`, `claude`, `codex`, `opencode`, `goose`, `gemini`, `dsx` (run `<cli> \"prompt\"`, `hey <cli> <prompt>`, or click TUI buttons).\n"
-        "- Sandbox Shell Helpers (`tincan-gen` & `tincan-browse`, pre-authenticated on PATH): inside any shell/TUI run `tincan-gen image \"<prompt>\"`, `tincan-gen 3d \"<prompt>\"`, or `tincan-browse open|text|screenshot|save \"https://...\"` (`HYPER3D_API_KEY`, `OPENROUTER_API_KEY`, and `NANOGPT_API_KEY` are held securely by TinCan Server).",
+        "- Sandbox Shell Helpers (`tincan-gen` & `tincan-browse`, pre-authenticated on PATH): inside any shell/TUI run `tincan-gen image \"<prompt>\"`, `tincan-gen 3d \"<prompt>\"`, `tincan-gen rig /models3d/<mesh>.glb --anim walk`, or `tincan-browse open|text|screenshot|save \"https://...\"` (`HYPER3D_API_KEY`, `OPENROUTER_API_KEY`, and `NANOGPT_API_KEY` are held securely by TinCan Server).",
         "- One-Click Install CLI Instructions (share with users when asked how to install TinCan): `brew install https://iot-federated-agent-memory-production.up.railway.app/Formula/tincan.rb` or `curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash` (plus `npx skills add NoJuanNobody/tincan-skills -g -y` for Agent Skills), or click `One-Click Install` in the top bar.",
         "- Disambiguation Note: `/models3d/README.txt` inside `.space` ONLY documents the `/models3d/` folder for 3D `.glb` meshes from Hyper3D Rodin. Hyper3D Rodin is ONLY for 3D `.glb` meshes — 2D images use OpenRouter / NanoGPT image models and save to `/images/`. When the user asks 'what models do?' or 'rodin', explain both clearly.",
-        "- CRITICAL: Never say 'My capabilities are limited to text' or 'I cannot generate images' — TinCan supports real 2D image generation, 3D Rodin generation, and `.space` code/file tools.",
+        "- CRITICAL: Never say 'My capabilities are limited to text' or 'I cannot generate images' — TinCan supports real 2D image generation, 3D Rodin generation, free `.glb` auto-rigging, and `.space` code/file tools.",
     ]
     if include_tool_protocol:
         lines.extend([
             "- Tool Protocol (ONLY emit when the user asks to create/edit/run/generate something that was not already executed in this turn):",
-            '  Emit fenced ```tincan_action JSON blocks, e.g. {"action":"write_file","path":"/src/app.py","content":"..."}, {"action":"exec_python","entrypoint":"/src/app.py"}, {"action":"generate_image","prompt":"..."}, or {"action":"generate_3d","prompt":"..."}.',
+            '  Emit fenced ```tincan_action JSON blocks, e.g. {"action":"write_file","path":"/src/app.py","content":"..."}, {"action":"exec_python","entrypoint":"/src/app.py"}, {"action":"generate_image","prompt":"..."}, {"action":"generate_3d","prompt":"..."}, or {"action":"rig_3d","path":"/models3d/mesh.glb","rig_type":"auto","animation":"walk"}.',
         ])
     return "\n".join(lines)
 
@@ -2521,6 +2559,57 @@ class AgentSpaceHarness:
         tool_calls.append({"tool": "generate_rodin_3d", "path": glb_path, "status": fail_status, "error": asset["error"]})
         return asset
 
+    def _run_3d_rig_tool(
+        self,
+        src_path: str,
+        *,
+        rig_type: str = "auto",
+        animation: str = "walk",
+        out_path: Optional[str] = None,
+        author: str,
+        files_mutated: List[str],
+        rodin_assets: List[Dict[str, Any]],
+        tool_calls: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Auto-rig and animate an existing .glb in .space using TinCan's free glTF 2.0 rigger."""
+        import posixpath
+        from .glb_rigger import rig_glb_bytes
+
+        norm_src = self.vfs.normalize_path(src_path)
+        try:
+            rec = self.vfs.read_file(norm_src, as_text=False)
+            src_bytes = base64.b64decode(rec.get("content_b64") or "")
+            out_bytes, meta = rig_glb_bytes(src_bytes, rig_type=rig_type or "auto", animation=animation or "walk")
+        except Exception as err:
+            asset = {"path": norm_src, "size_bytes": 0, "status": "Failed", "error": str(err)}
+            tool_calls.append({"tool": "rig_3d", "path": norm_src, "status": "Failed", "error": str(err)})
+            return asset
+
+        if out_path:
+            dest_path = self.vfs.normalize_path(out_path)
+        else:
+            dname = posixpath.dirname(norm_src) or "/models3d"
+            stem = posixpath.splitext(posixpath.basename(norm_src))[0] or "mesh"
+            if stem.endswith("_rigged"):
+                stem = stem[:-7] or "mesh"
+            dest_path = _unique_space_path(self.vfs, dname, f"{stem}_rigged", ".glb")
+
+        self.vfs.write_file(dest_path, out_bytes, mime_type="model/gltf-binary", updated_by=author)
+        if dest_path not in files_mutated:
+            files_mutated.append(dest_path)
+        asset = {"path": dest_path, "size_bytes": len(out_bytes), "status": "Done", "meta": meta, "cost_usd": 0.0}
+        rodin_assets.append(asset)
+        tool_calls.append({
+            "tool": "rig_3d",
+            "source_path": norm_src,
+            "path": dest_path,
+            "rig_type": meta.get("rig_type"),
+            "animations": meta.get("animations"),
+            "status": "Done",
+            "cost_usd": 0.0,
+        })
+        return asset
+
     def _execute_tincan_action_blocks(
         self,
         reply_text: str,
@@ -2613,6 +2702,21 @@ class AgentSpaceHarness:
                             tool_calls=tool_calls,
                         )
                         notes.append(f"Generated 3D mesh `{res['path']}`")
+                elif act in ("rig_3d", "rig_glb", "auto_rig") and item.get("path"):
+                    rres = self._run_3d_rig_tool(
+                        str(item.get("path")),
+                        rig_type=str(item.get("rig_type") or item.get("rig") or "auto"),
+                        animation=str(item.get("animation") or item.get("anim") or "walk"),
+                        out_path=item.get("out") or item.get("save_path"),
+                        author=author,
+                        files_mutated=files_mutated,
+                        rodin_assets=rodin_assets,
+                        tool_calls=tool_calls,
+                    )
+                    if rres.get("status") == "Done":
+                        notes.append(f"Auto-rigged 3D mesh `{rres['path']}` ({(rres.get('meta') or {}).get('rig_type')}, $0.00)")
+                    else:
+                        notes.append(f"Auto-rig error on `{rres['path']}`: {rres.get('error')}")
 
         cleaned = pattern.sub("", reply_text).strip()
         if any(a.get("ok") for a in image_assets) and re.search(

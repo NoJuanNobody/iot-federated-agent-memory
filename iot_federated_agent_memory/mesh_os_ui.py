@@ -2552,6 +2552,28 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                     <div class="text-xs font-bold text-cyan-300">3D Mesh Asset (.glb/.gltf)</div>
                     <p id="finder3dNote" class="text-[10px] text-slate-400 mt-1">Loading 3D preview…</p>
                   </div>
+                  <div id="finder3dRigBar" class="absolute top-2 left-2 right-2 z-10 flex flex-wrap items-center justify-between gap-1.5 px-2 py-1.5 rounded bg-slate-950/85 border border-cyan-700/50 backdrop-blur-sm text-left">
+                    <div class="flex flex-wrap items-center gap-1.5">
+                      <select id="finder3dRigType" title="Skeleton Archetype" class="bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-[10px] text-slate-200">
+                        <option value="auto">Auto Rig</option>
+                        <option value="biped_creature">Biped Creature (Pikachu)</option>
+                        <option value="quadruped">Quadruped (4-Leg)</option>
+                        <option value="humanoid">Humanoid (Biped)</option>
+                      </select>
+                      <select id="finder3dAnimClip" title="Animation Clip to Synthesize" class="bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-[10px] text-slate-200">
+                        <option value="walk">Walk Cycle</option>
+                        <option value="run">Run Cycle</option>
+                        <option value="idle">Idle Breath</option>
+                        <option value="dance">Dance Loop</option>
+                        <option value="all">All 4 Clips</option>
+                      </select>
+                      <button id="finder3dRigBtn" type="button" onclick="rigActiveSpaceGlb()" class="px-2 py-0.5 bg-emerald-600/90 hover:bg-emerald-500 text-white text-[10px] font-semibold rounded transition">
+                        🦴 Rig &amp; Animate ($0)
+                      </button>
+                      <select id="finder3dAnimSelect" onchange="selectFinder3dAnimation(this.value)" title="Play embedded glTF animation clip" class="hidden bg-emerald-950/80 border border-emerald-600/60 rounded px-1.5 py-0.5 text-[10px] text-emerald-200"></select>
+                    </div>
+                    <span id="finder3dRigStatus" class="text-[10px] text-slate-300 truncate max-w-[240px]">Free local TinCan glTF 2.0 rigger</span>
+                  </div>
                   <button onclick="launchArtCraftWasmApp('cadcraft')" class="absolute bottom-2 right-2 px-2 py-0.5 bg-cyan-700/80 hover:bg-cyan-600 text-white text-[10px] rounded transition">
                     Open in CadCraft Web ↗
                   </button>
@@ -10100,12 +10122,122 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     let rangerModelViewerLoading = null;
+    let activeFinder3dViewer = null;
+    function _syncFinder3dAnimations(mv) {
+      const sel = document.getElementById('finder3dAnimSelect');
+      const statusEl = document.getElementById('finder3dRigStatus');
+      if (!mv || !sel) return;
+      const anims = Array.isArray(mv.availableAnimations) ? mv.availableAnimations : [];
+      sel.innerHTML = '';
+      if (anims.length > 0) {
+        anims.forEach(a => {
+          const opt = document.createElement('option');
+          opt.value = a;
+          opt.textContent = a;
+          sel.appendChild(opt);
+        });
+        sel.classList.remove('hidden');
+        mv.animationName = anims[0];
+        if (typeof mv.play === 'function') {
+          try { mv.play(); } catch (e) {}
+        }
+        if (statusEl && (!statusEl.dataset || statusEl.dataset.sticky !== '1')) {
+          statusEl.textContent = `Playing ${anims[0]} (${anims.length} clip${anims.length === 1 ? '' : 's'})`;
+        }
+      } else {
+        sel.classList.add('hidden');
+        if (statusEl && (!statusEl.dataset || statusEl.dataset.sticky !== '1')) {
+          statusEl.textContent = 'Static mesh · Click 🦴 Rig & Animate ($0)';
+        }
+      }
+    }
+
+    function selectFinder3dAnimation(clipName) {
+      const mv = activeFinder3dViewer;
+      if (!mv) return;
+      mv.animationName = clipName;
+      if (typeof mv.play === 'function') {
+        try { mv.play(); } catch (e) {}
+      }
+      const statusEl = document.getElementById('finder3dRigStatus');
+      if (statusEl) statusEl.textContent = `Playing ${clipName}`;
+    }
+
+    function _uint8ToBase64(bytes) {
+      let bin = '';
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+      }
+      return btoa(bin);
+    }
+
+    async function rigActiveSpaceGlb() {
+      const view = rangerView;
+      if (!view) return;
+      const btn = document.getElementById('finder3dRigBtn');
+      const statusEl = document.getElementById('finder3dRigStatus');
+      const rigType = (document.getElementById('finder3dRigType') || {}).value || 'auto';
+      const animation = (document.getElementById('finder3dAnimClip') || {}).value || 'walk';
+      if (btn) btn.disabled = true;
+      if (statusEl) {
+        statusEl.dataset.sticky = '1';
+        statusEl.textContent = 'Fitting bones, weights & walk cycle ($0)...';
+      }
+      try {
+        const peerId = (typeof myPeerId !== 'undefined' && myPeerId) ? myPeerId : 'user';
+        const scope = (typeof currentSpaceScope !== 'undefined' && currentSpaceScope) ? currentSpaceScope : 'user';
+        const ownerId = (typeof currentSpaceOwner !== 'undefined' && currentSpaceOwner) ? currentSpaceOwner : peerId;
+        const payload = { scope, owner_id: ownerId, peer_id: peerId, rig_type: rigType, animation };
+        if (view.source === 'space' && view.path) {
+          payload.path = view.path;
+        } else if (view.b64) {
+          payload.glb_bytes_b64 = view.b64;
+        } else if (view.mediaUrl) {
+          const buf = await (await fetch(view.mediaUrl)).arrayBuffer();
+          payload.glb_bytes_b64 = _uint8ToBase64(new Uint8Array(buf));
+        } else {
+          throw new Error('No GLB bytes loaded to rig');
+        }
+        const resp = await fetch('/api/3d/rig', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.ok) {
+          throw new Error((data && data.error) || `HTTP ${resp.status}`);
+        }
+        const animLabel = Array.isArray(data.animations) && data.animations.length ? data.animations.join(', ') : animation;
+        if (statusEl) statusEl.textContent = `✓ ${data.rig_type} (${data.bone_count} bones) · ${animLabel} · $0.00`;
+        if (typeof refreshAgentSpace === 'function') {
+          try { await refreshAgentSpace('background'); } catch (e) {}
+        }
+        if (data.path && typeof openAgentSpaceFile === 'function') {
+          await openAgentSpaceFile(data.path);
+          if (statusEl) statusEl.textContent = `✓ Rigged ${data.path.split('/').pop()} (${data.rig_type}, ${data.bone_count} bones) · $0.00`;
+        } else if (data.glb_bytes_b64) {
+          const nextUrl = rangerObjectUrl(b64ToBlob(data.glb_bytes_b64, 'model/gltf-binary'));
+          rangerView = { ...view, mediaUrl: nextUrl, b64: data.glb_bytes_b64 };
+          renderModelPreview(nextUrl);
+        }
+      } catch (err) {
+        if (statusEl) statusEl.textContent = `Rig error: ${err.message}`;
+      } finally {
+        if (btn) btn.disabled = false;
+        if (statusEl) setTimeout(() => { if (statusEl.dataset) delete statusEl.dataset.sticky; }, 2500);
+      }
+    }
+
     function renderModelPreview(url) {
       const stage = document.getElementById('finder3dStage');
       const note = document.getElementById('finder3dNote');
       const fallback = document.getElementById('finder3dFallback');
+      const sel = document.getElementById('finder3dAnimSelect');
       if (!stage) return;
       stage.innerHTML = '';
+      activeFinder3dViewer = null;
+      if (sel) sel.classList.add('hidden');
       if (fallback) fallback.classList.remove('hidden');
       if (note) note.textContent = 'Loading 3D preview…';
       if (!rangerModelViewerLoading) {
@@ -10121,8 +10253,13 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       rangerModelViewerLoading.then(() => {
         if (!rangerView || rangerView.mediaUrl !== url) return;
         const mv = document.createElement('model-viewer');
-        mv.setAttribute('src', url); mv.setAttribute('camera-controls', ''); mv.setAttribute('auto-rotate', '');
+        mv.setAttribute('src', url);
+        mv.setAttribute('camera-controls', '');
+        mv.setAttribute('auto-rotate', '');
+        mv.setAttribute('autoplay', '');
         mv.style.width = '100%'; mv.style.height = '100%'; mv.style.background = 'transparent';
+        mv.addEventListener('load', () => _syncFinder3dAnimations(mv));
+        activeFinder3dViewer = mv;
         stage.appendChild(mv);
         if (fallback) fallback.classList.add('hidden');
       }).catch(err => { rangerModelViewerLoading = null; if (note) note.textContent = err.message; });
