@@ -514,6 +514,17 @@ def _get_hyper3d_billing(ai_router):
     }
 
 
+_browser_manager_singleton = None
+
+
+def _get_browser_manager():
+    global _browser_manager_singleton
+    if _browser_manager_singleton is None:
+        from iot_federated_agent_memory.browser_engine import TinCanBrowserManager
+        _browser_manager_singleton = TinCanBrowserManager()
+    return _browser_manager_singleton
+
+
 class FallbackSingleFileSpaceVFS:
     def __init__(self, db_path: str, scope: str = "user", owner_id: str = "default_user"):
         self.db_path = db_path
@@ -2866,6 +2877,77 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json(out, 200)
             except Exception as e:
                 self._send_json({"ok": False, "error": str(e)}, 500)
+        elif parsed.path == "/api/browser/navigate":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                url = str(data.get("url") or "").strip()
+                if not url:
+                    self._send_json({"ok": False, "error": "Missing 'url'"}, 400)
+                    return
+                bm = _get_browser_manager()
+                res = bm.navigate(
+                    url,
+                    session_id=data.get("session_id"),
+                    reader_only=bool(data.get("reader_only", False)),
+                )
+                self._send_json(res, 200)
+            except ValueError as ve:
+                self._send_json({"ok": False, "error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 502)
+        elif parsed.path == "/api/browser/action":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                sid = str(data.get("session_id") or "").strip()
+                act = str(data.get("action") or "").strip()
+                if not sid or not act:
+                    self._send_json({"ok": False, "error": "Missing 'session_id' or 'action'"}, 400)
+                    return
+                bm = _get_browser_manager()
+                res = bm.action(
+                    sid,
+                    act,
+                    selector=data.get("selector"),
+                    x=data.get("x"),
+                    y=data.get("y"),
+                    text=data.get("text"),
+                    key=data.get("key"),
+                    delta_y=float(data.get("delta_y") if data.get("delta_y") is not None else 480.0),
+                    script=data.get("script"),
+                    full_page=bool(data.get("full_page", False)),
+                )
+                self._send_json(res, 200)
+            except ValueError as ve:
+                self._send_json({"ok": False, "error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
+        elif parsed.path == "/api/browser/save":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                sid = str(data.get("session_id") or "").strip()
+                if not sid:
+                    self._send_json({"ok": False, "error": "Missing 'session_id'"}, 400)
+                    return
+                bm = _get_browser_manager()
+                sm = _get_space_manager()
+                res = bm.save_to_space(
+                    sid,
+                    sm,
+                    scope=(data.get("scope") or "user").strip(),
+                    owner_id=(data.get("owner_id") or data.get("peer_id") or "default").strip(),
+                    peer_id=(data.get("peer_id") or "browser").strip(),
+                    kind=(data.get("kind") or "markdown").strip(),
+                    save_path=data.get("save_path"),
+                )
+                self._send_json(res, 200)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
         elif parsed.path == "/api/space/file":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
@@ -3873,6 +3955,45 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         elif parsed.path == "/api/3d/balance":
             billing = _get_hyper3d_billing(router)
             self._send_json(billing, 200)
+        elif parsed.path == "/api/browser/state":
+            query = parse_qs(parsed.query)
+            sid = query.get("session_id", [""])[0].strip()
+            bm = _get_browser_manager()
+            if sid:
+                inc = query.get("screenshot", ["1"])[0].lower() not in ("0", "false", "no")
+                self._send_json(bm.get_state(sid, include_screenshot=inc), 200)
+            else:
+                self._send_json(bm.status(), 200)
+        elif parsed.path == "/api/browser/screenshot":
+            query = parse_qs(parsed.query)
+            sid = query.get("session_id", [""])[0].strip()
+            if not sid:
+                self._send_json({"ok": False, "error": "Missing 'session_id'"}, 400)
+                return
+            bm = _get_browser_manager()
+            st = bm.get_state(sid, include_screenshot=True)
+            b64 = st.get("screenshot_b64") or ""
+            raw = base64.b64decode(b64) if b64 else b""
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(raw)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            if raw:
+                self.wfile.write(raw)
+        elif parsed.path == "/api/browser/proxy":
+            query = parse_qs(parsed.query)
+            target_url = query.get("url", [""])[0].strip()
+            if not target_url:
+                self._send_json({"ok": False, "error": "Missing 'url' query parameter"}, 400)
+                return
+            try:
+                bm = _get_browser_manager()
+                self._send_json(bm.fetch_reader_proxy(target_url), 200)
+            except ValueError as ve:
+                self._send_json({"ok": False, "error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 502)
         elif parsed.path == "/api/workstation/status":
             query = parse_qs(parsed.query)
             scope, owner_id = self._resolve_space_query(query)

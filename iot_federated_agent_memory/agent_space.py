@@ -1634,14 +1634,129 @@ if __name__ == "__main__":
 '''
 
 
+_TINCAN_BROWSE_SCRIPT = r'''#!/usr/bin/env python3
+"""TinCan Sandbox Web Browser CLI (`tincan-browse`) backed by Chromium/Reader API."""
+
+import argparse
+import base64
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+
+
+def _base_url() -> str:
+    url = os.environ.get("TINCAN_LOCAL_URL")
+    if url:
+        return url.rstrip("/")
+    port = os.environ.get("TINCAN_PORT") or os.environ.get("PORT") or "8765"
+    return f"http://127.0.0.1:{port}"
+
+
+def _req(path: str, payload=None, method: str = "POST", timeout: float = 45.0) -> dict:
+    url = f"{_base_url()}{path}"
+    data = json.dumps(payload).encode("utf-8") if payload is not None else None
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json"},
+        method=method if data is not None else "GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", errors="replace")
+        print(f"Error HTTP {e.code} on {path}: {detail}", file=sys.stderr)
+        sys.exit(1)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog="tincan-browse", description="TinCan Headless Chromium / Reader Browser CLI")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    for cname in ("open", "text", "links"):
+        p = sub.add_parser(cname, help=f"Navigate to URL and inspect ({cname})")
+        p.add_argument("url")
+        p.add_argument("--session", default=os.environ.get("TINCAN_BROWSER_SESSION", "cli-browser"))
+
+    p_shot = sub.add_parser("screenshot", help="Open URL and save screenshot PNG into ./images/ and .space")
+    p_shot.add_argument("url")
+    p_shot.add_argument("--out", default=None)
+    p_shot.add_argument("--session", default=os.environ.get("TINCAN_BROWSER_SESSION", "cli-browser"))
+
+    p_save = sub.add_parser("save", help="Open URL and save clean Markdown notes into ./notes/ and .space")
+    p_save.add_argument("url")
+    p_save.add_argument("--out", default=None)
+    p_save.add_argument("--session", default=os.environ.get("TINCAN_BROWSER_SESSION", "cli-browser"))
+
+    p_click = sub.add_parser("click", help="Click selector or @eN reference in active browser session")
+    p_click.add_argument("selector")
+    p_click.add_argument("--session", default=os.environ.get("TINCAN_BROWSER_SESSION", "cli-browser"))
+
+    p_fill = sub.add_parser("fill", help="Fill input selector or @eN with text in active browser session")
+    p_fill.add_argument("selector")
+    p_fill.add_argument("text")
+    p_fill.add_argument("--session", default=os.environ.get("TINCAN_BROWSER_SESSION", "cli-browser"))
+
+    args = parser.parse_args()
+    scope = os.environ.get("TINCAN_SPACE_SCOPE", "user")
+    owner = os.environ.get("TINCAN_SPACE_OWNER", "default")
+
+    if args.cmd in ("open", "text", "links"):
+        res = _req("/api/browser/navigate", {"url": args.url, "session_id": args.session})
+        if args.cmd == "text":
+            print(res.get("text") or "")
+        elif args.cmd == "links":
+            print(json.dumps(res.get("links") or [], indent=2))
+        else:
+            out = {k: v for k, v in res.items() if k != "screenshot_b64"}
+            out["elements"] = (out.get("elements") or [])[:25]
+            print(json.dumps(out, indent=2))
+        return 0
+
+    if args.cmd in ("screenshot", "save"):
+        _req("/api/browser/navigate", {"url": args.url, "session_id": args.session})
+        kind = "screenshot" if args.cmd == "screenshot" else "markdown"
+        res = _req("/api/browser/save", {
+            "session_id": args.session,
+            "scope": scope,
+            "owner_id": owner,
+            "peer_id": owner,
+            "kind": kind,
+            "save_path": args.out,
+        })
+        print(json.dumps(res, indent=2))
+        return 0
+
+    if args.cmd == "click":
+        res = _req("/api/browser/action", {"session_id": args.session, "action": "click", "selector": args.selector})
+        print(json.dumps({k: v for k, v in res.items() if k != "screenshot_b64"}, indent=2))
+        return 0
+
+    if args.cmd == "fill":
+        res = _req("/api/browser/action", {"session_id": args.session, "action": "fill", "selector": args.selector, "text": args.text})
+        print(json.dumps({k: v for k, v in res.items() if k != "screenshot_b64"}, indent=2))
+        return 0
+
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+'''
+
+
 def _install_sandbox_gen_cli(cache_dir: str) -> str:
-    """Write the zero-secret `tincan-gen` helper binary inside cache_dir/bin and return bin_dir."""
+    """Write zero-secret `tincan-gen` and `tincan-browse` helpers inside cache_dir/bin."""
     bin_dir = os.path.join(cache_dir, "bin")
     os.makedirs(bin_dir, exist_ok=True)
-    cli_path = os.path.join(bin_dir, "tincan-gen")
-    with open(cli_path, "w", encoding="utf-8") as cf:
-        cf.write(_TINCAN_GEN_SCRIPT)
-    os.chmod(cli_path, 0o755)
+    for fname, src in (("tincan-gen", _TINCAN_GEN_SCRIPT), ("tincan-browse", _TINCAN_BROWSE_SCRIPT)):
+        cli_path = os.path.join(bin_dir, fname)
+        with open(cli_path, "w", encoding="utf-8") as cf:
+            cf.write(src)
+        os.chmod(cli_path, 0o755)
     return bin_dir
 
 
@@ -1916,9 +2031,10 @@ class WasmAndCodePlaygroundRunner:
             tincan_meta = os.path.join(tmpdir, ".tincan")
             os.makedirs(tincan_meta, exist_ok=True)
             cap_text = build_tincan_capability_manifest(include_tool_protocol=False) + (
-                "\n\n[Sandbox CLI Tool `tincan-gen` (already authenticated via TinCan Server)]\n"
+                "\n\n[Sandbox CLI Tools `tincan-gen` & `tincan-browse` (already authenticated via TinCan Server)]\n"
                 "- Generate 2D image into ./images/: `tincan-gen image \"<prompt>\"`\n"
                 "- Generate 3D Rodin .glb mesh into ./models3d/: `tincan-gen 3d \"<prompt>\"`\n"
+                "- Browse & extract webpages (Chromium + Reader): `tincan-browse open \"https://...\"`, `tincan-browse text \"https://...\"`, `tincan-browse screenshot \"https://...\"`, `tincan-browse save \"https://...\"`\n"
                 "- List available models: `tincan-gen models`\n"
             )
             with open(os.path.join(tincan_meta, "SPACE_CONTEXT.md"), "w", encoding="utf-8") as cf:
@@ -2268,7 +2384,7 @@ def build_tincan_capability_manifest(
         "- 3D Mesh Generation (Hyper3D Rodin v2 / Ronin): " + ", ".join(rodin_models[:5]) + ". Saves `.glb` meshes into `.space` `/models3d/`.",
         "- Code & ArtCraft Tools in `.space`: Python 3 & Node.js sandbox execution, `cadcraft` (`.dxf`), `vectorcraft` (`.svg`), `scriptcraft` (`.fountain`), `deckcraft`, plus `.space` file CRUD.",
         "- Interactive Terminal TUIs (`xterm.js` PTY) & Coding Harnesses: `bash`, `claude`, `codex`, `opencode`, `goose`, `gemini`, `dsx` (run `<cli> \"prompt\"`, `hey <cli> <prompt>`, or click TUI buttons).\n"
-        "- Sandbox Shell Helper (`tincan-gen`, pre-authenticated on PATH): inside any shell/TUI run `tincan-gen image \"<prompt>\"` for 2D images or `tincan-gen 3d \"<prompt>\"` for Hyper3D Rodin .glb meshes (`HYPER3D_API_KEY`, `OPENROUTER_API_KEY`, and `NANOGPT_API_KEY` are held securely by TinCan Server).",
+        "- Sandbox Shell Helpers (`tincan-gen` & `tincan-browse`, pre-authenticated on PATH): inside any shell/TUI run `tincan-gen image \"<prompt>\"`, `tincan-gen 3d \"<prompt>\"`, or `tincan-browse open|text|screenshot|save \"https://...\"` (`HYPER3D_API_KEY`, `OPENROUTER_API_KEY`, and `NANOGPT_API_KEY` are held securely by TinCan Server).",
         "- One-Click Install CLI Instructions (share with users when asked how to install TinCan): `brew install https://iot-federated-agent-memory-production.up.railway.app/Formula/tincan.rb` or `curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash` (plus `npx skills add NoJuanNobody/tincan-skills -g -y` for Agent Skills), or click `One-Click Install` in the top bar.",
         "- Disambiguation Note: `/models3d/README.txt` inside `.space` ONLY documents the `/models3d/` folder for 3D `.glb` meshes from Hyper3D Rodin. Hyper3D Rodin is ONLY for 3D `.glb` meshes — 2D images use OpenRouter / NanoGPT image models and save to `/images/`. When the user asks 'what models do?' or 'rodin', explain both clearly.",
         "- CRITICAL: Never say 'My capabilities are limited to text' or 'I cannot generate images' — TinCan supports real 2D image generation, 3D Rodin generation, and `.space` code/file tools.",

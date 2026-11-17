@@ -2797,6 +2797,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     <!--TC_WORKSTATION_WINDOW-->
 
+    <!--TC_BROWSER_WINDOW-->
+
     <!--TC_COPILOT_WINDOW-->
 
     <!-- Window 10: TinCan AI Command Shell & Hub (Aeonik Home Overlay Window) -->
@@ -2841,6 +2843,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     </button>
     <button id="dockBtn-win-workstation" onclick="toggleWindow('win-workstation')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="3D Studio · Multi-Model Foundry &amp; Hyper3D Rodin 3D">
       <span>🛠️</span> <span class="hidden md:inline">3D Studio</span>
+    </button>
+    <button id="dockBtn-win-browser" onclick="toggleWindow('win-browser')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="TinCan Browser · Playwright Chromium &amp; Reader">
+      <span>🧭</span> <span class="hidden md:inline">Browser</span>
     </button>
     <button id="dockBtn-win-ai-home" onclick="toggleWindow('win-ai-home')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="TinCan AI Command Shell &amp; Workflow Hub">
       <span>⌘</span> <span class="hidden md:inline">AI Hub</span>
@@ -3080,7 +3085,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     // Window Manager: Draggable, Resizable, Focus, Minimize, Maximize, Pop Out, Multi-Instance
     let highestZ = 45;
-    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-call', 'win-comms', 'win-quests', 'win-moderator', 'win-billing', 'win-board', 'win-network', 'win-agentspace', 'win-workstation', 'win-copilot', 'win-ai-home'];
+    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-call', 'win-comms', 'win-quests', 'win-moderator', 'win-billing', 'win-board', 'win-network', 'win-agentspace', 'win-workstation', 'win-browser', 'win-copilot', 'win-ai-home'];
     const poppedOutWindows = new Set();
 
     function switchNetTab(tabName) {
@@ -10644,8 +10649,10 @@ MESH_OS_HTML_UI = apply_arena_duel(MESH_OS_HTML_UI)
 
 # Dedicated TinCan Workstation Studio (NanoGPT OpenRouter/TEE/Heretic + Hyper3D Rodin + Space Bridge).
 from .workstation_ui import render_workstation_window_html  # noqa: E402
+from .browser_ui import render_browser_window_html  # noqa: E402
 
 MESH_OS_HTML_UI = MESH_OS_HTML_UI.replace("<!--TC_WORKSTATION_WINDOW-->", render_workstation_window_html(), 1)
+MESH_OS_HTML_UI = MESH_OS_HTML_UI.replace("<!--TC_BROWSER_WINDOW-->", render_browser_window_html(), 1)
 
 # TinCan Terminal AI components: Home AI Command Hub, Copilot Router, and Token Vault Store.
 from .ai_home_shell import apply_ai_home_shell  # noqa: E402

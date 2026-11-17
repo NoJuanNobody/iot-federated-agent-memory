@@ -100,13 +100,16 @@ RUN npm install -g --no-audit --no-fund \
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir pynacl cryptography "webauthn==3.0.1"
+RUN pip install --no-cache-dir pynacl cryptography "webauthn==3.0.1" playwright \
+ && python3 -m playwright install --with-deps chromium \
+ && rm -rf /var/lib/apt/lists/*
 
 COPY . .
 
 # Fail the build early if any tool or non-interactive coding harness is missing.
 RUN node -v && npm -v && npx -v && cargo --version && rustc --version \
  && brew --version && git --version && python3 -m venv --help >/dev/null \
+ && python3 -c "import playwright.sync_api" \
  && claude --version && opencode --version && codex --version \
  && gemini --version && dsx --help >/dev/null && goose --version
 
