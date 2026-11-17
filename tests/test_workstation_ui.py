@@ -147,10 +147,9 @@ def test_center_pane_modes_rodin_audit_arena_and_patch_preview() -> None:
         assert tier_price in html
         assert f'id="wsTierBtn-{tier_name}"' in html
 
-    assert "<model-viewer" in html
-    assert "@google/model-viewer" in html
-    assert 'id="wsWireframeFallback"' in html
-    assert "<svg" in html
+    assert "ws3dControlCard" in html
+    assert "3D Dispatch &amp; Route Control" in html
+    assert 'id="wsOpenInWorkstationBtn"' in html
     assert "Open in ArtCraft" in html
     assert "Save to .space" in html
     assert "/api/3d/generate" in html
@@ -194,8 +193,13 @@ def test_center_pane_modes_rodin_audit_arena_and_patch_preview() -> None:
 def test_right_pane_telemetry_queue_and_mesh_handoff() -> None:
     html = render_workstation_window_html()
 
-    assert "RODIN CREDITS" in html
-    assert "NANOGPT POOL" in html
+    from iot_federated_agent_memory.token_vault_ui import render_token_vault_window_html
+    tv_html = render_token_vault_window_html()
+    assert "Hyper3D Rodin &amp; NanoGPT Compute Pools" in tv_html
+    assert 'id="rodinBalanceCredits"' in tv_html
+    assert 'id="tvNanoPoolVal"' in tv_html
+
+    assert 'id="wsTokensPoolsBtn"' in html
     assert "/api/workstation/status" in html
     assert "Workstation Job Queue" in html
     assert "Attestation &amp; Cost Trace" in html
@@ -208,10 +212,7 @@ def test_right_pane_telemetry_queue_and_mesh_handoff() -> None:
     assert "win-board" in html
 
     for elem_id in (
-        "wsStatRodinVal",
-        "wsStatRodinSub",
-        "wsStatNanoVal",
-        "wsStatNanoSub",
+        "wsTokensPoolsBtn",
         "wsJobQueueList",
         "wsTraceCard",
         "wsTraceSpend",

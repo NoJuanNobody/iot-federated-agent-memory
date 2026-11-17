@@ -1430,18 +1430,14 @@ def _workstation_js() -> str:
         }
 
         function mountGlbPreview(b64, pathLabel) {
-          const stage = el('wsModelViewerStage');
-          const fallback = el('wsWireframeFallback');
           const note = el('ws3dStatusNote');
           const meta = el('ws3dMeshMeta');
-          if (!stage) return;
+          const openWsBtn = el('wsOpenInWorkstationBtn');
 
           if (state.lastGlbUrl && typeof URL !== 'undefined' && URL.revokeObjectURL) {
             try { URL.revokeObjectURL(state.lastGlbUrl); } catch (e) {}
             state.lastGlbUrl = '';
           }
-          stage.innerHTML = '';
-          if (fallback) fallback.classList.remove('hidden');
 
           let byteLen = 0;
           try {
@@ -1456,25 +1452,28 @@ def _workstation_js() -> str:
             return;
           }
 
-          if (meta) meta.textContent = (pathLabel || state.lastGlbPath) + ' · ' + byteLen + ' B';
-          if (note) note.textContent = 'GLB ready (' + byteLen + ' bytes) · loading <model-viewer>…';
-          if (!state.lastGlbUrl) return;
+          const target = pathLabel || state.lastGlbPath;
+          if (meta) meta.textContent = target + ' · ' + byteLen + ' B';
+          if (note) note.textContent = 'GLB ready (' + byteLen + ' bytes) · Click "View in Workstation ↗" to inspect in the File Viewer.';
+          if (openWsBtn) openWsBtn.disabled = false;
+        }
 
-          ensureModelViewer().then(() => {
-            if (!state.lastGlbUrl || !stage) return;
-            const mv = document.createElement('model-viewer');
-            mv.setAttribute('src', state.lastGlbUrl);
-            mv.setAttribute('camera-controls', '');
-            mv.setAttribute('auto-rotate', '');
-            mv.setAttribute('alt', pathLabel || 'Rodin 3D GLB Asset');
-            mv.style.width = '100%';
-            mv.style.height = '100%';
-            mv.style.background = 'transparent';
-            stage.appendChild(mv);
-            if (fallback) fallback.classList.add('hidden');
-          }).catch((err) => {
-            if (note) note.textContent = (pathLabel || state.lastGlbPath) + ' (' + byteLen + ' B) · ' + err.message;
-          });
+        function openGlbInWorkstationViewer() {
+          const target = state.lastGlbPath || '/models3d/studio_mesh.glb';
+          if (typeof window.openAgentSpaceFile === 'function') {
+            if (typeof window.toggleWindow === 'function') {
+              const spWin = el('win-agentspace');
+              if (spWin && (spWin.classList.contains('hidden') || spWin.style.display === 'none')) {
+                window.toggleWindow('win-agentspace');
+              }
+            }
+            if (typeof window.switchFinderTab === 'function') {
+              try { window.switchFinderTab('files'); } catch (e) {}
+            }
+            try { window.openAgentSpaceFile(target); } catch (e) {}
+          } else {
+            openWindowSafe('win-agentspace');
+          }
         }
 
         function colorizeDiffText(unifiedText, fallbackTitle) {
@@ -2403,6 +2402,8 @@ def _workstation_js() -> str:
           if (voteA) voteA.onclick = () => voteArena('A');
           if (voteB) voteB.onclick = () => voteArena('B');
 
+          const openWsBtn = el('wsOpenInWorkstationBtn');
+          if (openWsBtn) openWsBtn.onclick = openGlbInWorkstationViewer;
           const handoffCommitBtn = el('wsHandoffCommitBtn');
           if (handoffCommitBtn) handoffCommitBtn.onclick = handoffCommitToSpace;
           const handoffBoardBtn = el('wsHandoffBoardBtn');
@@ -2664,6 +2665,7 @@ def render_workstation_window_html() -> str:
           </div>
           <div class="ws-top-group">
             <span id="wsStatusPill" class="ws-badge ws-badge--pos">READY</span>
+            <button id="wsTokensPoolsBtn" type="button" class="ws-pill" onclick="typeof toggleWindow==='function'&&toggleWindow('win-billing')" title="View Rodin Credits &amp; NanoGPT Compute Pools in Credits &amp; Ads">Tokens &amp; Pools ↗</button>
             <button id="wsToggleLeftBtn" type="button" class="ws-pill" title="Toggle Left Controls pane" aria-expanded="true">&#x25E7; Controls</button>
             <button id="wsToggleRightBtn" type="button" class="ws-pill" title="Toggle Right Inspector pane" aria-expanded="true">&#x25E8; Inspector</button>
             <button id="wsRefreshBtn" type="button" class="ws-pill" onclick="window.TinCanWorkstation && window.TinCanWorkstation.refresh({{immediate: true}})" title="Refresh status, catalogs, and Space VFS">&#x21BB;&#xFE0E; Refresh</button>
@@ -2743,31 +2745,25 @@ def render_workstation_window_html() -> str:
               <span id="wsOutputTargetTag" class="ws-badge" title="Active output target">/models3d/studio_mesh.glb</span>
             </div>
 
-            <!-- Stage 1: 3D Rodin Stage (US-01) -->
-            <section id="wsStage-3d" class="ws-stage-panel" aria-label="3D Rodin Stage">
-              <div id="ws3dViewport" class="ws-3d-viewport">
-                <div id="wsModelViewerStage"></div>
-                <div id="wsWireframeFallback">
-                  <svg class="ws-wire-svg" viewBox="0 0 160 120" aria-hidden="true">
-                    <polygon points="80,14 132,42 132,84 80,110 28,84 28,42" stroke-width="1.5"/>
-                    <polyline points="28,42 80,68 132,42" stroke-width="1.3"/>
-                    <line x1="80" y1="68" x2="80" y2="110" stroke-width="1.3"/>
-                    <polyline points="54,28 106,55 106,97" stroke-width="0.9" stroke-dasharray="3 3"/>
-                    <polyline points="106,28 54,55 54,97" stroke-width="0.9" stroke-dasharray="3 3"/>
-                    <ellipse cx="80" cy="64" rx="22" ry="12" stroke-width="1" stroke-dasharray="2 2"/>
-                  </svg>
-                  <div class="ws-kicker">Isometric Wireframe Preview</div>
-                  <div id="ws3dMeshMeta" class="ws-mono-xs ws-muted">Ready · GLB binary target</div>
-                  <div id="ws3dStatusNote" class="ws-mono-xs ws-muted">Dispatch a prompt to generate a Hyper3D Rodin .glb mesh (loads &lt;model-viewer&gt; when GLB bytes arrive).</div>
+            <!-- Stage 1: 3D Control Panel (US-01; viewing handled by Workstation File Viewer) -->
+            <section id="wsStage-3d" class="ws-stage-panel" aria-label="3D Control Panel">
+              <div id="ws3dControlCard" class="ws-card ws-card--celadon">
+                <div class="ws-sec-head">
+                  <span class="ws-sec-title">3D Dispatch &amp; Route Control</span>
+                  <span class="ws-badge ws-badge--pos">AUTO-FALLBACK ENABLED</span>
                 </div>
-              </div>
-              <div class="ws-3d-controls">
-                <div class="ws-tier-row" role="radiogroup" aria-label="Rodin generation tier">
-                  {rodin_tiers}
-                </div>
-                <div class="ws-top-group">
-                  <button id="wsOpenArtcraftBtn" type="button" class="ws-btn ws-btn--sm">Open in ArtCraft</button>
-                  <button id="wsSaveGlbBtn" type="button" class="ws-btn ws-btn--sm ws-btn--solid">Save to .space</button>
+                <div class="ws-mono-xs ws-muted">Pipeline: Hyper3D Rodin v2 → NanoGPT <code>hyper3d/rodin-v2.5</code> → <code>tripo3d/h3.0</code> → <code>hunyuan-3d-v3.1-rapid</code></div>
+                <div id="ws3dMeshMeta" class="ws-mono-xs" style="font-weight: 600;">Ready · GLB binary target (/models3d/)</div>
+                <div id="ws3dStatusNote" class="ws-mono-xs ws-muted">Dispatch a prompt in Directive to synthesize a 3D .glb into .space, then inspect or rotate it in Workstation's File Viewer.</div>
+                <div class="ws-3d-controls" style="padding-top: 4px; border-top: var(--ws-hair-soft);">
+                  <div class="ws-tier-row" role="radiogroup" aria-label="Rodin generation tier">
+                    {rodin_tiers}
+                  </div>
+                  <div class="ws-top-group">
+                    <button id="wsOpenInWorkstationBtn" type="button" class="ws-btn ws-btn--sm ws-btn--pos" title="Inspect and orbit .glb directly in Workstation File Viewer">View .glb in Workstation ↗</button>
+                    <button id="wsOpenArtcraftBtn" type="button" class="ws-btn ws-btn--sm">Open in ArtCraft</button>
+                    <button id="wsSaveGlbBtn" type="button" class="ws-btn ws-btn--sm ws-btn--solid">Save to .space</button>
+                  </div>
                 </div>
               </div>
             </section>
@@ -2835,21 +2831,8 @@ def render_workstation_window_html() -> str:
           <!-- Draggable Right Vertical Splitter -->
           <div id="wsSplitterRight" class="ws-splitter ws-splitter--v" role="separator" aria-orientation="vertical" aria-label="Resize right inspector pane" tabindex="0" title="Drag to resize Inspector pane (double-click to reset)"></div>
 
-          <!-- RIGHT PANE (310px): Telemetry Stats, Job Queue, Attestation Trace, Staged Outputs, Handoff -->
-          <aside class="ws-pane ws-pane--right" aria-label="Telemetry, queue, and Space handoff">
-            <div class="ws-stats-2up">
-              <div class="ws-stat-card">
-                <span class="ws-stat-label">RODIN CREDITS</span>
-                <span id="wsStatRodinVal" class="ws-stat-val">-- CR</span>
-                <span id="wsStatRodinSub" class="ws-stat-sub">Checking balance…</span>
-              </div>
-              <div class="ws-stat-card">
-                <span class="ws-stat-label">NANOGPT POOL</span>
-                <span id="wsStatNanoVal" class="ws-stat-val">-- TEE</span>
-                <span id="wsStatNanoSub" class="ws-stat-sub">Loading catalog…</span>
-              </div>
-            </div>
-
+          <!-- RIGHT PANE (310px): Job Queue, Attestation Trace, Staged Outputs, Handoff -->
+          <aside class="ws-pane ws-pane--right" aria-label="Queue, cost trace, and Space handoff">
             <section id="wsJobQueueCard" class="ws-card">
               <div class="ws-sec-head">
                 <span class="ws-sec-title">Workstation Job Queue</span>

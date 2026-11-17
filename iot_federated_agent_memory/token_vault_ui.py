@@ -839,26 +839,31 @@ def render_token_vault_window_html() -> str:
           </div>
         </section>
 
-        <!-- Compact Aeonik Hyper3D Rodin Pool Strip -->
-        <section class="tv-rodin-strip" aria-label="Hyper3D Rodin 3D Generative Credit Pool">
+        <!-- Compact Aeonik Hyper3D Rodin + NanoGPT Pool Strip -->
+        <section class="tv-rodin-strip" aria-label="Hyper3D Rodin and NanoGPT Compute Pools">
           <div class="tv-sec-head">
             <div class="tv-subbar-group">
-              <span class="tv-sec-title">Hyper3D Rodin (Ronin) 3D Generative Credit Pool</span>
+              <span class="tv-sec-title">Hyper3D Rodin &amp; NanoGPT Compute Pools</span>
               <span id="rodinBillingStatusBadge" class="tv-badge tv-badge--pos">ONLINE / POOLED</span>
             </div>
             <div class="tv-subbar-group">
-              <button type="button" class="tv-pill tv-pill--sm" onclick="toggleWindow('win-workstation')">Open Workstation 3D →</button>
-              <button type="button" class="tv-pill tv-pill--sm" onclick="toggleWindow('win-agentspace')">Open AgentSpace →</button>
+              <button type="button" class="tv-pill tv-pill--sm" onclick="toggleWindow('win-workstation')">Open 3D Studio Controls →</button>
+              <button type="button" class="tv-pill tv-pill--sm" onclick="toggleWindow('win-agentspace')">Open Workstation →</button>
             </div>
           </div>
           <div class="tv-rodin-metrics">
             <div class="tv-rodin-stat">
-              <span class="tv-rodin-k">Credits Left</span>
+              <span class="tv-rodin-k">Rodin Credits</span>
               <span id="rodinBalanceCredits" class="tv-rodin-v">100.0</span>
             </div>
             <div class="tv-rodin-stat">
               <span class="tv-rodin-k">USD Balance</span>
               <span id="rodinBalanceUsd" class="tv-rodin-v tv-pos">$50.00</span>
+            </div>
+            <div class="tv-rodin-stat">
+              <span class="tv-rodin-k">NanoGPT Pool</span>
+              <span id="tvNanoPoolVal" class="tv-rodin-v">-- TEE</span>
+              <span id="tvNanoPoolSub" class="tv-mono-xs tv-muted">Checking catalog…</span>
             </div>
             <div class="tv-rodin-stat">
               <span class="tv-rodin-k">Session 3D Tasks</span>
@@ -1090,11 +1095,21 @@ TOKEN_VAULT_JS = r"""
         }
 
         const q = peerId ? `?peer_id=${encodeURIComponent(peerId)}` : '';
-        const summary = await fetchJsonSafe(`/api/tokens/summary${q}`);
+        const [summary, wsStatus] = await Promise.all([
+          fetchJsonSafe(`/api/tokens/summary${q}`),
+          fetchJsonSafe('/api/workstation/status'),
+        ]);
+        if (wsStatus && wsStatus.nanogpt) {
+          const nano = wsStatus.nanogpt;
+          const nv = el('tvNanoPoolVal');
+          const ns = el('tvNanoPoolSub');
+          if (nv) nv.textContent = `${nano.tee_count ?? 0} TEE`;
+          if (ns) ns.textContent = `+ ${nano.heretic_count ?? 0} Heretic · ${nano.total_count ?? 0} total`;
+        }
         if (summary && typeof summary === 'object' && !summary.error) {
           renderSummary(summary);
           if (!summary.rodin) {
-            const rodin = await fetchJsonSafe('/api/3d/balance');
+            const rodin = (wsStatus && wsStatus.rodin) || await fetchJsonSafe('/api/3d/balance');
             if (rodin) renderRodin(rodin);
           }
           return summary;

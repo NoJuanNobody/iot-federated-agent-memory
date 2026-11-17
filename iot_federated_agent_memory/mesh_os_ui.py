@@ -816,30 +816,33 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         ↗ Pop Out Guide
       </button>
 
-      <!-- Terminal Operator Quick Start CLI -->
-      <button onclick="openTerminalQuickStart()" class="text-xs font-mono px-2.5 py-1 rounded border border-cyan-500/70 bg-cyan-950/80 text-cyan-300 hover:bg-cyan-900 transition flex items-center gap-1.5 active:scale-95 shadow-sm font-semibold" title="Terminal Operator Quick Start: Install CLI & Connect">
-        <span>⚡</span> <span>>_ Quick Start CLI</span>
+      <!-- One-Click Install Menu Launcher -->
+      <button id="hudQuickInstallBtn" onclick="openTerminalQuickStart()" class="text-xs font-mono px-2.5 py-1 rounded border border-cyan-500/70 bg-cyan-950/80 text-cyan-300 hover:bg-cyan-900 transition flex items-center gap-1.5 active:scale-95 shadow-sm font-semibold" title="One-Click Install: CLI &amp; Agent Skills instructions">
+        <span>📦</span> <span>One-Click Install</span>
       </button>
     </div>
   </header>
 
   <!-- ===================================================================== -->
-  <!-- Terminal Operator Quick Start CLI Modal -->
+  <!-- One-Click Install Instructions Modal (Menu) -->
   <!-- ===================================================================== -->
   <div id="terminalQuickStartModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-[#ecf1e6] text-[#111111] border border-black rounded-2xl w-[680px] max-w-full overflow-hidden shadow-2xl space-y-4 p-6 font-mono text-xs">
       <div class="flex items-center justify-between border-b border-black pb-3">
         <div class="flex items-center gap-2">
-          <span class="text-xl">⚡</span>
+          <span class="text-xl">📦</span>
           <div>
-            <h2 class="text-sm font-bold text-black uppercase tracking-wider">One-Click Terminal Installer &amp; Quick Start CLI</h2>
+            <h2 class="text-sm font-bold text-black uppercase tracking-wider">One-Click Installer &amp; Quick Start CLI</h2>
             <p class="text-[11px] text-neutral-600">Install the TinCan 2.2 CLI, Agent Skills, and link your workstation in 10 seconds.</p>
           </div>
         </div>
         <button onclick="closeTerminalQuickStart()" class="text-neutral-600 hover:text-black text-base font-bold">✕</button>
       </div>
 
-      <!-- Step 1: One-Click Automated Installer -->
+      <!-- Interactive One-Click Install Card (in Menu Modal, or ask Chat Agent) -->
+      <!--TC_INSTALL_CARD {"id": "menu", "compact": false, "shell": "#termShellMount"}-->
+
+      <!-- Step 1: Additional Manual Installer Options -->
       <div class="space-y-1.5">
         <div class="text-[11px] font-bold text-black flex items-center justify-between">
           <span>1. One-Line Terminal Installer (Homebrew or curl | bash)</span>
@@ -915,26 +918,22 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       <!--TC_TITLEBAR {"id": "win-terminal", "title": "Terminal", "meta_html": "<span id=\"aeonikHeaderClock\">--:--</span> <span id=\"aeonikHeaderCwd\" class=\"hidden sm:inline\">~/space</span>", "extra_controls_html": "<a href=\"/fono\" target=\"_blank\" class=\"tc-ctl\" title=\"Open the Fono mobile controller\">Fono</a>"}-->
       <!-- The terminal is just the terminal: install card top-left, the shell/TUI below taking the rest. Files live in Space. -->
       <div class="window-body tc-term-body p-0 font-mono text-xs border-b border-black bg-[#ecf1e6]" style="display: flex; flex-direction: column; height: min(680px, calc(100vh - 120px)); overflow: hidden;">
-        <div class="tc-term-top p-3 pb-2 flex flex-wrap items-start gap-3" style="flex: 0 0 auto;">
-          <div class="w-full md:w-[470px] max-w-full min-w-0">
-            <!--TC_INSTALL_CARD {"id": "terminal", "compact": true, "shell": "#termShellMount"}-->
+        <div class="tc-term-top px-3 py-2 flex flex-wrap items-center justify-between gap-2 border-b border-black/20" style="flex: 0 0 auto;">
+          <div id="termHarnessBar" class="flex flex-wrap items-center gap-1 text-[10px]">
+            <span class="font-bold uppercase tracking-wider text-neutral-800 mr-1">Harnesses:</span>
+            <button type="button" onclick="if(typeof execAeonikShellCommand==='function')execAeonikShellCommand('harness best');else if(window.TinCanShell)window.TinCanShell.run('harness best')" class="px-2 py-0.5 rounded-full bg-[#111111] text-[#ecf1e6] font-bold hover:opacity-85" title="Inspect best available coding harness">Auto Best</button>
+            <button type="button" onclick="if(typeof execAeonikShellCommand==='function')execAeonikShellCommand('harness inspect antigravity');else if(window.TinCanShell)window.TinCanShell.run('harness inspect antigravity')" class="px-2 py-0.5 rounded-full border border-[#111111] bg-white hover:bg-[#111111] hover:text-[#ecf1e6] transition">Antigravity (agy)</button>
+            <button type="button" onclick="if(typeof execAeonikShellCommand==='function')execAeonikShellCommand('harness inspect claude-code');else if(window.TinCanShell)window.TinCanShell.run('harness inspect claude-code')" class="px-2 py-0.5 rounded-full border border-[#111111] bg-white hover:bg-[#111111] hover:text-[#ecf1e6] transition">Claude Code</button>
+            <button type="button" onclick="if(typeof execAeonikShellCommand==='function')execAeonikShellCommand('harness inspect opencode');else if(window.TinCanShell)window.TinCanShell.run('harness inspect opencode')" class="px-2 py-0.5 rounded-full border border-[#111111] bg-white hover:bg-[#111111] hover:text-[#ecf1e6] transition">OpenCode</button>
+            <button type="button" onclick="if(typeof execAeonikShellCommand==='function')execAeonikShellCommand('harness inspect dsx');else if(window.TinCanShell)window.TinCanShell.run('harness inspect dsx')" class="px-2 py-0.5 rounded-full border border-[#111111] bg-[#f4f8f0] hover:bg-[#111111] hover:text-[#ecf1e6] transition" title="Fallback harness: github.com/NoJuanNobody/dsx">DSX (Fallback)</button>
+            <button type="button" onclick="if(typeof execAeonikShellCommand==='function')execAeonikShellCommand('harnesses');else if(window.TinCanShell)window.TinCanShell.run('harnesses')" class="px-2 py-0.5 rounded-full border border-neutral-500 text-neutral-800 hover:bg-[#111111] hover:text-[#ecf1e6] transition">+ All</button>
           </div>
-          <div class="hidden md:flex flex-1 min-w-[200px] flex-col gap-1.5 pt-1 text-[11px] text-neutral-700">
-            <p class="leading-relaxed">
-              Your files moved to <button type="button" onclick="toggleWindow('win-agentspace')" class="underline font-semibold text-black">Workstation</button>, which has its own terminal. This one runs the same commands against your .space.
-            </p>
-            <div id="termHarnessBar" class="flex flex-wrap items-center gap-1 text-[10px]">
-              <span class="font-bold uppercase tracking-wider text-neutral-800 mr-1">Harnesses:</span>
-              <button type="button" onclick="if(typeof execAeonikShellCommand==='function')execAeonikShellCommand('harness best');else if(window.TinCanShell)window.TinCanShell.run('harness best')" class="px-2 py-0.5 rounded-full bg-[#111111] text-[#ecf1e6] font-bold hover:opacity-85" title="Inspect best available coding harness">Auto Best</button>
-              <button type="button" onclick="if(typeof execAeonikShellCommand==='function')execAeonikShellCommand('harness inspect antigravity');else if(window.TinCanShell)window.TinCanShell.run('harness inspect antigravity')" class="px-2 py-0.5 rounded-full border border-[#111111] bg-white hover:bg-[#111111] hover:text-[#ecf1e6] transition">Antigravity (agy)</button>
-              <button type="button" onclick="if(typeof execAeonikShellCommand==='function')execAeonikShellCommand('harness inspect claude-code');else if(window.TinCanShell)window.TinCanShell.run('harness inspect claude-code')" class="px-2 py-0.5 rounded-full border border-[#111111] bg-white hover:bg-[#111111] hover:text-[#ecf1e6] transition">Claude Code</button>
-              <button type="button" onclick="if(typeof execAeonikShellCommand==='function')execAeonikShellCommand('harness inspect opencode');else if(window.TinCanShell)window.TinCanShell.run('harness inspect opencode')" class="px-2 py-0.5 rounded-full border border-[#111111] bg-white hover:bg-[#111111] hover:text-[#ecf1e6] transition">OpenCode</button>
-              <button type="button" onclick="if(typeof execAeonikShellCommand==='function')execAeonikShellCommand('harness inspect dsx');else if(window.TinCanShell)window.TinCanShell.run('harness inspect dsx')" class="px-2 py-0.5 rounded-full border border-[#111111] bg-[#f4f8f0] hover:bg-[#111111] hover:text-[#ecf1e6] transition" title="Fallback harness: github.com/NoJuanNobody/dsx">DSX (Fallback)</button>
-              <button type="button" onclick="if(typeof execAeonikShellCommand==='function')execAeonikShellCommand('harnesses');else if(window.TinCanShell)window.TinCanShell.run('harnesses')" class="px-2 py-0.5 rounded-full border border-neutral-500 text-neutral-800 hover:bg-[#111111] hover:text-[#ecf1e6] transition">+ All</button>
-            </div>
+          <div class="flex items-center gap-1.5 text-[10px] text-neutral-700">
+            <button type="button" onclick="toggleWindow('win-agentspace')" class="px-2 py-0.5 rounded-full border border-[#111111] bg-white hover:bg-[#111111] hover:text-[#ecf1e6] font-semibold transition">Workstation Files</button>
+            <button type="button" onclick="openTerminalQuickStart()" class="px-2 py-0.5 rounded-full border border-neutral-500 hover:bg-[#111111] hover:text-[#ecf1e6] transition">One-Click Install</button>
           </div>
         </div>
-        <div class="px-3 pb-3" style="flex: 1 1 auto; min-height: 0;">
+        <div class="px-3 py-2" style="flex: 1 1 auto; min-height: 0;">
           <div id="termShellMount" data-tc-shell-mount data-shell-title="Shell" style="height: 100%;"></div>
         </div>
       </div>
@@ -2415,6 +2414,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           <span class="ide-spacer"></span>
           <div class="ide-group">
             <span id="spaceFileCountBadge" class="ide-count">0 Files</span>
+            <button type="button" id="spaceToggleTerminalBtn" class="ide-btn" onclick="ideTogglePanel()" title="Dock/open or close the integrated Terminal drawer">&gt;_ Terminal</button>
             <button type="button" class="ide-btn" onclick="exportAgentSpace()" title="Download this space as a .space file">Export .space</button>
             <button type="button" class="ide-btn" id="spaceOpenWorkstationBtn" onclick="open3dStudioFromWorkstation()" title="Switch to 3D Studio (docked in Workstation or floating window)">3D Studio</button>
             <div class="ide-seg" role="group" aria-label="Studio views">
@@ -2545,7 +2545,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                 </div>
 
                 <!-- 3D GLB Model Preview (model-viewer loaded on demand) -->
-                <div id="finder3dContainer" class="hidden relative bg-slate-900 rounded-lg overflow-hidden border border-cyan-700/60 aspect-video flex flex-col items-center justify-center text-center font-mono">
+                <div id="finder3dContainer" class="hidden relative bg-slate-900 rounded-lg overflow-hidden border border-cyan-700/60 min-h-[280px] flex-1 flex flex-col items-center justify-center text-center font-mono">
                   <div id="finder3dStage" class="absolute inset-0"></div>
                   <div id="finder3dFallback" class="relative p-3">
                     <span class="text-3xl mb-1">🧊</span>
@@ -2598,14 +2598,15 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             </div>
           </div><!-- /#rangerSplit -->
 
-          <!-- Integrated panel: Terminal (TinCanShell scoped to this space) | Output -->
-          <div id="idePanel" class="ide-panel">
+          <!-- Integrated panel (collapsed by default so Workstation focuses on files/3D viewer; dockable on demand) -->
+          <div id="idePanel" class="ide-panel is-collapsed">
             <div id="idePanelHandle" role="separator" aria-orientation="horizontal" aria-label="Resize panel" tabindex="0"></div>
             <div class="ide-panel-head">
               <button id="ideTab-terminal" type="button" class="ide-panel-tab is-active" onclick="ideShowPanel('terminal')">Terminal</button>
               <button id="ideTab-output" type="button" class="ide-panel-tab" onclick="ideShowPanel('output')">Output <span id="playgroundExitCode" class="font-mono font-normal normal-case tracking-normal">Exit: 0</span></button>
               <span class="ide-spacer"></span>
-              <button id="ideTogglePanelBtn" type="button" class="ide-btn ide-btn--sm" onclick="ideTogglePanel()" title="Show or hide the panel">Hide ▾</button>
+              <button type="button" class="ide-btn ide-btn--sm" onclick="toggleWindow('win-terminal')" title="Open standalone Terminal window">Float Terminal ↗</button>
+              <button id="ideTogglePanelBtn" type="button" class="ide-btn ide-btn--sm" onclick="ideTogglePanel()" title="Show or hide the docked panel">Show ▴</button>
             </div>
             <div class="ide-panel-body">
               <div id="idePane-terminal"><div id="ideTermMount" data-tc-shell-mount data-shell-title="this space" style="height: 100%;"></div></div>

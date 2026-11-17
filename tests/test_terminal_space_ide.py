@@ -39,13 +39,18 @@ def test_install_card_ids_do_not_collide_across_mounts():
     assert not re.findall(r'\sid="(?!tcInstallCard-)', a)  # nothing else needs a global id
 
 
-def test_terminal_window_is_install_card_plus_shell_only():
+def test_terminal_window_is_shell_only_and_install_moved_to_menu():
     term = _window("win-terminal")
-    assert 'data-tc-install="terminal"' in term
-    assert "One-Click Terminal Install" in term
+    assert 'data-tc-install="terminal"' not in term
     assert 'id="termShellMount"' in term and "data-tc-shell-mount" in term
     for gone in ("termTree", "termDriveTree", "termStatFiles", "termRunsTable", "aeonikRecentOutput", "RECENT"):
         assert gone not in term
+    # One-Click Install now lives in the HUD menu + modal
+    assert 'id="hudQuickInstallBtn"' in HTML
+    assert "One-Click Install" in HTML
+    modal = HTML[HTML.index('id="terminalQuickStartModal"'):HTML.index('id="desktopWorkspace"')]
+    assert 'data-tc-install="menu"' in modal
+    assert "One-Click Terminal Install" in modal
     # shared titlebar is kept
     assert "tc-titlebar" in term and "Pop Out" in term
     assert "/fono" in term
@@ -55,10 +60,11 @@ def test_space_window_is_a_vscode_style_ide():
     space = _window("win-agentspace")
     assert '<span class="window-title tc-titlebar__title" title="Workstation">Workstation</span>' in space
     assert '<span class="tc-titlebar__badge" title="VFS · 3D">VFS · 3D</span>' in space
-    # explorer (existing ranger list + places), editor with tabs, integrated terminal, status bar
+    # explorer (existing ranger list + places), editor with tabs, collapsible/dockable terminal, status bar
     assert 'id="rangerListPane"' in space and 'id="spaceFileList"' in space and 'id="drivePlacesList"' in space
     assert 'id="ideTabs"' in space and 'id="agentspaceEditor"' in space
-    assert 'id="idePanel"' in space
+    assert 'id="idePanel" class="ide-panel is-collapsed"' in space
+    assert 'id="spaceToggleTerminalBtn"' in space
     assert re.search(r'id="ideTermMount"[^>]*data-tc-shell-mount', space)
     assert 'id="ideStatus"' in space
     # scope switching + owner survive
