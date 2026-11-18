@@ -1,4 +1,4 @@
-"""Unit and JS runtime tests for iot_federated_agent_memory.node_studio_ui."""
+"""Unit and JS runtime tests for the 1:1 Nano Banana Gemini Node Studio UI."""
 
 from __future__ import annotations
 
@@ -19,9 +19,13 @@ if WORKTREE_DIR not in sys.path:
 from iot_federated_agent_memory.mesh_os_ui import MESH_OS_HTML_UI  # noqa: E402
 from iot_federated_agent_memory.node_studio_ui import (  # noqa: E402
     AEONIK_PALETTE,
-    FILTER_RACK_SPECS,
-    MODALITY_SPECS,
-    MODEL_OPTIONS,
+    AVAILABLE_MODELS,
+    FILTER_PRESETS,
+    LUMINA_ASSETS,
+    LUMINA_TEMPLATES,
+    MODEL_CAPABILITIES,
+    PANORAMIC_ASPECT_RATIOS,
+    STANDARD_ASPECT_RATIOS,
     render_node_studio_html,
     render_node_studio_window_html,
 )
@@ -43,165 +47,137 @@ def _extract_inline_script(html: str) -> str:
     return m.group(1)
 
 
-@pytest.mark.parametrize("modality", ["image", "text", "video"])
-def test_aeonik_celadon_compliance_across_modalities(modality: str) -> None:
-    html = render_node_studio_html(modality)
+def test_aeonik_celadon_compliance_and_no_four_quadrant_table() -> None:
+    html = render_node_studio_html()
     assert html.startswith("<!doctype html>")
     assert legacy_palette_classes(html) == []
     assert celadonize_classes(html) == html
-    for forbidden in ("bg-slate-", "text-cyan-", "bg-cyan-", "bg-emerald-", "bg-gradient-to-"):
+    for forbidden in ("bg-slate-", "text-cyan-", "bg-cyan-", "bg-emerald-", "bg-zinc-", "bg-gradient-to-"):
         assert forbidden not in html
     for hex_token in ("#ecf1e6", "#f4f8f0", "#ffffff", "#111111", "#4a4a4a", "#5c5c5c", "#107a47"):
         assert hex_token in html.lower()
     assert set(AEONIK_PALETTE.values()) >= {"#ecf1e6", "#f4f8f0", "#ffffff", "#111111", "#107a47"}
 
+    # Must be full-screen infinite dot-grid canvas, NOT the scrapped 4-quadrant layout
+    assert "24px 24px" in html
+    assert "radial-gradient(" in html
+    assert "ns-quad-grid" not in html
+    assert "NODE GRAPH · DAG &amp; SERIAL FILTER CHAIN" not in html
 
-def test_render_node_studio_image_four_quadrants_and_controls() -> None:
-    html = render_node_studio_html("image")
 
-    # Top Bar
-    for token in (
-        "14:41",
-        "Node Studio · Image",
-        "~/space/nodes",
-        "Editor",
-        "Timeline",
-        "Library",
-        "Text",
-        "Image",
-        "Video",
+def test_top_switcher_hud_left_panel_and_zoom_controls() -> None:
+    html = render_node_studio_html()
+
+    # Top-Center Floating View Switcher
+    for tab in ("Editor", "Chat", "Library"):
+        assert tab in html
+
+    # Empty Canvas State & Drop Overlay
+    assert "Canvas Empty" in html
+    assert "Use the toolbar below to generate or drag &amp; drop images" in html
+    assert "Drop images here" in html
+
+    # Top-Right Floating HUD & Keyboard Shortcuts
+    for hud_tok in (
+        "⌘/Ctrl held - click node to duplicate",
+        "Auto-Layout",
+        "[A]",
+        "Keys",
+        "[i]",
+        "Keyboard Shortcuts",
+        "Delete / Backspace",
+        "⌘/Ctrl + A",
+        "Fit view",
+        "Invert image selection",
     ):
-        assert token in html
+        assert hud_tok in html
 
-    # Quadrant 1: DAG & Serial Filter Chain
-    for q1_token in (
-        "NODE GRAPH · DAG &amp; SERIAL FILTER CHAIN",
-        "[01 · GENERATED]",
-        "[02 · UPLOADED REF]",
-        "[03 · FILTER + EDIT]",
-        "[04 · MERGED 21:9 *SEL]",
-        "[05 · 4K]",
-        "LivingCube",
-        "[A] Auto-Layout",
-        "[F] Fit View",
-        "[Cmd+D] Bypass Filter",
-        "+ Ref",
-        "00:00 [#01]",
-        "00:03 [#03 LUT]",
-        "00:06 [#04 21:9]",
-        "00:09 [#05 4K]",
+    # Left-Center Floating Pill <-> Lumina Library Drawer
+    for left_tok in (
+        "nsLeftPillWrap",
+        "nsLeftDrawer",
+        "Lumina Library",
+        "References",
+        "DROP OR CLICK",
+        "3D Assets",
+        "Search assets...",
+        "Prompts",
+        "Cyberpunk Street",
+        "Ethereal Portrait",
+        "Isometric Gamer Room",
+        "Abstract Geometric",
+        "Forest Cabin",
+        "New Template",
+        "SYNCED",
+        "Storage: 24%",
+        "Asset_Pack_1",
+        "Asset_Pack_15",
     ):
-        assert q1_token in html
+        assert left_tok in html
 
-    # Quadrant 2: Telemetry & Filter Rack
-    for q2_token in (
-        "NANOGPT &amp; FILTER RACK",
-        "LUT MIX",
-        "85%",
-        "HALATION",
-        "+35%",
-        "5,000 CR",
-        "12.0s",
-        "ON ●",
-    ):
-        assert q2_token in html
+    # Bottom-Left Zoom Controls
+    for zoom_id in ("nsZoomInBtn", "nsZoomOutBtn", "nsFitViewBtn"):
+        assert f'id="{zoom_id}"' in html
 
-    for filter_id in (
-        "kodak_2383",
-        "halation",
-        "film_grain_16mm",
-        "wga_tighten",
-        "fact_lock",
-        "optical_flow_60fps",
-        "temporal_deflicker",
-        "j_cut_dialogue_duck",
-    ):
-        assert filter_id in html
-        assert f'id="nsFilterBtn-{filter_id}"' in html
 
-    # Quadrant 3: Tree
-    for q3_token in (
-        "TREE ~/space/nodes/timeline",
-        "├──",
-        "└──",
-        "main.dag",
-        "kodak_2383.cube",
-        "char_rig_sheet.png",
-    ):
-        assert q3_token in html
+def test_prompt_island_models_capabilities_and_api_config() -> None:
+    html = render_node_studio_html()
 
-    # Quadrant 4: Prompt Island
-    for q4_token in (
-        "PROMPT ISLAND",
-        "MODE: MERGE (2 SELECTED)",
+    for tok in (
+        "max-width: 920px",
+        "GENERATE MODE",
         "In Conversation",
-        "API: NanoGPT + Gemini Ready",
-        "X-NanoGPT-Api-Key",
-        "X-Gemini-Api-Key",
-        "[REF #01]",
-        "[REF #02]",
-        "[REF #03]",
-        "+ Attach .space / Drop Ref",
-        "ASPECT 21:9",
-        "RES 4K",
-        "THINK HIGH",
-        "SEARCH WEB+IMG",
-        "VIA AUTO (NANOGPT)",
+        "Branching from image",
+        "API Configuration",
+        "Gemini: Not Set",
+        "NanoGPT: Not Set",
+        "Custom Gemini Key (optional)",
+        "Custom NanoGPT Key (optional)",
+        "Select Model",
+        "Nano Banana 2.1",
+        "Nano Banana Pro",
+        "Nano Banana 2",
+        "Nano Banana 2 Lite",
+        "Describe what you want to generate...",
+        "ASPECT",
+        "RES",
+        "THINK",
+        "THOUGHTS",
+        "SEARCH",
+        "VIA",
+        "0/14 refs (Img/Vid/PDF)",
+        "0/2",
+        "Generate →",
         "/api/nodes/generate",
+        "/api/generate",
+        "/api/nodes/health",
     ):
-        assert q4_token in html
+        assert tok in html
 
-    for model_id in (
-        "nano-banana-2.1",
-        "nano-banana-pro",
-        "nano-banana-2",
-        "nano-banana-2-lite",
-        "deepseek-v4.1-tee",
-        "ltx-video",
-    ):
-        assert f'value="{model_id}"' in html
+    for ratio in STANDARD_ASPECT_RATIOS + PANORAMIC_ASPECT_RATIOS:
+        assert f'value="{ratio}"' in html
 
-    # Bottom Status Bar
-    for status_token in ("main ↑1 ↓0", "~/space/nodes", "3/14 refs", "nanogpt-2.1", "zsh", "120×34", "UTF-8"):
-        assert status_token in html
-
-
-def test_render_node_studio_text_and_video_modalities() -> None:
-    text_html = render_node_studio_html("text")
-    for token in (
-        "Node Studio · Text",
-        "~/space/notes",
-        "TEXT NODE GRAPH · BRANCHING DRAFTS &amp; PROSE FILTER CHAIN",
-        "410 t/s",
-        "-38%",
-        "128K tok",
-        "4 Beats",
-        "TREE ~/space/notes/text-nodes",
-        "deepseek-v4.1-tee",
-        "FAILOVER.pdf",
-    ):
-        assert token in text_html
-
-    video_html = render_node_studio_html("video")
-    for token in (
-        "Node Studio · Video",
-        "~/space/video",
-        "VIDEO NODE GRAPH · MULTI-SHOT &amp; TEMPORAL CHAIN",
-        "60 fps",
-        "-14 LUFS",
-        "98% Lock",
-        "14.0s",
-        "TREE ~/space/video/timeline-cuts",
-        "ltx-video",
-        "vo_kokoro_narration.wav",
-    ):
-        assert token in video_html
-
-    fallback_html = render_node_studio_html("unknown-modality")
-    assert "Node Studio · Image" in fallback_html
+    assert len(AVAILABLE_MODELS) == 4
+    assert set(MODEL_CAPABILITIES.keys()) >= {
+        "gemini-nano-banana-2.1",
+        "gemini-3-pro-image",
+        "gemini-3.1-flash-image",
+        "gemini-3.1-flash-lite-image",
+    }
+    assert len(FILTER_PRESETS) == 5
+    assert len(LUMINA_TEMPLATES) == 5
+    assert len(LUMINA_ASSETS) == 15
 
 
-def test_render_node_studio_window_html_and_chrome_integration() -> None:
+def test_render_node_studio_views_and_window_chrome_integration() -> None:
+    chat_html = render_node_studio_html(active_view="chat")
+    assert 'id="nsConversationView" class="ns-alt-view"' in chat_html
+    assert "Conversation Editor" in chat_html
+
+    lib_html = render_node_studio_html(active_view="library")
+    assert 'id="nsLibraryView" class="ns-alt-view"' in lib_html
+    assert "Asset Library" in lib_html
+
     win_html = render_node_studio_window_html()
     assert win_html.startswith('<div id="win-nodes" class="mesh-window')
     assert (
@@ -211,20 +187,16 @@ def test_render_node_studio_window_html_and_chrome_integration() -> None:
     assert legacy_palette_classes(win_html) == []
     assert celadonize_classes(win_html) == win_html
 
-    # Unique IDs inside win-nodes and zero collisions with other windows in MESH_OS_HTML_UI
     ns_ids = re.findall(r'(?<![\w-])id="([^"]+)"', win_html)
-    assert len(ns_ids) >= 35
+    assert len(ns_ids) >= 40
     assert len(ns_ids) == len(set(ns_ids))
 
     mesh_counts = Counter(re.findall(r'(?<![\w-])id="([^"]+)"', MESH_OS_HTML_UI))
-    # win-nodes is mounted in MESH_OS_HTML_UI once, so every ID must appear exactly once.
-    collisions = {eid: mesh_counts[eid] for eid in ns_ids if mesh_counts[eid] != 1}
-    assert collisions == {}, f"Expected every #win-nodes ID once in MESH_OS_HTML_UI: {collisions}"
+    duplicates = [eid for eid in ns_ids if mesh_counts[eid] != 1]
+    assert duplicates == []
 
-    # Expand titlebars and apply_window_chrome cleanly
     expanded = expand_titlebars(win_html)
     assert "<!--TC_TITLEBAR" not in expanded
-    assert "Node Studio · Prompt Island, Timeline &amp; Filter Graph" in expanded
     assert "NANOGPT + GEMINI" in expanded
 
     page = f"<!doctype html><html><head></head><body>{win_html}</body></html>"
@@ -234,28 +206,14 @@ def test_render_node_studio_window_html_and_chrome_integration() -> None:
     assert apply_window_chrome(chromed) == chromed
 
 
-def test_view_parameter_and_registry_constants() -> None:
-    assert len(MODALITY_SPECS) == 3
-    assert len(FILTER_RACK_SPECS) == 8
-    assert len(MODEL_OPTIONS) >= 6
-
-    tl_html = render_node_studio_html("image", active_view="timeline")
-    assert 'id="nsTimelineSubview" class="ns-subview"' in tl_html
-    assert 'id="nsQuadGrid" class="ns-quad-grid hidden"' in tl_html
-
-    lib_html = render_node_studio_html("image", active_view="library")
-    assert 'id="nsLibrarySubview" class="ns-subview"' in lib_html
-
-
-def test_inline_js_syntax_and_interactive_state_transitions_in_node() -> None:
+def test_inline_js_syntax_and_studio_interactions_in_node() -> None:
     node_bin = shutil.which("node")
     if not node_bin:
         pytest.skip("node binary not available for JS check")
 
-    html = render_node_studio_html("image")
+    html = render_node_studio_html()
     script = _extract_inline_script(html)
 
-    # Syntax check via node --check using stdin
     proc = subprocess.run(
         [node_bin, "--check"],
         input=script,
@@ -265,7 +223,6 @@ def test_inline_js_syntax_and_interactive_state_transitions_in_node() -> None:
     )
     assert proc.returncode == 0, f"JS syntax error: {proc.stderr}"
 
-    # Behavioral runtime check in Node with lightweight DOM stub
     harness = f"""
 const elements = new Map();
 function makeEl(id) {{
@@ -274,9 +231,12 @@ function makeEl(id) {{
     textContent: "",
     innerHTML: "",
     value: "",
+    placeholder: "",
+    disabled: false,
     dataset: {{}},
     style: {{}},
     attributes: {{}},
+    scrollHeight: 50,
     _classes: new Set(),
     classList: {{
       toggle(c, force) {{
@@ -294,76 +254,90 @@ function makeEl(id) {{
     setAttribute(k, v) {{ el.attributes[k] = String(v); }},
     addEventListener() {{}},
     querySelectorAll() {{ return []; }},
-    getBoundingClientRect() {{ return {{ left: 0, top: 0, right: 100, height: 60, width: 800 }}; }}
+    focus() {{}},
+    getBoundingClientRect() {{ return {{ left: 0, top: 0, width: 1200, height: 800 }}; }}
   }};
   return el;
 }}
 [
-  "nsTopClock", "nsModePill", "nsCliPreview", "nsBottomStatusLeft", "nsDagCanvas", "nsDagWires",
-  "nsRefsRow", "nsHeroTitle", "nsHeaderCwd", "nsQ1Title", "nsQ2Title", "nsQ2Endpoint",
-  "nsQ3Title", "nsApiStatusBtn", "nsGenerateBtn", "nsPromptInput", "nsModelSelect",
-  "nsKpiGrid", "nsSparkWrap", "nsDagNodes", "nsTlPrefix", "nsTlStops", "nsNodeTableBody",
-  "nsTreeList", "nsTreeFooter", "nsQuadGrid", "nsTimelineSubview", "nsLibrarySubview",
-  "nsGenFeedback", "nsFilterBtn-kodak_2383", "nsFilterBtn-wga_tighten"
+  "nsDotCanvas", "nsEmptyState", "nsCanvasWorld", "nsEdgesSvg", "nsNodesLayer",
+  "nsSelectionBox", "nsDropOverlay", "nsConversationView", "nsLibraryView",
+  "nsLibraryViewGrid", "nsCopyIndicator", "nsAutoLayoutBtn", "nsShortcutsBtn",
+  "nsShortcutsPopover", "nsLeftPillWrap", "nsLeftDrawer", "nsAssetSearchInput",
+  "nsLibAssetGrid", "nsLibTemplateList", "nsNewTemplateBtn", "nsModePill",
+  "nsConvPill", "nsBranchPill", "nsApiBtn", "nsApiMenu", "nsApiGeminiStatus",
+  "nsApiNanogptStatus", "nsApiSourceText", "nsApiClearBtn", "nsGeminiKeyInput",
+  "nsNanogptKeyInput", "nsModelBtn", "nsModelBtnLabel", "nsModelMenu",
+  "nsRefsStrip", "nsRefsRow", "nsPromptInput", "nsAttachTrigger", "nsFileInput",
+  "nsAspectSelect", "nsAspectVal", "nsResWrap", "nsResSelect", "nsResVal",
+  "nsThinkWrap", "nsThinkSelect", "nsThinkVal", "nsThoughtsBtn",
+  "nsSearchWrap", "nsSearchSelect", "nsSearchVal", "nsViaVal", "nsRefCounter",
+  "nsActiveRunsCount", "nsGenerateBtn", "nsResponseToast"
 ].forEach((id) => elements.set(id, makeEl(id)));
 
 global.window = {{
+  innerWidth: 1280,
+  innerHeight: 800,
   location: {{ href: "http://localhost:8000/nodes", search: "" }},
-  history: {{ replaceState() {{}} }},
   addEventListener() {{}}
 }};
 global.document = {{
   readyState: "complete",
   getElementById(id) {{ return elements.get(id) || null; }},
   querySelectorAll() {{ return []; }},
-  addEventListener() {{}}
+  addEventListener() {{}},
+  createElement() {{ return makeEl("tmp"); }},
+  body: {{ appendChild() {{}}, removeChild() {{}} }}
 }};
-global.setInterval = () => 0;
-global.clearInterval = () => {{}};
-global.setTimeout = () => 0;
-global.fetch = () => Promise.resolve({{ ok: true, json: async () => ({{ node: {{ id: "06" }} }}) }});
+global.fetch = () => Promise.resolve({{ ok: true, json: async () => ({{ ok: true, hasServerKey: true, hasGeminiKey: true, hasNanogptKey: true }}) }});
 
 {script}
 
 const api = window.TinCanNodeStudio;
-const results = {{}};
+const out = {{}};
 
-// Initial image state has 2 selected nodes -> MERGE MODE
-results.initialMode = elements.get("nsModePill").textContent;
+// Initial mode
+out.initialMode = elements.get("nsModePill").textContent;
 
-// Clear selection -> 0 selected -> GENERATE MODE
+// Spawn 2 assets -> edit -> merge
+api.spawnAssetNode("asset-0");
+api.addNodeAsRef(api.getState().nodes[0].id);
+out.editMode = elements.get("nsModePill").textContent;
+
+api.spawnAssetNode("asset-1");
+api.addNodeAsRef(api.getState().nodes[1].id);
+out.mergeMode = elements.get("nsModePill").textContent;
+
+// Toggle non-destructive filter on node
+const firstId = api.getState().nodes[0].id;
+api.toggleNodeFilter(firstId, "kodak_2383");
+out.nodeFilterOn = !!api.getState().nodes[0].filters.kodak_2383;
+
+// Duplicate & auto-layout with 3 nodes
+api.duplicateNode(firstId);
+out.nodeCountAfterDup = api.getState().nodes.length;
+api.autoLayout();
+out.autoLayoutHidden = elements.get("nsAutoLayoutBtn").classList.contains("hidden");
+
+// Model capability switching (Pro -> 1:1 resets panoramic 1:8, Lite -> 1K)
+api.updateConfig("aspectRatio", "1:8");
+out.panoAspect = api.getState().aspectRatio;
+api.selectModel("gemini-3-pro-image");
+out.proAspectFallback = api.getState().aspectRatio;
+api.selectModel("gemini-3.1-flash-lite-image");
+out.liteRes = api.getState().resolution;
+
+// Left panel expand/collapse & template apply
+api.toggleLeftPanel(true);
+out.drawerVisible = !elements.get("nsLeftDrawer").classList.contains("hidden");
+api.applyTemplate("t1");
+out.appliedPrompt = elements.get("nsPromptInput").value;
+
+// Clear selection resets to GENERATE MODE
 api.clearSelection();
-results.zeroMode = elements.get("nsModePill").textContent;
+out.clearedMode = elements.get("nsModePill").textContent;
 
-// Select 1 node -> EDIT + FILTER MODE
-api.toggleNode("01");
-results.oneMode = elements.get("nsModePill").textContent;
-
-// Select 2nd node -> MERGE MODE
-api.toggleNode("02");
-results.twoMode = elements.get("nsModePill").textContent;
-
-// Toggle filter kodak_2383 off -> ○ OFF
-api.toggleFilter("kodak_2383");
-results.filterOffText = elements.get("nsFilterBtn-kodak_2383").textContent;
-
-// Switch to text modality
-api.applyModality("text", false);
-results.textTitle = elements.get("nsHeroTitle").textContent;
-results.textPath = elements.get("nsHeaderCwd").textContent;
-
-// Switch to video modality
-api.applyModality("video", false);
-results.videoTitle = elements.get("nsHeroTitle").textContent;
-results.videoPath = elements.get("nsHeaderCwd").textContent;
-
-// Attach and remove ref
-api.attachQuickRef("custom_ref.png");
-results.refCountAfterAdd = api.getState().refs.length;
-api.removeRef(0);
-results.refCountAfterRemove = api.getState().refs.length;
-
-console.log(JSON.stringify(results));
+console.log(JSON.stringify(out));
 """
     run_res = subprocess.run(
         [node_bin, "-e", harness],
@@ -372,15 +346,16 @@ console.log(JSON.stringify(results));
         check=False,
     )
     assert run_res.returncode == 0, f"Node runtime failed: {run_res.stderr}"
-    out = json.loads(run_res.stdout.strip())
-    assert out["initialMode"] == "MODE: MERGE (2 SELECTED)"
-    assert out["zeroMode"] == "MODE: GENERATE (0 SELECTED)"
-    assert out["oneMode"] == "MODE: EDIT + FILTER (1 SELECTED)"
-    assert out["twoMode"] == "MODE: MERGE (2 SELECTED)"
-    assert out["filterOffText"] == "○ OFF"
-    assert out["textTitle"] == "Node Studio · Text"
-    assert out["textPath"] == "~/space/notes"
-    assert out["videoTitle"] == "Node Studio · Video"
-    assert out["videoPath"] == "~/space/video"
-    assert out["refCountAfterAdd"] == 4
-    assert out["refCountAfterRemove"] == 3
+    res = json.loads(run_res.stdout.strip())
+    assert res["initialMode"] == "GENERATE MODE"
+    assert res["editMode"] == "EDIT MODE"
+    assert res["mergeMode"] == "MERGE MODE"
+    assert res["nodeFilterOn"] is True
+    assert res["nodeCountAfterDup"] == 3
+    assert res["autoLayoutHidden"] is False
+    assert res["panoAspect"] == "1:8"
+    assert res["proAspectFallback"] == "1:1"
+    assert res["liteRes"] == "1K"
+    assert res["drawerVisible"] is True
+    assert "Tokyo" in res["appliedPrompt"]
+    assert res["clearedMode"] == "GENERATE MODE"
