@@ -27,6 +27,62 @@ AEONIK_MOCKUPS: List[Dict[str, str]] = [
         "link": "/fono",
         "link_label": "Open Aeonik Fono",
     },
+    {
+        "id": "aeonik-node-terminal-04",
+        "title": "Aeonik Node Studio · Image DAG & LUT Filter Rack",
+        "desc": "4-quadrant Aeonik Celadon & Ink Node Studio for image workflows: orthogonal DAG canvas, Kodak 2383 LUT + Halation filter rack, .space tree, and Prompt Island.",
+        "img": "/assets/designs/tincan_gemini_node_terminal_04.png",
+        "link": "/nodes?modality=image",
+        "link_label": "Open Image Node Studio",
+    },
+    {
+        "id": "aeonik-node-terminal-04-text",
+        "title": "Aeonik Node Studio · Text Prose Filter & Beat Timeline",
+        "desc": "Text modality DAG with DeepSeek-v4.1-TEE / Gemini 3.1 Pro routing, WGA Tighten & Fact Lock prose filters, and beat timeline.",
+        "img": "/assets/designs/tincan_gemini_node_terminal_04_text.png",
+        "link": "/nodes?modality=text",
+        "link_label": "Open Text Node Studio",
+    },
+    {
+        "id": "aeonik-node-terminal-04-video",
+        "title": "Aeonik Node Studio · Video Cut Timeline & 60fps/LUFS Rack",
+        "desc": "Video modality DAG with LTX-Video / Kling 1.6 synthesis, 60fps Optical Flow, Temporal Deflicker, and -14 LUFS J-Cut ducking.",
+        "img": "/assets/designs/tincan_gemini_node_terminal_04_video.png",
+        "link": "/nodes?modality=video",
+        "link_label": "Open Video Node Studio",
+    },
+    {
+        "id": "aeonik-node-terminal-04-sheet",
+        "title": "Aeonik Node Studio · 3-Modality Master Sheet (Image · Text · Video)",
+        "desc": "Composite contact sheet unifying Image, Text, and Video Aeonik Node Studio industrial terminals over a shared .space DAG.",
+        "img": "/assets/designs/tincan_gemini_node_terminal_04_modalities_sheet.png",
+        "link": "/nodes",
+        "link_label": "Open Node Studio",
+    },
+    {
+        "id": "aeonik-node-studio-01",
+        "title": "Node Studio Window · Prompt Island & DAG Canvas",
+        "desc": "Primary Mesh OS #win-nodes window spec featuring selection-driven Prompt Island and orthogonal node graph.",
+        "img": "/assets/designs/tincan_gemini_node_studio_01.png",
+        "link": "/nodes",
+        "link_label": "Open Node Studio",
+    },
+    {
+        "id": "aeonik-node-spec-02",
+        "title": "Node Timeline & Non-Destructive Filter Rack",
+        "desc": "Time-indexed 00:00 -> 00:09 DAG timeline strip paired with toggleable non-destructive filter rack and sparklines.",
+        "img": "/assets/designs/tincan_gemini_node_spec_02.png",
+        "link": "/nodes?view=timeline",
+        "link_label": "Open Timeline View",
+    },
+    {
+        "id": "aeonik-node-modes-03",
+        "title": "Prompt Island Modes (Generate / Edit / Merge) & NanoGPT Hookup",
+        "desc": "Selection-driven Generate (0), Edit + Filter (1), and Merge (2+) Prompt Island state machine wired to NanoGPT and Gemini.",
+        "img": "/assets/designs/tincan_gemini_node_modes_03.png",
+        "link": "/nodes?view=gateway",
+        "link_label": "Open Gateway View",
+    },
 ]
 
 IOS_MOCKUPS: List[Dict[str, str]] = [
@@ -411,7 +467,7 @@ main.container {{
 </header>
 
 <div class="tabs-bar">
-  <button class="tab-btn{tab_cls('aeonik')}" onclick="switchGalleryTab('aeonik')">01 · Aeonik Celadon &amp; Ink (2)</button>
+  <button class="tab-btn{tab_cls('aeonik')}" onclick="switchGalleryTab('aeonik')">01 · Aeonik Celadon &amp; Ink ({len(AEONIK_MOCKUPS)})</button>
   <button class="tab-btn{tab_cls('ios')}" onclick="switchGalleryTab('ios')">02 · Native iOS App (11)</button>
   <button class="tab-btn{tab_cls('car')}" onclick="switchGalleryTab('car')">03 · Car Head-Unit UI (5)</button>
   <button class="tab-btn{tab_cls('desktop')}" onclick="switchGalleryTab('desktop')">04 · Mesh OS Windows ({len(DESKTOP_MOCKUPS)})</button>
@@ -445,6 +501,7 @@ main.container {{
       </div>
       <div style="display: flex; gap: 10px; flex-wrap: wrap;">
         <a href="/terminal" class="btn-cta">⚡ Launch Fullscreen Terminal</a>
+        <a href="/nodes" class="btn-cta outline">⬢ Launch Node Studio</a>
         <a href="/fono" class="btn-cta outline">📱 Launch Aeonik Fono</a>
       </div>
     </div>

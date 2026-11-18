@@ -2849,6 +2849,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     <!--TC_LOCALHOST_WINDOW-->
 
+    <!--TC_NODES_WINDOW-->
+
     <!--TC_COPILOT_WINDOW-->
 
     <!-- Window 10: TinCan AI Command Shell & Hub (Aeonik Home Overlay Window) -->
@@ -2899,6 +2901,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     </button>
     <button id="dockBtn-win-localhost" onclick="toggleWindow('win-localhost')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Localhost &amp; .space Pages Browser (gh-pages + :port proxy)">
       <span>🌐</span> <span class="hidden md:inline">Localhost</span>
+    </button>
+    <button id="dockBtn-win-nodes" onclick="toggleWindow('win-nodes')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="Aeonik Node Studio · Prompt Island, Timeline &amp; Filter Graph">
+      <span>⬢</span> <span class="hidden md:inline">Node Studio</span>
     </button>
     <button id="dockBtn-win-ai-home" onclick="toggleWindow('win-ai-home')" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-mono transition flex items-center gap-1 active:scale-95" title="TinCan AI Command Shell &amp; Workflow Hub">
       <span>⌘</span> <span class="hidden md:inline">AI Hub</span>
@@ -2961,6 +2966,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       else if (window.location.pathname === '/ai' || window.location.pathname === '/home') singleWindowParam = 'win-ai-home';
       else if (window.location.pathname === '/rewards' || window.location.pathname === '/quests') singleWindowParam = 'win-quests';
       else if (window.location.pathname === '/network') singleWindowParam = 'win-network';
+      else if (window.location.pathname === '/nodes' || window.location.pathname.startsWith('/nodes/')) singleWindowParam = 'win-nodes';
     }
     if (singleWindowParam && !singleWindowParam.startsWith('win-')) {
       singleWindowParam = 'win-' + singleWindowParam;
@@ -3140,7 +3146,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     // Window Manager: Draggable, Resizable, Focus, Minimize, Maximize, Pop Out, Multi-Instance
     let highestZ = 45;
-    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-call', 'win-comms', 'win-quests', 'win-moderator', 'win-billing', 'win-board', 'win-network', 'win-agentspace', 'win-workstation', 'win-browser', 'win-localhost', 'win-copilot', 'win-ai-home'];
+    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-call', 'win-comms', 'win-quests', 'win-moderator', 'win-billing', 'win-board', 'win-network', 'win-agentspace', 'win-workstation', 'win-browser', 'win-localhost', 'win-copilot', 'win-ai-home', 'win-nodes'];
     const poppedOutWindows = new Set();
 
     function switchNetTab(tabName) {
@@ -11115,10 +11121,24 @@ MESH_OS_HTML_UI = apply_arena_duel(MESH_OS_HTML_UI)
 from .workstation_ui import render_workstation_window_html  # noqa: E402
 from .browser_ui import render_browser_window_html  # noqa: E402
 from .localhost_ui import render_localhost_window_html  # noqa: E402
+try:
+    from .node_studio_ui import render_node_studio_window_html  # noqa: E402
+except Exception:
+    def render_node_studio_window_html() -> str:
+        return (
+            '<div id="win-nodes" class="mesh-window w-[1080px] max-w-full hidden" '
+            'data-zen-window="true" data-window-id="win-nodes" style="top: 68px; left: 88px; z-index: 40;">'
+            '<!--TC_TITLEBAR {"id": "win-nodes", "title": "Node Studio · Prompt Island, Timeline & Filter Graph", "badge": "NANOGPT + GEMINI"}-->'
+            '<div class="window-body p-4 bg-[#ecf1e6]">'
+            '<div class="font-mono text-xs text-[#111111]">Aeonik Node Studio · Image / Text / Video DAG &amp; Non-Destructive Filter Rack</div>'
+            '</div>'
+            '</div>'
+        )
 
 MESH_OS_HTML_UI = MESH_OS_HTML_UI.replace("<!--TC_WORKSTATION_WINDOW-->", render_workstation_window_html(), 1)
 MESH_OS_HTML_UI = MESH_OS_HTML_UI.replace("<!--TC_BROWSER_WINDOW-->", render_browser_window_html(), 1)
 MESH_OS_HTML_UI = MESH_OS_HTML_UI.replace("<!--TC_LOCALHOST_WINDOW-->", render_localhost_window_html(), 1)
+MESH_OS_HTML_UI = MESH_OS_HTML_UI.replace("<!--TC_NODES_WINDOW-->", render_node_studio_window_html(), 1)
 
 # TinCan Terminal AI components: Home AI Command Hub, Copilot Router, and Token Vault Store.
 from .ai_home_shell import apply_ai_home_shell  # noqa: E402
