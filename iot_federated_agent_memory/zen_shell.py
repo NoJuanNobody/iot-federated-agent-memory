@@ -305,6 +305,7 @@ ZEN_BODY = r"""
       <button class="zen-btn zq-extra" type="button" data-tool="win-agentspace">Workstation</button>
       <button class="zen-btn zq-extra" type="button" data-tool="win-arena">Arena</button>
       <button class="zen-btn zq-extra" type="button" data-tool="win-workstation">3D Studio</button>
+      <button class="zen-btn zq-extra" type="button" data-tool="win-nodes">Node Studio</button>
       <button class="zen-btn zq-extra" type="button" id="zenWatchAdQuickBtn" data-action="watch-ad" title="Watch Home Screen sponsor ads to earn tokens &amp; AI credits (zero subscriptions)">Watch Ad +CR</button>
       <button class="zen-btn" type="button" data-tool="all" aria-haspopup="dialog" aria-controls="zenLauncher">All tools<kbd>⌘K</kbd></button>
     </nav>
@@ -355,6 +356,7 @@ ZEN_BODY = r"""
         { id: 'win-copilot', name: 'AI Copilot', desc: 'Multi-gateway router, Context Palace & .space diffs', gate: 'use the AI copilot' },
         { id: 'win-ai-home', name: 'AI Hub', desc: 'Unified tincan ask command bar, ad credits & workflow overview', gate: 'open the AI hub' },
         { id: 'win-workstation', name: '3D Studio', desc: 'Hyper3D Rodin 3D meshes, TEE audits & Workstation bridge', gate: 'open 3D studio' },
+        { id: 'win-nodes', name: 'Node Studio', desc: 'Nano Banana Gemini Node Studio · infinite canvas, Prompt Island & Lumina Library', gate: 'open Node Studio' },
         { id: 'win-terminal', name: 'Terminal', desc: 'Quickstart and coding agent harnesses (agy, claude, opencode, dsx)', gate: 'open the terminal' },
         { id: 'win-arena', name: 'Arena', desc: 'Run Arena, vote A/B & Context Palace universal inventory', gate: 'use the AI arena' },
         { id: 'win-network', name: 'Network', desc: "Who's here, peers and the leaderboard", gate: 'see the network' },
@@ -723,6 +725,8 @@ ZEN_BODY = r"""
         { cmd: '/home', tool: 'win-ai-home', desc: 'Unified tincan ask command bar and workflow overview' },
         { cmd: '/workstation', tool: 'win-agentspace', desc: 'Workstation files, code runs, topic & sandbox facets' },
         { cmd: '/3dstudio', tool: 'win-workstation', desc: '3D Studio: Hyper3D Rodin 3D meshes, TEE audits & Foundry' },
+        { cmd: '/nodes', tool: 'win-nodes', desc: 'Nano Banana Gemini Node Studio · infinite canvas, Prompt Island & Lumina Library' },
+        { cmd: '/gemini-node-studio', tool: 'win-nodes', desc: 'Alias for Nano Banana Gemini Node Studio' },
         { cmd: '/space', tool: 'win-agentspace', desc: 'Alias for Workstation (.space VFS & Sandbox)' },
         { cmd: '/arena', tool: 'win-arena', desc: 'AI models, routing and duels' },
         { cmd: '/board', tool: 'win-board', desc: 'Topics, threads and the knowledge graph' },
@@ -734,7 +738,7 @@ ZEN_BODY = r"""
       const HELP_TEXT = 'Search tools      type a name, enter opens it\n' +
         '@name message     tag someone in the room chat\n' +
         '> command         run a command in your space ($ works too)\n' +
-        '/command          /terminal /copilot /ai /workstation /3dstudio /arena /board /talk /tokens /quests /help\n' +
+        '/command          /terminal /copilot /ai /workstation /3dstudio /nodes /arena /board /talk /tokens /quests /help\n' +
         'Tab completes an @name, esc returns to the feed';
 
       // ---- Command bar adapters (one small seam per outside system) ----------------

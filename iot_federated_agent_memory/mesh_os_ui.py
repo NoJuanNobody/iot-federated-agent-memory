@@ -2966,7 +2966,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       else if (window.location.pathname === '/ai' || window.location.pathname === '/home') singleWindowParam = 'win-ai-home';
       else if (window.location.pathname === '/rewards' || window.location.pathname === '/quests') singleWindowParam = 'win-quests';
       else if (window.location.pathname === '/network') singleWindowParam = 'win-network';
-      else if (window.location.pathname === '/nodes' || window.location.pathname.startsWith('/nodes/')) singleWindowParam = 'win-nodes';
+      else if (window.location.pathname === '/nodes' || window.location.pathname.startsWith('/nodes/') || window.location.pathname === '/gemini-node-studio') singleWindowParam = 'win-nodes';
     }
     if (singleWindowParam && !singleWindowParam.startsWith('win-')) {
       singleWindowParam = 'win-' + singleWindowParam;
