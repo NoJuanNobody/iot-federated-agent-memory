@@ -3,6 +3,9 @@ import difflib
 import gzip
 import hashlib
 import hmac
+import html as _html_mod
+import importlib
+import inspect
 import io
 import json
 import re
@@ -92,6 +95,228 @@ try:
     from iot_federated_agent_memory.designs_gallery import render_designs_gallery_html
 except Exception:
     render_designs_gallery_html = None
+
+try:
+    from iot_federated_agent_memory import node_studio_ui as _node_studio_ui
+except Exception:
+    _node_studio_ui = None
+
+try:
+    from iot_federated_agent_memory import node_studio_engine as _node_studio_engine
+except Exception:
+    _node_studio_engine = None
+
+_VALID_NODE_MODALITIES = ("image", "text", "video")
+_VALID_NODE_VIEWS = ("editor", "timeline", "gateway")
+
+
+def _get_node_studio_ui():
+    if _node_studio_ui is not None:
+        return _node_studio_ui
+    try:
+        return importlib.import_module("iot_federated_agent_memory.node_studio_ui")
+    except Exception:
+        return None
+
+
+def _get_node_studio_engine():
+    if _node_studio_engine is not None:
+        return _node_studio_engine
+    try:
+        return importlib.import_module("iot_federated_agent_memory.node_studio_engine")
+    except Exception:
+        return None
+
+
+def _normalize_node_modality(raw: Optional[str]) -> str:
+    val = (raw or "image").strip().lower()
+    return val if val in _VALID_NODE_MODALITIES else "image"
+
+
+def _normalize_node_view(raw: Optional[str]) -> str:
+    val = (raw or "editor").strip().lower()
+    return val if val in _VALID_NODE_VIEWS else "editor"
+
+
+def _render_node_studio_page(modality: str = "image", view: str = "editor") -> str:
+    active_modality = _normalize_node_modality(modality)
+    active_view = _normalize_node_view(view)
+    ui_mod = _get_node_studio_ui()
+    if ui_mod is not None and hasattr(ui_mod, "render_node_studio_html"):
+        fn = ui_mod.render_node_studio_html
+        try:
+            params = inspect.signature(fn).parameters
+        except (TypeError, ValueError):
+            params = {}
+        kwargs: Dict[str, Any] = {}
+        if "active_modality" in params:
+            kwargs["active_modality"] = active_modality
+        elif "modality" in params:
+            kwargs["modality"] = active_modality
+        if "active_view" in params:
+            kwargs["active_view"] = active_view
+        elif "view" in params:
+            kwargs["view"] = active_view
+        if kwargs:
+            return fn(**kwargs)
+        return fn(active_modality)
+
+    mod_title = _html_mod.escape(active_modality.title())
+    view_title = _html_mod.escape(active_view.title())
+    return (
+        "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+        f"<title>Aeonik Node Studio · {mod_title}</title>"
+        "<style>body{background:#ecf1e6;color:#111111;font-family:Inter,-apple-system,sans-serif;margin:0;padding:24px;}"
+        ".card{background:#f4f8f0;border:1px solid #111111;border-radius:12px;padding:16px;}</style></head>"
+        f"<body data-modality=\"{active_modality}\" data-view=\"{active_view}\">"
+        f"<div class=\"card\"><h1>Node Studio · {mod_title}</h1>"
+        f"<p>View: {view_title} · Path: ~/space/nodes · Gateway: NANOGPT + GEMINI</p>"
+        "<p>Mode: GENERATE / EDIT / MERGE · API: /api/nodes/generate</p></div></body></html>"
+    )
+
+
+def _node_studio_health(headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    eng = _get_node_studio_engine()
+    if eng is not None and hasattr(eng, "get_node_studio_health"):
+        return dict(eng.get_node_studio_health(headers=headers, env=os.environ))
+    hdrs = {k.lower(): v for k, v in (headers or {}).items()}
+    has_gemini = bool(os.environ.get("GEMINI_API_KEY") or hdrs.get("x-gemini-api-key"))
+    has_nanogpt = bool(os.environ.get("NANOGPT_API_KEY") or hdrs.get("x-nanogpt-api-key"))
+    return {
+        "ok": True,
+        "hasServerKey": has_gemini or has_nanogpt,
+        "hasGeminiKey": has_gemini,
+        "hasNanogptKey": has_nanogpt,
+        "modalities": ["text", "image", "video"],
+        "models": {},
+        "fallback": True,
+    }
+
+
+def _node_studio_state(modality: str = "image") -> Dict[str, Any]:
+    active_modality = _normalize_node_modality(modality)
+    eng = _get_node_studio_engine()
+    if eng is not None and hasattr(eng, "get_default_studio_state"):
+        state = dict(eng.get_default_studio_state(modality=active_modality))
+        state.setdefault("ok", True)
+        state.setdefault("modality", active_modality)
+        return state
+    return {
+        "ok": True,
+        "modality": active_modality,
+        "nodes": [],
+        "edges": [],
+        "filters": {},
+        "timeline": [],
+        "tree": [],
+        "fallback": True,
+    }
+
+
+def _node_studio_generate(
+    payload: Dict[str, Any], headers: Optional[Dict[str, str]] = None
+) -> Tuple[int, Dict[str, Any]]:
+    if not isinstance(payload, dict):
+        return 400, {"ok": False, "error": "Payload must be a JSON object"}
+    eng = _get_node_studio_engine()
+    if eng is not None and hasattr(eng, "handle_node_studio_generate"):
+        try:
+            res = eng.handle_node_studio_generate(payload, headers=headers, env=os.environ)
+            out = dict(res) if isinstance(res, dict) else {"result": res}
+            out.setdefault("ok", True)
+            status_code = 400 if out.get("ok") is False else 200
+            return status_code, out
+        except ValueError as ve:
+            return 400, {"ok": False, "error": str(ve)}
+
+    prompt = (payload.get("prompt") or "").strip()
+    if not prompt:
+        return 400, {"ok": False, "error": "Prompt is required"}
+    modality = _normalize_node_modality(payload.get("modality"))
+    selected = payload.get("selected_node_ids") or []
+    if len(selected) >= 2:
+        mode = "MERGE"
+    elif len(selected) == 1:
+        mode = "EDIT"
+    else:
+        mode = "GENERATE"
+    node_id = f"node-{uuid.uuid4().hex[:6]}"
+    return 200, {
+        "ok": True,
+        "mode": mode,
+        "modality": modality,
+        "node": {
+            "id": node_id,
+            "modality": modality,
+            "prompt": prompt,
+            "mode": mode,
+            "parents": list(selected),
+            "filters": dict(payload.get("filters") or {}),
+        },
+        "edges": [{"from": p, "to": node_id} for p in selected],
+        "timeline": [{"timecode": "00:00", "node_id": node_id, "modality": modality}],
+        "fallback": True,
+    }
+
+
+def _node_studio_filter(payload: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
+    if not isinstance(payload, dict):
+        return 400, {"ok": False, "error": "Payload must be a JSON object"}
+    eng = _get_node_studio_engine()
+    if eng is not None and hasattr(eng, "handle_node_studio_filter"):
+        try:
+            res = eng.handle_node_studio_filter(payload)
+            out = dict(res) if isinstance(res, dict) else {"result": res}
+            out.setdefault("ok", True)
+            return 200, out
+        except ValueError as ve:
+            return 400, {"ok": False, "error": str(ve)}
+
+    node_id = (payload.get("node_id") or "").strip()
+    filters = payload.get("filters") if isinstance(payload.get("filters"), dict) else {}
+    modality = _normalize_node_modality(payload.get("modality"))
+    if eng is not None and hasattr(eng, "apply_node_filters"):
+        try:
+            state = _node_studio_state(modality)
+            nodes = payload.get("nodes") if isinstance(payload.get("nodes"), list) else state.get("nodes", [])
+            edges = payload.get("edges") if isinstance(payload.get("edges"), list) else state.get("edges", [])
+            fn = eng.apply_node_filters
+            try:
+                params = list(inspect.signature(fn).parameters.keys())
+            except (TypeError, ValueError):
+                params = []
+            if "nodes" in params and "node_id" in params:
+                updated = fn(nodes=nodes, node_id=node_id, filters=filters)
+            elif len(params) >= 2 and params[0] == "node":
+                target = next((n for n in nodes if isinstance(n, dict) and n.get("id") == node_id), {"id": node_id, "filters": {}})
+                updated = fn(target, filters)
+            else:
+                updated = fn(node_id or "01", filters)
+            timeline = state.get("timeline", [])
+            if hasattr(eng, "build_timeline_sequence"):
+                try:
+                    timeline = eng.build_timeline_sequence(nodes, edges, target_node_id=node_id or None)
+                except Exception:
+                    pass
+            return 200, {
+                "ok": True,
+                "node_id": node_id,
+                "modality": modality,
+                "filters": filters,
+                "updated": updated,
+                "timeline": timeline,
+            }
+        except ValueError as ve:
+            return 400, {"ok": False, "error": str(ve)}
+
+    return 200, {
+        "ok": True,
+        "node_id": node_id,
+        "modality": modality,
+        "filters": filters,
+        "timeline": [],
+        "fallback": True,
+    }
 
 PORT = int(os.environ.get("PORT", 8080))
 
@@ -1069,7 +1294,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-NanoGPT-Api-Key, X-Gemini-Api-Key")
         for hk, hv in (headers or []):
             self.send_header(hk, hv)
         self.end_headers()
@@ -1305,7 +1530,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-NanoGPT-Api-Key, X-Gemini-Api-Key")
         self.end_headers()
 
     def _client_key(self) -> str:
@@ -3681,6 +3906,24 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": str(ve)}, 400)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/nodes/generate":
+            try:
+                data = self._read_json_body()
+                code, res = _node_studio_generate(data, dict(self.headers))
+                self._send_json(res, code)
+            except ValueError as ve:
+                self._send_json({"ok": False, "error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
+        elif parsed.path == "/api/nodes/filter":
+            try:
+                data = self._read_json_body()
+                code, res = _node_studio_filter(data)
+                self._send_json(res, code)
+            except ValueError as ve:
+                self._send_json({"ok": False, "error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
         elif parsed.path == "/api/thread/file":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
@@ -3735,6 +3978,17 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             return
         if parsed.path.startswith("/localhost/"):
             proxy_localhost_port(self, getattr(self, "command", "GET"), parsed.path, parsed.query)
+            return
+        if clean_path in ("/nodes", "/nodes/timeline", "/nodes/gateway"):
+            query = parse_qs(parsed.query)
+            modality = _normalize_node_modality(query.get("modality", ["image"])[0])
+            if clean_path == "/nodes/timeline":
+                view = "timeline"
+            elif clean_path == "/nodes/gateway":
+                view = "gateway"
+            else:
+                view = _normalize_node_view(query.get("view", ["editor"])[0])
+            self._send_html(_render_node_studio_page(modality=modality, view=view), 200)
             return
         if clean_path in ("/designs", "/mockups") or clean_path.startswith("/designs/") or clean_path.startswith("/mockups/"):
             if render_designs_gallery_html is not None:
@@ -4320,6 +4574,12 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "error": str(ve)}, 400)
             except Exception as e:
                 self._send_json({"ok": False, "error": str(e)}, 502)
+        elif parsed.path == "/api/nodes/health":
+            self._send_json(_node_studio_health(dict(self.headers)), 200)
+        elif parsed.path == "/api/nodes/state":
+            query = parse_qs(parsed.query)
+            modality = _normalize_node_modality(query.get("modality", ["image"])[0])
+            self._send_json(_node_studio_state(modality), 200)
         elif parsed.path == "/api/workstation/status":
             query = parse_qs(parsed.query)
             scope, owner_id = self._resolve_space_query(query)
@@ -4634,6 +4894,7 @@ except ImportError:
 class _FastAPIRouteHandler:
     def __init__(self):
         self.routes = {}
+        self.post_routes = {}
 
     def get(self, path: str):
         def decorator(fn):
@@ -4641,8 +4902,17 @@ class _FastAPIRouteHandler:
             return fn
         return decorator
 
+    def post(self, path: str):
+        def decorator(fn):
+            self.post_routes[path] = fn
+            return fn
+        return decorator
+
     def handle(self, method: str, path: str):
         clean_path = path.split("?")[0].rstrip("/") if path.split("?")[0] != "/" else "/"
+        if method.upper() == "POST" and clean_path in self.post_routes:
+            res = self.post_routes[clean_path]()
+            return res if hasattr(res, "status_code") else HTMLResponse(json.dumps(res), 200)
         if clean_path in self.routes:
             res = self.routes[clean_path]()
             return res if hasattr(res, "status_code") else HTMLResponse(str(res), 200)
@@ -4703,3 +4973,33 @@ def _fono_root():
 @app.get("/aeonik")
 def _aeonik_root():
     return _fono_root()
+
+@app.get("/nodes")
+def _nodes_root(modality: str = "image", view: str = "editor"):
+    return HTMLResponse(_render_node_studio_page(modality=modality, view=view))
+
+@app.get("/nodes/timeline")
+def _nodes_timeline(modality: str = "image"):
+    return HTMLResponse(_render_node_studio_page(modality=modality, view="timeline"))
+
+@app.get("/nodes/gateway")
+def _nodes_gateway(modality: str = "image"):
+    return HTMLResponse(_render_node_studio_page(modality=modality, view="gateway"))
+
+@app.get("/api/nodes/health")
+def _nodes_health():
+    return _node_studio_health()
+
+@app.get("/api/nodes/state")
+def _nodes_state(modality: str = "image"):
+    return _node_studio_state(modality=modality)
+
+@app.post("/api/nodes/generate")
+def _nodes_generate(payload: Optional[Dict[str, Any]] = None):
+    _, res = _node_studio_generate(payload or {})
+    return res
+
+@app.post("/api/nodes/filter")
+def _nodes_filter(payload: Optional[Dict[str, Any]] = None):
+    _, res = _node_studio_filter(payload or {})
+    return res
