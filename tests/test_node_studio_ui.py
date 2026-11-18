@@ -211,14 +211,15 @@ def test_render_node_studio_window_html_and_chrome_integration() -> None:
     assert legacy_palette_classes(win_html) == []
     assert celadonize_classes(win_html) == win_html
 
-    # Unique IDs inside win-nodes and zero collisions with MESH_OS_HTML_UI
+    # Unique IDs inside win-nodes and zero collisions with other windows in MESH_OS_HTML_UI
     ns_ids = re.findall(r'(?<![\w-])id="([^"]+)"', win_html)
     assert len(ns_ids) >= 35
     assert len(ns_ids) == len(set(ns_ids))
 
     mesh_counts = Counter(re.findall(r'(?<![\w-])id="([^"]+)"', MESH_OS_HTML_UI))
-    collisions = [eid for eid in ns_ids if mesh_counts[eid] > 0]
-    assert collisions == []
+    # win-nodes is mounted in MESH_OS_HTML_UI once, so every ID must appear exactly once.
+    collisions = {eid: mesh_counts[eid] for eid in ns_ids if mesh_counts[eid] != 1}
+    assert collisions == {}, f"Expected every #win-nodes ID once in MESH_OS_HTML_UI: {collisions}"
 
     # Expand titlebars and apply_window_chrome cleanly
     expanded = expand_titlebars(win_html)

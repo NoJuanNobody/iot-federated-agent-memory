@@ -224,7 +224,8 @@ def _node_studio_generate(
             res = eng.handle_node_studio_generate(payload, headers=headers, env=os.environ)
             out = dict(res) if isinstance(res, dict) else {"result": res}
             out.setdefault("ok", True)
-            status_code = 400 if out.get("ok") is False else 200
+            raw_code = out.get("statusCode")
+            status_code = raw_code if isinstance(raw_code, int) else (400 if out.get("ok") is False else 200)
             return status_code, out
         except ValueError as ve:
             return 400, {"ok": False, "error": str(ve)}
@@ -268,7 +269,9 @@ def _node_studio_filter(payload: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
             res = eng.handle_node_studio_filter(payload)
             out = dict(res) if isinstance(res, dict) else {"result": res}
             out.setdefault("ok", True)
-            return 200, out
+            raw_code = out.get("statusCode")
+            status_code = raw_code if isinstance(raw_code, int) else (400 if out.get("ok") is False else 200)
+            return status_code, out
         except ValueError as ve:
             return 400, {"ok": False, "error": str(ve)}
 
