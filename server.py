@@ -159,19 +159,22 @@ def _render_node_studio_page(modality: str = "image", view: str = "editor") -> s
             kwargs["view"] = active_view
         if kwargs:
             return fn(**kwargs)
+        if not params:
+            return fn()
         return fn(active_modality)
 
     mod_title = _html_mod.escape(active_modality.title())
     view_title = _html_mod.escape(active_view.title())
     return (
         "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
-        f"<title>Aeonik Node Studio · {mod_title}</title>"
-        "<style>body{background:#ecf1e6;color:#111111;font-family:Inter,-apple-system,sans-serif;margin:0;padding:24px;}"
-        ".card{background:#f4f8f0;border:1px solid #111111;border-radius:12px;padding:16px;}</style></head>"
+        f"<title>Nano Banana Gemini Node Studio · {mod_title}</title>"
+        "<style>body{background:#ecf1e6 radial-gradient(#11111126 1px,transparent 1px);background-size:24px 24px;"
+        "color:#111111;font-family:Inter,-apple-system,sans-serif;margin:0;padding:24px;}"
+        ".card{background:#f4f8f0;border:1px solid #111111;border-radius:16px;padding:16px;max-width:920px;margin:0 auto;}</style></head>"
         f"<body data-modality=\"{active_modality}\" data-view=\"{active_view}\">"
-        f"<div class=\"card\"><h1>Node Studio · {mod_title}</h1>"
-        f"<p>View: {view_title} · Path: ~/space/nodes · Gateway: NANOGPT + GEMINI</p>"
-        "<p>Mode: GENERATE / EDIT / MERGE · API: /api/nodes/generate</p></div></body></html>"
+        f"<div class=\"card\"><h1>Node Studio · {mod_title} (Nano Banana 2.1)</h1>"
+        f"<p>View: {view_title} · Lumina Library · Gateway: NANOGPT + GEMINI</p>"
+        "<p>Mode: GENERATE / EDIT / MERGE · API: /api/nodes/generate · /api/generate</p></div></body></html>"
     )
 
 
@@ -3909,7 +3912,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": str(ve)}, 400)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
-        elif parsed.path == "/api/nodes/generate":
+        elif parsed.path in ("/api/nodes/generate", "/api/generate"):
             try:
                 data = self._read_json_body()
                 code, res = _node_studio_generate(data, dict(self.headers))
@@ -3982,7 +3985,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         if parsed.path.startswith("/localhost/"):
             proxy_localhost_port(self, getattr(self, "command", "GET"), parsed.path, parsed.query)
             return
-        if clean_path in ("/nodes", "/nodes/timeline", "/nodes/gateway"):
+        if clean_path in ("/nodes", "/nodes/timeline", "/nodes/gateway", "/gemini-node-studio"):
             query = parse_qs(parsed.query)
             modality = _normalize_node_modality(query.get("modality", ["image"])[0])
             if clean_path == "/nodes/timeline":
@@ -4577,7 +4580,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "error": str(ve)}, 400)
             except Exception as e:
                 self._send_json({"ok": False, "error": str(e)}, 502)
-        elif parsed.path == "/api/nodes/health":
+        elif parsed.path in ("/api/nodes/health", "/api/health"):
             self._send_json(_node_studio_health(dict(self.headers)), 200)
         elif parsed.path == "/api/nodes/state":
             query = parse_qs(parsed.query)
@@ -4981,6 +4984,10 @@ def _aeonik_root():
 def _nodes_root(modality: str = "image", view: str = "editor"):
     return HTMLResponse(_render_node_studio_page(modality=modality, view=view))
 
+@app.get("/gemini-node-studio")
+def _gemini_node_studio_root(modality: str = "image", view: str = "editor"):
+    return HTMLResponse(_render_node_studio_page(modality=modality, view=view))
+
 @app.get("/nodes/timeline")
 def _nodes_timeline(modality: str = "image"):
     return HTMLResponse(_render_node_studio_page(modality=modality, view="timeline"))
@@ -4993,12 +5000,21 @@ def _nodes_gateway(modality: str = "image"):
 def _nodes_health():
     return _node_studio_health()
 
+@app.get("/api/health")
+def _api_health():
+    return _node_studio_health()
+
 @app.get("/api/nodes/state")
 def _nodes_state(modality: str = "image"):
     return _node_studio_state(modality=modality)
 
 @app.post("/api/nodes/generate")
 def _nodes_generate(payload: Optional[Dict[str, Any]] = None):
+    _, res = _node_studio_generate(payload or {})
+    return res
+
+@app.post("/api/generate")
+def _api_generate(payload: Optional[Dict[str, Any]] = None):
     _, res = _node_studio_generate(payload or {})
     return res
 

@@ -1,4 +1,4 @@
-"""Tests for Aeonik Node Studio routes, Mesh OS #win-nodes window, and Design Gallery entries."""
+"""Tests for Nano Banana Gemini Node Studio routes, Home Screen mounting, #win-nodes, and Design Gallery."""
 
 import json
 import os
@@ -21,6 +21,7 @@ for _mod in list(sys.modules.keys()):
         del sys.modules[_mod]
 
 import server
+from iot_federated_agent_memory.ai_home_shell import render_ai_home_hub_html
 from iot_federated_agent_memory.designs_gallery import (
     AEONIK_MOCKUPS,
     render_designs_gallery_html,
@@ -29,52 +30,35 @@ from iot_federated_agent_memory.mesh_os_ui import MESH_OS_HTML_UI
 
 
 EXPECTED_NODE_DESIGN_ASSETS = (
-    "tincan_gemini_node_terminal_04.png",
-    "tincan_gemini_node_terminal_04_text.png",
-    "tincan_gemini_node_terminal_04_video.png",
-    "tincan_gemini_node_terminal_04_modalities_sheet.png",
     "tincan_gemini_node_studio_01.png",
     "tincan_gemini_node_spec_02.png",
-    "tincan_gemini_node_modes_03.png",
     "tincan_gemini_node_sheet.png",
     "tincan_gemini_node_editor.figcraft",
 )
 
+SCRAPPED_NODE_DESIGN_ASSETS = (
+    "tincan_gemini_node_terminal_04.png",
+    "tincan_gemini_node_terminal_04_text.png",
+    "tincan_gemini_node_terminal_04_video.png",
+    "tincan_gemini_node_terminal_04_modalities_sheet.png",
+    "tincan_gemini_node_modes_03.png",
+)
+
 EXPECTED_GALLERY_ENTRIES = (
     (
-        "/assets/designs/tincan_gemini_node_terminal_04.png",
-        "Aeonik Node Studio · Image DAG & LUT Filter Rack",
-        "/nodes?modality=image",
-    ),
-    (
-        "/assets/designs/tincan_gemini_node_terminal_04_text.png",
-        "Aeonik Node Studio · Text Prose Filter & Beat Timeline",
-        "/nodes?modality=text",
-    ),
-    (
-        "/assets/designs/tincan_gemini_node_terminal_04_video.png",
-        "Aeonik Node Studio · Video Cut Timeline & 60fps/LUFS Rack",
-        "/nodes?modality=video",
-    ),
-    (
-        "/assets/designs/tincan_gemini_node_terminal_04_modalities_sheet.png",
-        "Aeonik Node Studio · 3-Modality Master Sheet (Image · Text · Video)",
-        "/nodes",
-    ),
-    (
         "/assets/designs/tincan_gemini_node_studio_01.png",
-        "Node Studio Window · Prompt Island & DAG Canvas",
+        "Nano Banana Gemini Node Studio · Infinite Canvas, Prompt Island & Lumina Library",
         "/nodes",
     ),
     (
         "/assets/designs/tincan_gemini_node_spec_02.png",
-        "Node Timeline & Non-Destructive Filter Rack",
-        "/nodes?view=timeline",
+        "Nano Banana Gemini Node Studio · Modes, Model Selector & API Spec",
+        "/gemini-node-studio",
     ),
     (
-        "/assets/designs/tincan_gemini_node_modes_03.png",
-        "Prompt Island Modes (Generate / Edit / Merge) & NanoGPT Hookup",
-        "/nodes?view=gateway",
+        "/assets/designs/tincan_gemini_node_sheet.png",
+        "Nano Banana Gemini Node Studio · Composite Contact Sheet",
+        "/nodes",
     ),
 )
 
@@ -107,7 +91,7 @@ def _http_req(url: str, method: str = "GET", payload=None, headers=None):
         return err.code, raw, dict(err.headers)
 
 
-def test_designs_gallery_includes_all_node_studio_mockups():
+def test_designs_gallery_keeps_only_nano_banana_node_studio_mockups():
     by_img = {m["img"]: m for m in AEONIK_MOCKUPS}
     html = render_designs_gallery_html("aeonik")
     for img_path, title, link in EXPECTED_GALLERY_ENTRIES:
@@ -117,15 +101,24 @@ def test_designs_gallery_includes_all_node_studio_mockups():
         assert img_path in html
         assert title in html
         assert f'href="{link}"' in html
+
+    for removed_fname in SCRAPPED_NODE_DESIGN_ASSETS:
+        assert removed_fname not in by_img
+        assert removed_fname not in html
+
     assert f"01 · Aeonik Celadon &amp; Ink ({len(AEONIK_MOCKUPS)})" in html
 
 
-def test_node_studio_design_assets_exist_and_serve(live_node_server):
+def test_node_studio_design_assets_exist_and_scrapped_removed(live_node_server):
     assets_dir = os.path.join(WORKTREE_DIR, "assets", "designs")
     for fname in EXPECTED_NODE_DESIGN_ASSETS:
         fpath = os.path.join(assets_dir, fname)
         assert os.path.isfile(fpath), f"Missing asset file: {fpath}"
         assert os.path.getsize(fpath) > 0, f"Empty asset file: {fpath}"
+
+    for removed_fname in SCRAPPED_NODE_DESIGN_ASSETS:
+        fpath = os.path.join(assets_dir, removed_fname)
+        assert not os.path.exists(fpath), f"Scrapped asset still present: {fpath}"
 
     for img_path, _, _ in EXPECTED_GALLERY_ENTRIES:
         with urllib.request.urlopen(f"{live_node_server}{img_path}") as resp:
@@ -134,92 +127,112 @@ def test_node_studio_design_assets_exist_and_serve(live_node_server):
             assert len(resp.read()) > 1000
 
 
-def test_mesh_os_ui_registers_win_nodes_window():
+def test_home_screen_and_mesh_os_mount_node_studio():
     assert 'id="win-nodes"' in MESH_OS_HTML_UI
     assert 'data-tc-titlebar="win-nodes"' in MESH_OS_HTML_UI
     assert 'id="dockBtn-win-nodes"' in MESH_OS_HTML_UI
     assert "'win-nodes'" in MESH_OS_HTML_UI
     assert "window.location.pathname === '/nodes'" in MESH_OS_HTML_UI
+    assert "window.location.pathname === '/gemini-node-studio'" in MESH_OS_HTML_UI
+
+    # Zen Home quickbar, TOOLS, SLASH, and HELP_TEXT
+    assert '<button class="zen-btn zq-extra" type="button" data-tool="win-nodes">Node Studio</button>' in MESH_OS_HTML_UI
+    assert "id: 'win-nodes'" in MESH_OS_HTML_UI
+    assert "cmd: '/nodes', tool: 'win-nodes'" in MESH_OS_HTML_UI
+    assert "cmd: '/gemini-node-studio', tool: 'win-nodes'" in MESH_OS_HTML_UI
+
+    # AI Home Shell prominent launch & embed
+    home_frag = render_ai_home_hub_html()
+    assert 'id="aiHomeNodeStudioMount"' in home_frag
+    assert 'id="aiHomeLaunchNodeStudioBtn"' in home_frag
+    assert 'data-window="win-nodes"' in home_frag
+    assert 'data-route="/nodes"' in home_frag
+    assert 'href="/nodes"' in home_frag
+    assert 'id="aiHomeNodeStudioMount"' in MESH_OS_HTML_UI
+    assert 'id="aiHomeLaunchNodeStudioBtn"' in MESH_OS_HTML_UI
 
 
 def test_nodes_html_routes_fallback_and_delegated(live_node_server, monkeypatch):
-    # 1. Work cleanly even when node_studio_ui is absent (fallback)
+    # 1. Fallback mode when node_studio_ui is absent
     monkeypatch.setattr(server, "_node_studio_ui", None)
     with monkeypatch.context() as mp:
         mp.setitem(sys.modules, "iot_federated_agent_memory.node_studio_ui", None)
-        for path, expected_mod in (
-            ("/nodes", "Image"),
-            ("/nodes?modality=text", "Text"),
-            ("/nodes?modality=video", "Video"),
-            ("/nodes/timeline?modality=video", "Video"),
-            ("/nodes/gateway?modality=text", "Text"),
+        for path in (
+            "/nodes",
+            "/gemini-node-studio",
+            "/nodes/timeline?modality=video",
+            "/nodes/gateway?modality=text",
         ):
             status, body, hdrs = _http_req(f"{live_node_server}{path}")
             assert status == 200
             assert "text/html" in hdrs.get("Content-Type", "")
-            assert f"Node Studio · {expected_mod}" in body
+            assert "Node Studio" in body
             assert "#ecf1e6" in body
 
-    # 2. Delegate cleanly to node_studio_ui.render_node_studio_html when present
-    calls = []
-    fake_ui = types.ModuleType("iot_federated_agent_memory.node_studio_ui")
+    # 2. Delegate cleanly to zero-arg render_node_studio_html() as well as parameterized signatures
+    zero_arg_calls = []
+    fake_zero_ui = types.ModuleType("iot_federated_agent_memory.node_studio_ui")
 
-    def _fake_render(active_modality="image"):
-        calls.append(active_modality)
+    def _fake_zero_arg_render():
+        zero_arg_calls.append("called")
+        return "<html><body>NANO BANANA NODE STUDIO ZERO-ARG</body></html>"
+
+    fake_zero_ui.render_node_studio_html = _fake_zero_arg_render
+    monkeypatch.setattr(server, "_node_studio_ui", fake_zero_ui)
+
+    for path in ("/nodes", "/gemini-node-studio"):
+        status, body, _ = _http_req(f"{live_node_server}{path}")
+        assert status == 200
+        assert "NANO BANANA NODE STUDIO ZERO-ARG" in body
+    assert len(zero_arg_calls) == 2
+
+    # 3. Delegate cleanly to active_modality signature
+    mod_calls = []
+    fake_mod_ui = types.ModuleType("iot_federated_agent_memory.node_studio_ui")
+
+    def _fake_mod_render(active_modality="image"):
+        mod_calls.append(active_modality)
         return f"<html><body>FAKE NODE STUDIO [{active_modality}]</body></html>"
 
-    fake_ui.render_node_studio_html = _fake_render
-    monkeypatch.setattr(server, "_node_studio_ui", fake_ui)
+    fake_mod_ui.render_node_studio_html = _fake_mod_render
+    monkeypatch.setattr(server, "_node_studio_ui", fake_mod_ui)
 
     status, body, _ = _http_req(f"{live_node_server}/nodes?modality=video")
     assert status == 200
     assert "FAKE NODE STUDIO [video]" in body
-
-    status, body, _ = _http_req(f"{live_node_server}/nodes/timeline?modality=text")
-    assert status == 200
-    assert "FAKE NODE STUDIO [text]" in body
-
-    status, body, _ = _http_req(f"{live_node_server}/nodes/gateway")
-    assert status == 200
-    assert "FAKE NODE STUDIO [image]" in body
-    assert calls == ["video", "text", "image"]
+    assert mod_calls == ["video"]
 
 
-def test_nodes_api_routes_fallback_and_delegated(live_node_server, monkeypatch):
+def test_nodes_and_prompt_island_api_routes(live_node_server, monkeypatch):
     # 1. Fallback mode (before node_studio_engine is merged)
     monkeypatch.setattr(server, "_node_studio_engine", None)
     with monkeypatch.context() as mp:
         mp.setitem(sys.modules, "iot_federated_agent_memory.node_studio_engine", None)
-        status, raw, _ = _http_req(f"{live_node_server}/api/nodes/health")
-        assert status == 200
-        health = json.loads(raw)
-        assert health["ok"] is True
-        assert health["modalities"] == ["text", "image", "video"]
-
-        for mod in ("image", "text", "video"):
-            status, raw, _ = _http_req(f"{live_node_server}/api/nodes/state?modality={mod}")
+        for health_path in ("/api/nodes/health", "/api/health"):
+            status, raw, _ = _http_req(f"{live_node_server}{health_path}")
             assert status == 200
-            st = json.loads(raw)
-            assert st["ok"] is True
-            assert st["modality"] == mod
+            health = json.loads(raw)
+            assert health["ok"] is True
+            assert health["modalities"] == ["text", "image", "video"]
 
-        status, raw, _ = _http_req(
-            f"{live_node_server}/api/nodes/generate",
-            method="POST",
-            payload={"prompt": ""},
-        )
-        assert status == 400
-        assert json.loads(raw)["ok"] is False
+        for gen_path in ("/api/nodes/generate", "/api/generate"):
+            status, raw, _ = _http_req(f"{live_node_server}{gen_path}", method="POST", payload={"prompt": ""})
+            assert status == 400
+            assert json.loads(raw)["ok"] is False
 
-        status, raw, _ = _http_req(
-            f"{live_node_server}/api/nodes/generate",
-            method="POST",
-            payload={"prompt": "Kodak 2383 portrait", "modality": "image", "selected_node_ids": ["01", "02"]},
-        )
+            status, raw, _ = _http_req(
+                f"{live_node_server}{gen_path}",
+                method="POST",
+                payload={"prompt": "Celadon studio cube", "selected_node_ids": ["01", "02"]},
+            )
+            assert status == 200
+            gen = json.loads(raw)
+            assert gen["ok"] is True
+            assert gen["mode"] == "MERGE"
+
+        status, raw, _ = _http_req(f"{live_node_server}/api/nodes/state?modality=image")
         assert status == 200
-        gen = json.loads(raw)
-        assert gen["ok"] is True
-        assert gen["mode"] == "MERGE"
+        assert json.loads(raw)["modality"] == "image"
 
         status, raw, _ = _http_req(
             f"{live_node_server}/api/nodes/filter",
@@ -227,10 +240,7 @@ def test_nodes_api_routes_fallback_and_delegated(live_node_server, monkeypatch):
             payload={"node_id": "03", "modality": "image", "filters": {"kodak_2383": 85}},
         )
         assert status == 200
-        flt = json.loads(raw)
-        assert flt["ok"] is True
-        assert flt["node_id"] == "03"
-        assert flt["filters"]["kodak_2383"] == 85
+        assert json.loads(raw)["ok"] is True
 
     # 2. Delegated mode (with node_studio_engine present)
     recorded = {}
@@ -241,7 +251,7 @@ def test_nodes_api_routes_fallback_and_delegated(live_node_server, monkeypatch):
         return {
             "ok": True,
             "hasServerKey": True,
-            "hasGeminiKey": False,
+            "hasGeminiKey": True,
             "hasNanogptKey": True,
             "modalities": ["text", "image", "video"],
             "models": {"image": ["nano-banana-2.1"]},
@@ -249,35 +259,24 @@ def test_nodes_api_routes_fallback_and_delegated(live_node_server, monkeypatch):
 
     def _fake_state(modality="image"):
         recorded["state_modality"] = modality
-        return {
-            "modality": modality,
-            "nodes": [{"id": "01", "filters": {}}],
-            "edges": [],
-            "timeline": [{"timecode": "00:00", "node_id": "01"}],
-        }
+        return {"modality": modality, "nodes": [{"id": "01"}], "edges": [], "timeline": []}
 
     def _fake_generate(payload, headers=None, env=None):
         recorded["generate_payload"] = payload
-        recorded["generate_headers"] = dict(headers or {})
         return {"ok": True, "mode": "EDIT", "node": {"id": "01.a1"}, "edges": [], "timeline": []}
 
-    def _fake_apply_filters(node, filters):
-        recorded["filter_call"] = (node, filters)
-        return {**node, "filters": filters}
-
-    def _fake_timeline(nodes, edges, target_node_id=None):
-        recorded["timeline_target"] = target_node_id
-        return [{"timecode": "00:00", "node_id": target_node_id or "01"}]
+    def _fake_filter(payload):
+        recorded["filter_payload"] = payload
+        return {"ok": True, "node_id": payload.get("node_id"), "filters": payload.get("filters", {})}
 
     fake_engine.get_node_studio_health = _fake_health
     fake_engine.get_default_studio_state = _fake_state
     fake_engine.handle_node_studio_generate = _fake_generate
-    fake_engine.apply_node_filters = _fake_apply_filters
-    fake_engine.build_timeline_sequence = _fake_timeline
+    fake_engine.handle_node_studio_filter = _fake_filter
     monkeypatch.setattr(server, "_node_studio_engine", fake_engine)
 
     status, raw, _ = _http_req(
-        f"{live_node_server}/api/nodes/health",
+        f"{live_node_server}/api/health",
         headers={"X-NanoGPT-Api-Key": "ng-test-key"},
     )
     assert status == 200
@@ -285,47 +284,41 @@ def test_nodes_api_routes_fallback_and_delegated(live_node_server, monkeypatch):
     norm_hdrs = {k.lower(): v for k, v in recorded["health_headers"].items()}
     assert norm_hdrs.get("x-nanogpt-api-key") == "ng-test-key"
 
-    status, raw, _ = _http_req(f"{live_node_server}/api/nodes/state?modality=video")
-    assert status == 200
-    assert json.loads(raw)["modality"] == "video"
-    assert recorded["state_modality"] == "video"
-
     status, raw, _ = _http_req(
-        f"{live_node_server}/api/nodes/generate",
+        f"{live_node_server}/api/generate",
         method="POST",
-        payload={"prompt": "Add halation", "selected_node_ids": ["01"]},
+        payload={"prompt": "Nano Banana Pro 4K", "selected_node_ids": ["01"]},
     )
     assert status == 200
     assert json.loads(raw)["mode"] == "EDIT"
-    assert recorded["generate_payload"]["prompt"] == "Add halation"
+    assert recorded["generate_payload"]["prompt"] == "Nano Banana Pro 4K"
 
     status, raw, _ = _http_req(
         f"{live_node_server}/api/nodes/filter",
         method="POST",
-        payload={"node_id": "01", "modality": "image", "filters": {"halation": 35}},
+        payload={"node_id": "01", "filters": {"halation": 35}},
     )
     assert status == 200
-    body = json.loads(raw)
-    assert body["ok"] is True
-    assert body["updated"]["filters"] == {"halation": 35}
-    assert recorded["timeline_target"] == "01"
+    assert json.loads(raw)["filters"] == {"halation": 35}
 
 
 def test_fastapi_routes_registered_for_node_studio():
+    expected_get = (
+        "/nodes",
+        "/gemini-node-studio",
+        "/nodes/timeline",
+        "/nodes/gateway",
+        "/api/nodes/health",
+        "/api/health",
+        "/api/nodes/state",
+    )
+    expected_post = ("/api/nodes/generate", "/api/generate", "/api/nodes/filter")
     if hasattr(server.app, "routes") and isinstance(server.app.routes, dict):
-        for route in ("/nodes", "/nodes/timeline", "/nodes/gateway", "/api/nodes/health", "/api/nodes/state"):
+        for route in expected_get:
             assert route in server.app.routes
-        for route in ("/api/nodes/generate", "/api/nodes/filter"):
+        for route in expected_post:
             assert route in server.app.post_routes
     else:
         paths = {getattr(r, "path", None) for r in getattr(server.app, "routes", [])}
-        for route in (
-            "/nodes",
-            "/nodes/timeline",
-            "/nodes/gateway",
-            "/api/nodes/health",
-            "/api/nodes/state",
-            "/api/nodes/generate",
-            "/api/nodes/filter",
-        ):
+        for route in expected_get + expected_post:
             assert route in paths

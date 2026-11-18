@@ -226,6 +226,21 @@ def render_ai_home_hub_html(*, include_assets: bool = False) -> str:
     </div>
   </div>
 
+  <div id="aiHomeNodeStudioMount" class="tc-ai-node-banner" aria-label="Nano Banana Gemini Node Studio">
+    <div class="tc-ai-node-banner-copy">
+      <div class="tc-ai-node-banner-head">
+        <span class="tc-ai-eyebrow">NANO BANANA · GEMINI NODE STUDIO</span>
+        <span class="tc-ai-badge is-solid">CANVAS · /nodes</span>
+      </div>
+      <h3 class="tc-ai-card-title">Nano Banana Gemini Node Studio</h3>
+      <p class="tc-ai-card-desc">Infinite 24px dot-grid canvas, MorphingNode DAG, floating Lumina Library drawer, and Generate / Edit / Merge Prompt Island wired to NanoGPT &amp; Gemini.</p>
+    </div>
+    <div class="tc-ai-node-banner-actions">
+      <button id="aiHomeLaunchNodeStudioBtn" type="button" class="tc-ai-dispatch-btn" data-launch-card="aiHomeNodeStudioMount" data-window="win-nodes" data-fallback-window="win-nodes" data-route="/nodes">Open Node Studio &#8594;</button>
+      <a id="aiHomeNodesDirectLink" href="/nodes" class="tc-ai-chip" style="text-decoration: none;">Full Canvas /nodes &#8599;</a>
+    </div>
+  </div>
+
   <div class="tc-ai-cards-grid" aria-label="AI Workflows">
     {cards_html}
   </div>
@@ -323,6 +338,7 @@ AI_HOME_SHELL_CSS = r"""
 }
 
 #aiHomeHub .tc-ai-hero,
+#aiHomeHub .tc-ai-node-banner,
 #aiHomeHub .tc-ai-telemetry {
   background: var(--tc-card);
   border: 1px solid var(--tc-ink);
@@ -331,6 +347,37 @@ AI_HOME_SHELL_CSS = r"""
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+#aiHomeHub .tc-ai-node-banner {
+  background: var(--tc-surface);
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+#aiHomeHub .tc-ai-node-banner-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 240px;
+  flex: 1 1 380px;
+}
+
+#aiHomeHub .tc-ai-node-banner-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+#aiHomeHub .tc-ai-node-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 #aiHomeHub .tc-ai-hero-head,
