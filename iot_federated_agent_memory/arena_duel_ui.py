@@ -1335,6 +1335,118 @@ ARENA_DUEL_RESPONSIVE_CSS = r"""
     align-items: flex-start !important;
   }
 }
+
+/* =========================================================================
+   Artboard 08 · AI Brain Arena & Context Palace Universal Inventory
+   Pure Monochrome Black & White Dark Mode + Pitch-Black Terminal / Query Panes
+   ========================================================================= */
+html[data-theme="dark"] #win-arena,
+body.tc-dark #win-arena,
+html[data-theme="dark"] #win-arena .window-body,
+body.tc-dark #win-arena .window-body,
+html[data-theme="dark"] #win-quests .window-body,
+body.tc-dark #win-quests .window-body {
+  background: #0e0e0e !important;
+  color: #f5f5f5 !important;
+  border-color: #2e2e2e !important;
+}
+
+/* Cards (#151515), hairlines (#2e2e2e), primary ink (#f5f5f5), secondary ink (#a3a3a3) */
+html[data-theme="dark"] :is(.arena-duel, [id$="BattleBox"]),
+body.tc-dark :is(.arena-duel, [id$="BattleBox"]),
+html[data-theme="dark"] :is(.arena-brain-slot, [data-arena-slot]),
+body.tc-dark :is(.arena-brain-slot, [data-arena-slot]),
+html[data-theme="dark"] :is(.arena-ctx, [id$="BothBox"], [id$="InventoryBox"], [id$="PalaceBox"]),
+body.tc-dark :is(.arena-ctx, [id$="BothBox"], [id$="InventoryBox"], [id$="PalaceBox"]),
+html[data-theme="dark"] #win-arena #orStatGrid > .tc-stat,
+body.tc-dark #win-arena #orStatGrid > .tc-stat,
+html[data-theme="dark"] #win-arena #nanoDashBanner,
+body.tc-dark #win-arena #nanoDashBanner {
+  background: #151515 !important;
+  color: #f5f5f5 !important;
+  border: 1px solid #2e2e2e !important;
+}
+
+/* Elevated panels (#1a1a1a) */
+html[data-theme="dark"] .arena-duel > div:not([class*="grid"]),
+body.tc-dark .arena-duel > div:not([class*="grid"]),
+html[data-theme="dark"] :is([id$="ProStrip"], [id$="LastVoteBadge"], [data-arena-vote-modal]),
+body.tc-dark :is([id$="ProStrip"], [id$="LastVoteBadge"], [data-arena-vote-modal]),
+html[data-theme="dark"] :is([id$="InvList"] > div, [id$="PalaceList"] > div, .arena-snippet),
+body.tc-dark :is([id$="InvList"] > div, [id$="PalaceList"] > div, .arena-snippet),
+html[data-theme="dark"] :is([id$="SavingsA"], [id$="SavingsB"]),
+body.tc-dark :is([id$="SavingsA"], [id$="SavingsB"]) {
+  background: #1a1a1a !important;
+  color: #f5f5f5 !important;
+  border-color: #2e2e2e !important;
+}
+
+/* Pitch-Black (#000000) Brain A/B duel terminal output panes, Context Palace SQLite WAL query bar, and code inspector boxes */
+html[data-theme="dark"] :is(.arena-duel, #win-arena) :is([id$="ResultA"], [id$="ResultB"]),
+body.tc-dark :is(.arena-duel, #win-arena) :is([id$="ResultA"], [id$="ResultB"]),
+html[data-theme="dark"] :is(.arena-duel, #win-arena) :is([id$="PromptInput"], [id$="PalaceSearch"], [id$="InvSearch"], [id$="PalaceValue"]),
+body.tc-dark :is(.arena-duel, #win-arena) :is([id$="PromptInput"], [id$="PalaceSearch"], [id$="InvSearch"], [id$="PalaceValue"]),
+html[data-theme="dark"] :is(.arena-duel, #win-arena) :is([id$="ViewerA"], [id$="ViewerB"], [id$="EditBoxA"], [id$="EditBoxB"], [id$="EditTextA"], [id$="EditTextB"], [id$="PasteTextA"], [id$="PasteTextB"], [id$="BothText"]),
+body.tc-dark :is(.arena-duel, #win-arena) :is([id$="ViewerA"], [id$="ViewerB"], [id$="EditBoxA"], [id$="EditBoxB"], [id$="EditTextA"], [id$="EditTextB"], [id$="PasteTextA"], [id$="PasteTextB"], [id$="BothText"]),
+html[data-theme="dark"] :is(.arena-duel, #win-arena) :is(pre, code),
+body.tc-dark :is(.arena-duel, #win-arena) :is(pre, code) {
+  background: #000000 !important;
+  color: #f5f5f5 !important;
+  border: 1.5px solid #ffffff !important;
+  caret-color: #ffffff !important;
+}
+
+html[data-theme="dark"] :is(.arena-duel, #win-arena) :is([id$="ViewerA"] pre, [id$="ViewerB"] pre),
+body.tc-dark :is(.arena-duel, #win-arena) :is([id$="ViewerA"] pre, [id$="ViewerB"] pre) {
+  border: none !important;
+}
+
+/* Other form inputs & model selectors in dark surface (#0c0c0c) */
+html[data-theme="dark"] :is(.arena-duel, #win-arena) :is([id$="ModelAInput"], [id$="ModelBInput"], [id$="AgentA"], [id$="AgentB"], [id$="PalaceName"], [id$="PalaceCategory"], [id$="PalaceSummary"], [id$="BothName"], [id$="BothDesc"], [id$="PasteNameA"], [id$="PasteNameB"], [id$="PasteDescA"], [id$="PasteDescB"], [id$="DrivePathA"], [id$="DrivePathB"], [id$="VoteTagSelect"], [id$="VoteReasonInput"]),
+body.tc-dark :is(.arena-duel, #win-arena) :is([id$="ModelAInput"], [id$="ModelBInput"], [id$="AgentA"], [id$="AgentB"], [id$="PalaceName"], [id$="PalaceCategory"], [id$="PalaceSummary"], [id$="BothName"], [id$="BothDesc"], [id$="PasteNameA"], [id$="PasteNameB"], [id$="PasteDescA"], [id$="PasteDescB"], [id$="DrivePathA"], [id$="DrivePathB"], [id$="VoteTagSelect"], [id$="VoteReasonInput"]) {
+  background: #0c0c0c !important;
+  color: #f5f5f5 !important;
+  border: 1px solid #2e2e2e !important;
+}
+
+/* Hairlines & secondary text hierarchy */
+html[data-theme="dark"] :is(.arena-duel, #win-arena) :is(.border, .border-b, .border-t),
+body.tc-dark :is(.arena-duel, #win-arena) :is(.border, .border-b, .border-t) {
+  border-color: #2e2e2e !important;
+}
+
+html[data-theme="dark"] :is(.arena-duel, #win-arena) :is(h2, h3, [id$="ProTelemetryTitle"], [id$="VoteModalTitle"]),
+body.tc-dark :is(.arena-duel, #win-arena) :is(h2, h3, [id$="ProTelemetryTitle"], [id$="VoteModalTitle"]) {
+  color: #f5f5f5 !important;
+}
+
+html[data-theme="dark"] :is(.arena-duel, #win-arena) :is(p, [id$="ModelsNote"], [id$="PresetStatus"], [id$="InvStats"], [id$="ProTelemetrySub"], [id$="LabelA"], [id$="LabelB"], [id$="BillA"], [id$="BillB"], [id$="UsedA"], [id$="UsedB"], [id$="CtxMsgA"], [id$="CtxMsgB"], [id$="VoteModalPrompt"], [id$="VoteStatus"]),
+body.tc-dark :is(.arena-duel, #win-arena) :is(p, [id$="ModelsNote"], [id$="PresetStatus"], [id$="InvStats"], [id$="ProTelemetrySub"], [id$="LabelA"], [id$="LabelB"], [id$="BillA"], [id$="BillB"], [id$="UsedA"], [id$="UsedB"], [id$="CtxMsgA"], [id$="CtxMsgB"], [id$="VoteModalPrompt"], [id$="VoteStatus"]) {
+  color: #a3a3a3 !important;
+}
+
+html[data-theme="dark"] :is(.arena-duel, #win-arena) :is([id$="RagBadge"], [id$="PreAuthCap"], [id$="TierTagA"], [id$="TierTagB"]),
+body.tc-dark :is(.arena-duel, #win-arena) :is([id$="RagBadge"], [id$="PreAuthCap"], [id$="TierTagA"], [id$="TierTagB"]) {
+  background: #151515 !important;
+  color: #f5f5f5 !important;
+  border: 1px solid #2e2e2e !important;
+}
+
+/* Active mode pills, Run Arena button, and Vote Brain A / B buttons (#ffffff background with #000000 text) */
+html[data-theme="dark"] :is(.arena-duel, #win-arena) :is([id$="RunBtn"], [id$="VoteBtnA"], [id$="VoteBtnB"], [id$="VoteSubmitBtn"], [id$="ReopenVoteBtn"], [id$="PresetLocalCloudBtn"], [id$="BothSaveBtn"], [id$="UpgradeProBtn"], button[onclick*="arenaDuelRun"], button[onclick*="arenaDuelVote"], button[onclick*="arenaCtxImportPalace"], button[onclick*="arenaCtxPalaceSave"], [data-pal-both], [data-inv-both]),
+body.tc-dark :is(.arena-duel, #win-arena) :is([id$="RunBtn"], [id$="VoteBtnA"], [id$="VoteBtnB"], [id$="VoteSubmitBtn"], [id$="ReopenVoteBtn"], [id$="PresetLocalCloudBtn"], [id$="BothSaveBtn"], [id$="UpgradeProBtn"], button[onclick*="arenaDuelRun"], button[onclick*="arenaDuelVote"], button[onclick*="arenaCtxImportPalace"], button[onclick*="arenaCtxPalaceSave"], [data-pal-both], [data-inv-both]),
+html[data-theme="dark"] .arena-duel :is(button[class~="bg-[#111111]"], span[class~="bg-[#111111]"], label[class~="bg-[#111111]"]),
+body.tc-dark .arena-duel :is(button[class~="bg-[#111111]"], span[class~="bg-[#111111]"], label[class~="bg-[#111111]"]) {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border-color: #ffffff !important;
+}
+
+html[data-theme="dark"] :is(.arena-duel, #win-arena) :is([id$="RunBtn"], [id$="VoteBtnA"], [id$="VoteBtnB"], button[class~="bg-[#111111]"], label[class~="bg-[#111111]"]) span,
+body.tc-dark :is(.arena-duel, #win-arena) :is([id$="RunBtn"], [id$="VoteBtnA"], [id$="VoteBtnB"], button[class~="bg-[#111111]"], label[class~="bg-[#111111]"]) span {
+  color: #000000 !important;
+}
 </style>
 """
 
@@ -1354,6 +1466,12 @@ def apply_arena_duel(page: str) -> str:
         injections = []
         if 'id="arenaDuelResponsiveCss"' not in page:
             injections.append(ARENA_DUEL_RESPONSIVE_CSS)
+        if 'id="win-board"' in page and 'id="cyberspaceBoardDarkCss"' not in page:
+            try:
+                from .cyberspace_board import CYBERSPACE_BOARD_DARK_CSS
+                injections.append(CYBERSPACE_BOARD_DARK_CSS)
+            except Exception:
+                pass
         if 'id="arenaDuelScript"' not in page:
             import json as _json
             injections.append(ARENA_DUEL_SCRIPT.replace("__ARENA_VIEWS__", _json.dumps(prefixes)))

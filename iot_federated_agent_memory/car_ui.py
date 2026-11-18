@@ -433,6 +433,73 @@ button {{ font: inherit; color: inherit; background: none; border: 0; cursor: po
 .safety-toast button {{
   background: rgba(14,13,11,0.2); padding: 8px 16px; border-radius: 8px; font-weight: 600; color: #0e0d0b;
 }}
+
+/* Monochrome Black & White Dark Mode */
+html[data-theme="dark"],
+body.tc-dark,
+html[data-theme="dark"] .stage,
+body.tc-dark .stage {{
+  --sumi: #080808;
+  --sumi-2: #151515;
+  --washi: #f5f5f5;
+  --washi-2: #a3a3a3;
+  --washi-3: #737373;
+  --line: #2e2e2e;
+  --kaki: #ffffff;
+  background: #080808 !important;
+  color: #f5f5f5;
+}}
+html[data-theme="dark"] .dock,
+body.tc-dark .dock,
+html[data-theme="dark"] .main,
+body.tc-dark .main {{
+  background: #0e0e0e !important;
+  border-color: #2e2e2e;
+}}
+html[data-theme="dark"] .card,
+body.tc-dark .card,
+html[data-theme="dark"] .tile,
+body.tc-dark .tile,
+html[data-theme="dark"] .clip,
+body.tc-dark .clip,
+html[data-theme="dark"] .gate,
+body.tc-dark .gate,
+html[data-theme="dark"] .driver,
+body.tc-dark .driver {{
+  background: #151515 !important;
+  border: 1px solid #2e2e2e;
+  color: #f5f5f5;
+}}
+html[data-theme="dark"] .preview,
+body.tc-dark .preview,
+html[data-theme="dark"] .feed,
+body.tc-dark .feed,
+html[data-theme="dark"] .feed-card,
+body.tc-dark .feed-card,
+html[data-theme="dark"] .sync,
+body.tc-dark .sync {{
+  background: #000000 !important;
+  color: #f5f5f5;
+  border: 1.5px solid #ffffff !important;
+}}
+html[data-theme="dark"] .dock-btn.active,
+body.tc-dark .dock-btn.active,
+html[data-theme="dark"] .pill.kaki,
+body.tc-dark .pill.kaki,
+html[data-theme="dark"] .turn,
+body.tc-dark .turn,
+html[data-theme="dark"] .driver.on,
+body.tc-dark .driver.on,
+html[data-theme="dark"] .feed-card.active,
+body.tc-dark .feed-card.active {{
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-color: #ffffff !important;
+}}
+html[data-theme="dark"] .dirt,
+body.tc-dark .dirt {{
+  display: none;
+}}
 </style>
 </head>
 <body>
@@ -490,6 +557,7 @@ button {{ font: inherit; color: inherit; background: none; border: 0; cursor: po
     </button>
     <div class="pill kaki"><span class="rec"></span> <span id="recTelemetry">REC 1080p60 · Live</span></div>
     <div class="pill" id="meshStatusPill">Mesh · connecting...</div>
+    <button type="button" class="pill" id="carThemeToggleBtn" data-tc-theme-toggle="1" onclick="toggleCarTheme()">&#x263E; Dark</button>
   </header>
 
   <div class="content" id="viewContainer">
@@ -511,6 +579,39 @@ var CURRENT_MODE = "{initial_mode}";
 var VEHICLE_STATE = "{'driving' if initial_mode == 'driving' else 'parked'}";
 var PEER_INFO = null;
 var MESH_STATE = null;
+
+function applyCarTheme(theme) {{
+  var next = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  if (document.body) document.body.classList.toggle('tc-dark', next === 'dark');
+  try {{ localStorage.setItem('tincan_theme', next); }} catch (e) {{}}
+  var btn = document.getElementById('carThemeToggleBtn');
+  if (btn) btn.innerHTML = next === 'dark' ? '&#x2600; Light' : '&#x263E; Dark';
+}}
+
+function toggleCarTheme() {{
+  var cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  applyCarTheme(cur === 'dark' ? 'light' : 'dark');
+}}
+
+(function initCarTheme() {{
+  var initial = null;
+  try {{
+    var search = window.location.search || '';
+    if (search.indexOf('?theme=dark') !== -1 || new URLSearchParams(search).get('theme') === 'dark') {{
+      initial = 'dark';
+    }} else if (new URLSearchParams(search).get('theme') === 'light') {{
+      initial = 'light';
+    }}
+  }} catch (e) {{}}
+  if (!initial) {{
+    try {{
+      var saved = localStorage.getItem('tincan_theme');
+      if (saved === 'dark' || saved === 'light') initial = saved;
+    }} catch (e) {{}}
+  }}
+  if (initial === 'dark') applyCarTheme('dark');
+}})();
 
 var VIEWS = {{
   driving: `

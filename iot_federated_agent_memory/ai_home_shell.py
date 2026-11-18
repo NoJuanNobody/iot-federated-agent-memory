@@ -405,21 +405,22 @@ AI_HOME_SHELL_CSS = r"""
   display: flex;
   align-items: center;
   gap: 10px;
-  background: var(--tc-card);
-  border: 1px solid var(--tc-ink);
+  background: #000000;
+  color: #f5f5f5;
+  border: 1.5px solid #ffffff;
   border-radius: 12px;
   padding: 6px 8px 6px 14px;
 }
 
 #aiHomeHub .tc-ai-cmd-bar:focus-within {
-  box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.14);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.22);
 }
 
 #aiHomeHub .tc-ai-prompt-prefix {
   font-family: var(--tc-mono);
   font-size: 12px;
   font-weight: 600;
-  color: var(--tc-ink);
+  color: #ffffff;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -430,7 +431,8 @@ AI_HOME_SHELL_CSS = r"""
   border: 0;
   outline: none;
   background: transparent;
-  color: var(--tc-ink);
+  color: #f5f5f5;
+  caret-color: #ffffff;
   font-family: var(--tc-mono);
   font-size: 13px;
   line-height: 1.4;
@@ -438,14 +440,15 @@ AI_HOME_SHELL_CSS = r"""
 }
 
 #aiHomeHub .tc-ai-prompt-input::placeholder {
-  color: var(--tc-faint);
+  color: #737373;
 }
 
 #aiHomeHub .tc-ai-dispatch-btn {
   appearance: none;
-  border: 1px solid var(--tc-ink);
-  background: var(--tc-ink);
-  color: var(--tc-bg);
+  border: 1px solid #ffffff;
+  background: #ffffff;
+  color: #000000;
+  border-color: #ffffff;
   font-family: var(--tc-font);
   font-size: 12px;
   font-weight: 600;
@@ -500,8 +503,9 @@ AI_HOME_SHELL_CSS = r"""
 }
 
 #aiHomeHub .tc-ai-output {
-  background: var(--tc-surface);
-  border: 1px solid var(--tc-ink);
+  background: #000000;
+  color: #f5f5f5;
+  border: 1.5px solid #ffffff;
   border-radius: 12px;
   padding: 10px 12px;
   display: flex;
@@ -533,14 +537,14 @@ AI_HOME_SHELL_CSS = r"""
   font-family: var(--tc-mono);
   font-size: 11px;
   font-weight: 600;
-  color: var(--tc-green);
+  color: #ffffff;
 }
 
 #aiHomeHub .tc-ai-output-close {
   appearance: none;
-  border: 1px solid var(--tc-ink);
+  border: 1px solid #ffffff;
   background: transparent;
-  color: var(--tc-ink);
+  color: #f5f5f5;
   border-radius: 9999px;
   width: 22px;
   height: 22px;
@@ -554,7 +558,7 @@ AI_HOME_SHELL_CSS = r"""
   font-family: var(--tc-mono);
   font-size: 12px;
   line-height: 1.5;
-  color: var(--tc-ink);
+  color: #f5f5f5;
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 180px;
@@ -758,6 +762,188 @@ AI_HOME_SHELL_CSS = r"""
   #aiHomeHub .tc-ai-dispatch-btn {
     width: 100%;
   }
+}
+
+/* Monochrome Black & White Dark Mode (html[data-theme="dark"] / body.tc-dark) */
+html[data-theme="dark"] #aiHomeHub,
+body.tc-dark #aiHomeHub {
+  --tc-desk: #080808;
+  --tc-bg: #0e0e0e;
+  --tc-surface: #151515;
+  --tc-card: #1a1a1a;
+  --tc-ink: #f5f5f5;
+  --tc-muted: #a3a3a3;
+  --tc-faint: #737373;
+  --tc-green: #ffffff;
+  --tc-crimson: #d4d4d4;
+  background: #0e0e0e !important;
+  color: #f5f5f5 !important;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-hero,
+body.tc-dark #aiHomeHub .tc-ai-hero,
+html[data-theme="dark"] #aiHomeHub .tc-ai-node-banner,
+body.tc-dark #aiHomeHub .tc-ai-node-banner,
+html[data-theme="dark"] #aiHomeHub .tc-ai-telemetry,
+body.tc-dark #aiHomeHub .tc-ai-telemetry {
+  background: #151515;
+  border-color: #2e2e2e;
+  color: #f5f5f5;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-cmd-bar,
+body.tc-dark #aiHomeHub .tc-ai-cmd-bar,
+html[data-theme="dark"] #aiHomeHub .tc-ai-output,
+body.tc-dark #aiHomeHub .tc-ai-output {
+  background: #000000;
+  color: #f5f5f5;
+  border: 1.5px solid #ffffff;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-prompt-prefix,
+body.tc-dark #aiHomeHub .tc-ai-prompt-prefix {
+  color: #ffffff;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-prompt-input,
+body.tc-dark #aiHomeHub .tc-ai-prompt-input {
+  color: #f5f5f5;
+  caret-color: #ffffff;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-dispatch-btn,
+body.tc-dark #aiHomeHub .tc-ai-dispatch-btn {
+  background: #ffffff;
+  color: #000000;
+  border-color: #ffffff;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-card,
+body.tc-dark #aiHomeHub .tc-ai-card {
+  background: #151515;
+  border: 1px solid #2e2e2e;
+  border-color: #2e2e2e;
+  color: #f5f5f5;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-card:hover,
+body.tc-dark #aiHomeHub .tc-ai-card:hover {
+  border-color: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-card-title,
+body.tc-dark #aiHomeHub .tc-ai-card-title,
+html[data-theme="dark"] #aiHomeHub .tc-ai-card-metric,
+body.tc-dark #aiHomeHub .tc-ai-card-metric,
+html[data-theme="dark"] #aiHomeHub .tc-ai-kpi-val,
+body.tc-dark #aiHomeHub .tc-ai-kpi-val {
+  color: #f5f5f5;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-card-desc,
+body.tc-dark #aiHomeHub .tc-ai-card-desc,
+html[data-theme="dark"] #aiHomeHub .tc-ai-eyebrow,
+body.tc-dark #aiHomeHub .tc-ai-eyebrow {
+  color: #a3a3a3;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-kpi-label,
+body.tc-dark #aiHomeHub .tc-ai-kpi-label {
+  color: #737373;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-status-pill,
+body.tc-dark #aiHomeHub .tc-ai-status-pill,
+html[data-theme="dark"] #aiHomeHub .tc-ai-merkle-pill,
+body.tc-dark #aiHomeHub .tc-ai-merkle-pill,
+html[data-theme="dark"] #aiHomeHub .tc-ai-card-metric.is-positive,
+body.tc-dark #aiHomeHub .tc-ai-card-metric.is-positive {
+  color: #ffffff;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-dot,
+body.tc-dark #aiHomeHub .tc-ai-dot {
+  background: #ffffff;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-chip,
+body.tc-dark #aiHomeHub .tc-ai-chip {
+  background: #181818;
+  border-color: #2e2e2e;
+  color: #f5f5f5;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-chip:hover,
+body.tc-dark #aiHomeHub .tc-ai-chip:hover {
+  background: #222222;
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-chip.is-active,
+body.tc-dark #aiHomeHub .tc-ai-chip.is-active {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #000000;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-chip.is-active .tc-ai-dot,
+body.tc-dark #aiHomeHub .tc-ai-chip.is-active .tc-ai-dot {
+  background: #000000;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-badge,
+body.tc-dark #aiHomeHub .tc-ai-badge {
+  background: #1a1a1a;
+  border-color: #2e2e2e;
+  color: #f5f5f5;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-badge.is-solid,
+body.tc-dark #aiHomeHub .tc-ai-badge.is-solid {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #000000;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-card-rail,
+body.tc-dark #aiHomeHub .tc-ai-card-rail {
+  background: #080808;
+  border-color: #2e2e2e;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-card-fill,
+body.tc-dark #aiHomeHub .tc-ai-card-fill {
+  background: #ffffff;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-card-cta,
+body.tc-dark #aiHomeHub .tc-ai-card-cta {
+  background: #1a1a1a;
+  border-color: #2e2e2e;
+  color: #f5f5f5;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-card-cta:hover,
+body.tc-dark #aiHomeHub .tc-ai-card-cta:hover,
+html[data-theme="dark"] #aiHomeHub .tc-ai-card-cta.is-primary,
+body.tc-dark #aiHomeHub .tc-ai-card-cta.is-primary {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #000000;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-sparkline-wrap,
+body.tc-dark #aiHomeHub .tc-ai-sparkline-wrap {
+  border-top-color: #2e2e2e;
+}
+
+html[data-theme="dark"] #aiHomeHub .tc-ai-sparkline rect,
+body.tc-dark #aiHomeHub .tc-ai-sparkline rect,
+html[data-theme="dark"] #aiHomeSparkline rect,
+body.tc-dark #aiHomeSparkline rect {
+  fill: #ffffff;
 }
 """
 

@@ -13,3 +13,6 @@ iot_federated_agent_memory/spaces/
 
 auth_secret.key
 iot_federated_agent_memory/arena_context/
+.env
+.env.*
+!.env.example

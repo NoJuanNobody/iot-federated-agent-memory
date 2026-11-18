@@ -27,40 +27,45 @@ SHELL_JS_SLOT = "/*TC_SHELL_JS*/"
 SHELL_CSS_SLOT = "/*TC_SHELL_CSS*/"
 
 SHELL_CSS = r"""
-    /* TinCanShell (shell_component.py): a mountable terminal, Celadon look */
-    .tcsh { display: flex; flex-direction: column; min-height: 0; min-width: 0; height: 100%; background: #ffffff; color: #111111;
-      border: 1px solid #111111; border-radius: 12px; overflow: hidden;
+    /* TinCanShell (shell_component.py): a mountable terminal, Always-Dark Pitch-Black Monochrome B&W look */
+    .tcsh { display: flex; flex-direction: column; min-height: 0; min-width: 0; height: 100%; background: #000000; color: #f5f5f5;
+      border: 1.5px solid #ffffff; border-radius: 12px; overflow: hidden;
       font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; line-height: 1.5; }
-    .tcsh-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 4px 10px; background: #f4f8f0; border-bottom: 1px solid rgba(17,17,17,0.22);
+    .tcsh-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 5px 10px; background: #0c0c0c; color: #a3a3a3; border-bottom: 1px solid #2e2e2e;
       font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; flex: 0 0 auto; }
+    .tcsh-dots { display: inline-flex; align-items: center; gap: 4px; margin-right: 4px; }
+    .tcsh-dot { display: inline-block; width: 8px; height: 8px; border-radius: 9999px; }
+    .tcsh-dot--r { background: #525252; }
+    .tcsh-dot--y { background: #a3a3a3; }
+    .tcsh-dot--g { background: #ffffff; }
     .tcsh-bar .tcsh-spacer { flex: 1; }
-    .tcsh-bar button { font: inherit; font-size: 9px; letter-spacing: 0; text-transform: none; padding: 1px 8px; border: 1px solid #111111; border-radius: 9999px;
-      background: transparent; color: #111111; cursor: pointer; white-space: nowrap; }
-    .tcsh-bar button:hover, .tcsh-bar button.is-active { background: #111111; color: #ecf1e6; }
-    .tcsh-pill { padding: 1px 8px; border: 1px solid #111111; border-radius: 9999px; font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
-    .tcsh-tui { display: none; flex: 1 1 auto; min-height: 0; background: #0d1210; padding: 6px; overflow: hidden; }
+    .tcsh-bar button { font: inherit; font-size: 9px; letter-spacing: 0; text-transform: none; padding: 1px 8px; border: 1px solid #333333; border-radius: 9999px;
+      background: #171717; color: #f5f5f5; cursor: pointer; white-space: nowrap; }
+    .tcsh-bar button:hover, .tcsh-bar button.is-active { background: #ffffff; color: #000000; border-color: #ffffff; }
+    .tcsh-pill { padding: 1px 8px; border: 1px solid #ffffff; border-radius: 9999px; background: #0a0a0a; color: #ffffff; font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+    .tcsh-tui { display: none; flex: 1 1 auto; min-height: 0; background: #000000; padding: 6px; overflow: hidden; }
     .tcsh-tui-host { width: 100%; height: 100%; min-height: 0; }
     .tcsh.is-tui .tcsh-scroll, .tcsh.is-tui .tcsh-row { display: none; }
     .tcsh.is-tui .tcsh-tui { display: flex; flex-direction: column; }
-    .tcsh-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; cursor: text; }
+    .tcsh-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; cursor: text; background: #000000; }
     .tcsh-log { min-height: 100%; display: flex; flex-direction: column; justify-content: flex-end; padding: 8px 12px 4px; gap: 1px; user-select: text; }
-    .tcsh-help { color: #4a4a4a; margin: 0 0 4px; white-space: pre-wrap; }
-    .tcsh-cmd { margin-top: 6px; word-break: break-word; }
-    .tcsh-ps { font-weight: 700; color: #111111; }
-    .tcsh-out { margin: 0; padding-left: 8px; white-space: pre-wrap; word-break: break-word; font: inherit; color: #262626; }
-    .tcsh-out.tcsh-err { color: #8a1c1c; }
-    .tcsh-note { margin-top: 6px; color: #262626; word-break: break-word; }
-    .tcsh-media { margin-top: 8px; padding: 8px; border: 1px solid #d4d4d8; border-radius: 6px; background: #fafafa; display: inline-block; max-width: 100%; }
-    .tcsh-media img { display: block; max-width: 340px; max-height: 340px; width: auto; height: auto; border-radius: 4px; border: 1px solid #e4e4e7; }
-    .tcsh-media-meta { margin-top: 6px; font-size: 12px; color: #3f3f46; }
-    .tcsh-media-meta a { color: #059669; text-decoration: underline; word-break: break-all; }
-    .tcsh-row { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-top: 1px solid #111111; background: #f4f8f0; flex: 0 0 auto; margin: 0; }
+    .tcsh-help { color: #a3a3a3; margin: 0 0 4px; white-space: pre-wrap; }
+    .tcsh-cmd { margin-top: 6px; word-break: break-word; color: #f5f5f5; }
+    .tcsh-ps { font-weight: 700; color: #ffffff; }
+    .tcsh-out { margin: 0; padding-left: 8px; white-space: pre-wrap; word-break: break-word; font: inherit; color: #f5f5f5; }
+    .tcsh-out.tcsh-err { color: #d4d4d4; }
+    .tcsh-note { margin-top: 6px; color: #f5f5f5; word-break: break-word; }
+    .tcsh-media { margin-top: 8px; padding: 8px; border: 1px solid #2e2e2e; border-radius: 6px; background: #0c0c0c; display: inline-block; max-width: 100%; }
+    .tcsh-media img { display: block; max-width: 340px; max-height: 340px; width: auto; height: auto; border-radius: 4px; border: 1px solid #2e2e2e; }
+    .tcsh-media-meta { margin-top: 6px; font-size: 12px; color: #a3a3a3; }
+    .tcsh-media-meta a { color: #ffffff; text-decoration: underline; word-break: break-all; }
+    .tcsh-row { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-top: 1px solid #2e2e2e; background: #0c0c0c; flex: 0 0 auto; margin: 0; }
     .tcsh-row .tcsh-ps { flex: 0 0 auto; }
-    .tcsh .tcsh-input { flex: 1 1 auto; min-width: 0; background: transparent !important; border: 0 !important; outline: 0; box-shadow: none; color: #111111 !important;
-      font: inherit; padding: 2px 0; border-radius: 0 !important; }
-    .tcsh .tcsh-input::placeholder { color: #5c5c5c; }
-    .tcsh-run { flex: 0 0 auto; font: inherit; font-size: 10px; font-weight: 700; padding: 2px 10px; border: 1px solid #111111; border-radius: 9999px; background: #111111; color: #ecf1e6; cursor: pointer; }
-    .tcsh-run:hover { opacity: 0.85; }
+    .tcsh .tcsh-input { flex: 1 1 auto; min-width: 0; background: transparent !important; border: 0 !important; outline: 0; box-shadow: none; color: #f5f5f5 !important;
+      caret-color: #ffffff; font: inherit; padding: 2px 0; border-radius: 0 !important; }
+    .tcsh .tcsh-input::placeholder { color: #737373 !important; }
+    .tcsh-run { flex: 0 0 auto; font: inherit; font-size: 10px; font-weight: 700; padding: 2px 10px; border: 1px solid #ffffff; border-radius: 9999px; background: #ffffff; color: #000000; cursor: pointer; }
+    .tcsh-run:hover { opacity: 0.88; }
 """
 
 SHELL_JS = r"""
@@ -269,6 +274,20 @@ SHELL_JS = r"""
       try {
         if (cmd === 'clear') return termDone(true, '', { clear: true });
         if (verb === 'help') return termDone(true, TC_SHELL_HELP);
+        if (verb === 'theme' || cmd === '/dark' || cmd === '/light' || cmd === '/theme') {
+          const sub = (cmd === '/dark' ? 'dark' : (cmd === '/light' ? 'light' : (rest[0] || 'status'))).toLowerCase();
+          const th = (typeof window !== 'undefined' && window.TinCanTheme) || null;
+          if (sub === 'dark' || sub === 'light') {
+            if (th && typeof th.set === 'function') th.set(sub);
+            return termDone(true, `[theme] Active: ${sub} (Terminal viewport: #000000 Pitch-Black always dark)`);
+          }
+          if (sub === 'toggle' || cmd === '/theme') {
+            const next = th && typeof th.toggle === 'function' ? th.toggle() : 'dark';
+            return termDone(true, `[theme] Toggled to: ${next} (Terminal viewport: #000000 Pitch-Black always dark)`);
+          }
+          const cur = (th && typeof th.get === 'function' ? th.get() : 'dark');
+          return termDone(true, `[theme] Active: ${cur} (Monochrome B&W Dark Mode) · Terminal: #000000 Pitch-Black`);
+        }
         if (verb === 'ls') {
           const s = await termFetchSummary(c);
           const dir = arg ? ('/' + arg.replace(/^\/+|\/+$/g, '') + '/') : '/';
@@ -493,7 +512,7 @@ SHELL_JS = r"""
         el.classList.add('tcsh');
         el.setAttribute('data-tc-shell', '1');
         el.innerHTML =
-          '<div class="tcsh-bar"><span>' + termEsc(opts.title || 'Shell') + '</span>' +
+          '<div class="tcsh-bar"><span class="tcsh-dots" aria-hidden="true"><i class="tcsh-dot tcsh-dot--r"></i><i class="tcsh-dot tcsh-dot--y"></i><i class="tcsh-dot tcsh-dot--g"></i></span><span>' + termEsc(opts.title || 'Shell') + '</span>' +
           '<button type="button" data-tui="claude" title="Launch interactive Claude Code TUI">Claude TUI</button>' +
           '<button type="button" data-tui="opencode" title="Launch interactive OpenCode TUI">OpenCode TUI</button>' +
           '<button type="button" data-tui="dsx" title="Launch interactive DSX TUI">DSX TUI</button>' +
@@ -504,6 +523,7 @@ SHELL_JS = r"""
           '<button type="button" data-act="sync" style="display:none" title="Sync TUI file edits to .space">↻ Sync</button>' +
           '<button type="button" data-act="shell" style="display:none" title="Return to command shell">Command Shell</button>' +
           '<button type="button" data-act="stop" style="display:none" title="Close live TUI session">Stop TUI</button>' +
+          '<button type="button" data-act="theme" data-tc-theme-toggle="1" onclick="if(window.TinCanTheme)window.TinCanTheme.toggle()" title="Toggle TinCan Dark / Light Mode">☾ Dark</button>' +
           '<button type="button" data-act="clear">Clear</button><span class="tcsh-pill" data-role="pill">Ready</span></div>' +
           '<div class="tcsh-scroll" data-role="scroll"><div class="tcsh-log" data-role="log" role="log" aria-live="polite"></div></div>' +
           '<div class="tcsh-tui" data-role="tui"><div class="tcsh-tui-host" data-role="tuihost"></div></div>' +
@@ -597,7 +617,7 @@ SHELL_JS = r"""
               fontSize: 12,
               lineHeight: 1.25,
               fontFamily: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
-              theme: { background: '#0d1210', foreground: '#d8e6df', cursor: '#10b981', selectionBackground: 'rgba(16, 185, 129, 0.28)' }
+              theme: { background: '#000000', foreground: '#f5f5f5', cursor: '#ffffff', selectionBackground: 'rgba(255, 255, 255, 0.24)' }
             });
             if (window.FitAddon && typeof window.FitAddon.FitAddon === 'function') {
               fit = new window.FitAddon.FitAddon();
@@ -608,7 +628,7 @@ SHELL_JS = r"""
             term.focus();
             term.writeln('\x1b[32m[*] Mounting ' + c.scope + ':' + c.owner + '.space and launching ' + appId + ' TUI…\x1b[0m');
           } else {
-            tuiHost.innerHTML = '<pre style="color:#d8e6df;margin:0;padding:8px">Starting ' + termEsc(appId) + ' TUI…</pre>';
+            tuiHost.innerHTML = '<pre style="color:#f5f5f5;margin:0;padding:8px">Starting ' + termEsc(appId) + ' TUI…</pre>';
           }
           const cols = (term && term.cols) || 100;
           const rows = (term && term.rows) || 30;

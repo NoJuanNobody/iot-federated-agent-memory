@@ -240,6 +240,27 @@ def _node_studio_css() -> str:
     --ns-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   }
 
+  html[data-theme="dark"],
+  body.tc-dark,
+  html[data-theme="dark"] .ns-studio-stage,
+  body.tc-dark .ns-studio-stage {
+    --ns-bg: #080808;
+    --ns-card: #0e0e0e;
+    --ns-paper: #151515;
+    --ns-ink: #f5f5f5;
+    --ns-muted: #a3a3a3;
+    --ns-faint: #737373;
+    --ns-green: #ffffff;
+    --ns-danger: #d4d4d4;
+    --ns-hair: 1px solid #2e2e2e;
+    --ns-hair-soft: 1px solid rgba(255, 255, 255, 0.18);
+    --ns-shadow: 0 22px 54px -12px rgba(0, 0, 0, 0.72);
+  }
+  html[data-theme="dark"] .ns-dot-canvas,
+  body.tc-dark .ns-dot-canvas {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.22) 1px, transparent 1px);
+  }
+
   .ns-studio-stage, .ns-studio-stage * { box-sizing: border-box; }
   .ns-studio-stage {
     position: relative;
@@ -1309,6 +1330,209 @@ def _node_studio_css() -> str:
 
   /* Mesh OS #win-nodes Overrides */
   .tc-ns-host .window-body { padding: 0 !important; background: var(--ns-bg) !important; height: 700px; }
+
+  /* Artboard 07: Pure Monochrome Black & White Dark Mode Overrides */
+  html[data-theme="dark"],
+  html[data-theme="dark"] body,
+  body.tc-dark {
+    background: #080808;
+    color: #f5f5f5;
+  }
+  html[data-theme="dark"] .ns-dot-canvas,
+  body.tc-dark .ns-dot-canvas,
+  html[data-theme="dark"] .ns-alt-view,
+  body.tc-dark .ns-alt-view {
+    background-color: #080808;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.22) 1px, transparent 1px);
+  }
+  html[data-theme="dark"] .ns-drop-overlay,
+  body.tc-dark .ns-drop-overlay {
+    background: rgba(8, 8, 8, 0.88);
+    color: #f5f5f5;
+  }
+  html[data-theme="dark"] .ns-top-switcher,
+  body.tc-dark .ns-top-switcher,
+  html[data-theme="dark"] .ns-hud-btn,
+  body.tc-dark .ns-hud-btn,
+  html[data-theme="dark"] .ns-left-pill,
+  body.tc-dark .ns-left-pill,
+  html[data-theme="dark"] .ns-zoom-controls,
+  body.tc-dark .ns-zoom-controls {
+    background: #0e0e0e !important;
+    border-color: #2e2e2e;
+    color: #f5f5f5;
+  }
+  html[data-theme="dark"] .ns-view-tab.is-active,
+  body.tc-dark .ns-view-tab.is-active,
+  html[data-theme="dark"] .ns-pill-expand:hover,
+  body.tc-dark .ns-pill-expand:hover,
+  html[data-theme="dark"] .ns-zoom-btn:hover,
+  body.tc-dark .ns-zoom-btn:hover,
+  html[data-theme="dark"] .ns-qact-btn:hover,
+  body.tc-dark .ns-qact-btn:hover,
+  html[data-theme="dark"] .ns-thoughts-btn.is-active,
+  body.tc-dark .ns-thoughts-btn.is-active,
+  html[data-theme="dark"] .ns-mode-pill.is-merge,
+  body.tc-dark .ns-mode-pill.is-merge,
+  html[data-theme="dark"] .ns-asset-tag,
+  body.tc-dark .ns-asset-tag {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border-color: #ffffff !important;
+  }
+
+  /* Lumina Library Drawer (#0e0e0e) */
+  html[data-theme="dark"] .ns-left-drawer,
+  body.tc-dark .ns-left-drawer,
+  html[data-theme="dark"] #nsLeftDrawer,
+  body.tc-dark #nsLeftDrawer {
+    background: #0e0e0e !important;
+    border: 1px solid #2e2e2e !important;
+    color: #f5f5f5 !important;
+  }
+  html[data-theme="dark"] .ns-drawer-head,
+  body.tc-dark .ns-drawer-head,
+  html[data-theme="dark"] .ns-drawer-foot,
+  body.tc-dark .ns-drawer-foot {
+    background: #0c0c0c;
+    border-color: #2e2e2e;
+    color: #f5f5f5;
+  }
+  html[data-theme="dark"] .ns-asset-card,
+  body.tc-dark .ns-asset-card,
+  html[data-theme="dark"] .ns-asset-search,
+  body.tc-dark .ns-asset-search,
+  html[data-theme="dark"] .ns-lib-ref-drop,
+  body.tc-dark .ns-lib-ref-drop {
+    background: #151515;
+    border-color: #2e2e2e;
+    color: #f5f5f5;
+  }
+  html[data-theme="dark"] .ns-asset-card:hover,
+  body.tc-dark .ns-asset-card:hover,
+  html[data-theme="dark"] .ns-lib-ref-drop:hover,
+  body.tc-dark .ns-lib-ref-drop:hover,
+  html[data-theme="dark"] .ns-tpl-row:hover,
+  body.tc-dark .ns-tpl-row:hover {
+    border-color: #ffffff;
+    background: #1a1a1a;
+  }
+  html[data-theme="dark"] .ns-pill-dot,
+  body.tc-dark .ns-pill-dot,
+  html[data-theme="dark"] .ns-tpl-dot,
+  body.tc-dark .ns-tpl-dot {
+    background: #ffffff;
+  }
+  html[data-theme="dark"] .ns-sync-status,
+  body.tc-dark .ns-sync-status {
+    color: #ffffff;
+  }
+
+  /* MorphingNode Cards (#151515 with #ffffff active border) */
+  html[data-theme="dark"] .ns-morph-card,
+  body.tc-dark .ns-morph-card,
+  html[data-theme="dark"] .ns-msg-card,
+  body.tc-dark .ns-msg-card,
+  html[data-theme="dark"] .ns-img-node,
+  body.tc-dark .ns-img-node,
+  html[data-theme="dark"] .ns-living-cube,
+  body.tc-dark .ns-living-cube {
+    background: #151515 !important;
+    border: 1px solid #2e2e2e;
+    color: #f5f5f5;
+  }
+  html[data-theme="dark"] .ns-canvas-node.is-selected .ns-morph-card,
+  body.tc-dark .ns-canvas-node.is-selected .ns-morph-card,
+  html[data-theme="dark"] .ns-morph-card.is-active,
+  body.tc-dark .ns-morph-card.is-active {
+    background: #151515 !important;
+    border: 2px solid #ffffff !important;
+    border-color: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.16), var(--ns-shadow);
+  }
+  html[data-theme="dark"] .ns-node-type-badge,
+  body.tc-dark .ns-node-type-badge,
+  html[data-theme="dark"] .ns-node-dl-btn,
+  body.tc-dark .ns-node-dl-btn,
+  html[data-theme="dark"] .ns-node-meta-overlay,
+  body.tc-dark .ns-node-meta-overlay,
+  html[data-theme="dark"] .ns-node-quickbar,
+  body.tc-dark .ns-node-quickbar {
+    background: #0e0e0e;
+    border-color: #2e2e2e;
+    color: #f5f5f5;
+  }
+
+  /* Prompt Island (#121212 with 1.5px solid #ffffff border) & Generate Button (#ffffff bg, #000000 text) */
+  html[data-theme="dark"] .ns-island,
+  body.tc-dark .ns-island,
+  html[data-theme="dark"] #nsPromptIsland,
+  body.tc-dark #nsPromptIsland {
+    background: #121212 !important;
+    border: 1.5px solid #ffffff !important;
+    color: #f5f5f5 !important;
+  }
+  html[data-theme="dark"] .ns-mode-pill,
+  body.tc-dark .ns-mode-pill {
+    background: #1a1a1a;
+    color: #ffffff;
+    border: 1px solid #ffffff;
+  }
+  html[data-theme="dark"] .ns-top-btn,
+  body.tc-dark .ns-top-btn,
+  html[data-theme="dark"] .ns-runs-pill,
+  body.tc-dark .ns-runs-pill,
+  html[data-theme="dark"] .ns-context-pill,
+  body.tc-dark .ns-context-pill,
+  html[data-theme="dark"] .ns-ref-chip,
+  body.tc-dark .ns-ref-chip,
+  html[data-theme="dark"] .ns-api-input,
+  body.tc-dark .ns-api-input {
+    background: #1a1a1a;
+    border-color: #2e2e2e;
+    color: #f5f5f5;
+  }
+  html[data-theme="dark"] .ns-top-btn.is-ready,
+  body.tc-dark .ns-top-btn.is-ready,
+  html[data-theme="dark"] .ns-api-badge.is-ready,
+  body.tc-dark .ns-api-badge.is-ready {
+    color: #ffffff;
+    border-color: #ffffff;
+  }
+  html[data-theme="dark"] .ns-popover,
+  body.tc-dark .ns-popover,
+  html[data-theme="dark"] .ns-shortcuts-popover,
+  body.tc-dark .ns-shortcuts-popover,
+  html[data-theme="dark"] .ns-response-toast,
+  body.tc-dark .ns-response-toast {
+    background: #0e0e0e;
+    border-color: #2e2e2e;
+    color: #f5f5f5;
+  }
+  html[data-theme="dark"] .ns-generate-btn,
+  body.tc-dark .ns-generate-btn,
+  html[data-theme="dark"] #nsGenerateBtn,
+  body.tc-dark #nsGenerateBtn {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border-color: #ffffff !important;
+  }
+
+  /* Code / Terminal Drawers & CLI Consoles (#000000 background with 1.5px solid #ffffff border) */
+  html[data-theme="dark"] .ns-terminal-drawer,
+  body.tc-dark .ns-terminal-drawer,
+  html[data-theme="dark"] .ns-code-drawer,
+  body.tc-dark .ns-code-drawer,
+  html[data-theme="dark"] .ns-cli-box,
+  body.tc-dark .ns-cli-box,
+  html[data-theme="dark"] .ns-studio-stage .tcsh,
+  body.tc-dark .ns-studio-stage .tcsh,
+  html[data-theme="dark"] .ns-studio-stage pre,
+  body.tc-dark .ns-studio-stage pre {
+    background: #000000 !important;
+    color: #f5f5f5 !important;
+    border: 1.5px solid #ffffff !important;
+  }
 </style>"""
 
 

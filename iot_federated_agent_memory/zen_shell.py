@@ -207,8 +207,8 @@ ZEN_HEAD = r"""
     #zenStatus { margin: 0.6rem 0 0; min-height: 1.1rem; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.74rem; color: #4a4a4a; }
     #zenOut {
       margin: 1rem 0 0; padding: 0.7rem 0.9rem; max-height: 34vh; overflow: auto; white-space: pre-wrap; word-break: break-word;
-      font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.78rem; line-height: 1.45; color: var(--zen-washi);
-      border: 1px solid var(--zen-line); border-radius: 8px; background: rgba(255, 255, 255, 0.55);
+      font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.78rem; line-height: 1.45; color: #f5f5f5;
+      border: 1.5px solid #ffffff; border-radius: 8px; background: #000000;
     }
     #zenOut[hidden] { display: none; }
     #zenTools button::before {
@@ -273,6 +273,67 @@ ZEN_HEAD = r"""
       #zenFrame { animation: none; }
       #zenFrame, #zenLauncher, .zen-chrome, #zenTools button { transition-duration: 1ms !important; }
     }
+
+    /* ---------- TinCan Dark Mode (Monochrome Black & White) ---------- */
+    html[data-theme="dark"] body.zen,
+    body.zen.tc-dark {
+      background: #050505 !important;
+      color: #f5f5f5 !important;
+    }
+    html[data-theme="dark"] #zenStage,
+    body.tc-dark #zenStage { background: #050505 !important; }
+    html[data-theme="dark"] #zenClipTag,
+    body.tc-dark #zenClipTag { background: #000000; color: #f5f5f5; border-color: #ffffff; }
+    html[data-theme="dark"] #zenMark,
+    body.tc-dark #zenMark { color: #f5f5f5; }
+    html[data-theme="dark"] #zenMark svg path,
+    body.tc-dark #zenMark svg path { stroke: #f5f5f5; }
+    html[data-theme="dark"] #zenMark svg circle,
+    body.tc-dark #zenMark svg circle { fill: #ffffff; }
+    html[data-theme="dark"] #zenMark .zen-hint,
+    body.tc-dark #zenMark .zen-hint,
+    html[data-theme="dark"] #zenCaption .zen-meta,
+    body.tc-dark #zenCaption .zen-meta,
+    html[data-theme="dark"] #zenSound,
+    body.tc-dark #zenSound { color: #a3a3a3; }
+    html[data-theme="dark"] #zenQuick button,
+    body.tc-dark #zenQuick button {
+      color: #f5f5f5;
+      background: rgba(14, 14, 14, 0.85);
+      border-color: #2e2e2e;
+    }
+    html[data-theme="dark"] #zenQuick button:hover,
+    body.tc-dark #zenQuick button:hover {
+      background: #ffffff;
+      color: #000000;
+      border-color: #ffffff;
+    }
+    html[data-theme="dark"] #zenJoin,
+    body.tc-dark #zenJoin {
+      background: #ffffff;
+      color: #000000;
+      border-color: #ffffff;
+    }
+    html[data-theme="dark"] #zenLauncher,
+    body.tc-dark #zenLauncher {
+      background: rgba(8, 8, 8, 0.94);
+    }
+    html[data-theme="dark"] #zenSearch,
+    body.tc-dark #zenSearch { color: #f5f5f5; caret-color: #ffffff; }
+    html[data-theme="dark"] #zenTools .zl-desc,
+    body.tc-dark #zenTools .zl-desc,
+    html[data-theme="dark"] #zenHint,
+    body.tc-dark #zenHint,
+    html[data-theme="dark"] #zenStatus,
+    body.tc-dark #zenStatus,
+    html[data-theme="dark"] #zenLauncher .zl-foot,
+    body.tc-dark #zenLauncher .zl-foot { color: #a3a3a3; }
+    html[data-theme="dark"] #zenTools button:hover .zl-desc,
+    body.tc-dark #zenTools button:hover .zl-desc,
+    html[data-theme="dark"] #zenTools button[aria-selected="true"] .zl-desc,
+    body.tc-dark #zenTools button[aria-selected="true"] .zl-desc { color: #f5f5f5; }
+    html[data-theme="dark"] #zenTools button[aria-selected="true"] .zl-act,
+    body.tc-dark #zenTools button[aria-selected="true"] .zl-act { background: #ffffff; color: #000000; border-color: #ffffff; }
   </style>
 """
 
@@ -307,6 +368,7 @@ ZEN_BODY = r"""
       <button class="zen-btn zq-extra" type="button" data-tool="win-workstation">3D Studio</button>
       <button class="zen-btn zq-extra" type="button" data-tool="win-nodes">Node Studio</button>
       <button class="zen-btn zq-extra" type="button" id="zenWatchAdQuickBtn" data-action="watch-ad" title="Watch Home Screen sponsor ads to earn tokens &amp; AI credits (zero subscriptions)">Watch Ad +CR</button>
+      <button class="zen-btn zq-extra" type="button" id="zenThemeToggleBtn" data-tc-theme-toggle="1" onclick="if(window.TinCanTheme)window.TinCanTheme.toggle()" title="Toggle TinCan Dark / Light Mode">&#x263E; Dark</button>
       <button class="zen-btn" type="button" data-tool="all" aria-haspopup="dialog" aria-controls="zenLauncher">All tools<kbd>⌘K</kbd></button>
     </nav>
     <button id="zenSound" class="zen-btn" type="button" aria-pressed="false">

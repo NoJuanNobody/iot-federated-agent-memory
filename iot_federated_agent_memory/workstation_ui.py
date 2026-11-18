@@ -922,6 +922,186 @@ def _workstation_css() -> str:
           #win-workstation .ws-arena-bar { grid-template-columns: 1fr; }
           #win-workstation .ws-arena-grid { grid-template-columns: 1fr; }
         }
+
+        /* Dark Mode: Pure Monochrome Black & White (Artboards 05 & 06 · #win-workstation-dark & /3dstudio) */
+        html[data-theme="dark"],
+        body.tc-dark,
+        html[data-theme="dark"] #win-workstation,
+        body.tc-dark #win-workstation,
+        html[data-theme="dark"] [data-window-id="win-workstation"],
+        body.tc-dark [data-window-id="win-workstation"],
+        html[data-theme="dark"] #finderTab-3dstudio,
+        body.tc-dark #finderTab-3dstudio {
+          --ws-bg: #0e0e0e;
+          --ws-card: #151515;
+          --ws-paper: #1a1a1a;
+          --ws-ink: #f5f5f5;
+          --ws-muted: #a3a3a3;
+          --ws-faint: #737373;
+          --ws-line: #2e2e2e;
+          --ws-pos: #ffffff;
+          --ws-pos-bg: rgba(255, 255, 255, 0.12);
+          --ws-danger: #d4d4d4;
+          --ws-danger-bg: rgba(255, 255, 255, 0.08);
+          --ws-hair: 1px solid #2e2e2e;
+          --ws-hair-soft: 1px solid rgba(255, 255, 255, 0.16);
+        }
+
+        html[data-theme="dark"] #win-workstation .ws-body,
+        body.tc-dark #win-workstation .ws-body,
+        html[data-theme="dark"] #win-workstation .ws-pane--center,
+        body.tc-dark #win-workstation .ws-pane--center {
+          background: #0e0e0e;
+          color: #f5f5f5;
+        }
+        html[data-theme="dark"] #win-workstation .ws-topbar,
+        body.tc-dark #win-workstation .ws-topbar,
+        html[data-theme="dark"] #win-workstation .ws-pane--left,
+        body.tc-dark #win-workstation .ws-pane--left,
+        html[data-theme="dark"] #win-workstation .ws-pane--right,
+        body.tc-dark #win-workstation .ws-pane--right,
+        html[data-theme="dark"] #win-workstation .ws-card--celadon,
+        body.tc-dark #win-workstation .ws-card--celadon,
+        html[data-theme="dark"] #win-workstation .ws-model-card,
+        body.tc-dark #win-workstation .ws-model-card,
+        html[data-theme="dark"] #win-workstation .ws-arena-col,
+        body.tc-dark #win-workstation .ws-arena-col,
+        html[data-theme="dark"] #win-workstation .ws-queue-item,
+        body.tc-dark #win-workstation .ws-queue-item {
+          background: #151515;
+          border-color: #2e2e2e;
+          color: #f5f5f5;
+        }
+        html[data-theme="dark"] #win-workstation .ws-card,
+        body.tc-dark #win-workstation .ws-card,
+        html[data-theme="dark"] #win-workstation .ws-stat-card,
+        body.tc-dark #win-workstation .ws-stat-card,
+        html[data-theme="dark"] #win-workstation .ws-ctx-list,
+        body.tc-dark #win-workstation .ws-ctx-list,
+        html[data-theme="dark"] #win-workstation .ws-input,
+        body.tc-dark #win-workstation .ws-input,
+        html[data-theme="dark"] #win-workstation .ws-select,
+        body.tc-dark #win-workstation .ws-select,
+        html[data-theme="dark"] #win-workstation .ws-textarea,
+        body.tc-dark #win-workstation .ws-textarea {
+          background: #1a1a1a;
+          color: #f5f5f5;
+          border-color: #2e2e2e;
+        }
+        html[data-theme="dark"] #win-workstation .ws-input:focus,
+        body.tc-dark #win-workstation .ws-input:focus,
+        html[data-theme="dark"] #win-workstation .ws-select:focus,
+        body.tc-dark #win-workstation .ws-select:focus,
+        html[data-theme="dark"] #win-workstation .ws-textarea:focus,
+        body.tc-dark #win-workstation .ws-textarea:focus {
+          border-color: #ffffff;
+          box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+        }
+
+        /* Pitch-Black 3D Rodin Viewport Stage & TEE Audit / Space Notes Patch / Code Diff Console */
+        html[data-theme="dark"] #win-workstation .ws-3d-viewport,
+        body.tc-dark #win-workstation .ws-3d-viewport,
+        html[data-theme="dark"] #win-workstation #wsModelViewerStage,
+        body.tc-dark #win-workstation #wsModelViewerStage,
+        html[data-theme="dark"] #win-workstation .ws-diff-box,
+        body.tc-dark #win-workstation .ws-diff-box,
+        html[data-theme="dark"] #win-workstation #wsAuditDiffBox,
+        body.tc-dark #win-workstation #wsAuditDiffBox,
+        html[data-theme="dark"] #win-workstation #wsPatchPreviewDiff,
+        body.tc-dark #win-workstation #wsPatchPreviewDiff,
+        html[data-theme="dark"] #win-workstation .ws-arena-out,
+        body.tc-dark #win-workstation .ws-arena-out {
+          background: #000000 !important;
+          color: #f5f5f5 !important;
+          border: 1.5px solid #ffffff !important;
+        }
+        html[data-theme="dark"] #win-workstation .ws-3d-viewport,
+        body.tc-dark #win-workstation .ws-3d-viewport {
+          background-image:
+            linear-gradient(to right, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 1px, transparent 1px) !important;
+        }
+        html[data-theme="dark"] #win-workstation .ws-patch-frame,
+        body.tc-dark #win-workstation .ws-patch-frame {
+          background: #0c0c0c;
+          border-color: #2e2e2e;
+          color: #f5f5f5;
+        }
+        html[data-theme="dark"] #win-workstation .ws-diff-add,
+        body.tc-dark #win-workstation .ws-diff-add {
+          color: #ffffff;
+          background: rgba(255, 255, 255, 0.14);
+        }
+        html[data-theme="dark"] #win-workstation .ws-diff-del,
+        body.tc-dark #win-workstation .ws-diff-del {
+          color: #a3a3a3;
+          background: rgba(255, 255, 255, 0.06);
+        }
+        html[data-theme="dark"] #win-workstation .ws-diff-hunk,
+        body.tc-dark #win-workstation .ws-diff-hunk {
+          color: #a3a3a3;
+        }
+        html[data-theme="dark"] #win-workstation .ws-diff-file,
+        body.tc-dark #win-workstation .ws-diff-file {
+          color: #ffffff;
+          border-bottom-color: #2e2e2e;
+        }
+        html[data-theme="dark"] #win-workstation .ws-diff-ctx,
+        body.tc-dark #win-workstation .ws-diff-ctx {
+          color: #f5f5f5;
+        }
+
+        /* Active Provider Pills, Mode Tabs, Tier Pills & Primary Dispatch / Commit Buttons */
+        html[data-theme="dark"] #win-workstation .ws-seg-btn.is-active,
+        body.tc-dark #win-workstation .ws-seg-btn.is-active,
+        html[data-theme="dark"] #win-workstation button.ws-pill.is-active,
+        body.tc-dark #win-workstation button.ws-pill.is-active,
+        html[data-theme="dark"] #win-workstation .ws-pill.is-active,
+        body.tc-dark #win-workstation .ws-pill.is-active,
+        html[data-theme="dark"] #win-workstation .ws-tier-pill.is-active,
+        body.tc-dark #win-workstation .ws-tier-pill.is-active,
+        html[data-theme="dark"] #win-workstation .ws-ctx-row.is-selected,
+        body.tc-dark #win-workstation .ws-ctx-row.is-selected,
+        html[data-theme="dark"] #win-workstation .ws-btn--solid,
+        body.tc-dark #win-workstation .ws-btn--solid,
+        html[data-theme="dark"] #win-workstation #wsDispatchBtn,
+        body.tc-dark #win-workstation #wsDispatchBtn,
+        html[data-theme="dark"] #win-workstation #wsAuditProposeBtn,
+        body.tc-dark #win-workstation #wsAuditProposeBtn,
+        html[data-theme="dark"] #win-workstation #wsAuditCommitBtn,
+        body.tc-dark #win-workstation #wsAuditCommitBtn,
+        html[data-theme="dark"] #win-workstation #wsPreviewCommitBtn,
+        body.tc-dark #win-workstation #wsPreviewCommitBtn,
+        html[data-theme="dark"] #win-workstation #wsHandoffCommitBtn,
+        body.tc-dark #win-workstation #wsHandoffCommitBtn,
+        html[data-theme="dark"] #win-workstation #wsSaveGlbBtn,
+        body.tc-dark #win-workstation #wsSaveGlbBtn,
+        html[data-theme="dark"] #win-workstation #wsArenaRunBtn,
+        body.tc-dark #win-workstation #wsArenaRunBtn,
+        html[data-theme="dark"] #win-workstation .ws-badge--ink,
+        body.tc-dark #win-workstation .ws-badge--ink {
+          background: #ffffff !important;
+          color: #000000 !important;
+          border-color: #ffffff !important;
+        }
+        html[data-theme="dark"] #win-workstation .ws-ctx-row.is-selected .ws-ctx-src,
+        body.tc-dark #win-workstation .ws-ctx-row.is-selected .ws-ctx-src {
+          color: #000000 !important;
+        }
+        html[data-theme="dark"] #win-workstation button.ws-pill:hover,
+        body.tc-dark #win-workstation button.ws-pill:hover,
+        html[data-theme="dark"] #win-workstation .ws-seg-btn:hover,
+        body.tc-dark #win-workstation .ws-seg-btn:hover,
+        html[data-theme="dark"] #win-workstation .ws-splitter:hover,
+        body.tc-dark #win-workstation .ws-splitter:hover,
+        html[data-theme="dark"] #win-workstation .ws-splitter.is-dragging,
+        body.tc-dark #win-workstation .ws-splitter.is-dragging {
+          background: rgba(255, 255, 255, 0.1);
+        }
+        html[data-theme="dark"] #win-workstation .ws-splitter--h::before,
+        body.tc-dark #win-workstation .ws-splitter--h::before {
+          background: rgba(255, 255, 255, 0.28);
+        }
       </style>"""
     return _re.sub(r"#win-workstation(?![A-Za-z0-9_-])", ".tc-ws-host", raw)
 

@@ -613,6 +613,144 @@ TOKEN_VAULT_CSS = r"""
   #win-billing .tv-pack-grid { grid-template-columns: 1fr; }
   #win-billing .tv-rate-grid { grid-template-columns: 1fr; }
 }
+
+/* Monochrome Black & White Dark Mode (Artboard 05: Token Vault & Sponsor Store) */
+html[data-theme="dark"],
+body.tc-dark,
+html[data-theme="dark"] #win-billing,
+body.tc-dark #win-billing {
+  --tv-desk: #080808;
+  --tv-bg: #0e0e0e;
+  --tv-card: #151515;
+  --tv-paper: #1a1a1a;
+  --tv-ink: #f5f5f5;
+  --tv-muted: #a3a3a3;
+  --tv-faint: #737373;
+  --tv-line: #2e2e2e;
+  --tv-green: #ffffff;
+  --tv-pos: #ffffff;
+  --tv-pos-bg: rgba(255, 255, 255, 0.12);
+  --tv-danger: #d4d4d4;
+  --tv-danger-bg: rgba(255, 255, 255, 0.08);
+  --tv-hair: 1px solid #2e2e2e;
+  --tv-hair-soft: 1px solid rgba(255, 255, 255, 0.14);
+}
+html[data-theme="dark"] #win-billing .tv-body,
+body.tc-dark #win-billing .tv-body {
+  background: #0e0e0e !important;
+  color: #f5f5f5 !important;
+}
+html[data-theme="dark"] #win-billing .tv-subbar,
+body.tc-dark #win-billing .tv-subbar,
+html[data-theme="dark"] #win-billing .tv-kpi-card,
+body.tc-dark #win-billing .tv-kpi-card,
+html[data-theme="dark"] #win-billing .tv-panel,
+body.tc-dark #win-billing .tv-panel,
+html[data-theme="dark"] #win-billing .tv-panel--celadon,
+body.tc-dark #win-billing .tv-panel--celadon,
+html[data-theme="dark"] #win-billing .tv-sponsor-box,
+body.tc-dark #win-billing .tv-sponsor-box,
+html[data-theme="dark"] #win-billing .tv-arb-box,
+body.tc-dark #win-billing .tv-arb-box,
+html[data-theme="dark"] #win-billing .tv-rodin-strip,
+body.tc-dark #win-billing .tv-rodin-strip,
+html[data-theme="dark"] #win-billing .tv-rodin-stat,
+body.tc-dark #win-billing .tv-rodin-stat {
+  background: #151515 !important;
+  border-color: #2e2e2e !important;
+  color: #f5f5f5 !important;
+}
+html[data-theme="dark"] #win-billing .tv-pack-card,
+body.tc-dark #win-billing .tv-pack-card {
+  background: #171717 !important;
+  border: 1px solid #2e2e2e !important;
+  color: #f5f5f5 !important;
+}
+html[data-theme="dark"] #win-billing .tv-pack-card--featured,
+body.tc-dark #win-billing .tv-pack-card--featured,
+html[data-theme="dark"] #win-billing .tv-pack-card[data-pack-id="pack_500"],
+body.tc-dark #win-billing .tv-pack-card[data-pack-id="pack_500"] {
+  background: #171717 !important;
+  border: 1.5px solid #ffffff !important;
+  box-shadow: none !important;
+}
+html[data-theme="dark"] #win-billing .tv-pill,
+body.tc-dark #win-billing .tv-pill {
+  background: #1a1a1a;
+  color: #f5f5f5;
+  border-color: #2e2e2e;
+}
+html[data-theme="dark"] #win-billing .tv-pill:hover,
+body.tc-dark #win-billing .tv-pill:hover {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-color: #ffffff !important;
+}
+html[data-theme="dark"] #win-billing .tv-pill--solid,
+body.tc-dark #win-billing .tv-pill--solid,
+html[data-theme="dark"] #win-billing .tv-pack-card--featured .tv-pill,
+body.tc-dark #win-billing .tv-pack-card--featured .tv-pill,
+html[data-theme="dark"] #win-billing #watchAdBtn,
+body.tc-dark #win-billing #watchAdBtn,
+html[data-theme="dark"] #win-billing #adSponsorCtaBtn,
+body.tc-dark #win-billing #adSponsorCtaBtn,
+html[data-theme="dark"] #win-billing .tv-badge--ink,
+body.tc-dark #win-billing .tv-badge--ink {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-color: #ffffff !important;
+}
+html[data-theme="dark"] #win-billing .tv-ad-player-box,
+body.tc-dark #win-billing .tv-ad-player-box,
+html[data-theme="dark"] #win-billing #adVideoContainer,
+body.tc-dark #win-billing #adVideoContainer,
+html[data-theme="dark"] #win-billing .tv-ad-video-stage,
+body.tc-dark #win-billing .tv-ad-video-stage,
+html[data-theme="dark"] #win-billing #adVideoPlayer,
+body.tc-dark #win-billing #adVideoPlayer,
+html[data-theme="dark"] #win-billing .tv-ledger-wrap,
+body.tc-dark #win-billing .tv-ledger-wrap {
+  background: #000000 !important;
+  color: #f5f5f5 !important;
+  border: 1.5px solid #ffffff !important;
+}
+html[data-theme="dark"] #win-billing .tv-ad-overlay,
+body.tc-dark #win-billing .tv-ad-overlay {
+  background: #0c0c0c !important;
+  color: #f5f5f5 !important;
+  border: 1px solid #ffffff !important;
+}
+html[data-theme="dark"] #win-billing .tv-ledger-table th,
+body.tc-dark #win-billing .tv-ledger-table th {
+  background: #0c0c0c !important;
+  color: #a3a3a3 !important;
+  border-bottom: 1px solid #2e2e2e !important;
+}
+html[data-theme="dark"] #win-billing .tv-ledger-table td,
+body.tc-dark #win-billing .tv-ledger-table td {
+  background: #000000 !important;
+  color: #f5f5f5 !important;
+  border-bottom: 1px solid #2e2e2e !important;
+}
+html[data-theme="dark"] #win-billing .tv-ledger-table tbody tr:hover td,
+body.tc-dark #win-billing .tv-ledger-table tbody tr:hover td {
+  background: #151515 !important;
+}
+html[data-theme="dark"] #win-billing .tv-cap-track,
+body.tc-dark #win-billing .tv-cap-track,
+html[data-theme="dark"] #win-billing .tv-ad-progress-track,
+body.tc-dark #win-billing .tv-ad-progress-track {
+  background: #0c0c0c !important;
+  border-color: #2e2e2e !important;
+}
+html[data-theme="dark"] #win-billing .tv-cap-fill,
+body.tc-dark #win-billing .tv-cap-fill,
+html[data-theme="dark"] #win-billing .tv-ad-progress-fill,
+body.tc-dark #win-billing .tv-ad-progress-fill,
+html[data-theme="dark"] #win-billing .tv-dot,
+body.tc-dark #win-billing .tv-dot {
+  background: #ffffff !important;
+}
 """
 
 

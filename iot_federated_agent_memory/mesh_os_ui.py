@@ -579,6 +579,217 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       z-index: 99999;
       mix-blend-mode: overlay;
     }
+
+    /* ==========================================================================
+       Monochrome Black & White Dark Mode: Artboards 05, 10 & 11
+       (#win-agentspace, #win-comms, #win-call, #win-tv, #win-network, #win-quests, #win-moderator)
+       ========================================================================== */
+    html[data-theme="dark"] #win-agentspace .ide,
+    body.tc-dark #win-agentspace .ide {
+      background: #0e0e0e !important;
+      color: #f5f5f5 !important;
+    }
+    html[data-theme="dark"] #win-agentspace .ide-head,
+    body.tc-dark #win-agentspace .ide-head,
+    html[data-theme="dark"] #win-agentspace .ide-tabs,
+    body.tc-dark #win-agentspace .ide-tabs,
+    html[data-theme="dark"] #win-agentspace .ide-toolbar,
+    body.tc-dark #win-agentspace .ide-toolbar,
+    html[data-theme="dark"] #win-agentspace .ide-runbar,
+    body.tc-dark #win-agentspace .ide-runbar,
+    html[data-theme="dark"] #win-agentspace .ide-panel,
+    body.tc-dark #win-agentspace .ide-panel,
+    html[data-theme="dark"] #win-agentspace .ide-panel-head,
+    body.tc-dark #win-agentspace .ide-panel-head,
+    html[data-theme="dark"] #win-agentspace .ide-status,
+    body.tc-dark #win-agentspace .ide-status,
+    html[data-theme="dark"] #win-agentspace #rangerViewerPane,
+    body.tc-dark #win-agentspace #rangerViewerPane {
+      background: #151515 !important;
+      color: #f5f5f5 !important;
+      border-color: #2e2e2e !important;
+    }
+    html[data-theme="dark"] #win-agentspace #rangerListPane,
+    body.tc-dark #win-agentspace #rangerListPane,
+    html[data-theme="dark"] #win-agentspace #spaceFileList,
+    body.tc-dark #win-agentspace #spaceFileList,
+    html[data-theme="dark"] #win-agentspace .ide-files,
+    body.tc-dark #win-agentspace .ide-files,
+    html[data-theme="dark"] #win-agentspace .ide-details-body,
+    body.tc-dark #win-agentspace .ide-details-body {
+      background: #0f0f0f !important;
+      color: #f5f5f5 !important;
+      border-color: #2e2e2e !important;
+    }
+    html[data-theme="dark"] #win-agentspace .ranger-row:hover,
+    body.tc-dark #win-agentspace .ranger-row:hover {
+      background: #171717 !important;
+      color: #f5f5f5 !important;
+    }
+    html[data-theme="dark"] #win-agentspace .ranger-row.is-active,
+    body.tc-dark #win-agentspace .ranger-row.is-active,
+    html[data-theme="dark"] #win-agentspace .ranger-row[aria-selected="true"],
+    body.tc-dark #win-agentspace .ranger-row[aria-selected="true"],
+    html[data-theme="dark"] #win-agentspace .ranger-row.border-l-2,
+    body.tc-dark #win-agentspace .ranger-row.border-l-2,
+    html[data-theme="dark"] #win-agentspace .ranger-row.ring-1,
+    body.tc-dark #win-agentspace .ranger-row.ring-1 {
+      background: #1c1c1c !important;
+      color: #ffffff !important;
+      border: 1px solid #ffffff !important;
+      border-left: 2px solid #ffffff !important;
+    }
+    html[data-theme="dark"] #win-agentspace .ranger-code,
+    body.tc-dark #win-agentspace .ranger-code,
+    html[data-theme="dark"] #win-agentspace #spaceCodeEditor,
+    body.tc-dark #win-agentspace #spaceCodeEditor,
+    html[data-theme="dark"] #win-agentspace #agentspaceEditor,
+    body.tc-dark #win-agentspace #agentspaceEditor,
+    html[data-theme="dark"] #win-agentspace .ide-textarea,
+    body.tc-dark #win-agentspace .ide-textarea,
+    html[data-theme="dark"] #win-agentspace #finderViewer,
+    body.tc-dark #win-agentspace #finderViewer,
+    html[data-theme="dark"] #win-agentspace #ideTermMount,
+    body.tc-dark #win-agentspace #ideTermMount,
+    html[data-theme="dark"] #win-agentspace #agentspaceOutput,
+    body.tc-dark #win-agentspace #agentspaceOutput,
+    html[data-theme="dark"] #win-agentspace .ide-output,
+    body.tc-dark #win-agentspace .ide-output,
+    html[data-theme="dark"] #win-agentspace #finderVideoContainer,
+    body.tc-dark #win-agentspace #finderVideoContainer {
+      background: #000000 !important;
+      color: #f5f5f5 !important;
+      border: 1.5px solid #ffffff !important;
+    }
+    html[data-theme="dark"] #win-agentspace .ranger-code td.ln,
+    body.tc-dark #win-agentspace .ranger-code td.ln {
+      color: #737373 !important;
+      border-right: 1px solid #2e2e2e !important;
+    }
+    html[data-theme="dark"] #win-agentspace .ranger-code td.lc,
+    body.tc-dark #win-agentspace .ranger-code td.lc {
+      color: #f5f5f5 !important;
+    }
+    html[data-theme="dark"] #win-agentspace .ranger-code tr:hover td,
+    body.tc-dark #win-agentspace .ranger-code tr:hover td {
+      background: #141414 !important;
+    }
+    html[data-theme="dark"] #win-agentspace .ide-seg,
+    body.tc-dark #win-agentspace .ide-seg {
+      background: #1a1a1a !important;
+      border-color: #2e2e2e !important;
+    }
+    html[data-theme="dark"] #win-agentspace .ide-seg button,
+    body.tc-dark #win-agentspace .ide-seg button,
+    html[data-theme="dark"] #win-agentspace .ide-btn,
+    body.tc-dark #win-agentspace .ide-btn {
+      color: #f5f5f5 !important;
+      border-color: #2e2e2e !important;
+    }
+    html[data-theme="dark"] #win-agentspace .ide-seg button.is-active,
+    body.tc-dark #win-agentspace .ide-seg button.is-active,
+    html[data-theme="dark"] #win-agentspace .ide-btn--solid,
+    body.tc-dark #win-agentspace .ide-btn--solid,
+    html[data-theme="dark"] #win-agentspace .ide-btn:hover,
+    body.tc-dark #win-agentspace .ide-btn:hover,
+    html[data-theme="dark"] #win-agentspace .ide-tab.is-active,
+    body.tc-dark #win-agentspace .ide-tab.is-active {
+      background: #ffffff !important;
+      color: #000000 !important;
+      border-color: #ffffff !important;
+    }
+
+    /* Talk Comms & WebRTC Video Studio (#win-comms & #win-call) */
+    html[data-theme="dark"] #win-comms aside,
+    body.tc-dark #win-comms aside,
+    html[data-theme="dark"] #win-comms #chatChannelsList,
+    body.tc-dark #win-comms #chatChannelsList,
+    html[data-theme="dark"] #win-comms #chatPeopleList,
+    body.tc-dark #win-comms #chatPeopleList,
+    html[data-theme="dark"] #win-comms #chatMessagesList,
+    body.tc-dark #win-comms #chatMessagesList,
+    html[data-theme="dark"] #win-call #roomPeersGrid,
+    body.tc-dark #win-call #roomPeersGrid {
+      background: #131313 !important;
+      color: #f5f5f5 !important;
+      border-color: #2e2e2e !important;
+    }
+    html[data-theme="dark"] #win-comms #chatInput,
+    body.tc-dark #win-comms #chatInput,
+    html[data-theme="dark"] #win-comms #chatDirectPeerInput,
+    body.tc-dark #win-comms #chatDirectPeerInput,
+    html[data-theme="dark"] #win-call #localVideo,
+    body.tc-dark #win-call #localVideo,
+    html[data-theme="dark"] #win-call #remoteVideo,
+    body.tc-dark #win-call #remoteVideo,
+    html[data-theme="dark"] #win-call .aspect-video,
+    body.tc-dark #win-call .aspect-video {
+      background: #000000 !important;
+      color: #f5f5f5 !important;
+      border: 1.5px solid #ffffff !important;
+    }
+    html[data-theme="dark"] #win-comms #chatActiveTargetBanner,
+    body.tc-dark #win-comms #chatActiveTargetBanner,
+    html[data-theme="dark"] #win-comms button[onclick*="sendChatMessage"],
+    body.tc-dark #win-comms button[onclick*="sendChatMessage"],
+    html[data-theme="dark"] #win-call button[onclick*="startCall"],
+    body.tc-dark #win-call button[onclick*="startCall"],
+    html[data-theme="dark"] #win-call button[onclick*="startScreenShare"],
+    body.tc-dark #win-call button[onclick*="startScreenShare"] {
+      background: #ffffff !important;
+      color: #000000 !important;
+      border-color: #ffffff !important;
+    }
+
+    /* Relay TV Watch Party (#win-tv), Network (#win-network), Quests (#win-quests), Moderator (#win-moderator) */
+    html[data-theme="dark"] :is(#win-tv, #win-network, #win-quests, #win-moderator) :is(.card, .stat-card, .panel-card, .stream-card, .quest-card, details, table),
+    body.tc-dark :is(#win-tv, #win-network, #win-quests, #win-moderator) :is(.card, .stat-card, .panel-card, .stream-card, .quest-card, details, table),
+    html[data-theme="dark"] #win-quests #questDeckGrid > div,
+    body.tc-dark #win-quests #questDeckGrid > div,
+    html[data-theme="dark"] #win-network #netMessageDrawer,
+    body.tc-dark #win-network #netMessageDrawer,
+    html[data-theme="dark"] #win-moderator .window-body > div,
+    body.tc-dark #win-moderator .window-body > div {
+      background: #141414 !important;
+      color: #f5f5f5 !important;
+      border-color: #2e2e2e !important;
+    }
+    html[data-theme="dark"] #win-tv #relayNativeVideo,
+    body.tc-dark #win-tv #relayNativeVideo,
+    html[data-theme="dark"] #win-tv video,
+    body.tc-dark #win-tv video,
+    html[data-theme="dark"] #win-tv #newVideoInput,
+    body.tc-dark #win-tv #newVideoInput,
+    html[data-theme="dark"] #win-moderator #reportedArtifactContent,
+    body.tc-dark #win-moderator #reportedArtifactContent,
+    html[data-theme="dark"] #win-moderator pre,
+    body.tc-dark #win-moderator pre {
+      background: #000000 !important;
+      color: #f5f5f5 !important;
+      border: 1.5px solid #ffffff !important;
+    }
+    html[data-theme="dark"] #win-tv #playlistCounterBadge,
+    body.tc-dark #win-tv #playlistCounterBadge,
+    html[data-theme="dark"] #win-tv #autoRotateBtn,
+    body.tc-dark #win-tv #autoRotateBtn,
+    html[data-theme="dark"] #win-tv button[onclick*="addVideoToPlaylist"],
+    body.tc-dark #win-tv button[onclick*="addVideoToPlaylist"],
+    html[data-theme="dark"] #win-tv button[onclick*="syncWatchParty"],
+    body.tc-dark #win-tv button[onclick*="syncWatchParty"],
+    html[data-theme="dark"] #win-network #btnNetTab-peers,
+    body.tc-dark #win-network #btnNetTab-peers,
+    html[data-theme="dark"] #win-quests button[onclick*="openAddMoneyFromQuests"],
+    body.tc-dark #win-quests button[onclick*="openAddMoneyFromQuests"],
+    html[data-theme="dark"] #win-quests button[onclick*="triggerQuestAction"],
+    body.tc-dark #win-quests button[onclick*="triggerQuestAction"],
+    html[data-theme="dark"] #win-moderator #adminTabBtnVideos,
+    body.tc-dark #win-moderator #adminTabBtnVideos,
+    html[data-theme="dark"] #win-moderator button[onclick*="sendAdminBroadcast"],
+    body.tc-dark #win-moderator button[onclick*="sendAdminBroadcast"] {
+      background: #ffffff !important;
+      color: #000000 !important;
+      border-color: #ffffff !important;
+    }
   </style>
 </head>
 <body class="theme-slate bg-slate-950 text-slate-100 min-h-screen overflow-x-hidden font-sans select-none">

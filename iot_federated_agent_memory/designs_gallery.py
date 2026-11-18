@@ -144,6 +144,113 @@ TERMINAL_AI_MOCKUPS: List[Dict[str, str]] = [
     },
 ]
 
+DARK_MODE_MOCKUPS: List[Dict[str, str]] = [
+    {
+        "id": "dark-master-sheet",
+        "title": "TinCan 2.2 Dark Mode · Master 12-Artboard Contact Sheet",
+        "desc": "Complete 4x3 architectural contact sheet uniting all 12 Dark Mode pages & components in Monochrome Black & White (#080808 / #0E0E0E) + Pitch-Black (#000000) Terminal with #FFFFFF Borders.",
+        "img": "/assets/designs/tincan_dark_mode_master_sheet.png",
+        "link": "/terminal?theme=dark",
+        "link_label": "Open Dark Terminal",
+    },
+    {
+        "id": "dark-01-zen-shell",
+        "title": "01 · Zen Startup Shell, Video Feed & ⌘K Command Bar (/)",
+        "desc": "Monochrome Black & White (#080808 / #0E0E0E) stage (#050505 Zen), 9:16 vertical clip frame with embedded Pitch-Black (#000000) Terminal with #FFFFFF Borders, quickbar theme toggle, and ⌘K Command Launcher with #zenOut dark inline terminal.",
+        "img": "/assets/designs/tincan_dark_01_zen_shell_launcher.png",
+        "link": "/?theme=dark",
+        "link_label": "Open Dark Home",
+    },
+    {
+        "id": "dark-02-terminal-pty-tui",
+        "title": "02 · Dedicated Dark Terminal, Coding Harnesses, Live PTY TUI & One-Click Install",
+        "desc": "Hero #win-terminal in Monochrome Black & White (#080808 / #0E0E0E) Dark Mode: split Pitch-Black (#000000) Terminal with #FFFFFF Borders for TinCanShell (.tcsh) & live xterm.js Claude Code / OpenCode / DSX PTY TUI plus One-Click Install Card.",
+        "img": "/assets/designs/tincan_dark_02_terminal_pty_tui.png",
+        "link": "/terminal?theme=dark",
+        "link_label": "Open Dark Terminal",
+    },
+    {
+        "id": "dark-03-ai-home-shell",
+        "title": "03 · AI Home Shell, Gateway Command Bar & Dark Live Shell Transcript",
+        "desc": "Monochrome Black & White (#080808 / #0E0E0E) Dark Mode #aiHomeHub with Pitch-Black (#000000) Terminal with #FFFFFF Borders tincan ask bar, 4 router chips, 4 workflow launch cards, dark live gateway transcript, and monochrome telemetry sparkline.",
+        "img": "/assets/designs/tincan_dark_03_ai_home_shell.png",
+        "link": "/ai?theme=dark",
+        "link_label": "Open AI Home",
+    },
+    {
+        "id": "dark-04-ai-copilot",
+        "title": "04 · AI Copilot, Multi-Gateway Router & Dark Terminal .space Code Diffs",
+        "desc": "3-pane Monochrome Black & White (#080808 / #0E0E0E) Dark Mode AI Copilot (#win-copilot) with local Ollama / FAU OwlChat / NanoGPT TEE priority router and Pitch-Black (#000000) Terminal with #FFFFFF Borders diff & pytest execution console.",
+        "img": "/assets/designs/tincan_dark_04_ai_copilot.png",
+        "link": "/copilot?theme=dark",
+        "link_label": "Open AI Copilot",
+    },
+    {
+        "id": "dark-05-workstation-ide",
+        "title": "05 · Workstation IDE · .space VFS Explorer, Code Editor & Docked Dark Terminal",
+        "desc": "VSCode-style Monochrome Black & White (#080808 / #0E0E0E) Dark Mode IDE (#win-agentspace) featuring .space VFS explorer, Drive Mirror, multi-tab dark code editor, and bottom docked Pitch-Black (#000000) Terminal with #FFFFFF Borders.",
+        "img": "/assets/designs/tincan_dark_05_workstation_ide.png",
+        "link": "/workstation?theme=dark",
+        "link_label": "Open Workstation IDE",
+    },
+    {
+        "id": "dark-06-3d-studio-rodin",
+        "title": "06 · 3D Studio · Hyper3D Rodin v2 Stage & Dark Terminal TEE Enclave Diff",
+        "desc": "Monochrome Black & White (#080808 / #0E0E0E) Dark Mode 3D Studio (#win-workstation / /3dstudio) with monochrome isometric mesh viewport, Rodin tiers, and Pitch-Black (#000000) Terminal with #FFFFFF Borders TEE Audit & Space Notes Patch console.",
+        "img": "/assets/designs/tincan_dark_06_3d_studio_rodin.png",
+        "link": "/3dstudio?theme=dark",
+        "link_label": "Open 3D Studio",
+    },
+    {
+        "id": "dark-07-node-studio",
+        "title": "07 · Nano Banana Gemini Node Studio · Dark Dot-Grid Canvas, Prompt Island & Dark Node Terminal",
+        "desc": "Full-screen Monochrome Black & White (#080808 / #0E0E0E) Dark Mode 24px dot-grid canvas (#win-nodes / /nodes), Lumina Library drawer, MorphingNode DAG, floating Pitch-Black (#000000) Terminal with #FFFFFF Borders Node CLI, and Dark Prompt Island.",
+        "img": "/assets/designs/tincan_dark_07_node_studio.png",
+        "link": "/nodes?theme=dark",
+        "link_label": "Open Node Studio",
+    },
+    {
+        "id": "dark-08-brain-arena-palace",
+        "title": "08 · AI Brain Arena Duel & Context Palace Universal Inventory",
+        "desc": "Monochrome Black & White (#080808 / #0E0E0E) Dark Mode Context Palace SQLite WAL CRUD inventory paired with side-by-side Blind Brain Arena duel featuring Pitch-Black (#000000) Terminal with #FFFFFF Borders benchmark boxes and +150 XP vote modal.",
+        "img": "/assets/designs/tincan_dark_08_brain_arena_palace.png",
+        "link": "/arena?theme=dark",
+        "link_label": "Open Brain Arena",
+    },
+    {
+        "id": "dark-09-cyberspace-board",
+        "title": "09 · Cyberspace Discussion Board, Omni-Bar, AI Suggestions & Knowledge Graph",
+        "desc": "Monochrome Black & White (#080808 / #0E0E0E) Dark Mode Cyberspace Board (#win-board) with unified omni-bar, free AI suggestions, curated feed cards, active threads, and Pitch-Black (#000000) Terminal with #FFFFFF Borders harness verification log.",
+        "img": "/assets/designs/tincan_dark_09_cyberspace_board.png",
+        "link": "/board?theme=dark",
+        "link_label": "Open Board",
+    },
+    {
+        "id": "dark-10-comms-webrtc-call",
+        "title": "10 · Talk · Encrypted Channels, DM Roster & Sub-80ms WebRTC Dark Terminal Screenshare",
+        "desc": "Monochrome Black & White (#080808 / #0E0E0E) Dark Mode #win-comms channels & People in Room DM roster + Kokoro-82M TTS CLI paired with #win-call live 60fps WebRTC Pitch-Black (#000000) Terminal with #FFFFFF Borders screenshare.",
+        "img": "/assets/designs/tincan_dark_10_comms_webrtc_call.png",
+        "link": "/call?theme=dark",
+        "link_label": "Open WebRTC Room",
+    },
+    {
+        "id": "dark-11-watchparty-token-vault",
+        "title": "11 · Watch Party Relay TV & Token Vault / Sponsor Ad Arbitrage",
+        "desc": "Monochrome Black & White (#080808 / #0E0E0E) Dark Mode Token Vault (#win-billing) & Relay TV Watch Party (#win-tv) with zero-subscription +5,000 CR ad rewards, Stripe packs, and Pitch-Black (#000000) Terminal with #FFFFFF Borders CLI billing ledger.",
+        "img": "/assets/designs/tincan_dark_11_watchparty_token_vault.png",
+        "link": "/tokens?theme=dark",
+        "link_label": "Open Token Vault",
+    },
+    {
+        "id": "dark-12-system-mobile-car-suite",
+        "title": "12 · System & Cross-Platform Dark Suite · Network, Quests, Browser, Localhost, Moderator, Fono, iOS & Car UI",
+        "desc": "6-panel Monochrome Black & White (#080808 / #0E0E0E) Dark Mode Bento Grid with Pitch-Black (#000000) Terminal with #FFFFFF Borders covering #win-network, #win-quests, #win-browser + #win-localhost dev server terminal, #win-moderator + Identity Gate, /fono, /ios, and /car.",
+        "img": "/assets/designs/tincan_dark_12_system_mobile_car_suite.png",
+        "link": "/mesh?theme=dark",
+        "link_label": "Open Dark Desktop",
+    },
+]
+
 
 def _build_card_html(m: Dict[str, str], action_href: str = "", action_label: str = "") -> str:
     img = m["img"]
@@ -172,8 +279,8 @@ def _build_card_html(m: Dict[str, str], action_href: str = "", action_label: str
 
 
 def render_designs_gallery_html(active_tab: str = "aeonik") -> str:
-    """Renders the comprehensive mockups gallery page in Aeonik Celadon & Ink style (Python 3.11+ safe)."""
-    valid_tabs = {"aeonik", "ios", "car", "desktop", "terminal-ai"}
+    """Renders the comprehensive mockups gallery page in Aeonik Celadon & Ink + Dark Mode style (Python 3.11+ safe)."""
+    valid_tabs = {"aeonik", "ios", "car", "desktop", "terminal-ai", "dark-mode"}
     selected_tab = active_tab if active_tab in valid_tabs else "aeonik"
     tab_cls = lambda key: " active" if selected_tab == key else ""
 
@@ -205,6 +312,10 @@ def render_designs_gallery_html(active_tab: str = "aeonik") -> str:
         _build_card_html(m, m.get("link", "/"), m.get("link_label", "Open Live View"))
         for m in TERMINAL_AI_MOCKUPS
     )
+    dark_mode_cards = "\n".join(
+        _build_card_html(m, m.get("link", "/terminal?theme=dark"), m.get("link_label", "Open Dark View"))
+        for m in DARK_MODE_MOCKUPS
+    )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -221,6 +332,23 @@ def render_designs_gallery_html(active_tab: str = "aeonik") -> str:
   --aeonik-line: #111111;
   --aeonik-sans: -apple-system, BlinkMacSystemFont, "Aeonik", "Inter", "Helvetica Neue", sans-serif;
   --aeonik-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+}}
+
+html[data-theme="dark"],
+body.tc-dark {{
+  --aeonik-bg: #080808;
+  --aeonik-card: #0e0e0e;
+  --aeonik-fg: #f5f5f5;
+  --aeonik-dim: #a3a3a3;
+  --aeonik-line: #2e2e2e;
+}}
+html[data-theme="dark"] .install-banner,
+body.tc-dark .install-banner {{
+  background: #0e0e0e;
+}}
+html[data-theme="dark"] .card-preview,
+body.tc-dark .card-preview {{
+  background: #000000;
 }}
 
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
@@ -427,6 +555,7 @@ main.container {{
     <span class="pill">Aeonik Celadon &amp; Ink</span>
   </div>
   <div class="nav-actions">
+    <button type="button" id="galleryThemeToggleBtn" class="nav-link" style="background: #000000; color: #ffffff; border: 1.5px solid #ffffff; cursor: pointer;" onclick="toggleGalleryTheme()">&#x263E; Dark Mode</button>
     <a href="/mesh" class="nav-link">⚡ Terminal &amp; Desktop</a>
     <a href="/fono" class="nav-link">📱 Aeonik Fono</a>
     <a href="/ios" class="nav-link">📱 iOS Simulator</a>
@@ -440,6 +569,7 @@ main.container {{
   <button class="tab-btn{tab_cls('car')}" onclick="switchGalleryTab('car')">03 · Car Head-Unit UI (5)</button>
   <button class="tab-btn{tab_cls('desktop')}" onclick="switchGalleryTab('desktop')">04 · Mesh OS Windows ({len(DESKTOP_MOCKUPS)})</button>
   <button class="tab-btn{tab_cls('terminal-ai')}" onclick="switchGalleryTab('terminal-ai')">05 · Terminal AI Redesign ({len(TERMINAL_AI_MOCKUPS)})</button>
+  <button class="tab-btn{tab_cls('dark-mode')}" onclick="switchGalleryTab('dark-mode')">06 · Dark Mode &amp; Dark Terminal ({len(DARK_MODE_MOCKUPS)})</button>
 </div>
 
 <main class="container">
@@ -557,6 +687,24 @@ main.container {{
       {terminal_ai_cards}
     </div>
   </div>
+
+  <!-- TAB 5: DARK MODE & DARK TERMINAL -->
+  <div id="tab-dark-mode" class="tab-section{tab_cls('dark-mode')}">
+    <div class="intro-panel">
+      <div class="intro-text">
+        <h2>TinCan 2.2 Dark Mode · Monochrome Black &amp; White (#080808 / #0E0E0E) + Pitch-Black (#000000) Terminal with #FFFFFF Borders</h2>
+        <p>Complete 12-artboard FigCraft Dark Mode design system in Monochrome Black &amp; White (#080808 / #0E0E0E) + Pitch-Black (#000000) Terminal with #FFFFFF Borders covering every TinCan page and component (Zen Startup Shell &amp; ⌘K Launcher, Dedicated Dark Terminal &amp; PTY TUI, AI Home Shell, AI Copilot, Workstation IDE with Docked Dark Terminal, 3D Studio, Nano Banana Gemini Node Studio, Brain Arena &amp; Context Palace, Cyberspace Board, Talk &amp; WebRTC Terminal Screenshare, Watch Party &amp; Token Vault, and System/Mobile/Car Dark Suite).</p>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <a href="/assets/designs/tincan_dark_mode_system.figcraft" download class="btn-cta">⬇ Download .figcraft (12 Artboards)</a>
+        <a href="/terminal?theme=dark" class="btn-cta outline">⚡ Open Dark Terminal</a>
+        <a href="/mesh?theme=dark" class="btn-cta outline">☾ Open Dark Desktop</a>
+      </div>
+    </div>
+    <div class="grid-gallery">
+      {dark_mode_cards}
+    </div>
+  </div>
 </main>
 
 <div id="lightbox" onclick="closeLightbox()">
@@ -600,6 +748,16 @@ function copyGalleryInstall(btn) {{
       setTimeout(() => {{ btn.innerText = orig; }}, 1600);
     }});
   }}
+}}
+
+function toggleGalleryTheme() {{
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  const next = isDark ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  document.body.classList.toggle('tc-dark', next === 'dark');
+  const btn = document.getElementById('galleryThemeToggleBtn');
+  if (btn) btn.innerHTML = next === 'dark' ? '&#x2600; Light Mode' : '&#x263E; Dark Mode';
 }}
 </script>
 </body>

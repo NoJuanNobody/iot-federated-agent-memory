@@ -617,6 +617,55 @@ html, body {{
   color: #8fae63;
   border: 1px solid rgba(66, 82, 46, 0.6);
 }}
+
+/* Monochrome Black & White Dark Mode */
+html[data-theme="dark"],
+body.tc-dark,
+html[data-theme="dark"] .sim-workspace,
+body.tc-dark .sim-workspace,
+html[data-theme="dark"] .sim-stage,
+body.tc-dark .sim-stage {{
+  background: #080808 !important;
+  color: #f5f5f5;
+}}
+html[data-theme="dark"] .sim-rail,
+body.tc-dark .sim-rail,
+html[data-theme="dark"] .sim-console,
+body.tc-dark .sim-console,
+html[data-theme="dark"] .phone-inner,
+body.tc-dark .phone-inner,
+html[data-theme="dark"] .sim-tabbar,
+body.tc-dark .sim-tabbar {{
+  background: #0e0e0e !important;
+  border-color: #2e2e2e;
+  color: #f5f5f5;
+}}
+html[data-theme="dark"] .console-card,
+body.tc-dark .console-card {{
+  background: #151515 !important;
+  border: 1px solid #2e2e2e;
+  color: #f5f5f5;
+}}
+html[data-theme="dark"] .wire-log,
+body.tc-dark .wire-log,
+html[data-theme="dark"] .phone-bezel,
+body.tc-dark .phone-bezel {{
+  background: #000000 !important;
+  color: #f5f5f5;
+  border: 1.5px solid #ffffff !important;
+}}
+html[data-theme="dark"] .rail-btn.active,
+body.tc-dark .rail-btn.active,
+html[data-theme="dark"] .console-btn:hover,
+body.tc-dark .console-btn:hover,
+html[data-theme="dark"] .wire-badge,
+body.tc-dark .wire-badge,
+html[data-theme="dark"] .sim-brand .tag,
+body.tc-dark .sim-brand .tag {{
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-color: #ffffff !important;
+}}
 </style>
 </head>
 <body>
@@ -634,6 +683,7 @@ html, body {{
         <div style="font-size:11px;color:var(--washi-3)">iOS Simulator & Wire Bridge</div>
       </div>
       <span class="tag">9 Screens</span>
+      <button type="button" id="iosThemeToggleBtn" class="console-btn ghost" data-tc-theme-toggle="1" style="padding:4px 8px;font-size:11px;margin-left:auto" onclick="toggleIosTheme()">&#x263E; Dark</button>
     </div>
 
     <div class="rail-section">
@@ -718,6 +768,39 @@ html, body {{
 
 <script>
 let currentScreenId = '{initial_screen}';
+
+function applyIosTheme(theme) {{
+  const next = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  if (document.body) document.body.classList.toggle('tc-dark', next === 'dark');
+  try {{ localStorage.setItem('tincan_theme', next); }} catch (e) {{}}
+  const btn = document.getElementById('iosThemeToggleBtn');
+  if (btn) btn.innerHTML = next === 'dark' ? '&#x2600; Light' : '&#x263E; Dark';
+}}
+
+function toggleIosTheme() {{
+  const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  applyIosTheme(cur === 'dark' ? 'light' : 'dark');
+}}
+
+(function initIosTheme() {{
+  let initial = null;
+  try {{
+    const search = window.location.search || '';
+    if (search.indexOf('?theme=dark') !== -1 || new URLSearchParams(search).get('theme') === 'dark') {{
+      initial = 'dark';
+    }} else if (new URLSearchParams(search).get('theme') === 'light') {{
+      initial = 'light';
+    }}
+  }} catch (e) {{}}
+  if (!initial) {{
+    try {{
+      const saved = localStorage.getItem('tincan_theme');
+      if (saved === 'dark' || saved === 'light') initial = saved;
+    }} catch (e) {{}}
+  }}
+  if (initial === 'dark') applyIosTheme('dark');
+}})();
 
 function logWire(msg) {{
   const logEl = document.getElementById('wireLog');

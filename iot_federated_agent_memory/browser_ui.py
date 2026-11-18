@@ -283,6 +283,67 @@ def _browser_css() -> str:
           }
           #win-browser .br-splitter { display: none; }
         }
+        /* Monochrome Black & White Dark Mode */
+        html[data-theme="dark"] #win-browser,
+        body.tc-dark #win-browser {
+          --br-bg: #0e0e0e;
+          --br-card: #141414;
+          --br-paper: #1a1a1a;
+          --br-ink: #f5f5f5;
+          --br-muted: #a3a3a3;
+          --br-faint: #737373;
+          --br-pos: #ffffff;
+          --br-pos-bg: rgba(255, 255, 255, 0.09);
+          --br-hair: 1px solid #2e2e2e;
+          --br-hair-soft: 1px solid #262626;
+          background: #0e0e0e;
+          color: #f5f5f5;
+        }
+        html[data-theme="dark"] #win-browser .br-body,
+        body.tc-dark #win-browser .br-body {
+          background: #0e0e0e;
+          color: #f5f5f5;
+        }
+        html[data-theme="dark"] #win-browser .br-toolbar,
+        body.tc-dark #win-browser .br-toolbar,
+        html[data-theme="dark"] #win-browser .br-inspector,
+        body.tc-dark #win-browser .br-inspector,
+        html[data-theme="dark"] #win-browser .br-card,
+        body.tc-dark #win-browser .br-card {
+          background: #141414;
+          border-color: #2e2e2e;
+          color: #f5f5f5;
+        }
+        html[data-theme="dark"] #win-browser .br-url-input,
+        body.tc-dark #win-browser .br-url-input,
+        html[data-theme="dark"] #win-browser .br-reader,
+        body.tc-dark #win-browser .br-reader {
+          background: #000000;
+          color: #f5f5f5;
+          border: 1.5px solid #ffffff;
+        }
+        html[data-theme="dark"] #win-browser .br-btn--solid,
+        body.tc-dark #win-browser .br-btn--solid,
+        html[data-theme="dark"] #win-browser .br-seg-btn.is-active,
+        body.tc-dark #win-browser .br-seg-btn.is-active,
+        html[data-theme="dark"] #win-browser .br-btn:hover,
+        body.tc-dark #win-browser .br-btn:hover,
+        html[data-theme="dark"] #win-browser .br-row-btn:hover,
+        body.tc-dark #win-browser .br-row-btn:hover {
+          background: #ffffff;
+          color: #000000;
+          border-color: #ffffff;
+        }
+        html[data-theme="dark"] #win-browser .br-screen-wrap,
+        body.tc-dark #win-browser .br-screen-wrap,
+        html[data-theme="dark"] #win-browser #brElementsStage,
+        body.tc-dark #win-browser #brElementsStage {
+          background: #0e0e0e !important;
+        }
+        html[data-theme="dark"] #win-browser #brPageTitle,
+        body.tc-dark #win-browser #brPageTitle {
+          color: #f5f5f5 !important;
+        }
       </style>"""
 
 

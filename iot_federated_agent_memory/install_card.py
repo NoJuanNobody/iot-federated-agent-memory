@@ -47,11 +47,26 @@ BREW_SHELL_COMMAND = "brew install tincan context-palace"
 
 INSTALL_CARD_PLACEHOLDER_RE = re.compile(r"<!--TC_INSTALL_CARD (\{.*?\})-->")
 INSTALL_CARD_JS_SLOT = "/*TC_INSTALL_CARD_JS*/"
+INSTALL_CARD_CSS_SLOT = "/*TC_INSTALL_CARD_CSS*/"
 
-_TAB_ON = "px-2 py-0.5 bg-black text-[#ecf1e6] rounded-full border border-black font-semibold transition"
-_TAB_OFF = "px-2 py-0.5 bg-transparent text-black rounded-full border border-black font-semibold transition"
-_PILL_SOLID = "px-2.5 py-1 bg-black text-[#ecf1e6] rounded-full text-[10px] font-semibold hover:opacity-85 active:scale-95 transition"
-_PILL_LINE = "px-2.5 py-1 border border-black text-black rounded-full text-[10px] font-semibold hover:bg-black hover:text-[#ecf1e6] active:scale-95 transition"
+_TAB_ON = "tcic-tab is-active px-2 py-0.5 bg-black text-[#ecf1e6] rounded-full border border-black font-semibold transition"
+_TAB_OFF = "tcic-tab px-2 py-0.5 bg-transparent text-black rounded-full border border-black font-semibold transition"
+_PILL_SOLID = "tcic-btn tcic-btn--primary px-2.5 py-1 bg-black text-[#ecf1e6] rounded-full text-[10px] font-semibold hover:opacity-85 active:scale-95 transition"
+_PILL_LINE = "tcic-btn tcic-btn--secondary px-2.5 py-1 border border-black text-black rounded-full text-[10px] font-semibold hover:bg-black hover:text-[#ecf1e6] active:scale-95 transition"
+
+INSTALL_CARD_CSS = r"""
+    /* TinCanInstallCard (install_card.py): Always-Dark Pitch-Black command box + Monochrome B&W Dark Mode */
+    .tcic-cmd { background: #000000 !important; color: #f5f5f5 !important; border: 1.5px solid #ffffff !important; }
+    .tcic-cmd .tcic-prompt, .tcic-prompt { color: #ffffff !important; font-weight: 700; }
+    .tcic-cmd code, .tcic-cmd [data-role="display"] { color: #f5f5f5 !important; }
+    .tcic-cmd .tcic-btn--primary { background: #ffffff !important; color: #000000 !important; border-color: #ffffff !important; }
+    html[data-theme="dark"] .tcic, body.tc-dark .tcic { background: #141414; color: #f5f5f5; border-color: #ffffff; }
+    html[data-theme="dark"] .tcic .tcic-title, body.tc-dark .tcic .tcic-title { color: #f5f5f5; }
+    html[data-theme="dark"] .tcic .tcic-tab, body.tc-dark .tcic .tcic-tab { background: #1a1a1a; color: #f5f5f5; border-color: #333333; }
+    html[data-theme="dark"] .tcic .tcic-tab.is-active, body.tc-dark .tcic .tcic-tab.is-active,
+    html[data-theme="dark"] .tcic .tcic-btn--primary, body.tc-dark .tcic .tcic-btn--primary { background: #ffffff; color: #000000; border-color: #ffffff; }
+    html[data-theme="dark"] .tcic .tcic-btn--secondary, body.tc-dark .tcic .tcic-btn--secondary { background: #000000; color: #ffffff; border-color: #ffffff; }
+"""
 
 
 def render_install_card(card_id: str = "install", compact: bool = True, shell: Optional[str] = None) -> str:
@@ -73,16 +88,17 @@ def render_install_card(card_id: str = "install", compact: bool = True, shell: O
         for key, cmd in INSTALL_COMMANDS.items()
     )
     pad = "p-3" if compact else "p-4"
-    return f"""<div id="tcInstallCard-{cid}" data-tc-install="{cid}" data-default-tab="{DEFAULT_TAB}"{shell_attr} class="tc-install {pad} space-y-2 font-mono text-xs bg-[#f4f8f0] border border-black rounded-xl min-w-0">
+    return f"""<div id="tcInstallCard-{cid}" data-tc-install="{cid}" data-default-tab="{DEFAULT_TAB}"{shell_attr} class="tc-install tcic {pad} space-y-2 font-mono text-xs bg-[#f4f8f0] border border-black rounded-xl min-w-0">
           <div class="flex flex-wrap items-center justify-between gap-1.5">
-            <div class="text-[10px] font-bold uppercase text-black tracking-wider">⚡ One-Click Terminal Install</div>
+            <div class="tcic-title text-[10px] font-bold uppercase text-black tracking-wider">⚡ One-Click Terminal Install</div>
             <div class="flex flex-wrap items-center gap-1 text-[9px]" role="tablist" aria-label="Install method">
 {tabs}
             </div>
           </div>
-          <div class="bg-white border border-black rounded-xl p-2 flex items-center justify-between gap-2">
-            <code data-role="display" class="text-[10px] text-black font-semibold select-all overflow-x-auto whitespace-nowrap min-w-0">{_html.escape(INSTALL_COMMANDS[DEFAULT_TAB], quote=False)}</code>
-            <button type="button" data-action="copy" class="px-2.5 py-1 bg-black text-[#ecf1e6] rounded-full text-[10px] font-bold shrink-0 hover:opacity-85 active:scale-95 transition">\U0001F4CB Copy</button>
+          <div class="tcic-cmd bg-[#000000] text-[#f5f5f5] border border-[#ffffff] rounded-xl p-2 flex items-center justify-between gap-2">
+            <span class="tcic-prompt text-[#ffffff] font-bold select-none shrink-0" aria-hidden="true">$</span>
+            <code data-role="display" class="tcic-code text-[10px] text-[#f5f5f5] font-semibold select-all overflow-x-auto whitespace-nowrap min-w-0 flex-1">{_html.escape(INSTALL_COMMANDS[DEFAULT_TAB], quote=False)}</code>
+            <button type="button" data-action="copy" class="tcic-btn tcic-btn--primary px-2.5 py-1 bg-black text-[#ecf1e6] rounded-full text-[10px] font-bold shrink-0 hover:opacity-85 active:scale-95 transition">\U0001F4CB Copy</button>
           </div>
           <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
             <button type="button" data-action="copy-install" class="{_PILL_SOLID}">Copy install command</button>
@@ -234,6 +250,12 @@ def install_card_js() -> str:
 
 
 def apply_install_card(html: str, js: Optional[str] = None) -> str:
-    """Expand card placeholders and inject the card script (idempotent)."""
+    """Expand card placeholders and inject the card script and styles (idempotent)."""
     html = expand_install_cards(html)
+    if INSTALL_CARD_CSS_SLOT in html:
+        html = html.replace(INSTALL_CARD_CSS_SLOT, INSTALL_CARD_CSS)
+    elif 'id="tc-install-card-css"' not in html:
+        head_end = html.find("</head>")
+        if head_end != -1:
+            html = html[:head_end] + f'  <style id="tc-install-card-css">{INSTALL_CARD_CSS}  </style>\n' + html[head_end:]
     return html.replace(INSTALL_CARD_JS_SLOT, js if js is not None else install_card_js())

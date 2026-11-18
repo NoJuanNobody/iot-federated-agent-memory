@@ -75,6 +75,9 @@ def render_titlebar(win_id: str, title: str, icon: str = "", badge: str = "",
     if extra_controls_html:
         parts.append(extra_controls_html)
     parts.append(
+        '<button type="button" class="tc-ctl tc-ctl--theme" data-tc-theme-toggle="1" '
+        'onclick="if(window.TinCanTheme)window.TinCanTheme.toggle()" '
+        'title="Toggle TinCan Dark / Light Mode" aria-label="Toggle Dark Mode">&#x263E; Dark</button>'
         f'<button type="button" class="tc-ctl tc-ctl--new" onclick="openWindowInstance(\'{wid}\')" '
         f'title="Open another independent {t} window" aria-label="New {t} window">&#x2B; New</button>'
         f'<button type="button" class="tc-ctl tc-ctl--pop" onclick="openPopoutWindow(\'{wid}\')" '
@@ -394,6 +397,7 @@ CELADON_HEAD = r"""
       color: var(--tc-ink) !important; background: transparent !important; border: 1px solid transparent !important;
       border-radius: var(--tc-r-pill) !important; cursor: pointer; transition: background 120ms, color 120ms, border-color 120ms;
     }
+    .mesh-window .tc-titlebar .tc-ctl--theme,
     .mesh-window .tc-titlebar .tc-ctl--new,
     .mesh-window .tc-titlebar .tc-ctl--pop { border-color: var(--tc-ink) !important; padding: 0 10px !important; }
     .mesh-window .tc-titlebar .tc-ctl:hover, .mesh-window .tc-titlebar .tc-ctl:focus-visible { background: var(--tc-ink) !important; color: var(--tc-bg) !important; outline: none; }
@@ -477,12 +481,225 @@ CELADON_HEAD = r"""
     body.tc-embed .mesh-window.popout-fullscreen .tc-titlebar, body.tc-embed .mesh-window.popout-fullscreen .window-resize-handle { display: none !important; }
     body.tc-embed .mesh-window.popout-fullscreen .window-body { height: 100vh !important; max-height: 100vh !important; }
     #meshOsHud { background: rgba(236, 241, 230, 0.94) !important; border-bottom: var(--tc-hair) !important; backdrop-filter: blur(8px); }
+
+    /* =======================================================================
+       Always-Dark Terminal Surfaces (#000000 Pitch-Black Monochrome Terminal)
+       Guarantees the terminal is immediately recognizable as a dark terminal
+       in both Light and Dark mode.
+       ======================================================================= */
+    .tcsh,
+    #win-terminal .tc-term-body,
+    #aiHomeHub .tc-ai-cmd-bar,
+    #aiHomeHub .tc-ai-output,
+    #zenOut {
+      background: #000000 !important;
+      color: #f5f5f5 !important;
+      border-color: #ffffff !important;
+    }
+    #win-terminal .tc-term-top {
+      background: #0c0c0c !important;
+      border-bottom: 1px solid #2e2e2e !important;
+      color: #a3a3a3 !important;
+    }
+    #win-terminal .tc-term-top span { color: #a3a3a3 !important; }
+    #win-terminal .tc-term-top button {
+      background: #171717 !important;
+      color: #f5f5f5 !important;
+      border-color: #333333 !important;
+    }
+    #win-terminal .tc-term-top button:first-of-type,
+    #win-terminal .tc-term-top button:hover {
+      background: #ffffff !important;
+      color: #000000 !important;
+      border-color: #ffffff !important;
+    }
+    #aiHomeHub .tc-ai-prompt-prefix { color: #ffffff !important; }
+    #aiHomeHub .tc-ai-prompt-input { color: #f5f5f5 !important; caret-color: #ffffff !important; }
+    #aiHomeHub .tc-ai-prompt-input::placeholder { color: #737373 !important; }
+    #aiHomeHub .tc-ai-dispatch-btn { background: #ffffff !important; color: #000000 !important; border-color: #ffffff !important; }
+    #aiHomeHub .tc-ai-output-body { color: #f5f5f5 !important; }
+    #aiHomeHub .tc-ai-output-meta { color: #ffffff !important; }
+
+    /* =======================================================================
+       TinCan 2.2 · Monochrome Black & White Dark Mode (html[data-theme="dark"] / body.tc-dark)
+       ======================================================================= */
+    html[data-theme="dark"],
+    body.tc-dark {
+      --tc-bg: #0e0e0e;
+      --tc-ink: #f5f5f5;
+      --tc-card: #151515;
+      --tc-paper: #1a1a1a;
+      --tc-muted: #a3a3a3;
+      --tc-faint: #737373;
+      --tc-danger: #d4d4d4;
+      --tc-hair: 1px solid #2e2e2e;
+      --tc-hair-soft: 1px solid rgba(255, 255, 255, 0.14);
+      --tc-line: rgba(255, 255, 255, 0.18);
+      --tc-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+      --tc-shadow-focus: 0 0 0 1px #ffffff, 0 0 0 4px rgba(255, 255, 255, 0.16), 0 28px 68px rgba(0, 0, 0, 0.8);
+      --zen-sumi: #050505;
+      --zen-sumi-2: #0e0e0e;
+      --zen-washi: #f5f5f5;
+      --zen-washi-2: rgba(245, 245, 245, 0.72);
+      --zen-washi-3: rgba(245, 245, 245, 0.52);
+      --zen-tick: rgba(245, 245, 245, 0.35);
+      --zen-line: #2e2e2e;
+      --zen-kaki: #ffffff;
+      background: #080808 !important;
+      color: #f5f5f5 !important;
+    }
+    html[data-theme="dark"] body,
+    body.tc-dark {
+      background: #080808 !important;
+      color: #f5f5f5 !important;
+    }
+    html[data-theme="dark"] #meshOsHud,
+    body.tc-dark #meshOsHud,
+    html[data-theme="dark"] #meshOsDock,
+    body.tc-dark #meshOsDock {
+      background: rgba(12, 12, 12, 0.94) !important;
+      color: #f5f5f5 !important;
+      border-color: #2e2e2e !important;
+    }
+    html[data-theme="dark"] .mesh-window:not(.window-focused) .tc-titlebar,
+    body.tc-dark .mesh-window:not(.window-focused) .tc-titlebar {
+      background: #0a0a0a !important;
+    }
+    html[data-theme="dark"] .mesh-window .tc-titlebar .tc-ctl--theme,
+    body.tc-dark .mesh-window .tc-titlebar .tc-ctl--theme {
+      background: #000000 !important;
+      color: #ffffff !important;
+      border-color: #ffffff !important;
+    }
+    html[data-theme="dark"] .mesh-window [class*="bg-[#ecf1e6]"],
+    body.tc-dark .mesh-window [class*="bg-[#ecf1e6]"] {
+      background-color: #0e0e0e !important;
+      color: #f5f5f5 !important;
+    }
+    html[data-theme="dark"] .mesh-window [class*="bg-[#f4f8f0]"],
+    body.tc-dark .mesh-window [class*="bg-[#f4f8f0]"] {
+      background-color: #151515 !important;
+      color: #f5f5f5 !important;
+      border-color: #2e2e2e !important;
+    }
+    html[data-theme="dark"] .mesh-window :is(.bg-white, [class*="bg-[#ffffff]"]),
+    body.tc-dark .mesh-window :is(.bg-white, [class*="bg-[#ffffff]"]) {
+      background-color: #1a1a1a !important;
+      color: #f5f5f5 !important;
+      border-color: #2e2e2e !important;
+    }
+    html[data-theme="dark"] .mesh-window :is([class*="text-[#111111]"], .text-black),
+    body.tc-dark .mesh-window :is([class*="text-[#111111]"], .text-black) {
+      color: #f5f5f5 !important;
+    }
+    html[data-theme="dark"] .mesh-window :is([class*="text-[#4a4a4a]"], [class*="text-[#5c5c5c]"]),
+    body.tc-dark .mesh-window :is([class*="text-[#4a4a4a]"], [class*="text-[#5c5c5c]"]) {
+      color: #a3a3a3 !important;
+    }
+    html[data-theme="dark"] .mesh-window :is([class*="border-[#111111]"], .border-black),
+    body.tc-dark .mesh-window :is([class*="border-[#111111]"], .border-black) {
+      border-color: #2e2e2e !important;
+    }
+    html[data-theme="dark"] .mesh-window [class~="bg-[#111111]"],
+    body.tc-dark .mesh-window [class~="bg-[#111111]"] {
+      background-color: #ffffff !important;
+      color: #000000 !important;
+      border-color: #ffffff !important;
+    }
+    html[data-theme="dark"] .mesh-window [class~="bg-[#111111]"] :is(span, b, strong, i, em, small),
+    body.tc-dark .mesh-window [class~="bg-[#111111]"] :is(span, b, strong, i, em, small) {
+      color: #000000 !important;
+    }
+    html[data-theme="dark"] .mesh-window :is(input, textarea, select),
+    body.tc-dark .mesh-window :is(input, textarea, select) {
+      background-color: #0c0c0c !important;
+      color: #f5f5f5 !important;
+      border-color: #2e2e2e !important;
+    }
+    html[data-theme="dark"] :is(#aiHomeHub, #win-copilot, #win-workstation, #win-nodes, #win-billing),
+    body.tc-dark :is(#aiHomeHub, #win-copilot, #win-workstation, #win-nodes, #win-billing) {
+      --tc-desk: #080808 !important;
+      --tc-bg: #0e0e0e !important;
+      --tc-surface: #151515 !important;
+      --tc-card: #1a1a1a !important;
+      --tc-paper: #1a1a1a !important;
+      --tc-ink: #f5f5f5 !important;
+      --tc-muted: #a3a3a3 !important;
+      --tc-faint: #737373 !important;
+      --tc-green: #ffffff !important;
+      --tc-crimson: #d4d4d4 !important;
+      background: #0e0e0e !important;
+      color: #f5f5f5 !important;
+    }
+    html[data-theme="dark"] #aiHomeSparkline rect,
+    body.tc-dark #aiHomeSparkline rect {
+      fill: #ffffff !important;
+    }
+    html[data-theme="dark"] :is(#accountSetupModal, body.zen #accountSetupModal),
+    body.tc-dark :is(#accountSetupModal, body.zen #accountSetupModal) {
+      background: rgba(5, 5, 5, 0.84) !important;
+    }
   </style>
 """
 
 CELADON_BODY_JS = r"""
   <script id="tc-celadon-js">
     (function () {
+      // =====================================================================
+      // TinCanTheme: Dark Mode (Monochrome Black & White) + Always-Dark Terminal
+      // =====================================================================
+      const THEME_STORAGE_KEY = 'tincan_theme';
+      function resolveInitialTheme() {
+        try {
+          const q = new URLSearchParams(window.location.search || '');
+          const qTheme = (q.get('theme') || '').toLowerCase();
+          if (qTheme === 'dark' || qTheme === 'light') return qTheme;
+          const saved = (localStorage.getItem(THEME_STORAGE_KEY) || '').toLowerCase();
+          if (saved === 'dark' || saved === 'light') return saved;
+        } catch (e) {}
+        return 'dark';
+      }
+      function syncThemeButtons(mode) {
+        const isDark = mode === 'dark';
+        document.querySelectorAll('[data-tc-theme-toggle]').forEach((btn) => {
+          btn.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+          btn.textContent = isDark ? '\u263E Dark' : '\u2600 Light';
+          btn.title = isDark ? 'Dark Mode Active (click for Celadon Light; Terminal stays dark)' : 'Celadon Light Mode (click for Monochrome B&W Dark Mode)';
+        });
+      }
+      function applyTheme(mode, persist) {
+        const clean = String(mode || '').toLowerCase() === 'light' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', clean);
+        if (document.body) {
+          document.body.classList.toggle('tc-dark', clean === 'dark');
+          document.body.classList.toggle('tc-light', clean === 'light');
+        }
+        if (persist !== false) {
+          try { localStorage.setItem(THEME_STORAGE_KEY, clean); } catch (e) {}
+        }
+        syncThemeButtons(clean);
+        try {
+          window.dispatchEvent(new CustomEvent('tincan:theme-changed', { detail: { theme: clean } }));
+        } catch (e) {}
+        return clean;
+      }
+      window.TinCanTheme = {
+        get() {
+          return document.documentElement.getAttribute('data-theme') || resolveInitialTheme();
+        },
+        set(mode) {
+          return applyTheme(mode, true);
+        },
+        toggle() {
+          const next = (this.get() === 'dark') ? 'light' : 'dark';
+          return applyTheme(next, true);
+        },
+        syncButtons() {
+          syncThemeButtons(this.get());
+        },
+      };
+      applyTheme(resolveInitialTheme(), false);
+
       // Every window: the active one gets the focus ring, the rest step back.
       function focusFirstVisible() {
         if (document.querySelector('.mesh-window.window-focused')) return;
@@ -491,14 +708,24 @@ CELADON_BODY_JS = r"""
         open.sort((a, b) => (parseInt(b.style.zIndex || 0, 10) - parseInt(a.style.zIndex || 0, 10)));
         open[0].classList.add('window-focused');
       }
-      window.addEventListener('load', () => setTimeout(focusFirstVisible, 400));
+      window.addEventListener('load', () => {
+        applyTheme(window.TinCanTheme.get(), false);
+        setTimeout(focusFirstVisible, 400);
+      });
       // Truncated names get their full text as a tooltip.
       function titleTruncated(root) {
         (root || document).querySelectorAll('.mesh-window .truncate, .mesh-window .tc-truncate').forEach(el => {
           if (!el.title && el.textContent && el.textContent.trim().length > 0) el.title = el.textContent.trim();
         });
       }
-      const mo = new MutationObserver((muts) => { for (const m of muts) { if (m.addedNodes.length) { titleTruncated(m.target); } } });
+      const mo = new MutationObserver((muts) => {
+        for (const m of muts) {
+          if (m.addedNodes.length) {
+            titleTruncated(m.target);
+            syncThemeButtons(window.TinCanTheme.get());
+          }
+        }
+      });
       window.addEventListener('load', () => { titleTruncated(document); mo.observe(document.body, { childList: true, subtree: true }); });
     })();
   </script>

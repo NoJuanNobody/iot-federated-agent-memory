@@ -3704,12 +3704,217 @@ class CyberspaceBoardEngine:
         }
 
 
+CYBERSPACE_BOARD_DARK_CSS = r"""
+<style id="cyberspaceBoardDarkCss">
+/* =========================================================================
+   Artboard 09 · Cyberspace Board (/board, #win-board)
+   Pure Monochrome Black & White Dark Mode + Pitch-Black Omni-Bar & Code Blocks
+   ========================================================================= */
+html[data-theme="dark"] #win-board,
+body.tc-dark #win-board,
+html[data-theme="dark"] #win-board #board,
+body.tc-dark #win-board #board,
+html[data-theme="dark"] #win-board .window-body,
+body.tc-dark #win-board .window-body {
+  background: #0e0e0e !important;
+  color: #f5f5f5 !important;
+  border-color: #2e2e2e !important;
+}
+
+/* Omni-Bar search/post input container and code/terminal blocks in Pitch-Black */
+html[data-theme="dark"] #win-board #boardUnifiedSearch,
+body.tc-dark #win-board #boardUnifiedSearch,
+html[data-theme="dark"] #win-board #boardUnifiedBar,
+body.tc-dark #win-board #boardUnifiedBar,
+html[data-theme="dark"] #win-board .ubar,
+body.tc-dark #win-board .ubar,
+html[data-theme="dark"] #win-board #boardFeedFilterInput,
+body.tc-dark #win-board #boardFeedFilterInput,
+html[data-theme="dark"] #win-board pre,
+body.tc-dark #win-board pre,
+html[data-theme="dark"] #win-board code,
+body.tc-dark #win-board code,
+html[data-theme="dark"] #win-board .ubar-rank-body,
+body.tc-dark #win-board .ubar-rank-body,
+html[data-theme="dark"] #win-board .ubar-rank-mini-body,
+body.tc-dark #win-board .ubar-rank-mini-body {
+  background: #000000 !important;
+  color: #f5f5f5 !important;
+  border: 1.5px solid #ffffff !important;
+}
+
+html[data-theme="dark"] #win-board #boardSearchInput,
+body.tc-dark #win-board #boardSearchInput {
+  background: #000000 !important;
+  color: #f5f5f5 !important;
+  caret-color: #ffffff !important;
+  border-color: transparent !important;
+}
+
+html[data-theme="dark"] #win-board #boardSearchInput::placeholder,
+body.tc-dark #win-board #boardSearchInput::placeholder,
+html[data-theme="dark"] #win-board #boardFeedFilterInput::placeholder,
+body.tc-dark #win-board #boardFeedFilterInput::placeholder {
+  color: #737373 !important;
+}
+
+html[data-theme="dark"] #win-board .ubar-icon,
+body.tc-dark #win-board .ubar-icon,
+html[data-theme="dark"] #win-board .ubar-kbd,
+body.tc-dark #win-board .ubar-kbd,
+html[data-theme="dark"] #win-board .ubar-sort-label,
+body.tc-dark #win-board .ubar-sort-label {
+  color: #a3a3a3 !important;
+  border-color: #2e2e2e !important;
+}
+
+html[data-theme="dark"] #win-board #boardSortSelect,
+body.tc-dark #win-board #boardSortSelect {
+  background: #0c0c0c !important;
+  color: #f5f5f5 !important;
+  border: 1px solid #2e2e2e !important;
+}
+
+/* Feed cards (#151515), elevated paper panels (#1a1a1a), and hairlines (#2e2e2e) */
+html[data-theme="dark"] #win-board #boardVerifierBanner,
+body.tc-dark #win-board #boardVerifierBanner,
+html[data-theme="dark"] #win-board #boardProfileDrawer,
+body.tc-dark #win-board #boardProfileDrawer,
+html[data-theme="dark"] #win-board #boardAiSuggestBar,
+body.tc-dark #win-board #boardAiSuggestBar,
+html[data-theme="dark"] #win-board #boardSynthesisBox,
+body.tc-dark #win-board #boardSynthesisBox,
+html[data-theme="dark"] #win-board #boardTopicsFeed > div,
+body.tc-dark #win-board #boardTopicsFeed > div,
+html[data-theme="dark"] #win-board #boardCuratedFeedList > div,
+body.tc-dark #win-board #boardCuratedFeedList > div,
+html[data-theme="dark"] #win-board #boardTab-feed > div,
+body.tc-dark #win-board #boardTab-feed > div,
+html[data-theme="dark"] #win-board #boardTab-graph > div,
+body.tc-dark #win-board #boardTab-graph > div,
+html[data-theme="dark"] #win-board #boardTab-verify > div,
+body.tc-dark #win-board #boardTab-verify > div {
+  background: #151515 !important;
+  color: #f5f5f5 !important;
+  border-color: #2e2e2e !important;
+}
+
+/* Active thread sidebar cards (#141414) */
+html[data-theme="dark"] #win-board #boardActiveThreadsList > div,
+body.tc-dark #win-board #boardActiveThreadsList > div,
+html[data-theme="dark"] #win-board #boardActiveThreadsList .rounded-xl,
+body.tc-dark #win-board #boardActiveThreadsList .rounded-xl,
+html[data-theme="dark"] #win-board #boardActiveThreadsList .rounded-lg,
+body.tc-dark #win-board #boardActiveThreadsList .rounded-lg {
+  background: #141414 !important;
+  color: #f5f5f5 !important;
+  border-color: #2e2e2e !important;
+}
+
+/* Nested thread replies & elevated cards (#1a1a1a) */
+html[data-theme="dark"] #win-board [id^="boardThread-"] > div > div,
+body.tc-dark #win-board [id^="boardThread-"] > div > div,
+html[data-theme="dark"] #win-board #boardSuggestList,
+body.tc-dark #win-board #boardSuggestList,
+html[data-theme="dark"] #win-board #boardGraphNodeInspector,
+body.tc-dark #win-board #boardGraphNodeInspector {
+  background: #1a1a1a !important;
+  color: #f5f5f5 !important;
+  border-color: #2e2e2e !important;
+}
+
+/* Reply & verification inputs in dark surface (#0c0c0c) */
+html[data-theme="dark"] #win-board [id^="replyInput-"],
+body.tc-dark #win-board [id^="replyInput-"],
+html[data-theme="dark"] #win-board [id^="threadQuickReply-"],
+body.tc-dark #win-board [id^="threadQuickReply-"],
+html[data-theme="dark"] #win-board #boardTab-verify :is(input, textarea, select),
+body.tc-dark #win-board #boardTab-verify :is(input, textarea, select),
+html[data-theme="dark"] #win-board #boardTab-graph input,
+body.tc-dark #win-board #boardTab-graph input {
+  background: #0c0c0c !important;
+  color: #f5f5f5 !important;
+  border: 1px solid #2e2e2e !important;
+}
+
+/* Hairlines & typography hierarchy inside #win-board */
+html[data-theme="dark"] #win-board :is(.border, .border-b, .border-t, .border-l-2),
+body.tc-dark #win-board :is(.border, .border-b, .border-t, .border-l-2) {
+  border-color: #2e2e2e !important;
+}
+
+html[data-theme="dark"] #win-board :is(h3, h4, strong),
+body.tc-dark #win-board :is(h3, h4, strong) {
+  color: #f5f5f5 !important;
+}
+
+html[data-theme="dark"] #win-board :is(p, .ubar-trend-label, .ubar-trend-empty, #boardFeedStatusMeta, #verifyCitizensCount),
+body.tc-dark #win-board :is(p, .ubar-trend-label, .ubar-trend-empty, #boardFeedStatusMeta, #verifyCitizensCount) {
+  color: #a3a3a3 !important;
+}
+
+/* Active filter pills, active tab pills, and submit buttons (#ffffff fill with #000000 text) */
+html[data-theme="dark"] #win-board [id^="boardTabBtn-"][class~="bg-[#111111]"],
+body.tc-dark #win-board [id^="boardTabBtn-"][class~="bg-[#111111]"],
+html[data-theme="dark"] #win-board [id^="boardFeedFilter-"][class~="bg-[#111111]"],
+body.tc-dark #win-board [id^="boardFeedFilter-"][class~="bg-[#111111]"],
+html[data-theme="dark"] #win-board button[onclick*="submitBoardOmniInput"],
+body.tc-dark #win-board button[onclick*="submitBoardOmniInput"],
+html[data-theme="dark"] #win-board button[onclick*="replyQuickThread"],
+body.tc-dark #win-board button[onclick*="replyQuickThread"],
+html[data-theme="dark"] #win-board button[onclick*="replyCyberspaceTopic"],
+body.tc-dark #win-board button[onclick*="replyCyberspaceTopic"],
+html[data-theme="dark"] #win-board button[onclick*="submitCyberspaceVerificationForm"],
+body.tc-dark #win-board button[onclick*="submitCyberspaceVerificationForm"],
+html[data-theme="dark"] #win-board button[onclick*="dispatchVerifierAgentFormFromCenter"],
+body.tc-dark #win-board button[onclick*="dispatchVerifierAgentFormFromCenter"],
+html[data-theme="dark"] #win-board button[onclick*="requestAgentVerificationForm"],
+body.tc-dark #win-board button[onclick*="requestAgentVerificationForm"],
+html[data-theme="dark"] #win-board button[onclick*="findCyberspaceEntityPath"],
+body.tc-dark #win-board button[onclick*="findCyberspaceEntityPath"],
+html[data-theme="dark"] #win-board button[onclick*="promptNewBoardThread"],
+body.tc-dark #win-board button[onclick*="promptNewBoardThread"],
+html[data-theme="dark"] #win-board button[class~="bg-[#111111]"],
+body.tc-dark #win-board button[class~="bg-[#111111]"] {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border-color: #ffffff !important;
+}
+
+html[data-theme="dark"] #win-board button[class~="bg-[#111111]"] span,
+body.tc-dark #win-board button[class~="bg-[#111111]"] span {
+  color: #000000 !important;
+}
+
+html[data-theme="dark"] #win-board #boardCuratedCountBadge,
+body.tc-dark #win-board #boardCuratedCountBadge,
+html[data-theme="dark"] #win-board #boardPendingVerifyCount,
+body.tc-dark #win-board #boardPendingVerifyCount {
+  background: #1a1a1a !important;
+  color: #f5f5f5 !important;
+  border: 1px solid #2e2e2e !important;
+}
+</style>
+"""
+
+
+def apply_cyberspace_board_dark_css(page: str) -> str:
+    """Inject Cyberspace Board Dark Mode CSS once if not already present."""
+    if 'id="cyberspaceBoardDarkCss"' in page:
+        return page
+    end = page.rfind("</body>")
+    return page[:end] + CYBERSPACE_BOARD_DARK_CSS + page[end:] if end != -1 else page + CYBERSPACE_BOARD_DARK_CSS
+
+
 __all__ = [
     "BM25Retriever",
     "BOARD_CATEGORIES",
+    "CYBERSPACE_BOARD_DARK_CSS",
     "CyberspaceBoardEngine",
     "CyberspaceGraphRAG",
     "KNOWN_AI_AGENTS",
+    "apply_cyberspace_board_dark_css",
     "generate_minimal_glb",
     "parse_cyberspace_tags",
     "tokenize_for_bm25",

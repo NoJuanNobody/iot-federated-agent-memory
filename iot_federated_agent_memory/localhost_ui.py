@@ -21,8 +21,8 @@ def _localhost_css() -> str:
           --lh-card: #FFFFFF;
           --lh-ink: #111111;
           --lh-muted: #5A5F66;
-          --lh-pos: #10B981;
-          --lh-pos-soft: rgba(16, 185, 129, 0.12);
+          --lh-pos: #107a47;
+          --lh-pos-soft: rgba(16, 122, 71, 0.12);
           --lh-hair: 1px solid rgba(17, 17, 17, 0.14);
           --lh-hair-soft: 1px solid rgba(17, 17, 17, 0.08);
           --lh-sans: "Aeonik", "Inter", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
@@ -162,6 +162,59 @@ def _localhost_css() -> str:
           font-size: 10px;
           color: var(--lh-muted);
           flex: 0 0 auto;
+        }
+        /* Monochrome Black & White Dark Mode */
+        html[data-theme="dark"] #win-localhost,
+        body.tc-dark #win-localhost {
+          --lh-bg: #0e0e0e;
+          --lh-card: #141414;
+          --lh-ink: #f5f5f5;
+          --lh-muted: #a3a3a3;
+          --lh-pos: #ffffff;
+          --lh-pos-soft: rgba(255, 255, 255, 0.12);
+          --lh-hair: 1px solid #2e2e2e;
+          --lh-hair-soft: 1px solid #262626;
+          background: #0e0e0e;
+          color: #f5f5f5;
+        }
+        html[data-theme="dark"] #win-localhost .lh-body,
+        body.tc-dark #win-localhost .lh-body {
+          background: #0e0e0e;
+          color: #f5f5f5;
+        }
+        html[data-theme="dark"] #win-localhost .lh-toolbar,
+        body.tc-dark #win-localhost .lh-toolbar,
+        html[data-theme="dark"] #win-localhost .lh-subbar,
+        body.tc-dark #win-localhost .lh-subbar {
+          background: #141414;
+          border-color: #2e2e2e;
+          color: #f5f5f5;
+        }
+        html[data-theme="dark"] #win-localhost .lh-input,
+        body.tc-dark #win-localhost .lh-input,
+        html[data-theme="dark"] #win-localhost .lh-select,
+        body.tc-dark #win-localhost .lh-select,
+        html[data-theme="dark"] #win-localhost #lhLiveUrlLabel,
+        body.tc-dark #win-localhost #lhLiveUrlLabel,
+        html[data-theme="dark"] #win-localhost .lh-status,
+        body.tc-dark #win-localhost .lh-status {
+          background: #000000;
+          color: #f5f5f5;
+          border: 1.5px solid #ffffff;
+        }
+        html[data-theme="dark"] #win-localhost .lh-btn--solid,
+        body.tc-dark #win-localhost .lh-btn--solid,
+        html[data-theme="dark"] #win-localhost .lh-seg-btn.is-active,
+        body.tc-dark #win-localhost .lh-seg-btn.is-active,
+        html[data-theme="dark"] #win-localhost .lh-btn:hover,
+        body.tc-dark #win-localhost .lh-btn:hover {
+          background: #ffffff;
+          color: #000000;
+          border-color: #ffffff;
+        }
+        html[data-theme="dark"] #win-localhost .lh-frame-wrap,
+        body.tc-dark #win-localhost .lh-frame-wrap {
+          background: #0e0e0e;
         }
       </style>"""
 

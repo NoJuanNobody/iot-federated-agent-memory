@@ -912,7 +912,125 @@ COPILOT_CSS = r"""
   }
   #win-copilot .cp-main { overflow: visible; }
 }
+
+/* Monochrome Black & White Dark Mode (html[data-theme="dark"] / body.tc-dark) */
+html[data-theme="dark"] #copilotRoot, body.tc-dark #copilotRoot, html[data-theme="dark"] #win-copilot, body.tc-dark #win-copilot {
+  --cp-bg: #0e0e0e;
+  --cp-card: #151515;
+  --cp-paper: #1a1a1a;
+  --cp-ink: #f5f5f5;
+  --cp-muted: #a3a3a3;
+  --cp-faint: #737373;
+  --cp-pos: #ffffff;
+  --cp-pos-bg: #181818;
+  --cp-danger: #d4d4d4;
+  --cp-danger-bg: #1f1f1f;
+  --cp-hair: 1px solid #2e2e2e;
+  --cp-hair-soft: 1px solid #2e2e2e;
+  background: #0e0e0e;
+  color: #f5f5f5;
+}
+html[data-theme="dark"] #copilotRoot.cp-body, body.tc-dark #copilotRoot.cp-body, html[data-theme="dark"] #win-copilot .cp-body, body.tc-dark #win-copilot .cp-body, html[data-theme="dark"] #copilotRoot .cp-main, body.tc-dark #copilotRoot .cp-main, html[data-theme="dark"] #win-copilot .cp-main, body.tc-dark #win-copilot .cp-main {
+  background: #0e0e0e;
+  color: #f5f5f5;
+}
+html[data-theme="dark"] #copilotRoot .cp-sidebar, body.tc-dark #copilotRoot .cp-sidebar, html[data-theme="dark"] #win-copilot .cp-sidebar, body.tc-dark #win-copilot .cp-sidebar, html[data-theme="dark"] #copilotRoot .cp-inspector, body.tc-dark #copilotRoot .cp-inspector, html[data-theme="dark"] #win-copilot .cp-inspector, body.tc-dark #win-copilot .cp-inspector {
+  background: #131313;
+  border-color: #2e2e2e;
+  color: #f5f5f5;
+}
+html[data-theme="dark"] #copilotRoot .cp-card, body.tc-dark #copilotRoot .cp-card, html[data-theme="dark"] #win-copilot .cp-card, body.tc-dark #win-copilot .cp-card, html[data-theme="dark"] #copilotRoot .cp-thread-bar, body.tc-dark #copilotRoot .cp-thread-bar, html[data-theme="dark"] #win-copilot .cp-thread-bar, body.tc-dark #win-copilot .cp-thread-bar, html[data-theme="dark"] #copilotRoot .cp-msg, body.tc-dark #copilotRoot .cp-msg, html[data-theme="dark"] #win-copilot .cp-msg, body.tc-dark #win-copilot .cp-msg, html[data-theme="dark"] #win-copilot .cp-msg--user, body.tc-dark #win-copilot .cp-msg--user, html[data-theme="dark"] #win-copilot .cp-msg--assistant, body.tc-dark #win-copilot .cp-msg--assistant {
+  background: #151515;
+  border-color: #2e2e2e;
+  color: #f5f5f5;
+}
+html[data-theme="dark"] #copilotRoot .cp-msg-body, body.tc-dark #copilotRoot .cp-msg-body, html[data-theme="dark"] #win-copilot .cp-msg-body, body.tc-dark #win-copilot .cp-msg-body {
+  color: #f5f5f5;
+}
+html[data-theme="dark"] #copilotRoot .cp-muted, body.tc-dark #copilotRoot .cp-muted, html[data-theme="dark"] #win-copilot .cp-muted, body.tc-dark #win-copilot .cp-muted, html[data-theme="dark"] #copilotRoot .cp-sec-label, body.tc-dark #copilotRoot .cp-sec-label, html[data-theme="dark"] #win-copilot .cp-sec-label, body.tc-dark #win-copilot .cp-sec-label {
+  color: #a3a3a3;
+}
+html[data-theme="dark"] #copilotRoot .cp-pos, body.tc-dark #copilotRoot .cp-pos, html[data-theme="dark"] #win-copilot .cp-pos, body.tc-dark #win-copilot .cp-pos {
+  color: #ffffff;
+}
+html[data-theme="dark"] #copilotRoot .cp-seg, body.tc-dark #copilotRoot .cp-seg, html[data-theme="dark"] #win-copilot .cp-seg, body.tc-dark #win-copilot .cp-seg {
+  background: #151515;
+  border-color: #2e2e2e;
+}
+html[data-theme="dark"] #copilotRoot .cp-seg-btn, body.tc-dark #copilotRoot .cp-seg-btn, html[data-theme="dark"] #win-copilot .cp-seg-btn, body.tc-dark #win-copilot .cp-seg-btn {
+  color: #a3a3a3;
+  border-color: #2e2e2e;
+}
+html[data-theme="dark"] #copilotRoot .cp-seg-btn:hover, body.tc-dark #copilotRoot .cp-seg-btn:hover, html[data-theme="dark"] #win-copilot .cp-seg-btn:hover, body.tc-dark #win-copilot .cp-seg-btn:hover {
+  background: #222222;
+  color: #ffffff;
+}
+html[data-theme="dark"] #copilotRoot .cp-seg-btn.is-active, body.tc-dark #copilotRoot .cp-seg-btn.is-active, html[data-theme="dark"] #win-copilot .cp-seg-btn.is-active, body.tc-dark #win-copilot .cp-seg-btn.is-active, html[data-theme="dark"] #copilotRoot .cp-inv-tab.is-active, body.tc-dark #copilotRoot .cp-inv-tab.is-active, html[data-theme="dark"] #win-copilot .cp-inv-tab.is-active, body.tc-dark #win-copilot .cp-inv-tab.is-active, html[data-theme="dark"] #copilotRoot .cp-btn--solid, body.tc-dark #copilotRoot .cp-btn--solid, html[data-theme="dark"] #win-copilot .cp-btn--solid, body.tc-dark #win-copilot .cp-btn--solid, html[data-theme="dark"] #copilotRoot .cp-btn--pos, body.tc-dark #copilotRoot .cp-btn--pos, html[data-theme="dark"] #win-copilot .cp-btn--pos, body.tc-dark #win-copilot .cp-btn--pos, html[data-theme="dark"] #copilotRoot #copilotSendBtn, body.tc-dark #copilotRoot #copilotSendBtn, html[data-theme="dark"] #win-copilot #copilotSendBtn, body.tc-dark #win-copilot #copilotSendBtn {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-color: #ffffff !important;
+}
+html[data-theme="dark"] #copilotRoot .cp-gw-row, body.tc-dark #copilotRoot .cp-gw-row, html[data-theme="dark"] #win-copilot .cp-gw-row, body.tc-dark #win-copilot .cp-gw-row {
+  color: #f5f5f5;
+}
+html[data-theme="dark"] #copilotRoot .cp-gw-row:hover, body.tc-dark #copilotRoot .cp-gw-row:hover, html[data-theme="dark"] #win-copilot .cp-gw-row:hover, body.tc-dark #win-copilot .cp-gw-row:hover, html[data-theme="dark"] #copilotRoot .cp-gw-row.is-active, body.tc-dark #copilotRoot .cp-gw-row.is-active, html[data-theme="dark"] #win-copilot .cp-gw-row.is-active, body.tc-dark #win-copilot .cp-gw-row.is-active {
+  background: #1a1a1a;
+  color: #f5f5f5;
+}
+html[data-theme="dark"] #copilotRoot .cp-meter-track, body.tc-dark #copilotRoot .cp-meter-track, html[data-theme="dark"] #win-copilot .cp-meter-track, body.tc-dark #win-copilot .cp-meter-track {
+  background: #2e2e2e;
+}
+html[data-theme="dark"] #copilotRoot .cp-meter-fill, body.tc-dark #copilotRoot .cp-meter-fill, html[data-theme="dark"] #win-copilot .cp-meter-fill, body.tc-dark #win-copilot .cp-meter-fill, html[data-theme="dark"] #win-copilot .cp-meter-fill--pos, body.tc-dark #win-copilot .cp-meter-fill--pos {
+  background: #ffffff;
+}
+html[data-theme="dark"] #copilotRoot .cp-ctx-item, body.tc-dark #copilotRoot .cp-ctx-item, html[data-theme="dark"] #win-copilot .cp-ctx-item, body.tc-dark #win-copilot .cp-ctx-item, html[data-theme="dark"] #copilotRoot .cp-inv-row, body.tc-dark #copilotRoot .cp-inv-row, html[data-theme="dark"] #win-copilot .cp-inv-row, body.tc-dark #win-copilot .cp-inv-row, html[data-theme="dark"] #copilotRoot .cp-insp-field, body.tc-dark #copilotRoot .cp-insp-field, html[data-theme="dark"] #win-copilot .cp-insp-field, body.tc-dark #win-copilot .cp-insp-field, html[data-theme="dark"] #copilotRoot .cp-insp-meta, body.tc-dark #copilotRoot .cp-insp-meta, html[data-theme="dark"] #win-copilot .cp-insp-meta, body.tc-dark #win-copilot .cp-insp-meta, html[data-theme="dark"] #copilotRoot .cp-select, body.tc-dark #copilotRoot .cp-select, html[data-theme="dark"] #win-copilot .cp-select, body.tc-dark #win-copilot .cp-select {
+  background: #151515;
+  border-color: #2e2e2e;
+  color: #f5f5f5;
+}
+html[data-theme="dark"] #copilotRoot .cp-btn, body.tc-dark #copilotRoot .cp-btn, html[data-theme="dark"] #win-copilot .cp-btn, body.tc-dark #win-copilot .cp-btn, html[data-theme="dark"] #copilotRoot .cp-badge, body.tc-dark #copilotRoot .cp-badge, html[data-theme="dark"] #win-copilot .cp-badge, body.tc-dark #win-copilot .cp-badge {
+  background: #1a1a1a;
+  border-color: #2e2e2e;
+  color: #f5f5f5;
+}
+html[data-theme="dark"] #copilotRoot .cp-badge--ink, body.tc-dark #copilotRoot .cp-badge--ink, html[data-theme="dark"] #win-copilot .cp-badge--ink, body.tc-dark #win-copilot .cp-badge--ink {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #000000;
+}
+html[data-theme="dark"] #copilotRoot .cp-dot, body.tc-dark #copilotRoot .cp-dot, html[data-theme="dark"] #win-copilot .cp-dot, body.tc-dark #win-copilot .cp-dot, html[data-theme="dark"] #win-copilot .cp-dot--pos, body.tc-dark #win-copilot .cp-dot--pos {
+  background: #ffffff;
+}
+html[data-theme="dark"] #copilotRoot .cp-dot--paper, body.tc-dark #copilotRoot .cp-dot--paper, html[data-theme="dark"] #win-copilot .cp-dot--paper, body.tc-dark #win-copilot .cp-dot--paper {
+  background: #000000;
+}
+html[data-theme="dark"] #copilotRoot .cp-diff-box, body.tc-dark #copilotRoot .cp-diff-box, html[data-theme="dark"] #win-copilot .cp-diff-box, body.tc-dark #win-copilot .cp-diff-box, html[data-theme="dark"] #copilotRoot .cp-composer, body.tc-dark #copilotRoot .cp-composer, html[data-theme="dark"] #win-copilot .cp-composer, body.tc-dark #win-copilot .cp-composer, html[data-theme="dark"] #copilotRoot pre, body.tc-dark #copilotRoot pre, html[data-theme="dark"] #win-copilot pre, body.tc-dark #win-copilot pre, html[data-theme="dark"] #copilotRoot code, body.tc-dark #copilotRoot code, html[data-theme="dark"] #win-copilot code, body.tc-dark #win-copilot code {
+  background: #000000 !important;
+  color: #f5f5f5 !important;
+  border: 1.5px solid #ffffff !important;
+}
+html[data-theme="dark"] #copilotRoot .cp-textarea, body.tc-dark #copilotRoot .cp-textarea, html[data-theme="dark"] #win-copilot .cp-textarea, body.tc-dark #win-copilot .cp-textarea {
+  background: #000000 !important;
+  color: #f5f5f5 !important;
+  caret-color: #ffffff !important;
+}
+html[data-theme="dark"] #copilotRoot .cp-diff-add, body.tc-dark #copilotRoot .cp-diff-add, html[data-theme="dark"] #win-copilot .cp-diff-add, body.tc-dark #win-copilot .cp-diff-add {
+  background: #141414;
+  color: #ffffff;
+}
+html[data-theme="dark"] #copilotRoot .cp-diff-del, body.tc-dark #copilotRoot .cp-diff-del, html[data-theme="dark"] #win-copilot .cp-diff-del, body.tc-dark #win-copilot .cp-diff-del {
+  background: #1a1a1a;
+  color: #a3a3a3;
+}
+html[data-theme="dark"] #copilotRoot .cp-diff-file, body.tc-dark #copilotRoot .cp-diff-file, html[data-theme="dark"] #win-copilot .cp-diff-file, body.tc-dark #win-copilot .cp-diff-file, html[data-theme="dark"] #win-copilot .cp-diff-hunk, body.tc-dark #win-copilot .cp-diff-hunk {
+  color: #a3a3a3;
+}
+html[data-theme="dark"] #copilotRoot .cp-capsules, body.tc-dark #copilotRoot .cp-capsules, html[data-theme="dark"] #win-copilot .cp-capsules, body.tc-dark #win-copilot .cp-capsules, html[data-theme="dark"] #copilotRoot .cp-composer-bar, body.tc-dark #copilotRoot .cp-composer-bar, html[data-theme="dark"] #win-copilot .cp-composer-bar, body.tc-dark #win-copilot .cp-composer-bar {
+  border-color: #2e2e2e;
+}
 """
+
+_COPILOT_CSS = COPILOT_CSS
 
 
 def _render_priority_pills() -> str:
@@ -2893,7 +3011,7 @@ def render_copilot_window_html(include_css: bool = True, include_js: bool = True
 
     return f"""<div id="win-copilot" class="mesh-window w-[1080px] max-w-full hidden" data-zen-window="true" data-window-id="win-copilot" style="top: 64px; left: 96px; z-index: 37;">
       <!--TC_TITLEBAR {{"id": "win-copilot", "title": "AI Copilot · Multi-Model Router & Space Diffs", "badge": "COPILOT + ROUTER", "meta_html": "<span id=\\"copilotHeaderRoute\\">direct ollama localhost:11434</span>"}}-->{css_block}
-      <div class="window-body cp-body aeonik-scope" data-copilot-root="true">
+      <div id="copilotRoot" class="window-body cp-body aeonik-scope" data-copilot-root="true">
         <div class="cp-grid">
           <aside class="cp-sidebar" aria-label="Model router priority and gateway quotas">
             <section class="cp-sec">
@@ -3076,6 +3194,7 @@ def apply_copilot_ui(html: str) -> str:
 
 __all__ = [
     "COPILOT_CSS",
+    "_COPILOT_CSS",
     "COPILOT_CSS_SLOT",
     "COPILOT_JS_SLOT",
     "COPILOT_SCRIPT",
