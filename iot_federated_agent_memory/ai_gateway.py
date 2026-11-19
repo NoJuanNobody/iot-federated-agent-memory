@@ -89,6 +89,11 @@ def _resolve_hyper3d_key_fallback() -> Optional[str]:
     return os.environ.get("HYPER3D_API_KEY") or os.environ.get("RODIN_API_KEY")
 
 
+def _resolve_worldlabs_key_fallback() -> Optional[str]:
+    """Resolve World Labs Atlas API key (WLT_API_KEY) from environment."""
+    return os.environ.get("WLT_API_KEY") or os.environ.get("WORLDLABS_API_KEY")
+
+
 def _normalize_nanogpt_pricing(pricing: Any) -> Dict[str, Any]:
     """Normalize NanoGPT per-1M token pricing into OpenRouter-compatible per-token fields."""
     if not isinstance(pricing, dict):
