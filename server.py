@@ -8,6 +8,7 @@ import importlib
 import inspect
 import io
 import json
+import math
 import re
 from http.cookies import SimpleCookie
 import os
@@ -653,7 +654,8 @@ def _atlas_download_operation(data: Dict[str, Any], ai_router: Any = None) -> Tu
     for fpath in dl_res.get("saved_files") or []:
         try:
             frec = target_vfs.read_file(fpath, as_text=False)
-            if frec.get("content_b64"):
+            sz = int(frec.get("size_bytes") or 0)
+            if frec.get("content_b64") and sz <= 2 * 1024 * 1024:
                 files_b64[fpath] = frec["content_b64"]
         except Exception:
             pass
@@ -662,6 +664,12 @@ def _atlas_download_operation(data: Dict[str, Any], ai_router: Any = None) -> Tu
     dl_res["operation_id"] = op_id
     dl_res["scope"] = scope
     dl_res["owner_id"] = owner_id
+    if dl_res.get("spz_path"):
+        dl_res["spz_raw_url"] = (
+            f"/api/space/file?raw=1&scope={urllib.parse.quote(scope)}"
+            f"&owner_id={urllib.parse.quote(owner_id)}"
+            f"&path={urllib.parse.quote(str(dl_res['spz_path']))}"
+        )
     dl_res["files_b64"] = files_b64
     return (200 if dl_res.get("ok") else 400), dl_res
 
@@ -887,6 +895,102 @@ def _parse_omni_slash_command(raw_input: str) -> Dict[str, Any]:
     return _fallback_parse_omni_slash_command(raw_input)
 
 
+def _normalize_posed_frames_for_splats(raw_frames: Any) -> List[Dict[str, Any]]:
+    """Normalize images2PosedRGBD / atlasGenerate frames into exact World Labs Atlas v2 posedFrames schema."""
+    if not isinstance(raw_frames, list):
+        return []
+    out: List[Dict[str, Any]] = []
+    for f in raw_frames:
+        if not isinstance(f, dict):
+            continue
+        img = f.get("imageAsset") or f.get("image")
+        depth = f.get("depth")
+        cam = f.get("camera")
+        img_asset: Optional[Dict[str, Any]] = None
+        if isinstance(img, dict):
+            if img.get("assetId"):
+                img_asset = {"assetId": str(img["assetId"])}
+            elif img.get("url"):
+                img_asset = {"url": str(img["url"])}
+        depth_asset: Optional[Dict[str, Any]] = None
+        if isinstance(depth, dict):
+            da = depth.get("depthAsset") if isinstance(depth.get("depthAsset"), dict) else depth
+            if isinstance(da, dict):
+                if da.get("assetId"):
+                    depth_asset = {"assetId": str(da["assetId"])}
+                elif da.get("url"):
+                    depth_asset = {"url": str(da["url"])}
+        if img_asset and depth_asset and isinstance(cam, dict):
+            out.append({
+                "imageAsset": img_asset,
+                "depth": {"depthAsset": depth_asset},
+                "camera": cam,
+            })
+    return out
+
+
+def _build_orbital_target_cameras(anchor_frame: Dict[str, Any], num_views: int = 6) -> List[Dict[str, Any]]:
+    """Compute RUB target cameras orbiting centroidWorld around an anchor posed frame for atlasGenerate."""
+    cam = anchor_frame.get("camera") if isinstance(anchor_frame.get("camera"), dict) else {}
+    intr = cam.get("intrinsics") if isinstance(cam.get("intrinsics"), dict) else {
+        "width": 1280, "height": 720, "fx": 762.31, "fy": 762.31, "cx": 640, "cy": 360,
+    }
+    extr = cam.get("extrinsics") if isinstance(cam.get("extrinsics"), dict) else {}
+    pos0 = extr.get("position") if isinstance(extr.get("position"), list) and len(extr.get("position")) == 3 else [0.0, 1.0, 0.0]
+    centroid = anchor_frame.get("centroidWorld") if isinstance(anchor_frame.get("centroidWorld"), list) and len(anchor_frame.get("centroidWorld")) == 3 else [0.0, pos0[1], pos0[2] - 3.0]
+
+    dx = float(pos0[0]) - float(centroid[0])
+    dz = float(pos0[2]) - float(centroid[2])
+    radius = max(1.2, math.hypot(dx, dz))
+    base_angle = math.atan2(dx, dz)
+    cam_y = float(pos0[1])
+
+    # Spread orbital angles around the anchor view (-55°..+55° plus elevated angles for solid depth overlap)
+    angle_offsets_deg = [-45.0, -22.5, 22.5, 45.0, -30.0, 30.0][:max(2, min(num_views, 8))]
+    y_offsets = [0.0, 0.0, 0.0, 0.0, 0.35, 0.35]
+
+    targets: List[Dict[str, Any]] = []
+    for idx, deg in enumerate(angle_offsets_deg):
+        ang = base_angle + math.radians(deg)
+        px = float(centroid[0]) + math.sin(ang) * radius
+        pz = float(centroid[2]) + math.cos(ang) * radius
+        py = cam_y + (y_offsets[idx] if idx < len(y_offsets) else 0.0)
+        # Camera looks from (px, py, pz) toward centroid; in RUB (+X right, +Y up, +Z back),
+        # yaw rotates around +Y by `ang`, pitch tilts slightly downward if elevated
+        yaw = ang
+        pitch = -math.atan2(py - float(centroid[1]), radius) * 0.6
+        cy, sy = math.cos(yaw * 0.5), math.sin(yaw * 0.5)
+        cp, sp = math.cos(pitch * 0.5), math.sin(pitch * 0.5)
+        # q = q_yaw * q_pitch -> (qx, qy, qz, qw)
+        qx = cy * sp
+        qy = sy * cp
+        qz = -sy * sp
+        qw = cy * cp
+        targets.append({
+            "extrinsics": {
+                "position": [round(px, 4), round(py, 4), round(pz, 4)],
+                "quaternion": [round(qx, 5), round(qy, 5), round(qz, 5), round(qw, 5)],
+                "coordinateSystem": "rub",
+            },
+            "intrinsics": intr,
+        })
+    return targets
+
+
+def _poll_atlas_operation_briefly(op_id: str, ai_router: Any = None, max_wait_s: float = 24.0, step_s: float = 1.5) -> Dict[str, Any]:
+    """Poll a fast Atlas operation (e.g. images2PosedRGBD) up to max_wait_s."""
+    deadline = time.time() + max_wait_s
+    last_res: Dict[str, Any] = {"ok": True, "operation_id": op_id, "done": False, "status": "RUNNING"}
+    while time.time() < deadline:
+        time.sleep(step_s)
+        _, polled = _atlas_operation_status(op_id, ai_router=ai_router)
+        if isinstance(polled, dict):
+            last_res = polled
+            if polled.get("done") or polled.get("ok") is False:
+                break
+    return last_res
+
+
 def _omni_route(
     data: Dict[str, Any],
     headers: Optional[Dict[str, str]] = None,
@@ -924,6 +1028,13 @@ def _omni_route(
         flags = parsed_route.get("flags") or {}
         res_flag = flags.get("res")
         target_res = res_flag if (isinstance(res_flag, list) and len(res_flag) == 2) else [1280, 720]
+        # Default to Draft mode (~30s, $0.50) unless explicitly requesting refined (15-21m, $5.00)
+        refine_mode = bool(data.get("refine") is True or flags.get("refined") or flags.get("refine") is True)
+        has_live_wlt_key = bool(rtr is not None and getattr(rtr, "worldlabs_key", None))
+
+        # Accept pre-posed frames from an earlier images2PosedRGBD / atlasGenerate node
+        incoming_posed_frames = _normalize_posed_frames_for_splats(data.get("posed_frames") or data.get("posedFrames"))
+        raw_incoming_posed = data.get("posed_frames") or data.get("posedFrames") or []
 
         # Ingest ALL multi-view image references (up to 14 uploaded photos)
         raw_refs = data.get("references") or data.get("images") or []
@@ -955,10 +1066,15 @@ def _omni_route(
                     )
                     asset_id = up_res.get("asset_id") or up_res.get("id")
                     if up_status == 200 and asset_id:
-                        uploaded_assets.append({"filename": fname_val, "asset_id": asset_id, "mime_type": mime_val})
+                        uploaded_assets.append({
+                            "filename": fname_val,
+                            "asset_id": asset_id,
+                            "mime_type": mime_val,
+                            "simulated": bool(up_res.get("simulated")),
+                        })
                         atlas_frames.append({"imageAsset": {"assetId": asset_id}})
                 elif url_val.startswith(("http://", "https://")):
-                    uploaded_assets.append({"filename": fname_val, "url": url_val, "mime_type": mime_val})
+                    uploaded_assets.append({"filename": fname_val, "url": url_val, "mime_type": mime_val, "simulated": False})
                     atlas_frames.append({"imageAsset": {"url": url_val}})
 
         req_body: Dict[str, Any] = {
@@ -970,37 +1086,96 @@ def _omni_route(
             req_body["target_path"] = parsed_route["target_path"]
 
         stage1_pose_res: Optional[Dict[str, Any]] = None
-        if atlas_frames:
-            if atlas_task == "images2PosedRGBD":
-                req_body = {"frames": atlas_frames, "targetResolution": target_res}
-            elif atlas_task == "posedImages2Splats":
-                # Two-stage multi-view pipeline: pose all uploaded photos -> generate 3D Gaussian Splat
+        posed_frames_for_next: List[Dict[str, Any]] = list(incoming_posed_frames)
+        raw_posed_frames_out: List[Dict[str, Any]] = list(raw_incoming_posed) if isinstance(raw_incoming_posed, list) else []
+        strict_live_input = bool(has_live_wlt_key and (atlas_frames or incoming_posed_frames or data.get("splat_asset_id")))
+
+        if atlas_task == "images2PosedRGBD" and atlas_frames:
+            req_body = {"frames": atlas_frames, "targetResolution": target_res}
+        elif atlas_task == "atlasGenerate" and (incoming_posed_frames or atlas_frames):
+            # If user hasn't posed yet, pose uploaded photos first
+            if not incoming_posed_frames and atlas_frames:
                 _, stage1_pose_res = _atlas_run_task(
-                    {
-                        "task": "images2PosedRGBD",
-                        "request_body": {"frames": atlas_frames, "targetResolution": target_res},
-                    },
+                    {"task": "images2PosedRGBD", "request_body": {"frames": atlas_frames, "targetResolution": target_res}},
                     headers=headers,
                     ai_router=rtr,
                 )
                 s1_op_id = (stage1_pose_res or {}).get("operation_id") or (stage1_pose_res or {}).get("id")
                 if stage1_pose_res and stage1_pose_res.get("ok") and not stage1_pose_res.get("done") and s1_op_id:
-                    for _ in range(18):
-                        time.sleep(1.5)
-                        _, polled = _atlas_operation_status(s1_op_id, ai_router=rtr)
-                        if isinstance(polled, dict):
-                            stage1_pose_res = polled
-                            if polled.get("done"):
-                                break
+                    stage1_pose_res = _poll_atlas_operation_briefly(s1_op_id, ai_router=rtr, max_wait_s=28.0)
+                if strict_live_input and stage1_pose_res and not stage1_pose_res.get("ok"):
+                    return int(stage1_pose_res.get("status_code") or 422), {
+                        "ok": False,
+                        "stage": "images2PosedRGBD",
+                        "route": parsed_route,
+                        "error": (stage1_pose_res.get("error") or {}).get("message") or "World Labs images2PosedRGBD failed",
+                        "result": stage1_pose_res,
+                    }
+                s1_frames = ((stage1_pose_res or {}).get("response") or {}).get("frames") or []
+                raw_posed_frames_out = s1_frames if isinstance(s1_frames, list) else []
+                posed_frames_for_next = _normalize_posed_frames_for_splats(raw_posed_frames_out)
+            anchor = raw_posed_frames_out[0] if raw_posed_frames_out else (posed_frames_for_next[0] if posed_frames_for_next else {})
+            n_views = int(flags.get("views") or data.get("views") or 6)
+            target_cams = _build_orbital_target_cameras(anchor, num_views=max(2, min(n_views, 8)))
+            req_body = {
+                "contextFrames": posed_frames_for_next,
+                "targetCameras": target_cams,
+                "returnDepth": True,
+            }
+            clean_p = (parsed_route.get("prompt") or "").strip()
+            if clean_p and not clean_p.startswith("/"):
+                req_body["prompt"] = clean_p
+        elif atlas_task == "posedImages2Splats" and (incoming_posed_frames or atlas_frames):
+            if not incoming_posed_frames and atlas_frames:
+                # Stage 1: Pose all uploaded photos via images2PosedRGBD
+                _, stage1_pose_res = _atlas_run_task(
+                    {"task": "images2PosedRGBD", "request_body": {"frames": atlas_frames, "targetResolution": target_res}},
+                    headers=headers,
+                    ai_router=rtr,
+                )
+                s1_op_id = (stage1_pose_res or {}).get("operation_id") or (stage1_pose_res or {}).get("id")
+                if stage1_pose_res and stage1_pose_res.get("ok") and not stage1_pose_res.get("done") and s1_op_id:
+                    stage1_pose_res = _poll_atlas_operation_briefly(s1_op_id, ai_router=rtr, max_wait_s=28.0)
+                if strict_live_input and stage1_pose_res and not stage1_pose_res.get("ok"):
+                    return int(stage1_pose_res.get("status_code") or 422), {
+                        "ok": False,
+                        "stage": "images2PosedRGBD",
+                        "route": parsed_route,
+                        "error": (stage1_pose_res.get("error") or {}).get("message") or "World Labs images2PosedRGBD failed",
+                        "result": stage1_pose_res,
+                    }
                 s1_resp = (stage1_pose_res or {}).get("response") or {}
-                raw_posed = s1_resp.get("posedFrames") or s1_resp.get("frames") or atlas_frames
-                # Normalize posed frames for World Labs Atlas v2 posedImages2Splats schema
-                req_body = {
-                    "frames": raw_posed,
+                raw_posed_frames_out = s1_resp.get("frames") or s1_resp.get("posedFrames") or []
+                posed_frames_for_next = _normalize_posed_frames_for_splats(raw_posed_frames_out)
+            if strict_live_input and len(posed_frames_for_next) < 2:
+                return 422, {
+                    "ok": False,
+                    "stage": "posedImages2Splats",
+                    "route": parsed_route,
+                    "error": (
+                        f"World Labs posedImages2Splats requires at least 2 posed views (got {len(posed_frames_for_next)}). "
+                        "Upload 2–14 overlapping photos of the same static scene, or run 'Generate Views' (atlasGenerate) from 1 posed anchor photo first."
+                    ),
+                    "result": {
+                        "ok": False,
+                        "simulated": False,
+                        "input_frame_count": len(atlas_frames),
+                        "posed_frame_count": len(posed_frames_for_next),
+                        "posed_frames": raw_posed_frames_out,
+                    },
                 }
-            else:
-                req_body["frames"] = atlas_frames
-                req_body["targetResolution"] = target_res
+            # Exact World Labs Atlas v2 posedImages2Splats schema
+            req_body = {
+                "posedFrames": posed_frames_for_next if posed_frames_for_next else atlas_frames,
+                "refine": refine_mode,
+            }
+            clean_p = (parsed_route.get("prompt") or "").strip()
+            if clean_p and not clean_p.startswith("/") and clean_p.lower() not in ("multi-view 3d gaussian splat", "recreate the scene"):
+                req_body["prompt"] = clean_p
+        elif atlas_task == "splats2Mesh" and data.get("splat_asset_id"):
+            req_body = {"splatAsset": {"assetId": str(data["splat_asset_id"])}}
+        elif atlas_task == "atlasTextToImage":
+            req_body = {"prompt": parsed_route.get("prompt") or combined_input}
 
         _, run_res = _atlas_run_task(
             {
@@ -1012,23 +1187,77 @@ def _omni_route(
             ai_router=rtr,
         )
         op_id = run_res.get("operation_id") or run_res.get("id") or "op_atlas_sim"
-        if not run_res.get("ok") and rtr is not None and hasattr(rtr, "_build_simulated_atlas_response"):
-            short_hash = re.sub(r"[^a-zA-Z0-9]", "", op_id)[-12:] or "3e78434c27d2"
-            sim_resp = rtr._build_simulated_atlas_response(atlas_task, req_body, short_hash)
-            sim_op = {
+
+        # If images2PosedRGBD is live and fast (~5s), poll briefly so we return completed posedFrames immediately
+        if atlas_task == "images2PosedRGBD" and run_res.get("ok") and not run_res.get("done") and has_live_wlt_key:
+            run_res = _poll_atlas_operation_briefly(op_id, ai_router=rtr, max_wait_s=26.0)
+            if run_res.get("done") and isinstance(run_res.get("response"), dict):
+                raw_posed_frames_out = run_res["response"].get("frames") or []
+                posed_frames_for_next = _normalize_posed_frames_for_splats(raw_posed_frames_out)
+
+        # NEVER silently fake a simulated .spz when live World Labs rejected real uploaded photos!
+        if not run_res.get("ok"):
+            if strict_live_input:
+                err_obj = run_res.get("error") if isinstance(run_res.get("error"), dict) else {}
+                err_msg = err_obj.get("message") or run_res.get("error") or f"World Labs {atlas_task} returned HTTP {run_res.get('status_code', 422)}"
+                return int(run_res.get("status_code") or 422), {
+                    "ok": False,
+                    "stage": atlas_task,
+                    "route": parsed_route,
+                    "error": str(err_msg),
+                    "result": {
+                        **run_res,
+                        "simulated": False,
+                        "input_frame_count": len(atlas_frames) or len(posed_frames_for_next),
+                        "posed_frames": raw_posed_frames_out,
+                    },
+                }
+            # Offline / shorthand prompt without uploaded photos: deterministic local fallback
+            if rtr is not None and hasattr(rtr, "_build_simulated_atlas_response"):
+                short_hash = re.sub(r"[^a-zA-Z0-9]", "", op_id)[-12:] or "3e78434c27d2"
+                sim_resp = rtr._build_simulated_atlas_response(atlas_task, req_body, short_hash)
+                sim_op = {
+                    "ok": True,
+                    "id": op_id,
+                    "operation_id": op_id,
+                    "task": atlas_task,
+                    "status": "SUCCEEDED",
+                    "done": True,
+                    "simulated": True,
+                    "response": sim_resp,
+                    "credits_consumed": 150,
+                }
+                if hasattr(rtr, "atlas_operations") and isinstance(rtr.atlas_operations, dict):
+                    rtr.atlas_operations[op_id] = sim_op
+                run_res = sim_op
+
+        # Non-blocking async return for long-running live World Labs jobs (posedImages2Splats, atlasGenerate, splats2Mesh)
+        if not run_res.get("done") and has_live_wlt_key:
+            est_sec = 35 if (atlas_task == "posedImages2Splats" and not refine_mode) else (1080 if atlas_task == "posedImages2Splats" else 35)
+            return 200, {
                 "ok": True,
-                "id": op_id,
+                "async": True,
+                "done": False,
+                "status": run_res.get("status") or "RUNNING",
                 "operation_id": op_id,
                 "task": atlas_task,
-                "status": "SUCCEEDED",
-                "done": True,
-                "simulated": True,
-                "response": sim_resp,
-                "credits_consumed": 150,
+                "refine": refine_mode,
+                "estimated_seconds": est_sec,
+                "route": parsed_route,
+                "result": {
+                    **run_res,
+                    "simulated": False,
+                    "refine": refine_mode,
+                    "estimated_seconds": est_sec,
+                    "input_frame_count": len(atlas_frames) or len(posed_frames_for_next),
+                    "uploaded_assets": uploaded_assets,
+                    "posed_frames": raw_posed_frames_out,
+                    "stage1_pose_operation_id": (stage1_pose_res or {}).get("operation_id") or (stage1_pose_res or {}).get("id"),
+                },
+                "saved_to_space": None,
+                "files_b64": {},
             }
-            if hasattr(rtr, "atlas_operations") and isinstance(rtr.atlas_operations, dict):
-                rtr.atlas_operations[op_id] = sim_op
-            run_res = sim_op
+
         _, dl_res = _atlas_download_operation(
             {
                 "operation_id": op_id,
@@ -1045,18 +1274,27 @@ def _omni_route(
             "scope": scope,
             "owner_id": owner_id,
             "files": saved_files,
-            "path": saved_files[0] if saved_files else None,
+            "path": dl_res.get("spz_path") or (saved_files[0] if saved_files else None),
         }
         result_payload: Dict[str, Any] = {
             **run_res,
-            "input_frame_count": len(atlas_frames),
+            "refine": refine_mode,
+            "input_frame_count": len(atlas_frames) or len(posed_frames_for_next),
             "uploaded_assets": uploaded_assets,
+            "posed_frames": raw_posed_frames_out,
+            "spz_path": dl_res.get("spz_path"),
+            "spz_size_bytes": dl_res.get("spz_size_bytes", 0),
+            "spz_asset_id": dl_res.get("spz_asset_id"),
+            "is_real_spz": bool(dl_res.get("is_real_spz")),
             "download": {k: v for k, v in dl_res.items() if k != "files_b64"},
         }
         if stage1_pose_res is not None:
             result_payload["stage1_pose_operation_id"] = stage1_pose_res.get("operation_id") or stage1_pose_res.get("id")
         return 200, {
             "ok": True,
+            "done": True,
+            "operation_id": op_id,
+            "task": atlas_task,
             "route": parsed_route,
             "result": result_payload,
             "saved_to_space": saved_to_space,

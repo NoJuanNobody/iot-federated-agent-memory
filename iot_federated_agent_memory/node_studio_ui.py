@@ -2051,6 +2051,150 @@ def _node_studio_css() -> str:
     border-color: #ffffff;
     background: #1f1f1f;
   }
+
+  /* Dedicated World Labs Atlas v2 Step-by-Step Workflow Bar */
+  .ns-atlas-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 7px 12px;
+    border-top: var(--ns-hair-soft);
+    border-bottom: var(--ns-hair-soft);
+    background: var(--ns-bg);
+    font-family: var(--ns-mono);
+  }
+  .ns-atlas-bar.hidden { display: none; }
+  .ns-atlas-bar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .ns-atlas-steps {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+  .ns-atlas-brand {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: var(--ns-green);
+    text-transform: uppercase;
+    margin-right: 4px;
+  }
+  .ns-atlas-step-btn {
+    border: var(--ns-hair-soft);
+    background: var(--ns-paper);
+    color: var(--ns-ink);
+    font-family: var(--ns-mono);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background 120ms, border-color 120ms, color 120ms;
+  }
+  .ns-atlas-step-btn:hover {
+    border-color: var(--ns-ink);
+    background: var(--ns-ink);
+    color: var(--ns-bg);
+  }
+  .ns-atlas-step-btn.is-primary {
+    background: var(--ns-ink);
+    color: var(--ns-bg);
+    border-color: var(--ns-ink);
+  }
+  .ns-atlas-step-btn.is-primary:hover { opacity: 0.88; }
+  .ns-atlas-quality-btn {
+    border: 1px solid var(--ns-green);
+    background: rgba(16, 122, 71, 0.1);
+    color: var(--ns-green);
+    font-family: var(--ns-mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    cursor: pointer;
+  }
+  .ns-atlas-quality-btn.is-refined {
+    border-color: var(--ns-ink);
+    background: var(--ns-ink);
+    color: var(--ns-bg);
+  }
+  .ns-atlas-tip {
+    font-size: 9px;
+    color: var(--ns-faint);
+    line-height: 1.3;
+  }
+  .ns-omni-error-box {
+    border: 1px solid var(--ns-danger);
+    background: rgba(138, 28, 28, 0.08);
+    color: var(--ns-danger);
+    border-radius: 7px;
+    padding: 6px 8px;
+    font-family: var(--ns-mono);
+    font-size: 10px;
+    line-height: 1.35;
+    word-break: break-word;
+  }
+  .ns-omni-next-bar {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+  }
+  .ns-spark-webgl {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: #05070a;
+    z-index: 2;
+  }
+  .ns-spark-webgl.hidden { display: none; }
+  .ns-splat-modal-badge {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    z-index: 6;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: rgba(0, 0, 0, 0.76);
+    color: #f5f5f5;
+    font-family: var(--ns-mono);
+    font-size: 10px;
+    font-weight: 700;
+    pointer-events: none;
+  }
+  .ns-splat-modal-badge.is-live {
+    border-color: #107a47;
+    background: rgba(16, 122, 71, 0.9);
+    color: #ffffff;
+  }
+  html[data-theme="dark"] .ns-atlas-bar,
+  body.tc-dark .ns-atlas-bar {
+    background: #0c0c0c;
+    border-color: #2e2e2e;
+  }
+  html[data-theme="dark"] .ns-atlas-step-btn,
+  body.tc-dark .ns-atlas-step-btn {
+    background: #151515;
+    border-color: #2e2e2e;
+    color: #f5f5f5;
+  }
+  html[data-theme="dark"] .ns-atlas-step-btn:hover,
+  body.tc-dark .ns-atlas-step-btn:hover,
+  html[data-theme="dark"] .ns-atlas-step-btn.is-primary,
+  body.tc-dark .ns-atlas-step-btn.is-primary {
+    background: #ffffff;
+    border-color: #ffffff;
+    color: #000000;
+  }
   .ns-term-title { display: inline-flex; align-items: center; gap: 8px; color: #f5f5f5; }
   .ns-term-dots { color: #a3a3a3; font-size: 9px; }
   .ns-term-status { color: #ffffff; font-size: 10px; font-weight: 700; }
@@ -2479,7 +2623,9 @@ def _node_studio_js(initial_view: str) -> str:
     graphPath: "/nodes/workspace.nodes.json",
     savedGraphs: [],
     _autoSaveTimer: null,
-    _suppressAutoSave: false
+    _suppressAutoSave: false,
+    atlasRefine: false,
+    isAtlasBarOpen: true
   };
 
   function $(id) { return document.getElementById(id); }
@@ -2734,9 +2880,27 @@ def _node_studio_js(initial_view: str) -> str:
     const selectedNodes = state.nodes.filter((n) => state.selectedIds.indexOf(n.id) !== -1);
     const nextRefs = uploadedRefs.slice();
     const seenIds = new Set(nextRefs.map((r) => r.id));
+    const seenUrls = new Set(nextRefs.map((r) => r.url).filter(Boolean));
     selectedNodes.forEach((n) => {
-      if (!seenIds.has(n.id) && n.content && (n.content.imageUrl || n.content.base64)) {
+      if (n.content && Array.isArray(n.content.referenceImages) && n.content.referenceImages.length > 0) {
+        n.content.referenceImages.forEach((imgUrl, idx) => {
+          if (!imgUrl || seenUrls.has(imgUrl)) return;
+          seenUrls.add(imgUrl);
+          const rid = n.id + "-ref-" + idx;
+          seenIds.add(rid);
+          nextRefs.push({
+            id: rid,
+            source: "node",
+            url: imgUrl,
+            base64: _extractDataUrlBase64(imgUrl),
+            mimeType: n.content.mimeType || "image/jpeg",
+            name: (n.label || n.id) + " #" + (idx + 1),
+            type: "image"
+          });
+        });
+      } else if (!seenIds.has(n.id) && n.content && (n.content.imageUrl || n.content.base64)) {
         seenIds.add(n.id);
+        if (n.content.imageUrl) seenUrls.add(n.content.imageUrl);
         nextRefs.push({
           id: n.id,
           source: "node",
@@ -2797,18 +2961,29 @@ def _node_studio_js(initial_view: str) -> str:
 
   function renderSplatStageHtml(node) {
     const nid = escapeHtml(node.id);
+    const meta = node.metadata || {};
     const sMode = (node.splatState && node.splatState.mode) || "rgb";
     const showFrustums = !node.splatState || node.splatState.frustums !== false;
-    const inViews = (node.metadata && node.metadata.inputViewCount) ? Number(node.metadata.inputViewCount) : 0;
-    const hudTag = inViews > 0
-      ? (inViews + " INPUT PHOTO" + (inViews === 1 ? "" : "S") + " → 2.0M SPLATS (.SPZ) · DRAG TO ORBIT")
-      : "2.0M GAUSSIAN SPLATS (.SPZ) · DRAG TO ORBIT";
+    const inViews = meta.inputViewCount ? Number(meta.inputViewCount) : 0;
+    const jobStatus = meta.jobStatus || "";
+    let hudTag = "POSED RGBD PREVIEW · DRAG TO ORBIT";
+    if (jobStatus === "RUNNING") {
+      const elapsed = meta.startedAt ? Math.max(1, Math.round((Date.now() - meta.startedAt) / 1000)) : 0;
+      const est = meta.estimatedSeconds || 35;
+      hudTag = "⟳ WORLD LABS GPU RUNNING (" + elapsed + "s / ~" + est + "s)";
+    } else if (meta.isRealSpz) {
+      const mb = meta.spzSizeBytes ? (meta.spzSizeBytes / (1024 * 1024)).toFixed(1) + " MB" : ".SPZ";
+      hudTag = "● LIVE WORLD LABS .SPZ (" + mb + ") · OPEN SPARK WEBGL";
+    } else if (inViews > 0) {
+      hudTag = inViews + " INPUT PHOTO" + (inViews === 1 ? "" : "S") + " · PREVIEW (CLICK BUILD 3D SPLAT)";
+    }
+    const viewBtnLabel = meta.isRealSpz ? "⤢ Spark WebGL 3D Splat" : "⤢ View 3D Splat";
     return (
       '<div class="ns-splat-stage" onmousedown="event.stopPropagation()">' +
       '<canvas id="nsSplatCanvas-' + nid + '" class="ns-splat-canvas" data-splat-node-id="' + nid + '" width="440" height="164"></canvas>' +
       '<div class="ns-splat-hud-top">' +
-      '<span class="ns-splat-hud-tag">' + hudTag + "</span>" +
-      '<span class="ns-splat-hud-tag">RUB CAM · 1280×720</span>' +
+      '<span class="ns-splat-hud-tag">' + escapeHtml(hudTag) + "</span>" +
+      '<span class="ns-splat-hud-tag">' + escapeHtml(meta.isRealSpz ? "SPARK WEBGL READY" : "RUB CAM · 1280×720") + "</span>" +
       "</div>" +
       '<div class="ns-splat-toolbar">' +
       '<div class="ns-splat-btn-group">' +
@@ -2816,13 +2991,14 @@ def _node_studio_js(initial_view: str) -> str:
       '<button type="button" class="ns-splat-btn' + (sMode === "depth" ? " is-active" : "") + '" onclick="event.stopPropagation();window.TinCanNodeStudio.setNodeSplatMode(\'' + nid + '\',\'depth\')">Depth .EXR</button>' +
       '<button type="button" class="ns-splat-btn' + (showFrustums ? " is-active" : "") + '" onclick="event.stopPropagation();window.TinCanNodeStudio.toggleNodeFrustums(\'' + nid + '\')">14 Frustums</button>' +
       "</div>" +
-      '<button type="button" class="ns-splat-btn is-primary" onclick="event.stopPropagation();window.TinCanNodeStudio.openSplatViewer(\'' + nid + '\')">⤢ View 3D Splat</button>' +
+      '<button type="button" class="ns-splat-btn is-primary" onclick="event.stopPropagation();window.TinCanNodeStudio.openSplatViewer(\'' + nid + '\')">' + viewBtnLabel + "</button>" +
       "</div>" +
       "</div>"
     );
   }
 
   function renderOmniCardInner(node) {
+    const nid = escapeHtml(node.id);
     const kind = node.omniKind || node.modality || "atlas";
     const meta = node.metadata || {};
     const promptTxt = escapeHtml(meta.prompt || node.label || "");
@@ -2841,43 +3017,76 @@ def _node_studio_js(initial_view: str) -> str:
       );
     }
     if (kind === "omni_master" || kind === "splat" || kind === "flythrough" || kind === "video" || kind === "3d") {
+      const statusBadge = meta.jobStatus === "ERROR"
+        ? "✕ WORLD LABS ERROR"
+        : (meta.jobStatus === "RUNNING"
+          ? "⟳ GPU RECONSTRUCTING"
+          : (meta.isRealSpz
+            ? "● LIVE .SPZ READY"
+            : (meta.simulated === false ? "● LIVE ATLAS v2" : "◐ LOCAL PREVIEW")));
+      const opLine = meta.operationId ? ("Op: " + escapeHtml(meta.operationId)) : "Op: pending";
+      const modeLine = meta.atlasTask === "posedImages2Splats"
+        ? (meta.refine ? "Mode: Refined 2M ($5.00 · ~18m)" : "Mode: Draft Splat ($0.50 · ~30s)")
+        : ("Task: " + escapeHtml(meta.atlasTask || "posedImages2Splats"));
+      const viewsLine = "Views: " + (meta.posedFrameCount || meta.inputViewCount || 0) + " input/posed";
+      const spzLine = meta.isRealSpz && meta.spzSizeBytes
+        ? ("SPZ: " + (meta.spzSizeBytes / (1024 * 1024)).toFixed(2) + " MB real binary ✓")
+        : (meta.jobStatus === "RUNNING" ? "SPZ: Polling World Labs every 4s..." : "SPZ: Preview only (submit real photos to build .spz)");
+      const errBlock = meta.jobError
+        ? ('<div class="ns-omni-error-box">' + escapeHtml(meta.jobError) + "</div>")
+        : "";
+      const nextActions =
+        '<div class="ns-omni-next-bar" onmousedown="event.stopPropagation()">' +
+        '<button type="button" class="ns-atlas-step-btn" onclick="event.stopPropagation();window.TinCanNodeStudio.runAtlasStep(\'atlasGenerate\', \'' + nid + '\')">+ Generate 6 Views</button>' +
+        '<button type="button" class="ns-atlas-step-btn is-primary" onclick="event.stopPropagation();window.TinCanNodeStudio.runAtlasStep(\'posedImages2Splats\', \'' + nid + '\')">❖ Build Splat</button>' +
+        (meta.spzAssetId ? '<button type="button" class="ns-atlas-step-btn" onclick="event.stopPropagation();window.TinCanNodeStudio.runAtlasStep(\'splats2Mesh\', \'' + nid + '\')">◆ Export .GLB</button>' : "") +
+        "</div>";
       return (
         '<div class="ns-omni-card is-active">' +
         '<div class="ns-omni-top-row">' +
         '<span class="ns-omni-pill">❖ OMNI-WORLD MASTER · SPLAT + GLB + MP4</span>' +
-        '<span class="ns-omni-status-badge">✓ RIGGED + AUDIO MUXED</span>' +
+        '<span class="ns-omni-status-badge">' + escapeHtml(statusBadge) + "</span>" +
         "</div>" +
         renderSplatStageHtml(node) +
+        errBlock +
         '<div class="ns-omni-grid-2">' +
         '<div class="ns-omni-box">' +
-        "<div>[3D Gaussian Splat → GLB + Walk Rig]</div>" +
-        "<div>• refinedSplats_2000000.spz (14 views)</div>" +
-        "<div>• splats2Mesh → /models3d/torii.glb</div>" +
-        "<div>• hyper3d/rigging → walk / idle clips ✓</div>" +
+        "<div>[World Labs Atlas v2 Telemetry]</div>" +
+        "<div>• " + opLine + "</div>" +
+        "<div>• " + modeLine + "</div>" +
         "</div>" +
         '<div class="ns-omni-box">' +
-        "<div>[24fps Flythrough + Audio Mux (.MP4)]</div>" +
-        "<div>• atlasGenerate (120 Target Cams @ 24fps)</div>" +
-        "<div>• Alternative: /video kling-4.0 | ltx-2.5</div>" +
-        "<div>• Synced with Node #3 Lyria + TTS WAV ✓</div>" +
+        "<div>[Reconstruction Output]</div>" +
+        "<div>• " + escapeHtml(viewsLine) + "</div>" +
+        "<div>• " + escapeHtml(spzLine) + "</div>" +
         "</div>" +
         "</div>" +
+        nextActions +
         '<div class="ns-omni-title">' + promptTxt + "</div>" +
-        '<div class="ns-omni-sub">' + escapeHtml(meta.vfsPath || "Parents: [#2 Atlas RGBD + #3 Audio] · Via: World Labs Atlas v2 + NanoGPT") + "</div>" +
+        '<div class="ns-omni-sub">' + escapeHtml(meta.vfsPath || "Not saved to .space yet") + "</div>" +
         "</div>"
       );
     }
+    const poseViews = meta.posedFrameCount || meta.inputViewCount || 0;
+    const poseErr = meta.jobError ? ('<div class="ns-omni-error-box">' + escapeHtml(meta.jobError) + "</div>") : "";
     return (
       '<div class="ns-omni-card">' +
-      '<div class="ns-omni-pill">● ATLAS · images2PosedRGBD</div>' +
+      '<div class="ns-omni-top-row">' +
+      '<span class="ns-omni-pill">● ATLAS · images2PosedRGBD</span>' +
+      '<span class="ns-omni-status-badge">' + (meta.jobStatus === "ERROR" ? "✕ ERROR" : (poseViews > 0 ? ("✓ " + poseViews + " POSED") : "RUB POSE")) + "</span>" +
+      "</div>" +
       renderSplatStageHtml(node) +
+      poseErr +
       '<div class="ns-omni-box">' +
-      "<div>[Linear Depth .EXR 267KB · Conf 98.4%]</div>" +
-      "<div>RUB Cam: fx=893.4 fy=893.9 · Pos [0, 4.04, 0]</div>" +
-      "<div>Centroid: [-1.99, 0, -36.35] · op_3e78434c ✓</div>" +
+      "<div>[Posed RGBD + Linear Depth .EXR]</div>" +
+      "<div>Op: " + escapeHtml(meta.operationId || "pending") + " · Views: " + poseViews + "</div>" +
+      "</div>" +
+      '<div class="ns-omni-next-bar" onmousedown="event.stopPropagation()">' +
+      '<button type="button" class="ns-atlas-step-btn" onclick="event.stopPropagation();window.TinCanNodeStudio.runAtlasStep(\'atlasGenerate\', \'' + nid + '\')">+ Generate 6 Views (~30s)</button>' +
+      '<button type="button" class="ns-atlas-step-btn is-primary" onclick="event.stopPropagation();window.TinCanNodeStudio.runAtlasStep(\'posedImages2Splats\', \'' + nid + '\')">❖ Build 3D Splat</button>' +
       "</div>" +
       '<div class="ns-omni-title">' + promptTxt + "</div>" +
-      '<div class="ns-omni-sub ns-omni-green">' + escapeHtml(meta.vfsPath || "Synced to /worlds/torii_3e78434c/ ✓") + "</div>" +
+      '<div class="ns-omni-sub ns-omni-green">' + escapeHtml(meta.vfsPath || "Synced to .space") + "</div>" +
       "</div>"
     );
   }
@@ -3254,6 +3463,21 @@ def _node_studio_js(initial_view: str) -> str:
     const multiRefs = collectAllImageReferences();
     const imageRefs = multiRefs.filter((r) => r.type === "image");
     const spawned = buildOmniNodeFromParsed(parsed, rawCmd, state.nodeSeq);
+    spawned.metadata.refine = !!state.atlasRefine;
+    // Inherit posedFrames / spzAssetId from selected parent node when chaining steps (Pose -> Generate Views -> Splat -> Mesh)
+    let inheritedPosedFrames = [];
+    let inheritedSplatAssetId = null;
+    for (let i = 0; i < parentIds.length; i++) {
+      const pn = state.nodes.find((x) => x.id === parentIds[i]);
+      if (pn && pn.metadata) {
+        if (Array.isArray(pn.metadata.posedFrames) && pn.metadata.posedFrames.length > 0) {
+          inheritedPosedFrames = inheritedPosedFrames.concat(pn.metadata.posedFrames);
+        }
+        if (!inheritedSplatAssetId && pn.metadata.spzAssetId) {
+          inheritedSplatAssetId = pn.metadata.spzAssetId;
+        }
+      }
+    }
     // Attach ALL multi-view uploaded/selected photos for 3D Gaussian Splat generation
     if (imageRefs.length > 0) {
       spawned.content.imageUrl = imageRefs[0].url || (imageRefs[0].base64 ? ("data:" + (imageRefs[0].mimeType || "image/jpeg") + ";base64," + imageRefs[0].base64) : "");
@@ -3271,6 +3495,7 @@ def _node_studio_js(initial_view: str) -> str:
     const headers = { "Content-Type": "application/json" };
     if (state.apiKey) headers["X-Gemini-Api-Key"] = state.apiKey;
     if (state.nanogptKey) headers["X-NanoGPT-Api-Key"] = state.nanogptKey;
+    const tgt = _resolveSpaceTarget();
 
     if (typeof fetch === "function") {
       try {
@@ -3282,8 +3507,13 @@ def _node_studio_js(initial_view: str) -> str:
             prompt: parsed.prompt,
             modality: parsed.modality,
             model: parsed.model,
+            refine: !!state.atlasRefine,
+            scope: tgt.scope,
+            owner_id: tgt.owner_id,
             selectedNodeIds: parentIds,
-            references: multiRefs
+            references: multiRefs,
+            posed_frames: inheritedPosedFrames.length ? inheritedPosedFrames : undefined,
+            splat_asset_id: inheritedSplatAssetId || undefined
           })
         });
         if (res && res.status === 404) {
@@ -3301,12 +3531,58 @@ def _node_studio_js(initial_view: str) -> str:
         }
         if (res && typeof res.json === "function") {
           const data = await res.json();
+          if (data && data.ok === false) {
+            const errTxt = String(data.error || ("World Labs request failed (HTTP " + (res.status || 422) + ")"));
+            spawned.metadata.jobStatus = "ERROR";
+            spawned.metadata.jobError = errTxt;
+            spawned.metadata.simulated = false;
+            if (data.result && Array.isArray(data.result.posed_frames) && data.result.posed_frames.length) {
+              spawned.metadata.posedFrames = data.result.posed_frames;
+              spawned.metadata.posedFrameCount = data.result.posed_frames.length;
+            }
+            showToast(errTxt, true);
+            appendTerminalLine("[!] World Labs error: " + errTxt);
+            renderNodes();
+            renderPromptIslandStatus();
+            return spawned;
+          }
           if (data && data.saved_to_space) {
             spawned.metadata.vfsPath = _extractSavedVfsPath(data.saved_to_space, spawned.metadata.vfsPath);
           }
-          if (data && data.result && typeof data.result.input_frame_count === "number" && data.result.input_frame_count > 0) {
-            spawned.metadata.inputViewCount = data.result.input_frame_count;
+          const rObj = (data && data.result) || {};
+          if (rObj.operation_id || (data && data.operation_id)) {
+            spawned.metadata.operationId = rObj.operation_id || data.operation_id;
           }
+          if (typeof rObj.simulated === "boolean") spawned.metadata.simulated = rObj.simulated;
+          if (typeof rObj.refine === "boolean") spawned.metadata.refine = rObj.refine;
+          if (typeof rObj.input_frame_count === "number" && rObj.input_frame_count > 0) {
+            spawned.metadata.inputViewCount = rObj.input_frame_count;
+          }
+          if (Array.isArray(rObj.posed_frames) && rObj.posed_frames.length > 0) {
+            spawned.metadata.posedFrames = rObj.posed_frames;
+            spawned.metadata.posedFrameCount = rObj.posed_frames.length;
+          }
+          const dlObj = rObj.download || {};
+          if (dlObj.spz_raw_url) spawned.metadata.spzRawUrl = dlObj.spz_raw_url;
+          if (dlObj.spz_path) spawned.metadata.vfsPath = dlObj.spz_path;
+          if (dlObj.spz_size_bytes) spawned.metadata.spzSizeBytes = dlObj.spz_size_bytes;
+          if (dlObj.spz_asset_id) spawned.metadata.spzAssetId = dlObj.spz_asset_id;
+          if (dlObj.is_real_spz || rObj.is_real_spz) spawned.metadata.isRealSpz = true;
+
+          // Non-blocking async World Labs GPU job -> start live 4s polling!
+          if (data && (data.async || data.done === false) && spawned.metadata.operationId) {
+            spawned.metadata.jobStatus = "RUNNING";
+            spawned.metadata.startedAt = Date.now();
+            spawned.metadata.estimatedSeconds = data.estimated_seconds || (state.atlasRefine ? 1080 : 35);
+            spawned.metadata.vfsPath = "Running on World Labs GPU (" + spawned.metadata.operationId + ")...";
+            showToast("World Labs job started (" + (state.atlasRefine ? "Refined ~18m" : "Draft ~30s") + ") — polling live...", false);
+            appendTerminalLine("[⟳] Submitted World Labs " + (data.task || parsed.atlas_task) + " → op " + spawned.metadata.operationId + " (polling live every 4s)");
+            renderNodes();
+            renderPromptIslandStatus();
+            pollAtlasOperationForNode(spawned);
+            return spawned;
+          }
+
           if (data && data.files_b64 && typeof data.files_b64 === "object") {
             const keys = Object.keys(data.files_b64);
             const hasMultiUploaded = Array.isArray(spawned.content.referenceImages) && spawned.content.referenceImages.length > 1;
@@ -3321,6 +3597,7 @@ def _node_studio_js(initial_view: str) -> str:
               spawned.content.spzB64 = data.files_b64[spzKey];
             }
           }
+          spawned.metadata.jobStatus = "SUCCEEDED";
         }
       } catch (_err) {
         // Offline / local simulation keeps spawned Omni-Modal DAG card
@@ -3332,6 +3609,105 @@ def _node_studio_js(initial_view: str) -> str:
     renderNodes();
     renderPromptIslandStatus();
     return spawned;
+  }
+
+  function pollAtlasOperationForNode(node) {
+    if (!node || !node.metadata || !node.metadata.operationId || typeof fetch !== "function") return;
+    if (node._pollTimer) clearInterval(node._pollTimer);
+    const opId = node.metadata.operationId;
+    const tgt = _resolveSpaceTarget();
+    node._pollTimer = setInterval(async function () {
+      try {
+        const res = await fetch("/api/atlas/operations/status?operation_id=" + encodeURIComponent(opId));
+        if (!res || !res.ok) return;
+        const st = await res.json();
+        if (!st) return;
+        if (st.done || st.ok === false) {
+          clearInterval(node._pollTimer);
+          node._pollTimer = null;
+          if (st.ok === false || st.error) {
+            const errMsg = (st.error && st.error.message) || String(st.error || "World Labs operation failed");
+            node.metadata.jobStatus = "ERROR";
+            node.metadata.jobError = errMsg;
+            showToast("World Labs error: " + errMsg, true);
+            appendTerminalLine("[!] World Labs op " + opId + " failed: " + errMsg);
+            renderNodes();
+            return;
+          }
+          // Download real completed World Labs outputs (.spz / .exr / .glb / frames) into .space VFS
+          const dlRes = await fetch("/api/atlas/operations/download", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              operation_id: opId,
+              scope: tgt.scope,
+              owner_id: tgt.owner_id,
+              target_dir: "/worlds"
+            })
+          });
+          const dl = dlRes && dlRes.ok ? await dlRes.json() : {};
+          node.metadata.jobStatus = "SUCCEEDED";
+          node.metadata.simulated = false;
+          if (st.response && Array.isArray(st.response.frames) && st.response.frames.length) {
+            const prevPosed = Array.isArray(node.metadata.posedFrames) ? node.metadata.posedFrames : [];
+            node.metadata.posedFrames = prevPosed.concat(st.response.frames);
+            node.metadata.posedFrameCount = node.metadata.posedFrames.length;
+          }
+          if (dl.spz_path) node.metadata.vfsPath = dl.spz_path;
+          else if (dl.mesh_path) node.metadata.vfsPath = dl.mesh_path;
+          else if (Array.isArray(dl.saved_files) && dl.saved_files.length) node.metadata.vfsPath = dl.saved_files[0];
+          if (dl.spz_raw_url) node.metadata.spzRawUrl = dl.spz_raw_url;
+          if (dl.spz_size_bytes) node.metadata.spzSizeBytes = dl.spz_size_bytes;
+          if (dl.spz_asset_id) node.metadata.spzAssetId = dl.spz_asset_id;
+          if (dl.is_real_spz) node.metadata.isRealSpz = true;
+
+          const mb = dl.spz_size_bytes ? (" (" + (dl.spz_size_bytes / (1024 * 1024)).toFixed(2) + " MB .spz)") : "";
+          showToast("World Labs completed!" + mb + " Saved to " + node.metadata.vfsPath, false);
+          appendTerminalLine("[✓] World Labs op " + opId + " SUCCEEDED" + mb + " → " + node.metadata.vfsPath);
+          renderNodes();
+          if (modalSplatState.activeNodeId === node.id && node.metadata.isRealSpz) {
+            openSplatViewer(node.id);
+          }
+        } else {
+          // Live timer tick on card
+          renderNodes();
+        }
+      } catch (_pollErr) {}
+    }, 4000);
+  }
+
+  function runAtlasStep(taskName, sourceNodeId) {
+    if (sourceNodeId) {
+      state.selectedIds = [sourceNodeId];
+    }
+    state.model = "worldlabs/atlas-v2";
+    state.modality = "atlas";
+    const promptEl = $("nsPromptInput");
+    const extraPrompt = (promptEl && promptEl.value.trim() && !promptEl.value.trim().startsWith("/"))
+      ? (" " + promptEl.value.trim()) : "";
+    let cmd = "/atlas splat";
+    if (taskName === "images2PosedRGBD") cmd = "/atlas pose" + (extraPrompt || " pose uploaded photos");
+    else if (taskName === "atlasGenerate") cmd = "/atlas flythrough --views 6" + (extraPrompt || " orbit scene views");
+    else if (taskName === "splats2Mesh") cmd = "/atlas mesh" + (extraPrompt || " extract glb mesh");
+    else cmd = "/atlas splat" + (state.atlasRefine ? " --refined" : "") + (extraPrompt || " reconstruct scene");
+    return runTerminalCommand(cmd);
+  }
+
+  function toggleAtlasRefine() {
+    state.atlasRefine = !state.atlasRefine;
+    const btn = $("nsAtlasQualityBtn");
+    if (btn) {
+      btn.classList.toggle("is-refined", state.atlasRefine);
+      btn.textContent = state.atlasRefine ? "Refined (18m · $5.00)" : "Draft (~30s · $0.50)";
+    }
+  }
+
+  function toggleAtlasBar(forceOpen) {
+    const bar = $("nsAtlasWorkflowBar");
+    if (!bar) return;
+    const nextOpen = typeof forceOpen === "boolean" ? forceOpen : bar.classList.contains("hidden");
+    state.isAtlasBarOpen = nextOpen;
+    bar.classList.toggle("hidden", !nextOpen);
   }
 
   // =========================================================================
@@ -3805,10 +4181,101 @@ def _node_studio_js(initial_view: str) -> str:
     }
   }
 
+  let _sparkViewerCtx = null;
+
+  function disposeSparkWebGLViewer() {
+    if (!_sparkViewerCtx) return;
+    try {
+      if (_sparkViewerCtx.rafId && typeof window.cancelAnimationFrame === "function") {
+        window.cancelAnimationFrame(_sparkViewerCtx.rafId);
+      }
+      if (_sparkViewerCtx.renderer && typeof _sparkViewerCtx.renderer.dispose === "function") {
+        _sparkViewerCtx.renderer.dispose();
+      }
+    } catch (_e) {}
+    const host = $("nsSparkWebGLContainer");
+    if (host) {
+      host.innerHTML = "";
+      host.classList.add("hidden");
+    }
+    _sparkViewerCtx = null;
+  }
+
+  async function mountSparkWebGLViewer(spzUrl) {
+    const host = $("nsSparkWebGLContainer");
+    const badge = $("nsSplatViewerBadge");
+    const fallbackCanvas = $("nsSplatModalCanvas");
+    if (!host || !spzUrl) return false;
+    disposeSparkWebGLViewer();
+    host.classList.remove("hidden");
+    if (badge) {
+      badge.textContent = "⟳ LOADING REAL .SPZ IN SPARK WEBGL...";
+      badge.classList.add("is-live");
+    }
+    try {
+      const THREE = await import("https://esm.sh/three@0.174.0");
+      const ctrlMod = await import("https://esm.sh/three@0.174.0/examples/jsm/controls/OrbitControls.js");
+      const sparkMod = await import("https://esm.sh/@sparkjsdev/spark@0.1.10?deps=three@0.174.0");
+      const OrbitControls = ctrlMod.OrbitControls;
+      const SparkRenderer = sparkMod.SparkRenderer;
+      const SplatMesh = sparkMod.SplatMesh;
+
+      const w = host.clientWidth || 940;
+      const h = host.clientHeight || 520;
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(w, h);
+      host.innerHTML = "";
+      host.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x05070a);
+      const camera = new THREE.PerspectiveCamera(60, w / h, 0.05, 500);
+      camera.position.set(0, 1.0, 2.5);
+
+      const spark = new SparkRenderer({ renderer: renderer });
+      scene.add(spark);
+
+      const splatMesh = new SplatMesh({ url: spzUrl });
+      scene.add(splatMesh);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.target.set(0, 0.5, -1.5);
+      controls.update();
+
+      if (fallbackCanvas) fallbackCanvas.classList.add("hidden");
+      if (badge) {
+        badge.textContent = "● REAL WORLD LABS .SPZ · SPARK WEBGL (60fps)";
+        badge.classList.add("is-live");
+      }
+
+      const ctx = { renderer, scene, camera, controls, splatMesh, rafId: null };
+      _sparkViewerCtx = ctx;
+      function tick() {
+        if (_sparkViewerCtx !== ctx) return;
+        controls.update();
+        renderer.render(scene, camera);
+        ctx.rafId = window.requestAnimationFrame(tick);
+      }
+      tick();
+      return true;
+    } catch (err) {
+      disposeSparkWebGLViewer();
+      if (fallbackCanvas) fallbackCanvas.classList.remove("hidden");
+      if (badge) {
+        badge.textContent = "◐ WEBGL FALLBACK PREVIEW (" + String((err && err.message) || "WebGL unavailable") + ")";
+        badge.classList.remove("is-live");
+      }
+      return false;
+    }
+  }
+
   function openSplatViewer(nodeId) {
     const node = _resolveSplatNode(nodeId);
     if (!node) return;
     modalSplatState.activeNodeId = node.id;
+    const meta = node.metadata || {};
     if (node.splatState) {
       modalSplatState.mode = node.splatState.mode || "rgb";
       modalSplatState.frustums = node.splatState.frustums !== false;
@@ -3818,22 +4285,38 @@ def _node_studio_js(initial_view: str) -> str:
     const modal = $("nsSplatViewerModal");
     const titleEl = $("nsSplatModalTitle");
     const metaEl = $("nsSplatModalMeta");
+    const badge = $("nsSplatViewerBadge");
+    const fallbackCanvas = $("nsSplatModalCanvas");
     if (titleEl) {
-      titleEl.textContent = "3D GAUSSIAN SPLAT VIEWER (.SPZ) · " + ((node.metadata && node.metadata.prompt) || node.label || node.id);
+      titleEl.textContent = "3D GAUSSIAN SPLAT VIEWER (.SPZ) · " + (meta.prompt || node.label || node.id);
     }
     if (metaEl) {
-      metaEl.textContent = ((node.metadata && node.metadata.vfsPath) || "/worlds/torii_3e78434c/refinedSplats_2000000.spz") +
-        " · 2,000,000 Splats · RUB Cam fx=893.4 fy=893.9 · Drag to Orbit / Scroll to Zoom / WASD Flythrough";
+      const szText = meta.spzSizeBytes ? (" · " + (meta.spzSizeBytes / (1024 * 1024)).toFixed(2) + " MB") : "";
+      metaEl.textContent = (meta.vfsPath || "/worlds/torii_3e78434c/refinedSplats_2000000.spz") +
+        szText + " · Drag to Orbit / Scroll to Zoom / Shift+Drag Pan";
     }
     if (modal) modal.classList.remove("hidden");
-    bindModalSplatCanvasEvents();
-    if (modalSplatState.rafId && typeof window.cancelAnimationFrame === "function") {
-      window.cancelAnimationFrame(modalSplatState.rafId);
+    disposeSparkWebGLViewer();
+    if (meta.isRealSpz && meta.spzRawUrl && typeof window !== "undefined") {
+      mountSparkWebGLViewer(meta.spzRawUrl);
+    } else {
+      if (fallbackCanvas) fallbackCanvas.classList.remove("hidden");
+      if (badge) {
+        badge.classList.remove("is-live");
+        badge.textContent = meta.jobStatus === "RUNNING"
+          ? "⟳ RECONSTRUCTING REAL .SPZ ON WORLD LABS GPU — WILL AUTO-SWITCH TO SPARK WEBGL WHEN DONE"
+          : "◐ POSED RGBD PREVIEW (NOT A REAL .SPZ YET — CLICK 'BUILD 3D SPLAT' WITH 2+ SCENE PHOTOS)";
+      }
+      bindModalSplatCanvasEvents();
+      if (modalSplatState.rafId && typeof window.cancelAnimationFrame === "function") {
+        window.cancelAnimationFrame(modalSplatState.rafId);
+      }
+      renderModalSplatFrame();
     }
-    renderModalSplatFrame();
   }
 
   function closeSplatViewer() {
+    disposeSparkWebGLViewer();
     const modal = $("nsSplatViewerModal");
     if (modal) modal.classList.add("hidden");
     modalSplatState.autoOrbit = false;
@@ -3866,10 +4349,16 @@ def _node_studio_js(initial_view: str) -> str:
 
   function downloadActiveSplatSpz() {
     const node = state.nodes.find((n) => n.id === modalSplatState.activeNodeId) || state.nodes[state.nodes.length - 1];
-    const b64 = (node && node.content && node.content.spzB64) || "U1BaMgACAAAA9K7/v16ZAAx7kRHC";
     const a = document.createElement("a");
-    a.href = "data:application/octet-stream;base64," + b64;
-    a.download = "refinedSplats_2000000.spz";
+    if (node && node.metadata && node.metadata.spzRawUrl) {
+      a.href = node.metadata.spzRawUrl;
+      const fname = String(node.metadata.vfsPath || "world_splat.spz").split("/").pop() || "world_splat.spz";
+      a.download = fname;
+    } else {
+      const b64 = (node && node.content && node.content.spzB64) || "U1BaMgACAAAA9K7/v16ZAAx7kRHC";
+      a.href = "data:application/octet-stream;base64," + b64;
+      a.download = "refinedSplats_2000000.spz";
+    }
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -5123,6 +5612,9 @@ def _node_studio_js(initial_view: str) -> str:
     applySlashRoute: applySlashRoute,
     runTerminalCommand: runTerminalCommand,
     runSlashCommand: runTerminalCommand,
+    runAtlasStep: runAtlasStep,
+    toggleAtlasRefine: toggleAtlasRefine,
+    toggleAtlasBar: toggleAtlasBar,
     toggleTerminal: toggleTerminal,
     saveGraphToSpace: saveGraphToSpace,
     loadGraphFromSpace: loadGraphFromSpace,
@@ -5509,6 +6001,21 @@ def _render_studio_stage_markup(active_view: str) -> str:
           </div>
         </div>
 
+        <div id="nsAtlasWorkflowBar" class="ns-atlas-bar" aria-label="World Labs Atlas v2 Workflow">
+          <div class="ns-atlas-bar-row">
+            <div class="ns-atlas-steps">
+              <span class="ns-atlas-brand">● ATLAS v2 PIPELINE</span>
+              <button id="nsAtlasUploadBtn" type="button" class="ns-atlas-step-btn" onclick="window.TinCanNodeStudio.triggerFileInput()">1. + Upload Photos</button>
+              <button id="nsAtlasPoseBtn" type="button" class="ns-atlas-step-btn" title="Estimate RUB cameras & metric depth (~5s · $0.05)" onclick="window.TinCanNodeStudio.runAtlasStep('images2PosedRGBD')">2. Pose (~5s)</button>
+              <button id="nsAtlasGenViewsBtn" type="button" class="ns-atlas-step-btn" title="Synthesize 6 consistent orbital views with depth (~30s · $0.25)" onclick="window.TinCanNodeStudio.runAtlasStep('atlasGenerate')">3. Generate 6 Views</button>
+              <button id="nsAtlasBuildSplatBtn" type="button" class="ns-atlas-step-btn is-primary" title="Reconstruct real World Labs .SPZ Gaussian Splat" onclick="window.TinCanNodeStudio.runAtlasStep('posedImages2Splats')">4. Build 3D Splat</button>
+              <button id="nsAtlasMeshBtn" type="button" class="ns-atlas-step-btn" title="Extract .GLB mesh from a completed .SPZ splat" onclick="window.TinCanNodeStudio.runAtlasStep('splats2Mesh')">5. Export .GLB</button>
+            </div>
+            <button id="nsAtlasQualityBtn" type="button" class="ns-atlas-quality-btn" title="Toggle Draft (~30s, $0.50) vs Refined 2M (15-21m, $5.00)" onclick="window.TinCanNodeStudio.toggleAtlasRefine()">Draft (~30s · $0.50)</button>
+          </div>
+          <div class="ns-atlas-tip">Stationary scene/room: upload 2–14 overlapping angles → Build 3D Splat · Or from 1 photo: Pose → Generate 6 Views → Build 3D Splat.</div>
+        </div>
+
         <div id="nsRefsStrip" class="ns-refs-strip">
           <div id="nsRefsRow" class="ns-refs-row"></div>
         </div>
@@ -5603,6 +6110,8 @@ def _render_studio_stage_markup(active_view: str) -> str:
         </div>
       </div>
       <div class="ns-splat-modal-viewport">
+        <div id="nsSplatViewerBadge" class="ns-splat-modal-badge">◐ POSED RGBD PREVIEW</div>
+        <div id="nsSparkWebGLContainer" class="ns-spark-webgl hidden"></div>
         <canvas id="nsSplatModalCanvas" width="940" height="520"></canvas>
       </div>
       <div class="ns-splat-modal-foot">

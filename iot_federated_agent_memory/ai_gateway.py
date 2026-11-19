@@ -4078,35 +4078,50 @@ class DynamicAIGatewayRouter:
             world_dir = clean_target
 
         saved_files: List[str] = []
+        spz_path: Optional[str] = None
+        spz_size_bytes: int = 0
+        spz_asset_id: Optional[str] = None
+        mesh_path: Optional[str] = None
 
         # 1. Frames (images2PosedRGBD, atlasGenerate, atlasChisel, atlasTextToImage)
-        frames = response.get("frames")
+        frames = response.get("frames") or response.get("generatedFrames")
         if isinstance(frames, list) and frames:
             for idx, frame in enumerate(frames):
                 if not isinstance(frame, dict):
                     continue
-                if frame.get("image"):
+                img_ref = frame.get("imageAsset") or frame.get("image")
+                if img_ref:
                     img_path = f"{world_dir}/frames_{idx}_image.jpg"
                     img_bytes = self._download_atlas_asset_bytes(
-                        frame["image"], default_kind="jpeg", short_id=short_id
+                        img_ref, default_kind="jpeg", short_id=short_id
                     )
                     self._write_to_vfs_compat(
                         vfs, img_path, img_bytes, mime_type="image/jpeg", author=author
                     )
                     saved_files.append(img_path)
-                if frame.get("depth"):
+                raw_depth = frame.get("depth")
+                depth_ref = (
+                    raw_depth.get("depthAsset")
+                    if isinstance(raw_depth, dict) and raw_depth.get("depthAsset")
+                    else raw_depth
+                )
+                if depth_ref:
                     depth_path = f"{world_dir}/frames_{idx}_depth.exr"
                     depth_bytes = self._download_atlas_asset_bytes(
-                        frame["depth"], default_kind="exr", short_id=short_id
+                        depth_ref, default_kind="exr", short_id=short_id
                     )
                     self._write_to_vfs_compat(
                         vfs, depth_path, depth_bytes, mime_type="image/x-exr", author=author
                     )
                     saved_files.append(depth_path)
-                if frame.get("confidence"):
+                conf_ref = (
+                    frame.get("confidence")
+                    or (raw_depth.get("confidenceAsset") if isinstance(raw_depth, dict) else None)
+                )
+                if conf_ref:
                     conf_path = f"{world_dir}/frames_{idx}_confidence.png"
                     conf_bytes = self._download_atlas_asset_bytes(
-                        frame["confidence"], default_kind="png", short_id=short_id
+                        conf_ref, default_kind="png", short_id=short_id
                     )
                     self._write_to_vfs_compat(
                         vfs, conf_path, conf_bytes, mime_type="image/png", author=author
@@ -4122,22 +4137,32 @@ class DynamicAIGatewayRouter:
             )
             saved_files.append(img_path)
 
-        # 2. Gaussian Splats (posedImages2Splats -> refinedSplats_2000000.spz)
+        # 2. Gaussian Splats (posedImages2Splats -> draftSplat OR refinedSplats OR splatAsset)
         splat_ref = response.get("splatAsset")
-        if not splat_ref and isinstance(response.get("refinedSplats"), dict):
-            splat_ref = (
-                response["refinedSplats"].get("2000000")
-                or next(iter(response["refinedSplats"].values()), None)
-            )
+        splat_filename = "refinedSplats_2000000.spz"
+        if not splat_ref and isinstance(response.get("refinedSplats"), dict) and response["refinedSplats"]:
+            if "2000000" in response["refinedSplats"]:
+                splat_ref = response["refinedSplats"]["2000000"]
+                splat_filename = "refinedSplats_2000000.spz"
+            else:
+                first_k = next(iter(response["refinedSplats"].keys()))
+                splat_ref = response["refinedSplats"][first_k]
+                splat_filename = f"refinedSplats_{first_k}.spz"
+        if not splat_ref and response.get("draftSplat"):
+            splat_ref = response["draftSplat"]
+            splat_filename = "draftSplat.spz"
         if splat_ref:
-            splat_path = f"{world_dir}/refinedSplats_2000000.spz"
+            spz_path = f"{world_dir}/{splat_filename}"
+            if isinstance(splat_ref, dict):
+                spz_asset_id = str(splat_ref.get("assetId") or splat_ref.get("id") or "") or None
             splat_bytes = self._download_atlas_asset_bytes(
                 splat_ref, default_kind="spz", short_id=short_id
             )
+            spz_size_bytes = len(splat_bytes)
             self._write_to_vfs_compat(
-                vfs, splat_path, splat_bytes, mime_type="application/octet-stream", author=author
+                vfs, spz_path, splat_bytes, mime_type="application/octet-stream", author=author
             )
-            saved_files.append(splat_path)
+            saved_files.append(spz_path)
 
         # 3. 3D Mesh (splats2Mesh -> /models3d/atlas_<short_id>.glb)
         mesh_ref = response.get("meshAsset") or response.get("glbAsset")
@@ -4173,6 +4198,12 @@ class DynamicAIGatewayRouter:
             "operation_id": op_id,
             "target_dir": world_dir,
             "saved_files": saved_files,
+            "spz_path": spz_path,
+            "spz_size_bytes": spz_size_bytes,
+            "spz_asset_id": spz_asset_id,
+            "mesh_path": mesh_path,
+            "is_real_spz": bool(spz_path and spz_size_bytes > 256 and not op.get("simulated")),
+            "simulated": bool(op.get("simulated")),
         }
 
     def generate_omni_audio(
