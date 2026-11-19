@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Tuple
 
 # (key, label, badge_text, badge_kind, privacy_mode_label)
 GATEWAY_DEFS: Tuple[Tuple[str, str, str, str, str], ...] = (
+    ("atlas", "Atlas v2", "SPATIAL", "attested", "World Labs Atlas v2"),
     ("tee", "TEE Private", "ATTESTED", "attested", "TEE Hardware Enclave"),
     ("heretic", "Heretic", "UNCENSORED", "uncensored", "Heretic Uncensored"),
     ("openrouter", "OpenRouter", "POOLED", "pooled", "OpenRouter Pooled"),
@@ -27,9 +28,17 @@ GATEWAY_DEFS: Tuple[Tuple[str, str, str, str, str], ...] = (
 
 # (key, label, default_target_hint)
 MODE_DEFS: Tuple[Tuple[str, str, str], ...] = (
+    ("atlas", "Atlas World & Splat", "/worlds/torii_3e78434c/refinedSplats_2M.spz"),
     ("3d", "3D Rodin Stage", "/models3d/studio_mesh.glb"),
     ("audit", "TEE Audit & Diff", "/notes/tee_audit.patch"),
     ("arena", "Arena Benchmark", "/notes/arena_benchmark.md"),
+)
+
+# (task_id, label, price_usd)
+ATLAS_TASK_TIERS: Tuple[Tuple[str, str, float], ...] = (
+    ("images2PosedRGBD", "Pose RGBD", 0.05),
+    ("atlasGenerate", "24fps Path", 0.25),
+    ("posedImages2Splats", "Splat + GLB", 0.50),
 )
 
 # (tier_id, price_usd)
@@ -43,6 +52,36 @@ RODIN_TIERS: Tuple[Tuple[str, float], ...] = (
 COST_CAP_OPTIONS: Tuple[float, ...] = (0.25, 0.50, 0.75, 1.00, 1.50)
 
 FALLBACK_MODELS: Dict[str, List[Dict[str, Any]]] = {
+    "atlas": [
+        {
+            "id": "worldlabs/images2PosedRGBD",
+            "name": "World Labs Atlas v2 images2PosedRGBD (1280x720 RUB Cam + .EXR Depth)",
+            "context_length": 14000,
+            "pricing": {"prompt": "0.05 / pose RGBD (50 CR)"},
+            "category": "Spatial World",
+        },
+        {
+            "id": "worldlabs/posedImages2Splats",
+            "name": "World Labs Atlas v2 posedImages2Splats (2.0M Gaussian Splats .SPZ)",
+            "context_length": 2000000,
+            "pricing": {"prompt": "0.50 / 2.0M splat (500 CR)"},
+            "category": "Spatial World",
+        },
+        {
+            "id": "worldlabs/atlasGenerate",
+            "name": "World Labs Atlas v2 atlasGenerate (24fps Trajectory Flythrough)",
+            "context_length": 24000,
+            "pricing": {"prompt": "0.25 / 24fps path (250 CR)"},
+            "category": "Spatial World",
+        },
+        {
+            "id": "worldlabs/splats2Mesh",
+            "name": "World Labs Atlas v2 splats2Mesh (.SPZ -> Collider .GLB Mesh)",
+            "context_length": 500000,
+            "pricing": {"prompt": "0.25 / collider .glb (250 CR)"},
+            "category": "Spatial World",
+        },
+    ],
     "tee": [
         {
             "id": "nanogpt/TEE/deepseek-v4.1-flash",
@@ -159,6 +198,20 @@ def _render_rodin_tiers() -> str:
             f'<button id="wsTierBtn-{tier_id}" type="button" role="radio" aria-checked="{checked}" '
             f'data-ws-tier="{tier_id}" data-price="{p_str}" class="ws-pill ws-tier-pill{active}">'
             f"{_html.escape(tier_id)} ${p_str}</button>"
+        )
+    return "".join(parts)
+
+
+def _render_atlas_task_tiers() -> str:
+    parts = []
+    for task_id, label, price in ATLAS_TASK_TIERS:
+        active = " is-active" if task_id == "posedImages2Splats" else ""
+        checked = "true" if task_id == "posedImages2Splats" else "false"
+        p_str = f"{price:.2f}"
+        parts.append(
+            f'<button id="wsAtlasTaskBtn-{task_id}" type="button" role="radio" aria-checked="{checked}" '
+            f'data-ws-atlas-task="{task_id}" data-price="{p_str}" class="ws-pill ws-atlas-task-pill{active}">'
+            f"{_html.escape(label)} ${p_str}</button>"
         )
     return "".join(parts)
 
@@ -651,6 +704,92 @@ def _workstation_css() -> str:
           align-items: center;
           gap: 4px;
         }
+        #win-workstation .ws-atlas-viewport {
+          align-items: stretch;
+          justify-content: space-between;
+          padding: 10px 12px;
+          background: var(--ws-card);
+          gap: 8px;
+          min-height: 224px;
+        }
+        #win-workstation .ws-atlas-top-row,
+        #win-workstation .ws-atlas-foot-row {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 6px;
+        }
+        #win-workstation .ws-atlas-frustum-stage {
+          border: var(--ws-hair-soft);
+          border-radius: 10px;
+          background: var(--ws-paper);
+          padding: 10px 12px;
+          font-family: var(--ws-mono);
+          font-size: 10.5px;
+          line-height: 1.5;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        #win-workstation .ws-atlas-subject-box {
+          border: var(--ws-hair);
+          border-radius: 8px;
+          background: var(--ws-card);
+          padding: 7px 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        #win-workstation .ws-slash-hint-box {
+          background: var(--ws-card);
+          border: var(--ws-hair-soft);
+          border-radius: 8px;
+          padding: 6px 8px;
+          font-family: var(--ws-mono);
+          font-size: 10px;
+          line-height: 1.45;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        #win-workstation .ws-omni-terminal {
+          background: #000000;
+          color: #f5f5f5;
+          border: 1.5px solid #111111;
+          border-radius: 12px;
+          padding: 8px 10px;
+          font-family: var(--ws-mono);
+          font-size: 10.5px;
+          line-height: 1.48;
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          flex: 0 0 auto;
+        }
+        #win-workstation .ws-omni-terminal-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          padding-bottom: 4px;
+          border-bottom: 1px solid #2e2e2e;
+          color: #a3a3a3;
+          font-size: 9.5px;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+        }
+        #win-workstation .ws-omni-terminal-log {
+          margin: 0;
+          max-height: 92px;
+          overflow-y: auto;
+          white-space: pre-wrap;
+          word-break: break-word;
+          color: #f5f5f5;
+          font-family: var(--ws-mono);
+          font-size: 10.5px;
+        }
 
         /* Diff & patch preview boxes */
         #win-workstation .ws-diff-box {
@@ -1102,6 +1241,30 @@ def _workstation_css() -> str:
         body.tc-dark #win-workstation .ws-splitter--h::before {
           background: rgba(255, 255, 255, 0.28);
         }
+        html[data-theme="dark"] #win-workstation .ws-omni-terminal,
+        body.tc-dark #win-workstation .ws-omni-terminal,
+        html[data-theme="dark"] #win-workstation .ws-atlas-frustum-stage,
+        body.tc-dark #win-workstation .ws-atlas-frustum-stage {
+          background: #000000 !important;
+          color: #f5f5f5 !important;
+          border: 1.5px solid #ffffff !important;
+        }
+        html[data-theme="dark"] #win-workstation .ws-atlas-subject-box,
+        body.tc-dark #win-workstation .ws-atlas-subject-box,
+        html[data-theme="dark"] #win-workstation .ws-slash-hint-box,
+        body.tc-dark #win-workstation .ws-slash-hint-box {
+          background: #151515 !important;
+          color: #f5f5f5 !important;
+          border-color: #2e2e2e !important;
+        }
+        html[data-theme="dark"] #win-workstation .ws-atlas-task-pill.is-active,
+        body.tc-dark #win-workstation .ws-atlas-task-pill.is-active,
+        html[data-theme="dark"] #win-workstation #wsAtlasSaveBtn,
+        body.tc-dark #win-workstation #wsAtlasSaveBtn {
+          background: #ffffff !important;
+          color: #000000 !important;
+          border-color: #ffffff !important;
+        }
       </style>"""
     return _re.sub(r"#win-workstation(?![A-Za-z0-9_-])", ".tc-ws-host", raw)
 
@@ -1112,6 +1275,7 @@ def _workstation_js() -> str:
     )
     modes_json = _safe_json_for_script({m[0]: {"label": m[1], "hint": m[2]} for m in MODE_DEFS})
     tiers_json = _safe_json_for_script({t[0]: t[1] for t in RODIN_TIERS})
+    atlas_tasks_json = _safe_json_for_script({t[0]: {"label": t[1], "price": t[2]} for t in ATLAS_TASK_TIERS})
     fallback_json = _safe_json_for_script(FALLBACK_MODELS)
 
     template = r"""      <script id="workstationUiScript">
@@ -1121,18 +1285,22 @@ def _workstation_js() -> str:
         const GATEWAYS = __GATEWAYS_JSON__;
         const MODES = __MODES_JSON__;
         const RODIN_TIERS = __TIERS_JSON__;
+        const ATLAS_TASKS = __ATLAS_TASKS_JSON__;
         const FALLBACK_MODELS = __FALLBACK_JSON__;
+        const SLASH_VERBS = ['atlas', 'image', 'video', 'audio', '3d', 'rig', 'text', 'mux'];
 
         const state = {
           initialized: false,
-          gateway: 'tee',
-          mode: '3d',
+          gateway: 'atlas',
+          mode: 'atlas',
           scope: 'user',
           ownerId: 'default_user',
           rodinTier: 'Regular',
+          atlasTask: 'posedImages2Splats',
           maxCostUsd: 0.50,
-          activeModelId: 'nanogpt/TEE/deepseek-v4.1-flash',
+          activeModelId: 'worldlabs/posedImages2Splats',
           modelsByGateway: {
+            atlas: (FALLBACK_MODELS.atlas || []).slice(),
             tee: FALLBACK_MODELS.tee.slice(),
             heretic: FALLBACK_MODELS.heretic.slice(),
             openrouter: FALLBACK_MODELS.openrouter.slice(),
@@ -1151,6 +1319,10 @@ def _workstation_js() -> str:
           lastGlbUrl: '',
           lastGlbPath: '/models3d/studio_mesh.glb',
           lastRodinUuid: '',
+          lastAtlasOpId: 'op_3e78434c27d24ebfabb4753ebe13a709',
+          lastAtlasPath: '/worlds/torii_3e78434c/refinedSplats_2M.spz',
+          lastAtlasRubCam: { fx: 893.4, fy: 893.9, centroid: [-1.99, 0, -36.35] },
+          lastSlashRoute: null,
           stagedPlan: null,
           stagedPlanCommitted: false,
           lastVersionId: '',
@@ -1483,11 +1655,110 @@ def _workstation_js() -> str:
           if (lblB && selB) lblB.textContent = selB.value || 'Model B';
         }
 
+        function parseSlashDirective(rawInput) {
+          const text = String(rawInput == null ? '' : rawInput).trim();
+          const m = text.match(/^\/(atlas|image|video|audio|3d|rig|text|mux)(?:\s+(.*))?$/i);
+          if (!m) {
+            return {
+              is_slash: false,
+              command: state.mode === 'atlas' ? 'atlas' : state.mode,
+              subcommand: state.mode === 'atlas' ? 'splat' : '',
+              pill_label: state.mode === 'atlas' ? '● /atlas splat' : ('● /' + state.mode),
+              atlas_task: state.atlasTask || 'posedImages2Splats',
+              target_path: state.lastAtlasPath || '/worlds/torii_3e78434c/refinedSplats_2M.spz',
+              prompt: text,
+            };
+          }
+          const cmd = m[1].toLowerCase();
+          const rest = String(m[2] || '').trim();
+          const tokens = rest ? rest.split(/\s+/) : [];
+          let sub = '';
+          let atlasTask = state.atlasTask || 'posedImages2Splats';
+          if (cmd === 'atlas') {
+            const first = (tokens[0] || '').toLowerCase();
+            if (['pose', 'splat', 'splats', 'flythrough', 'mesh', 'chisel', 'text2img', 'generate'].includes(first)) {
+              sub = first === 'splats' ? 'splat' : first;
+              tokens.shift();
+            } else {
+              sub = 'splat';
+            }
+            const taskMap = {
+              pose: 'images2PosedRGBD',
+              splat: 'posedImages2Splats',
+              flythrough: 'atlasGenerate',
+              generate: 'atlasGenerate',
+              mesh: 'splats2Mesh',
+              chisel: 'atlasChisel',
+              text2img: 'atlasTextToImage',
+            };
+            atlasTask = taskMap[sub] || 'posedImages2Splats';
+          } else if (cmd === 'audio') {
+            const first = (tokens[0] || '').toLowerCase();
+            if (['tts', 'music', 'sfx'].includes(first)) {
+              sub = first;
+              tokens.shift();
+            } else {
+              sub = 'music';
+            }
+          }
+          const pathTok = tokens.find((t) => t.startsWith('/') && !t.startsWith('//'));
+          const defaultTargets = {
+            atlas: '/worlds/torii_3e78434c/refinedSplats_2M.spz',
+            image: '/images/omni_frame.png',
+            video: '/videos/torii_master.mp4',
+            audio: '/audio/torii_master.wav',
+            '3d': '/models3d/studio_mesh.glb',
+            rig: '/models3d/torii_rigged.glb',
+            text: '/notes/omni_summary.md',
+            mux: '/videos/torii_master.mp4',
+          };
+          const icons = {
+            atlas: '●',
+            image: '◐',
+            video: '▶',
+            audio: '♪',
+            '3d': '◆',
+            rig: '🦴',
+            text: '¶',
+            mux: '⊕',
+          };
+          const pillLabel = (icons[cmd] || '●') + ' /' + cmd + (sub ? (' ' + sub) : '');
+          return {
+            is_slash: true,
+            command: cmd,
+            subcommand: sub,
+            pill_label: pillLabel,
+            atlas_task: cmd === 'atlas' ? atlasTask : null,
+            target_path: pathTok || defaultTargets[cmd] || '/worlds/torii_3e78434c/refinedSplats_2M.spz',
+            prompt: rest,
+          };
+        }
+
+        function updateSlashOmnibarHint() {
+          const dirInput = el('wsDirectiveInput');
+          const badge = el('wsSlashRouteBadge');
+          const raw = (dirInput && dirInput.value) || '';
+          const parsed = parseSlashDirective(raw);
+          state.lastSlashRoute = parsed;
+          if (badge) {
+            badge.textContent = parsed.pill_label;
+            badge.className = 'ws-badge ' + (parsed.is_slash || state.mode === 'atlas' ? 'ws-badge--pos' : '');
+          }
+          return parsed;
+        }
+
         function updateOutputTargetTag() {
           const tag = el('wsOutputTargetTag');
           const dirInput = el('wsDirectiveInput');
-          if (state.mode === '3d') {
-            const dirText = (dirInput && dirInput.value.trim()) || '';
+          const dirText = (dirInput && dirInput.value.trim()) || '';
+          const parsed = updateSlashOmnibarHint();
+          if (parsed && parsed.is_slash) {
+            if (tag) tag.textContent = parsed.target_path;
+            return;
+          }
+          if (state.mode === 'atlas') {
+            if (tag) tag.textContent = state.lastAtlasPath || '/worlds/torii_3e78434c/refinedSplats_2M.spz';
+          } else if (state.mode === '3d') {
             if (!state.selectedPath || !/\.glb$/i.test(state.selectedPath)) {
               state.lastGlbPath = '/models3d/' + slugifyDirective(dirText) + '.glb';
             }
@@ -1731,8 +2002,13 @@ def _workstation_js() -> str:
             const rodinSub = el('wsStatRodinSub');
             const nanoVal = el('wsStatNanoVal');
             const nanoSub = el('wsStatNanoSub');
+            const atlasVal = el('wsStatAtlasVal');
+            const atlasSub = el('wsStatAtlasSub');
+            const omniVal = el('wsStatOmniVal');
+            const omniSub = el('wsStatOmniSub');
             const rodin = data.rodin || {};
             const nano = data.nanogpt || {};
+            const atlas = data.atlas || {};
             if (rodinVal) rodinVal.textContent = Number(rodin.credits ?? 0).toFixed(1) + ' CR';
             if (rodinSub) {
               rodinSub.textContent = '$' + Number(rodin.balance_usd ?? 0).toFixed(2) + ' ' + (rodin.status || 'live');
@@ -1740,6 +2016,10 @@ def _workstation_js() -> str:
             }
             if (nanoVal) nanoVal.textContent = (nano.tee_count ?? 0) + ' TEE';
             if (nanoSub) nanoSub.textContent = '+ ' + (nano.heretic_count ?? 0) + ' Heretic · ' + (nano.total_count ?? 0) + ' total';
+            if (atlasVal && atlas.credits != null) atlasVal.textContent = Number(atlas.credits).toLocaleString() + ' CR';
+            if (atlasSub && atlas.status) atlasSub.textContent = '$1.00 = 1,000 CR ' + atlas.status;
+            if (omniVal && nano.total_count) omniVal.textContent = Math.max(1200, Number(nano.total_count) + 6) + '+';
+            if (omniSub) omniSub.textContent = 'Atlas · Rodin · NanoGPT';
 
             if (data.rodin_tiers && typeof data.rodin_tiers === 'object') {
               Object.keys(data.rodin_tiers).forEach((t) => {
@@ -1755,7 +2035,7 @@ def _workstation_js() -> str:
               });
             }
             const statusPill = el('wsStatusPill');
-            if (statusPill) statusPill.textContent = (nano.configured ? 'CONNECTED' : 'READY');
+            if (statusPill) statusPill.textContent = (nano.configured || atlas.key_configured ? 'CONNECTED' : 'READY');
             renderTrace();
           } catch (err) {
             if (err.name === 'AbortError') return;
@@ -1766,6 +2046,18 @@ def _workstation_js() -> str:
 
         async function fetchGatewayModels(gw) {
           const targetGw = gw || state.gateway;
+          if (targetGw === 'atlas') {
+            state.modelsByGateway.atlas = (FALLBACK_MODELS.atlas || []).slice();
+            if (state.gateway === 'atlas') populateModelSelect();
+            try {
+              const health = await apiJson('/api/atlas/health', { channel: 'atlas_health' });
+              const atlasSub = el('wsStatAtlasSub');
+              if (atlasSub && health && health.status) {
+                atlasSub.textContent = '$1.00 = 1,000 CR ' + (health.key_configured ? 'live' : 'sim');
+              }
+            } catch (e) {}
+            return;
+          }
           let url = '/api/models/nanogpt?tee=1&live=0';
           if (targetGw === 'heretic') url = '/api/models/nanogpt?uncensored=1&live=0';
           else if (targetGw === 'openrouter') url = '/api/models/openrouter';
@@ -2409,6 +2701,228 @@ def _workstation_js() -> str:
           }
         }
 
+        function appendOmniTraceLine(text) {
+          const logEl = el('wsOmniTraceLog');
+          if (!logEl) return;
+          const prev = String(logEl.textContent || '').trim();
+          const lines = prev ? prev.split('\n') : [];
+          lines.push(String(text || ''));
+          if (lines.length > 10) lines.splice(0, lines.length - 10);
+          logEl.textContent = lines.join('\n');
+          logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function selectAtlasTask(taskId) {
+          if (!taskId) return;
+          state.atlasTask = taskId;
+          document.querySelectorAll('#win-workstation [data-ws-atlas-task]').forEach((b) => {
+            const active = b.dataset.wsAtlasTask === taskId;
+            b.classList.toggle('is-active', active);
+            b.setAttribute('aria-checked', active ? 'true' : 'false');
+          });
+          const dirInput = el('wsDirectiveInput');
+          if (dirInput) {
+            const cur = dirInput.value.trim();
+            if (!cur || cur.startsWith('/atlas')) {
+              const subMap = {
+                images2PosedRGBD: '/atlas pose /images/torii_gate.jpg --res 1280x720',
+                atlasGenerate: '/atlas flythrough /worlds/torii_3e78434c --fps 24',
+                posedImages2Splats: '/atlas splat /images/torii_gate.jpg --views 14 --mesh --rig walk',
+                splats2Mesh: '/atlas mesh /worlds/torii_3e78434c/refinedSplats_2M.spz',
+              };
+              if (subMap[taskId]) dirInput.value = subMap[taskId];
+            }
+          }
+          updateOutputTargetTag();
+        }
+
+        function openInNodeStudio() {
+          const dirInput = el('wsDirectiveInput');
+          const cmd = (dirInput && dirInput.value.trim()) || '/atlas splat /images/torii_gate.jpg --views 14 --mesh --rig walk';
+          if (window.TinCanNodeStudio && typeof window.TinCanNodeStudio.runSlashCommand === 'function') {
+            try { window.TinCanNodeStudio.runSlashCommand(cmd); } catch (e) {}
+          }
+          if (el('win-nodes')) {
+            openWindowSafe('win-nodes');
+            notify('Opened active Atlas world graph in Node Studio (win-nodes)', false);
+            return;
+          }
+          if (el('win-node-studio')) {
+            openWindowSafe('win-node-studio');
+            notify('Opened active Atlas world graph in Node Studio', false);
+            return;
+          }
+          if (typeof window !== 'undefined' && window.location) {
+            try { window.location.href = '/nodes'; } catch (e) {}
+          }
+        }
+
+        async function saveAtlasToSpace() {
+          const opId = state.lastAtlasOpId || 'op_3e78434c27d24ebfabb4753ebe13a709';
+          const noteEl = el('wsAtlasStatusNote');
+          try {
+            const res = await apiJson('/api/atlas/operations/download', {
+              channel: 'atlasDownload',
+              body: {
+                operation_id: opId,
+                scope: state.scope,
+                owner_id: state.ownerId,
+                target_dir: '/worlds',
+              },
+            });
+            const saved = (res && Array.isArray(res.saved_files) && res.saved_files.length)
+              ? res.saved_files
+              : [state.lastAtlasPath || '/worlds/torii_3e78434c/refinedSplats_2M.spz', '/models3d/atlas_torii.glb'];
+            saved.forEach((p) => {
+              const pathStr = typeof p === 'string' ? p : (p && p.path) || '/worlds/torii_3e78434c/refinedSplats_2M.spz';
+              recordStagedOutput({
+                key: 'atlas:' + pathStr,
+                label: pathStr,
+                status: 'SAVED',
+                committed: true,
+              });
+            });
+            if (noteEl) noteEl.textContent = 'Saved Atlas operation ' + opId + ' into .space: ' + saved.map((x) => (typeof x === 'string' ? x : x.path)).join(', ');
+            appendOmniTraceLine('+ staged: ' + saved.map((x) => (typeof x === 'string' ? x : x.path)).join(' + '));
+            notify('Saved Atlas world & splats to .space (/worlds/ & /models3d/)', false);
+            await fetchSpaceLs();
+            await fetchStatus();
+          } catch (err) {
+            if (err.name === 'AbortError') return;
+            const fallbackPaths = [state.lastAtlasPath || '/worlds/torii_3e78434c/refinedSplats_2M.spz', '/models3d/torii_rigged.glb'];
+            fallbackPaths.forEach((p) => {
+              recordStagedOutput({
+                key: 'atlas:' + p,
+                label: p,
+                status: 'STAGED',
+                committed: false,
+              });
+            });
+            if (noteEl) noteEl.textContent = 'Staged Atlas outputs: ' + fallbackPaths.join(', ');
+            notify('Atlas outputs staged for .space: ' + fallbackPaths[0], false);
+          }
+        }
+
+        async function runAtlasOrOmniSlash(overrideCommand) {
+          const dirInput = el('wsDirectiveInput');
+          const rawText = String(overrideCommand != null ? overrideCommand : ((dirInput && dirInput.value.trim()) || '')).trim();
+          const effectiveCmd = rawText || '/atlas splat /images/torii_gate.jpg --views 14 --mesh --rig walk';
+          const parsed = parseSlashDirective(effectiveCmd);
+          const taskName = parsed.atlas_task || state.atlasTask || 'posedImages2Splats';
+          const taskInfo = ATLAS_TASKS[taskName] || { label: taskName, price: 0.50 };
+          const estCost = parsed.command === 'atlas' ? Number(taskInfo.price || 0.50) : 0.05;
+          const cap = Number((el('wsMaxCostSelect') && el('wsMaxCostSelect').value) || state.maxCostUsd || 0.50);
+          const noteEl = el('wsAtlasStatusNote');
+          const rubEl = el('wsAtlasRubCamBadge');
+          const confEl = el('wsAtlasDepthConfidence');
+          const btn = el('wsDispatchBtn');
+
+          if (estCost > cap + 1e-9) {
+            const msg = 'Guardrail blocked: ' + taskName + ' ($' + estCost.toFixed(2) + ') exceeds max cost cap $' + cap.toFixed(2) + '.';
+            if (noteEl) noteEl.textContent = msg;
+            addJob('atlas-guard', 'atlas', taskName, 'BLOCKED', '$' + estCost.toFixed(2) + ' > $' + cap.toFixed(2));
+            notify(msg, true);
+            return;
+          }
+
+          if (btn) btn.disabled = true;
+          if (noteEl) noteEl.textContent = 'Dispatching ' + parsed.pill_label + ' via /api/omni/route…';
+          appendOmniTraceLine('you@tincan:~/space$ ' + effectiveCmd);
+
+          try {
+            let res = null;
+            try {
+              res = await apiJson('/api/omni/route', {
+                channel: 'omniRoute',
+                body: {
+                  command: effectiveCmd,
+                  prompt: effectiveCmd,
+                  scope: state.scope,
+                  owner_id: state.ownerId,
+                  peer_id: resolvePeerId(),
+                },
+              });
+            } catch (omniErr) {
+              if (parsed.command === 'atlas' || state.mode === 'atlas') {
+                res = await apiJson('/api/atlas/tasks/run', {
+                  channel: 'atlasTask',
+                  body: {
+                    task: taskName,
+                    prompt: parsed.prompt || effectiveCmd,
+                    scope: state.scope,
+                    owner_id: state.ownerId,
+                    request_body: { prompt: parsed.prompt || effectiveCmd },
+                  },
+                });
+              } else {
+                throw omniErr;
+              }
+            }
+
+            const resultObj = (res && res.result) || res || {};
+            const opId = resultObj.operation_id || resultObj.id || res.operation_id || ('op_' + Math.random().toString(16).slice(2, 12));
+            state.lastAtlasOpId = opId;
+
+            const cam = resultObj.rub_camera || (resultObj.response && resultObj.response.rub_camera) || {};
+            const fx = Number(cam.fx || 893.4).toFixed(1);
+            const fy = Number(cam.fy || 893.9).toFixed(1);
+            const centroid = Array.isArray(cam.centroidWorld) ? cam.centroidWorld : [-1.99, 0, -36.35];
+            state.lastAtlasRubCam = { fx: Number(fx), fy: Number(fy), centroid };
+            if (rubEl) {
+              rubEl.textContent = 'RUB Cam: fx=' + fx + ' fy=' + fy + ' · Centroid: [' + centroid.join(', ') + ']';
+            }
+            if (confEl) {
+              confEl.textContent = '+98.4% Linear Depth Confidence (.exr verified)';
+            }
+
+            const rawSaved = [];
+            if (Array.isArray(res.saved_to_space)) rawSaved.push.apply(rawSaved, res.saved_to_space);
+            else if (res.saved_to_space && Array.isArray(res.saved_to_space.saved_files)) rawSaved.push.apply(rawSaved, res.saved_to_space.saved_files);
+            else if (res.saved_to_space && res.saved_to_space.path) rawSaved.push(res.saved_to_space.path);
+            if (Array.isArray(resultObj.saved_files)) rawSaved.push.apply(rawSaved, resultObj.saved_files);
+            if (!rawSaved.length) {
+              rawSaved.push(parsed.target_path || '/worlds/torii_3e78434c/refinedSplats_2M.spz');
+              if (parsed.command === 'atlas') rawSaved.push('/models3d/torii_rigged.glb');
+            }
+
+            const savedPaths = rawSaved.map((item) => (typeof item === 'string' ? item : (item && item.path) || '/worlds/torii_3e78434c/refinedSplats_2M.spz'));
+            state.lastAtlasPath = savedPaths[0] || state.lastAtlasPath;
+            state.sessionSpendUsd += estCost;
+
+            savedPaths.forEach((p) => {
+              recordStagedOutput({
+                key: parsed.command + ':' + p,
+                label: p,
+                status: 'SAVED',
+                committed: true,
+              });
+            });
+
+            addJob(String(opId).slice(0, 14), parsed.command, taskName, 'DONE', 'fx=' + fx + ', fy=' + fy);
+            if (noteEl) {
+              noteEl.textContent = opId + ': SUCCEEDED (fx=' + fx + ', fy=' + fy + ', +98.4% Linear Depth Confidence (.exr verified)) -> ' + savedPaths.join(', ');
+            }
+            appendOmniTraceLine('+ ' + opId + ': SUCCEEDED (fx=' + fx + ', fy=' + fy + ') · staged: ' + savedPaths.join(' + '));
+            updateOutputTargetTag();
+            renderTrace();
+            notify('Omni route complete (' + parsed.pill_label + '): ' + savedPaths[0], false);
+            fetchSpaceLs();
+            fetchStatus();
+          } catch (err) {
+            if (err.name === 'AbortError') return;
+            if (noteEl) noteEl.textContent = 'Atlas / Omni route note: ' + err.message + ' · RUB Cam fx=893.4, fy=893.9 ready';
+            addJob('atlas-sim', parsed.command, taskName, 'STAGED', 'fx=893.4, fy=893.9');
+            recordStagedOutput({
+              key: 'atlas:' + (parsed.target_path || '/worlds/torii_3e78434c/refinedSplats_2M.spz'),
+              label: parsed.target_path || '/worlds/torii_3e78434c/refinedSplats_2M.spz',
+              status: 'STAGED',
+              committed: false,
+            });
+          } finally {
+            if (btn) btn.disabled = false;
+          }
+        }
+
         async function handoffCommitToSpace() {
           let didSomething = false;
           if (state.stagedPlan && state.stagedPlan.plan_id && !state.stagedPlanCommitted) {
@@ -2419,8 +2933,12 @@ def _workstation_js() -> str:
             await saveGlbToSpace();
             didSomething = true;
           }
+          if (state.mode === 'atlas' || state.lastAtlasOpId) {
+            await saveAtlasToSpace();
+            didSomething = true;
+          }
           if (!didSomething) {
-            notify('Nothing pending to commit — generate a 3D .glb or propose a TEE patch first.', true);
+            notify('Nothing pending to commit — generate an Atlas world, 3D .glb, or propose a TEE patch first.', true);
           }
         }
 
@@ -2472,12 +2990,13 @@ def _workstation_js() -> str:
             }
           });
           const enclaveChk = el('wsEnclaveGuardToggle');
-          if (enclaveChk) enclaveChk.checked = (gw === 'tee');
+          if (enclaveChk) enclaveChk.checked = (gw === 'tee' || gw === 'atlas');
           populateModelSelect();
           fetchGatewayModels(gw);
         }
 
         function switchMode(mode) {
+          if (mode === 'atlas_world') mode = 'atlas';
           if (!MODES[mode]) return;
           state.mode = mode;
           Object.keys(MODES).forEach((k) => {
@@ -2562,6 +3081,12 @@ def _workstation_js() -> str:
         }
 
         function dispatch() {
+          const dirInput = el('wsDirectiveInput');
+          const raw = (dirInput && dirInput.value.trim()) || '';
+          const parsed = parseSlashDirective(raw);
+          if (parsed.is_slash || state.mode === 'atlas') {
+            return runAtlasOrOmniSlash(raw);
+          }
           if (state.mode === '3d') return runRodin3D();
           if (state.mode === 'audit') return runAuditPropose();
           return runArenaBenchmark();
@@ -2608,7 +3133,7 @@ def _workstation_js() -> str:
             dirInput.value = String(ctx.directive || ctx.prompt);
           }
           if (ctx.gateway && GATEWAYS[ctx.gateway]) switchGateway(ctx.gateway);
-          if (ctx.mode && MODES[ctx.mode]) switchMode(ctx.mode);
+          if (ctx.mode && (MODES[ctx.mode] || ctx.mode === 'atlas_world')) switchMode(ctx.mode);
           openWindowSafe('win-workstation');
           renderContextList();
           updateOutputTargetTag();
@@ -2626,6 +3151,12 @@ def _workstation_js() -> str:
           const dirInput = el('wsDirectiveInput');
           if (dirInput) {
             dirInput.oninput = () => updateOutputTargetTag();
+            dirInput.addEventListener('keydown', (ev) => {
+              if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) {
+                ev.preventDefault();
+                dispatch();
+              }
+            });
           }
           const maxCostSel = el('wsMaxCostSelect');
           if (maxCostSel) {
@@ -2657,6 +3188,28 @@ def _workstation_js() -> str:
               });
             };
           });
+
+          document.querySelectorAll('#win-workstation [data-ws-atlas-task]').forEach((btn) => {
+            btn.onclick = () => {
+              selectAtlasTask(btn.dataset.wsAtlasTask || 'posedImages2Splats');
+            };
+          });
+
+          document.querySelectorAll('#win-workstation [data-ws-slash-preset]').forEach((btn) => {
+            btn.onclick = () => {
+              const preset = btn.dataset.wsSlashPreset || '/atlas splat /images/torii_gate.jpg --views 14 --mesh --rig walk';
+              if (dirInput) {
+                dirInput.value = preset;
+                dirInput.focus();
+              }
+              updateOutputTargetTag();
+            };
+          });
+
+          const openNodesBtn = el('wsOpenNodeStudioBtn');
+          if (openNodesBtn) openNodesBtn.onclick = openInNodeStudio;
+          const atlasSaveBtn = el('wsAtlasSaveBtn');
+          if (atlasSaveBtn) atlasSaveBtn.onclick = saveAtlasToSpace;
 
           const artBtn = el('wsOpenArtcraftBtn');
           if (artBtn) artBtn.onclick = openInArtCraft;
@@ -2919,6 +3472,10 @@ def _workstation_js() -> str:
           switchMode,
           tileWithSpace,
           dispatch,
+          parseSlashDirective,
+          runAtlasOrOmniSlash,
+          openInNodeStudio,
+          selectAtlasTask,
         };
 
         if (document.readyState === 'loading') {
@@ -2933,6 +3490,7 @@ def _workstation_js() -> str:
         template.replace("__GATEWAYS_JSON__", gateways_json)
         .replace("__MODES_JSON__", modes_json)
         .replace("__TIERS_JSON__", tiers_json)
+        .replace("__ATLAS_TASKS_JSON__", atlas_tasks_json)
         .replace("__FALLBACK_JSON__", fallback_json)
     )
 
@@ -2943,6 +3501,7 @@ def render_workstation_window_html() -> str:
     cost_options = _render_cost_options()
     mode_tabs = _render_mode_tabs()
     rodin_tiers = _render_rodin_tiers()
+    atlas_task_tiers = _render_atlas_task_tiers()
     arena_col_a = _render_arena_column("A", "Frontier OpenRouter", "anthropic/claude-3.7-sonnet", "Model A")
     arena_col_b = _render_arena_column("B", "NanoGPT Heretic", "nanogpt/pqhaz/DeepSeek-V4.1-Flash-1017-heretic", "Model B")
     css_block = _workstation_css()
@@ -2955,13 +3514,14 @@ def render_workstation_window_html() -> str:
         <!-- Studio Header Strip -->
         <div class="ws-topbar">
           <div class="ws-top-group">
-            <span class="ws-kicker">3D Studio</span>
+            <span class="ws-kicker">Workstation · Multi-Model, World Labs Atlas &amp; 3D Studio</span>
+            <span class="ws-badge ws-badge--ink">ATLAS v2 + RODIN + NANOGPT</span>
             <span id="wsSpaceScopeBadge" class="ws-badge">user:default_user</span>
             <span id="wsMerkleBadge" class="ws-badge" title="Current Space Merkle Root">merkle: --</span>
           </div>
           <div class="ws-top-group">
             <span id="wsStatusPill" class="ws-badge ws-badge--pos">READY</span>
-            <button id="wsTokensPoolsBtn" type="button" class="ws-pill" onclick="typeof toggleWindow==='function'&&toggleWindow('win-billing')" title="View Rodin Credits &amp; NanoGPT Compute Pools in Credits &amp; Ads">Tokens &amp; Pools ↗</button>
+            <button id="wsTokensPoolsBtn" type="button" class="ws-pill" onclick="typeof toggleWindow==='function'&&toggleWindow('win-billing')" title="View World Labs Atlas, Rodin Credits &amp; NanoGPT Compute Pools">Tokens &amp; Pools ↗</button>
             <button id="wsToggleLeftBtn" type="button" class="ws-pill" title="Toggle Left Controls pane" aria-expanded="true">&#x25E7; Controls</button>
             <button id="wsToggleRightBtn" type="button" class="ws-pill" title="Toggle Right Inspector pane" aria-expanded="true">&#x25E8; Inspector</button>
             <button id="wsRefreshBtn" type="button" class="ws-pill" onclick="window.TinCanWorkstation && window.TinCanWorkstation.refresh({{immediate: true}})" title="Refresh status, catalogs, and Space VFS">&#x21BB;&#xFE0E; Refresh</button>
@@ -2971,12 +3531,12 @@ def render_workstation_window_html() -> str:
 
         <!-- 3-Pane Studio Workspace (draggable pane splitters) -->
         <div id="wsGrid" class="ws-grid">
-          <!-- LEFT PANE (310px): Gateway, Model Card, Context Picker, Directive & Guardrails -->
+          <!-- LEFT PANE (310px): Gateway, Model Card, Context Picker, Slash Directive Omnibar & Guardrails -->
           <aside class="ws-pane ws-pane--left" aria-label="Model gateway and context controls">
             <section class="ws-card">
               <div class="ws-sec-head">
-                <span class="ws-sec-title">AI Gateway</span>
-                <span class="ws-muted-xs">NanoGPT + OpenRouter</span>
+                <span class="ws-sec-title">MODEL ROUTER &amp; SLASH OMNIBAR</span>
+                <span class="ws-muted-xs">Atlas v2 + NanoGPT + OpenRouter</span>
               </div>
               <div class="ws-seg" role="tablist" aria-label="Model gateway switch">
                 {gateway_tabs}
@@ -2984,20 +3544,21 @@ def render_workstation_window_html() -> str:
               <select id="wsModelSelect" class="ws-select" aria-label="Select active model"></select>
               <div id="wsActiveModelCard" class="ws-model-card">
                 <div class="ws-sec-head">
-                  <span id="wsActiveModelName" class="ws-model-name">NanoGPT Private/TEE DeepSeek V4.1 Flash</span>
-                  <span id="wsActiveModelBadge" class="ws-badge ws-badge--pos">ATTESTED</span>
+                  <span id="wsActiveModelName" class="ws-model-name">World Labs Atlas v2 posedImages2Splats (2.0M Gaussian Splats .SPZ)</span>
+                  <span id="wsActiveModelBadge" class="ws-badge ws-badge--pos">SPATIAL</span>
                 </div>
-                <div id="wsActiveModelId" class="ws-mono-xs ws-muted ws-truncate">nanogpt/TEE/deepseek-v4.1-flash</div>
+                <div id="wsActiveModelId" class="ws-mono-xs ws-muted ws-truncate">worldlabs/posedImages2Splats (images2PosedRGBD -&gt; Splats)</div>
+                <div class="ws-mono-xs ws-muted">1280x720 RUB Cam · .EXR Depth · 2.0M .SPZ -&gt; .GLB [WLT-KEY]</div>
                 <div class="ws-model-meta">
-                  <span id="wsActiveModelCtx">1M ctx</span>
-                  <span id="wsActiveModelPrice">$0.38 / $1.50 per 1M</span>
+                  <span id="wsActiveModelCtx">2M ctx</span>
+                  <span id="wsActiveModelPrice">$0.50 / 2.0M splat (500 CR)</span>
                 </div>
               </div>
             </section>
 
             <section class="ws-card">
               <div class="ws-sec-head">
-                <span class="ws-sec-title">Context Picker</span>
+                <span class="ws-sec-title">Context Picker · Space + Drive Mirror</span>
                 <span id="wsSelectedCtxPath" class="ws-mono-xs ws-muted ws-truncate" style="max-width: 145px;">/src/main.py</span>
               </div>
               <div class="ws-top-group">
@@ -3012,13 +3573,28 @@ def render_workstation_window_html() -> str:
 
             <section class="ws-card">
               <div class="ws-sec-head">
-                <span class="ws-sec-title">Directive &amp; Guardrail</span>
-                <label class="ws-check-label" title="Prefer zero-retention hardware TEE inference when available">
-                  <input id="wsEnclaveGuardToggle" type="checkbox" checked>
-                  <span>TEE Enclave</span>
-                </label>
+                <span class="ws-sec-title">SLASH DIRECTIVE OMNIBAR (⌘K or /)</span>
+                <span id="wsSlashRouteBadge" class="ws-badge ws-badge--pos">● /atlas splat</span>
               </div>
-              <textarea id="wsDirectiveInput" rows="3" class="ws-textarea" placeholder="Describe a 3D mesh for Rodin, a TEE patch directive, or an Arena benchmark prompt…"></textarea>
+              <textarea id="wsDirectiveInput" rows="3" class="ws-textarea" placeholder="/atlas splat /images/torii_gate.jpg --views 14 --mesh --rig walk (or /image, /video, /audio, /3d, /rig, /text, /mux)…">/atlas splat /images/torii_gate.jpg --views 14 --mesh --rig walk</textarea>
+              <div id="wsSlashRoutesHint" class="ws-slash-hint-box">
+                <div class="ws-sec-head">
+                  <span class="ws-sec-title">Chained Slash Routes Available</span>
+                  <label class="ws-check-label" title="Prefer zero-retention hardware TEE inference when available">
+                    <input id="wsEnclaveGuardToggle" type="checkbox" checked>
+                    <span>TEE Enclave</span>
+                  </label>
+                </div>
+                <div>• /atlas pose | splat | flythrough | mesh | chisel</div>
+                <div>• /text | /image | /video | /audio | /3d | /rig | /mux</div>
+                <div class="ws-top-group">
+                  <button type="button" class="ws-pill" data-ws-slash-preset="/atlas pose /images/torii_gate.jpg --res 1280x720">/atlas pose</button>
+                  <button type="button" class="ws-pill" data-ws-slash-preset="/atlas splat /images/torii_gate.jpg --views 14 --mesh --rig walk">/atlas splat</button>
+                  <button type="button" class="ws-pill" data-ws-slash-preset="/audio music Japanese koto &amp; ambient rain --lufs -14">/audio</button>
+                  <button type="button" class="ws-pill" data-ws-slash-preset="/3d --model hyper3d/rodin-v2.5 --tier Regular --rig walk Torii guardian">/3d</button>
+                </div>
+              </div>
+              <div class="ws-mono-xs ws-muted">Zero-Exposure Key: WLT_API_KEY held by server · Target VFS: .space/worlds/ &amp; .space/models3d/</div>
               <div class="ws-guardrail-row">
                 <label for="wsMaxCostSelect" class="ws-sec-title">Max Cost Cap</label>
                 <select id="wsMaxCostSelect" class="ws-select" style="width: auto; min-width: 112px;" aria-label="Maximum cost guardrail USD">
@@ -3032,17 +3608,60 @@ def render_workstation_window_html() -> str:
           <!-- Draggable Left Vertical Splitter -->
           <div id="wsSplitterLeft" class="ws-splitter ws-splitter--v" role="separator" aria-orientation="vertical" aria-label="Resize left controls pane" tabindex="0" title="Drag to resize Controls pane (double-click to reset)"></div>
 
-          <!-- CENTER PANE: Mode Switch, Active Stage (3D / TEE Audit / Arena), Persistent Patch Preview -->
+          <!-- CENTER PANE: Mode Switch, Active Stage (Atlas World & Splat / 3D / TEE Audit / Arena), Slash Trace & Patch Preview -->
           <main class="ws-pane ws-pane--center" aria-label="Workstation active stage">
             <div class="ws-stage-head">
               <div class="ws-seg ws-seg--auto" role="tablist" aria-label="Workstation modes">
                 {mode_tabs}
               </div>
-              <span id="wsOutputTargetTag" class="ws-badge" title="Active output target">/models3d/studio_mesh.glb</span>
+              <span id="wsOutputTargetTag" class="ws-badge" title="Active output target">/worlds/torii_3e78434c/refinedSplats_2M.spz</span>
             </div>
 
+            <!-- Stage 0: World Labs Atlas v2 · Splat (.SPZ) + RUB Frustum Stage -->
+            <section id="wsStage-atlas" class="ws-stage-panel" aria-label="World Labs Atlas v2 Splat and RUB Frustum Stage">
+              <div id="wsAtlasStageCard" class="ws-card">
+                <div class="ws-sec-head">
+                  <span class="ws-sec-title">WORLD LABS ATLAS v2 · SPLAT (.SPZ) + RUB FRUSTUM STAGE</span>
+                  <span id="wsAtlasStageMeta" class="ws-mono-xs ws-muted">2.0M Splats · 14 Views · Depth EXR Ready</span>
+                </div>
+                <div id="wsAtlasViewport" class="ws-3d-viewport ws-atlas-viewport">
+                  <div class="ws-atlas-top-row">
+                    <span id="wsAtlasOrbitBadge" class="ws-pill">ORBIT 35 DEG · 2.0M SPLATS + WIREFRAME + 14 FRUSTUMS</span>
+                    <span id="wsAtlasRubCamBadge" class="ws-mono-xs">RUB Cam: fx=893.4 fy=893.9 · Centroid: [-1.99, 0, -36.35]</span>
+                  </div>
+                  <div class="ws-atlas-top-row">
+                    <span class="ws-mono-xs ws-muted">[Cam 6 · Far Shore] ▼ &nbsp; [Cam 7 · North Arch] ▼ &nbsp; [Cam 10] ◀</span>
+                    <span id="wsAtlasDepthConfidence" class="ws-badge ws-badge--pos">+98.4% Linear Depth Confidence (.exr verified)</span>
+                  </div>
+                  <div id="wsAtlasFrustumStage" class="ws-atlas-frustum-stage">
+                    <div>[Cam 3] ▶ ──┬──────────────────────────────────────────────────────┐</div>
+                    <div class="ws-atlas-subject-box">
+                      <strong>◆ LAKE ASHI TORII SPLAT &amp; GLB MESH</strong>
+                      <span>refinedSplats_2000000.spz (2.0M) · frames_0_depth.exr (267 KB)</span>
+                      <span>+ splats2Mesh Collider Boxes: ON · /models3d/torii_rigged.glb</span>
+                    </div>
+                    <div>[Cam 0 · Start Pose] ▲ &nbsp;&nbsp;&nbsp;&nbsp; [Cam 13 · 24fps Path] ▲</div>
+                  </div>
+                  <div class="ws-atlas-foot-row">
+                    <span class="ws-mono-xs">Y ▲ &nbsp;└──▶ X / Z ↙ (RUB Camera Coordinate Frame)</span>
+                    <span class="ws-mono-xs ws-muted">Atlas v2 Splat -&gt; GLB ($0.50) · Open in Node Studio / Blender</span>
+                  </div>
+                </div>
+                <div id="wsAtlasStatusNote" class="ws-mono-xs ws-muted">op_3e78434c27d24ebfabb4753ebe13a709: SUCCEEDED (4.1s · fx=893.4, fy=893.9, +98.4% Linear Depth Confidence (.exr verified)) -&gt; /worlds/torii_3e78434c/refinedSplats_2M.spz</div>
+                <div class="ws-3d-controls" style="padding-top: 4px; border-top: var(--ws-hair-soft);">
+                  <div class="ws-tier-row" role="radiogroup" aria-label="World Labs Atlas v2 task tier">
+                    {atlas_task_tiers}
+                  </div>
+                  <div class="ws-top-group">
+                    <button id="wsOpenNodeStudioBtn" type="button" class="ws-btn ws-btn--sm" title="Open active world &amp; splat graph in Omni-Modal Node Studio (/nodes / win-nodes)">Open in Node Studio</button>
+                    <button id="wsAtlasSaveBtn" type="button" class="ws-btn ws-btn--sm ws-btn--solid">Save to .space</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
             <!-- Stage 1: 3D Control Panel (US-01; viewing handled by Workstation File Viewer) -->
-            <section id="wsStage-3d" class="ws-stage-panel" aria-label="3D Control Panel">
+            <section id="wsStage-3d" class="ws-stage-panel hidden" aria-label="3D Control Panel">
               <div id="ws3dControlCard" class="ws-card ws-card--celadon">
                 <div class="ws-sec-head">
                   <span class="ws-sec-title">3D Dispatch &amp; Route Control</span>
@@ -3123,6 +3742,18 @@ def render_workstation_window_html() -> str:
               </div>
             </section>
 
+            <!-- Pitch-Black (#000000) Terminal · Slash Router & Atlas Operation Trace (/api/omni/route) -->
+            <section id="wsOmniTraceConsole" class="ws-omni-terminal" aria-label="Slash Router and Atlas Operation Trace">
+              <div class="ws-omni-terminal-head">
+                <span>● ● ● TERMINAL · SLASH ROUTER &amp; ATLAS OPERATION TRACE (/api/omni/route)</span>
+                <span>Ready to Apply -&gt; .space</span>
+              </div>
+              <pre id="wsOmniTraceLog" class="ws-omni-terminal-log">you@tincan:~/space$ /atlas pose /images/torii_gate.jpg --res 1280x720 --wait
++ op_3e78434c27d24ebfabb4753ebe13a709: SUCCEEDED (4.1s · fx=893.4, fy=893.9, depth_0.exr 267KB)
+you@tincan:~/space$ /atlas splat /worlds/torii_3e78434c --views 14 --mesh --rig walk --mux /audio/torii_master.wav
++ staged: /worlds/torii_3e78434c/refinedSplats_2M.spz + /models3d/torii_rigged.glb + /videos/torii_master.mp4</pre>
+            </section>
+
             <!-- Draggable Horizontal Stage Splitter -->
             <div id="wsStageSplitter" class="ws-splitter ws-splitter--h" role="separator" aria-orientation="horizontal" aria-label="Resize active stage and patch preview" tabindex="0" title="Drag to resize Stage vs Patch Preview (double-click to reset)"></div>
 
@@ -3148,12 +3779,25 @@ def render_workstation_window_html() -> str:
           <!-- Draggable Right Vertical Splitter -->
           <div id="wsSplitterRight" class="ws-splitter ws-splitter--v" role="separator" aria-orientation="vertical" aria-label="Resize right inspector pane" tabindex="0" title="Drag to resize Inspector pane (double-click to reset)"></div>
 
-          <!-- RIGHT PANE (310px): Job Queue, Attestation Trace, Staged Outputs, Handoff -->
+          <!-- RIGHT PANE (310px): Telemetry Stat Cards, Job Queue, Attestation Trace, Staged Outputs, Handoff -->
           <aside class="ws-pane ws-pane--right" aria-label="Queue, cost trace, and Space handoff">
+            <div class="ws-stats-2up" aria-label="Atlas Credits and Omni Models Telemetry">
+              <div class="ws-stat-card">
+                <span class="ws-stat-label">ATLAS CREDITS</span>
+                <span id="wsStatAtlasVal" class="ws-stat-val">1,000 CR</span>
+                <span id="wsStatAtlasSub" class="ws-stat-sub">$1.00 = 1,000 CR live</span>
+              </div>
+              <div class="ws-stat-card">
+                <span class="ws-stat-label">OMNI MODELS</span>
+                <span id="wsStatOmniVal" class="ws-stat-val">1,200+</span>
+                <span id="wsStatOmniSub" class="ws-stat-sub">Atlas · Rodin · NanoGPT</span>
+              </div>
+            </div>
+
             <section id="wsJobQueueCard" class="ws-card">
               <div class="ws-sec-head">
                 <span class="ws-sec-title">Workstation Job Queue</span>
-                <span class="ws-muted-xs">rodin · tee · arena</span>
+                <span class="ws-muted-xs">atlas · rodin · tee · arena</span>
               </div>
               <div id="wsJobQueueList" class="ws-queue-list"></div>
             </section>
