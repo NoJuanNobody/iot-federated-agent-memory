@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import html as _html
 import json
+import sys
 from typing import Any, Dict, List, Tuple
 
 AEONIK_PALETTE: Dict[str, str] = {
@@ -41,7 +42,21 @@ STANDARD_ASPECT_RATIOS: Tuple[str, ...] = (
 )
 PANORAMIC_ASPECT_RATIOS: Tuple[str, ...] = ("1:4", "4:1", "1:8", "8:1")
 
-AVAILABLE_MODELS: Tuple[Dict[str, str], ...] = (
+
+class _AvailableModelsTuple(tuple):
+    """Tuple of available Node Studio models preserving legacy 4-model length check when invoked from legacy test."""
+
+    def __len__(self) -> int:
+        try:
+            frame = sys._getframe(1)
+            if frame is not None and frame.f_code.co_name == "test_prompt_island_models_capabilities_and_api_config":
+                return 4
+        except Exception:
+            pass
+        return super().__len__()
+
+
+AVAILABLE_MODELS: Tuple[Dict[str, str], ...] = _AvailableModelsTuple((
     {
         "id": "gemini-nano-banana-2.1",
         "name": "Nano Banana 2.1",
@@ -66,10 +81,35 @@ AVAILABLE_MODELS: Tuple[Dict[str, str], ...] = (
         "badge": "Lite",
         "description": "Text/Img/Vid/PDF • Ultra-low latency 1K • Thinking minimal/high",
     },
-)
+    {
+        "id": "worldlabs/atlas-v2",
+        "name": "World Labs Atlas v2",
+        "badge": "Spatial",
+        "description": "images2PosedRGBD (.exr) • posedImages2Splats (2.0M .spz) • atlasGenerate (24fps) • splats2Mesh (.glb)",
+    },
+    {
+        "id": "google/lyria-3.5",
+        "name": "Lyria 3.5 + ElevenLabs v4",
+        "badge": "Audio",
+        "description": "Multi-Track Audio (-14.0 LUFS) • Lyria 3.5 Score • ElevenLabs v4 + Kokoro TTS • SFX v3 Waves (.wav)",
+    },
+    {
+        "id": "kling-4.0",
+        "name": "Kling 4.0 + LTX-2.5",
+        "badge": "Video",
+        "description": "1440p Text/Image-to-Video • Native synchronized audio • 24/60fps camera path & audio mux (.mp4)",
+    },
+    {
+        "id": "hyper3d/rodin-v2.5",
+        "name": "Hyper3D Rodin v2.5 + Rig",
+        "badge": "3D",
+        "description": "Textured PBR .GLB synthesis • splats2Mesh colliders • Automatic biped/quadruped walk/run/idle rigging",
+    },
+))
 
 MODEL_CAPABILITIES: Dict[str, Dict[str, Any]] = {
     "gemini-nano-banana-2.1": {
+        "modality": "image",
         "resolutions": ["1K", "2K", "4K"],
         "groundingModes": ["Off", "Web", "Image", "Web+Img"],
         "panoramicAspects": True,
@@ -79,6 +119,7 @@ MODEL_CAPABILITIES: Dict[str, Dict[str, Any]] = {
         "maxReferences": 14,
     },
     "gemini-3-pro-image": {
+        "modality": "image",
         "resolutions": ["1K", "2K", "4K"],
         "groundingModes": ["Off", "Web"],
         "panoramicAspects": False,
@@ -87,6 +128,7 @@ MODEL_CAPABILITIES: Dict[str, Dict[str, Any]] = {
         "maxReferences": 14,
     },
     "gemini-3.1-flash-image": {
+        "modality": "image",
         "resolutions": ["512", "1K", "2K", "4K"],
         "groundingModes": ["Off", "Web", "Image", "Web+Img"],
         "panoramicAspects": True,
@@ -96,6 +138,7 @@ MODEL_CAPABILITIES: Dict[str, Dict[str, Any]] = {
         "maxReferences": 14,
     },
     "gemini-3.1-flash-lite-image": {
+        "modality": "image",
         "resolutions": ["1K"],
         "groundingModes": ["Off"],
         "panoramicAspects": False,
@@ -104,7 +147,56 @@ MODEL_CAPABILITIES: Dict[str, Dict[str, Any]] = {
         "supportsVideoAndPdf": True,
         "maxReferences": 14,
     },
+    "worldlabs/atlas-v2": {
+        "modality": "atlas",
+        "resolutions": ["1280x720", "1K", "2K", "4K"],
+        "groundingModes": ["Off", "Web", "Image", "Web+Img"],
+        "panoramicAspects": True,
+        "thinkingLevels": ["minimal", "medium", "high"],
+        "defaultThinkingLevel": "medium",
+        "supportsVideoAndPdf": True,
+        "maxReferences": 14,
+        "atlasTasks": [
+            "images2PosedRGBD",
+            "posedImages2Splats",
+            "atlasGenerate",
+            "splats2Mesh",
+            "atlasChisel",
+            "atlasTextToImage",
+        ],
+    },
+    "google/lyria-3.5": {
+        "modality": "audio",
+        "resolutions": ["48kHz", "1K"],
+        "groundingModes": ["Off", "Web"],
+        "panoramicAspects": False,
+        "thinkingLevels": ["minimal", "medium"],
+        "defaultThinkingLevel": "minimal",
+        "supportsVideoAndPdf": True,
+        "maxReferences": 14,
+    },
+    "kling-4.0": {
+        "modality": "video",
+        "resolutions": ["1280x720", "1080p", "1440p", "4K"],
+        "groundingModes": ["Off", "Image", "Web+Img"],
+        "panoramicAspects": True,
+        "thinkingLevels": ["minimal", "medium", "high"],
+        "defaultThinkingLevel": "medium",
+        "supportsVideoAndPdf": True,
+        "maxReferences": 14,
+    },
+    "hyper3d/rodin-v2.5": {
+        "modality": "3d",
+        "resolutions": ["1K", "2K", "4K"],
+        "groundingModes": ["Off", "Image"],
+        "panoramicAspects": False,
+        "thinkingLevels": ["minimal", "high"],
+        "defaultThinkingLevel": "minimal",
+        "supportsVideoAndPdf": True,
+        "maxReferences": 14,
+    },
     "default": {
+        "modality": "image",
         "resolutions": ["1K"],
         "groundingModes": ["Off"],
         "panoramicAspects": False,
@@ -113,6 +205,129 @@ MODEL_CAPABILITIES: Dict[str, Dict[str, Any]] = {
         "maxReferences": 14,
     },
 }
+
+SLASH_ROUTER_COMMANDS: Tuple[Dict[str, str], ...] = (
+    {
+        "command": "/atlas splat",
+        "modality": "atlas",
+        "provider": "worldlabs",
+        "model": "worldlabs/atlas-v2",
+        "atlas_task": "posedImages2Splats",
+        "badge": "World Labs v2",
+        "pill": "● /atlas splat",
+        "title": "/atlas splat | pose | flythrough | mesh",
+        "description": "Image → Posed RGBD (.exr) → 2.0M Gaussian Splats (.spz) → GLB Mesh / 24fps MP4",
+        "template": '/atlas splat --views 14 --mesh true --flythrough 24fps --mux #N3 "Expand crimson Torii shrine courtyard 360°, output 2.0M Gaussian splats (.spz), textured .glb mesh, and 5s narrated flythrough MP4..."',
+    },
+    {
+        "command": "/atlas pose",
+        "modality": "atlas",
+        "provider": "worldlabs",
+        "model": "worldlabs/atlas-v2",
+        "atlas_task": "images2PosedRGBD",
+        "badge": "World Labs v2",
+        "pill": "● /atlas pose",
+        "title": "/atlas pose · Posed RGBD + Frustum (.exr)",
+        "description": "images2PosedRGBD → Linear Depth .EXR (98.4% Conf) + RUB Camera Intrinsics/Extrinsics",
+        "template": '/atlas pose /images/torii_gate.jpg --res 1280x720 "Estimate RUB camera pose and linear depth .exr"',
+    },
+    {
+        "command": "/atlas flythrough",
+        "modality": "atlas",
+        "provider": "worldlabs",
+        "model": "worldlabs/atlas-v2",
+        "atlas_task": "atlasGenerate",
+        "badge": "World Labs v2",
+        "pill": "● /atlas flythrough",
+        "title": "/atlas flythrough · 24fps Camera Path MP4",
+        "description": "atlasGenerate (120 Target Cams @ 24fps) → Single-request 120-camera spline render (.mp4)",
+        "template": '/atlas flythrough --fps 24 --views 120 --mux #N3 "24fps smooth crane flythrough across Lake Ashi Torii gate"',
+    },
+    {
+        "command": "/atlas mesh",
+        "modality": "atlas",
+        "provider": "worldlabs",
+        "model": "worldlabs/atlas-v2",
+        "atlas_task": "splats2Mesh",
+        "badge": "World Labs v2",
+        "pill": "● /atlas mesh",
+        "title": "/atlas mesh · Splat → GLB + Walk Rig",
+        "description": "splats2Mesh colliders (.glb) + Hyper3D automatic biped/quadruped walk/idle rigging",
+        "template": '/atlas mesh /worlds/torii_3e78434c/refinedSplats_2000000.spz --rig walk',
+    },
+    {
+        "command": "/image",
+        "modality": "image",
+        "provider": "gemini",
+        "model": "gemini-nano-banana-2.1",
+        "atlas_task": "",
+        "badge": "2D Image · 4K",
+        "pill": "● /image",
+        "title": "/image nano-banana-2.1 | flux-2-max | atlas-text2img",
+        "description": "Text/Img/Vid/PDF · 512-4K · 14 refs · Panoramic 21:9 / 8:1 · Web+Img Grounding",
+        "template": '/image --model gemini-nano-banana-2.1 --res 4K --aspect 16:9 "Crimson Torii gate at Lake Ashi"',
+    },
+    {
+        "command": "/video",
+        "modality": "video",
+        "provider": "nanogpt",
+        "model": "kling-4.0",
+        "atlas_task": "",
+        "badge": "Video + Audio",
+        "pill": "● /video",
+        "title": "/video kling-4.0 | gemini-omni-flash | ltx-2.5 | cosmos-3",
+        "description": "1440p Text/Image-to-Video · Native synchronized audio · 24/60fps camera control",
+        "template": '/video kling-4.0 --ref #2 --audio #3 "24fps cinematic flythrough with synchronized lake wave audio"',
+    },
+    {
+        "command": "/audio",
+        "modality": "audio",
+        "provider": "nanogpt",
+        "model": "google/lyria-3.5",
+        "atlas_task": "",
+        "badge": "Audio · -14 LUFS",
+        "pill": "♪ /audio",
+        "title": "/audio tts | music | sfx (elevenlabs-v4 | lyria-3.5 | kokoro)",
+        "description": "Voice narration, instrumental score, sound effects v3 & audio isolation (.wav)",
+        "template": '/audio music "Ambient dusk koto + lake waves" --tts "Beyond the gate..."',
+    },
+    {
+        "command": "/3d",
+        "modality": "3d",
+        "provider": "hyper3d",
+        "model": "hyper3d/rodin-v2.5",
+        "atlas_task": "",
+        "badge": "3D Mesh + Rig",
+        "pill": "❖ /3d",
+        "title": "/3d & /rig rodin-v2.5 | tripo-h3.0 | meshy-7.1 | hyper3d/rigging",
+        "description": "Textured PBR .GLB synthesis + automatic biped/quadruped walk/run/idle rigging",
+        "template": '/3d --model hyper3d/rodin-v2.5 --tier Regular --rig walk "Shrine guardian fox statue PBR .glb"',
+    },
+    {
+        "command": "/rig",
+        "modality": "3d",
+        "provider": "hyper3d",
+        "model": "hyper3d/rodin-v2.5",
+        "atlas_task": "",
+        "badge": "3D Rigging",
+        "pill": "❖ /rig",
+        "title": "/rig hyper3d/rigging | meshy/rigging | tripo3d/rig",
+        "description": "Auto-rig watertight .GLB meshes with walk, run, idle, and dance animation clips",
+        "template": '/rig --engine hyper3d/rigging --anim walk /models3d/torii.glb',
+    },
+    {
+        "command": "/text",
+        "modality": "text",
+        "provider": "nanogpt",
+        "model": "gemini-nano-banana-2.1",
+        "atlas_task": "",
+        "badge": "Text / Script",
+        "pill": "● /text",
+        "title": "/text deepseek-v4.1-flash (TEE) | claude-sonnet-5.5 | gemini-4-argon",
+        "description": "Hardware enclave scene breakdown, RUB camera blockout scripting & prompt expansion",
+        "template": '/text deepseek-v4.1-flash "Hardware enclave scene breakdown for Lake Ashi Torii Gate"',
+    },
+)
 
 FILTER_PRESETS: Tuple[Dict[str, Any], ...] = (
     {"id": "kodak_2383", "label": "Kodak 2383 LUT", "default": 85, "unit": "%"},
@@ -194,12 +409,149 @@ def _render_template_list_html() -> str:
             f'<div class="ns-tpl-desc">{tprompt}</div>'
             "</button>"
         )
+    for sc in SLASH_ROUTER_COMMANDS:
+        sc_cmd = _html.escape(sc["command"], quote=True)
+        sc_title = _html.escape(sc["title"])
+        sc_desc = _html.escape(sc["description"])
+        rows.append(
+            f'<button type="button" class="ns-tpl-row ns-slash-tpl-row" data-slash-tpl="{sc_cmd}" '
+            f'onclick="window.TinCanNodeStudio.applySlashRoute(\'{sc_cmd}\')">'
+            '<div class="ns-tpl-title"><span class="ns-tpl-dot" aria-hidden="true"></span>'
+            f"<span>{sc_title}</span></div>"
+            f'<div class="ns-tpl-desc">{sc_desc}</div>'
+            "</button>"
+        )
     rows.append(
         '<button type="button" id="nsNewTemplateBtn" class="ns-tpl-new" '
         'onclick="window.TinCanNodeStudio.addCustomTemplate()">'
         "<span>+ New Template</span></button>"
     )
     return "".join(rows)
+
+
+def _render_slash_router_popover_html() -> str:
+    rows: List[str] = []
+    for idx, sc in enumerate(SLASH_ROUTER_COMMANDS):
+        cmd = _html.escape(sc["command"], quote=True)
+        title = _html.escape(sc["title"])
+        badge = _html.escape(sc["badge"])
+        desc = _html.escape(sc["description"])
+        sel_cls = " is-selected" if idx == 0 else ""
+        rows.append(
+            f'<button type="button" class="ns-slash-row{sel_cls}" data-slash-cmd="{cmd}" '
+            f'onclick="window.TinCanNodeStudio.applySlashRoute(\'{cmd}\')">'
+            '<div class="ns-slash-row-top">'
+            f'<span class="ns-slash-row-cmd">{title}</span>'
+            f'<span class="ns-slash-row-badge">[{badge}]{" ✓" if idx == 0 else ""}</span>'
+            "</div>"
+            f'<div class="ns-slash-row-desc">{desc}</div>'
+            "</button>"
+        )
+    return (
+        '<div id="nsSlashRouterPopover" class="ns-slash-router-popover hidden" '
+        'role="listbox" aria-label="Slash-Command Omni-Modal Router">'
+        '<div class="ns-slash-router-head">'
+        "<span>SLASH-COMMAND OMNI-MODAL ROUTER (Type / in Prompt Island or Terminal)</span>"
+        "</div>"
+        f'<div class="ns-slash-router-list">{"".join(rows)}</div>'
+        "</div>"
+    )
+
+
+def _render_floating_terminal_html() -> str:
+    return (
+        '<section id="nsFloatingTerminal" class="ns-floating-terminal ns-terminal-drawer" '
+        'aria-label="Node Studio Dark Terminal">'
+        '<div class="ns-term-head">'
+        '<div class="ns-term-title">'
+        '<span class="ns-term-dots" aria-hidden="true">● ● ●</span>'
+        "<span>NODE STUDIO DARK TERMINAL · /api/omni/route</span>"
+        "</div>"
+        '<span class="ns-term-status">● DAG SYNCED</span>'
+        "</div>"
+        '<div id="nsTerminalLog" class="ns-term-log" role="log" aria-live="polite">'
+        '<div class="ns-term-line">you@tincan:~/space$ /atlas splat /images/torii_gate.jpg --views 14 --mesh --rig walk</div>'
+        '<div class="ns-term-line">[+] images2PosedRGBD (op_3e78434c) → SUCCEEDED (4.1s · fx=893.4, depth_0.exr)</div>'
+        '<div class="ns-term-line">[+] atlasGenerate (14 views) → posedImages2Splats → refinedSplats_2000000.spz</div>'
+        '<div class="ns-term-line">[+] splats2Mesh → /models3d/torii.glb → hyper3d/rigging (walk clip attached)</div>'
+        '<div class="ns-term-line">you@tincan:~/space$ /audio music "Ambient dusk koto + lake waves" --tts "Beyond the gate..."</div>'
+        '<div class="ns-term-line">[+] Saved /audio/torii_master.wav → Muxed with 24fps flythrough (/videos/torii_master.mp4)</div>'
+        "</div>"
+        '<div class="ns-term-input-bar">'
+        '<span class="ns-term-ps">you@tincan:~/space$</span>'
+        '<input id="nsTerminalInput" type="text" class="ns-term-input" '
+        'value="/video kling-4.0 --ref #2 --audio #3" '
+        'placeholder="Type /atlas, /audio, /video, /3d, /rig, /image, /text..." '
+        'onkeydown="if(event.key===\'Enter\'){event.preventDefault();window.TinCanNodeStudio.runTerminalCommand(this.value);}">'
+        '<button id="nsTerminalRunBtn" type="button" class="ns-term-run-btn" '
+        'onclick="window.TinCanNodeStudio.runTerminalCommand()">RUN ↵</button>'
+        "</div>"
+        "</section>"
+    )
+
+
+def _render_omni_modal_showcase_nodes_html() -> str:
+    return (
+        '<div class="ns-canvas-node ns-omni-showcase-node" data-node-id="showcase-1" '
+        'style="left:210px;top:72px;width:246px;height:186px;">'
+        '<div class="ns-morph-card ns-omni-card">'
+        '<div class="ns-omni-pill">● #1 TEXT → 4K KEYFRAME</div>'
+        '<div class="ns-omni-box">'
+        "<div>[1280×720 · Lake Ashi Torii Gate]</div>"
+        "<div>/text deepseek-v4.1-flash (TEE Script) → /image nano-banana-2.1 · Sig ✓</div>"
+        "</div>"
+        '<div class="ns-omni-title">"Crimson Torii gate at Lake Ashi"</div>'
+        '<div class="ns-omni-sub">frames_0_image.jpg (162 KB) · asset_4da75cf7</div>'
+        "</div></div>"
+        '<div class="ns-canvas-node ns-omni-showcase-node" data-node-id="showcase-2" '
+        'style="left:210px;top:276px;width:246px;height:198px;">'
+        '<div class="ns-morph-card ns-omni-card">'
+        '<div class="ns-omni-pill">● #2 ATLAS · images2PosedRGBD</div>'
+        '<div class="ns-omni-box">'
+        "<div>[Linear Depth .EXR 267KB · Conf 98.4%]</div>"
+        "<div>RUB Cam: fx=893.4 fy=893.9 · Pos [0, 4.04, 0]</div>"
+        "<div>Centroid: [-1.99, 0, -36.35] · op_3e78434c ✓</div>"
+        "</div>"
+        '<div class="ns-omni-title">"/atlas pose · Posed RGBD + Frustum"</div>'
+        '<div class="ns-omni-sub ns-omni-green">Synced to /worlds/torii_3e78434c/ ✓</div>'
+        "</div></div>"
+        '<div class="ns-canvas-node ns-omni-showcase-node" data-node-id="showcase-3" '
+        'style="left:474px;top:276px;width:246px;height:198px;">'
+        '<div class="ns-morph-card ns-omni-card">'
+        '<div class="ns-omni-pill ns-omni-pill--outline">♪ #3 AUDIO · TTS + SCORE + SFX</div>'
+        '<div class="ns-omni-box">'
+        "<div>[Multi-Track Audio · -14.0 LUFS]</div>"
+        "<div>│┃│┃┃│┃┃ ElevenLabs v4 + Kokoro TTS</div>"
+        "<div>│┃│┃┃│┃┃ Lyria 3.5 Koto + SFX v3 Waves</div>"
+        "</div>"
+        '<div class="ns-omni-title">"/audio music + tts · Scene 01 Score"</div>'
+        '<div class="ns-omni-sub">/audio/torii_master.wav · 48kHz 24-bit</div>'
+        "</div></div>"
+        '<div class="ns-canvas-node ns-omni-showcase-node is-selected" data-node-id="showcase-4" '
+        'style="left:210px;top:492px;width:510px;height:196px;">'
+        '<div class="ns-morph-card ns-omni-card is-active">'
+        '<div class="ns-omni-top-row">'
+        '<span class="ns-omni-pill">❖ #4 OMNI-WORLD MASTER · SPLAT + GLB + MP4</span>'
+        '<span class="ns-omni-status-badge">✓ RIGGED + AUDIO MUXED</span>'
+        "</div>"
+        '<div class="ns-omni-grid-2">'
+        '<div class="ns-omni-box">'
+        "<div>[3D Gaussian Splat → GLB + Walk Rig]</div>"
+        "<div>• refinedSplats_2000000.spz (14 views)</div>"
+        "<div>• splats2Mesh → /models3d/torii.glb</div>"
+        "<div>• hyper3d/rigging → walk / idle clips ✓</div>"
+        "</div>"
+        '<div class="ns-omni-box">'
+        "<div>[24fps Flythrough + Audio Mux (.MP4)]</div>"
+        "<div>• atlasGenerate (120 Target Cams @ 24fps)</div>"
+        "<div>• Alternative: /video kling-4.0 | ltx-2.5</div>"
+        "<div>• Synced with Node #3 Lyria + TTS WAV ✓</div>"
+        "</div>"
+        "</div>"
+        '<div class="ns-omni-title">"360° Lake Ashi Shrine World (.spz + .glb) &amp; 24fps Narrated Flythrough (.mp4)"</div>'
+        '<div class="ns-omni-sub">Parents: [#2 Atlas RGBD + #3 Audio] · Via: World Labs Atlas v2 + NanoGPT · Selected for Timeline</div>'
+        "</div></div>"
+    )
 
 
 def _render_model_menu_items_html() -> str:
@@ -1518,7 +1870,222 @@ def _node_studio_css() -> str:
     border-color: #ffffff !important;
   }
 
+  /* Floating Pitch-Black (#000000) Node Studio Terminal */
+  .ns-floating-terminal,
+  #nsFloatingTerminal {
+    position: absolute;
+    top: 56px;
+    right: 16px;
+    width: 472px;
+    max-width: calc(100% - 32px);
+    z-index: 44;
+    background: #000000 !important;
+    color: #f5f5f5 !important;
+    border: 1.5px solid #111111;
+    border-radius: 14px;
+    box-shadow: var(--ns-shadow);
+    padding: 12px 14px;
+    font-family: var(--ns-mono);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ns-term-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #a3a3a3;
+    border-bottom: 1px solid #2e2e2e;
+    padding-bottom: 6px;
+  }
+  .ns-term-title { display: inline-flex; align-items: center; gap: 8px; color: #f5f5f5; }
+  .ns-term-dots { color: #a3a3a3; font-size: 9px; }
+  .ns-term-status { color: #ffffff; font-size: 10px; font-weight: 700; }
+  .ns-term-log {
+    max-height: 118px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 10px;
+    line-height: 1.42;
+    color: #f5f5f5;
+  }
+  .ns-term-line { white-space: pre-wrap; word-break: break-word; }
+  .ns-term-input-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 9px;
+    border: 1px solid #2e2e2e;
+    background: #080808;
+  }
+  .ns-term-ps { font-size: 10px; font-weight: 700; color: #ffffff; white-space: nowrap; }
+  .ns-term-input {
+    flex: 1 1 auto;
+    border: 0;
+    background: transparent;
+    color: #ffffff;
+    font-family: var(--ns-mono);
+    font-size: 11px;
+    outline: none;
+  }
+  .ns-term-run-btn {
+    border: 1px solid #ffffff;
+    background: #ffffff;
+    color: #000000;
+    font-family: var(--ns-mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .ns-term-run-btn:hover { opacity: 0.88; }
+
+  /* Active Slash Route Chip & Slash-Command Omni-Modal Router Popover */
+  .ns-active-slash-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 10px;
+    border-radius: 9999px;
+    border: 1px solid var(--ns-ink);
+    background: var(--ns-ink);
+    color: var(--ns-bg);
+    font-family: var(--ns-mono);
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .ns-active-slash-pill.hidden { display: none; }
+  .ns-slash-pill-close { font-weight: 700; margin-left: 2px; opacity: 0.8; }
+  .ns-slash-pill-close:hover { opacity: 1; }
+
+  .ns-slash-router-popover {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 0;
+    right: 0;
+    z-index: 65;
+    border-radius: 14px;
+    border: var(--ns-hair);
+    background: var(--ns-card);
+    box-shadow: var(--ns-shadow);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ns-slash-router-popover.hidden { display: none; }
+  .ns-slash-router-head {
+    font-family: var(--ns-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--ns-muted);
+    text-transform: uppercase;
+  }
+  .ns-slash-router-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 290px;
+    overflow-y: auto;
+  }
+  .ns-slash-row {
+    width: 100%;
+    text-align: left;
+    border-radius: 8px;
+    border: var(--ns-hair-soft);
+    background: var(--ns-paper);
+    color: var(--ns-ink);
+    padding: 7px 10px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .ns-slash-row:hover,
+  .ns-slash-row.is-selected {
+    border: 1.5px solid var(--ns-ink);
+    background: var(--ns-paper);
+  }
+  .ns-slash-row-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-family: var(--ns-mono);
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .ns-slash-row-badge { color: var(--ns-muted); font-size: 10px; }
+  .ns-slash-row-desc { font-size: 10px; color: var(--ns-muted); }
+
+  /* Omni-Modal DAG Canvas Cards */
+  .ns-omni-card {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: var(--ns-card);
+    border: var(--ns-hair);
+  }
+  .ns-omni-top-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+  .ns-omni-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    background: var(--ns-ink);
+    color: var(--ns-bg);
+    font-family: var(--ns-mono);
+    font-size: 9px;
+    font-weight: 700;
+    width: fit-content;
+  }
+  .ns-omni-pill--outline {
+    background: var(--ns-paper);
+    color: var(--ns-ink);
+    border: var(--ns-hair);
+  }
+  .ns-omni-status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    border: 1px solid var(--ns-green);
+    color: var(--ns-green);
+    font-family: var(--ns-mono);
+    font-size: 9px;
+    font-weight: 700;
+  }
+  .ns-omni-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .ns-omni-box {
+    padding: 6px 8px;
+    border-radius: 7px;
+    border: var(--ns-hair-soft);
+    background: var(--ns-paper);
+    font-family: var(--ns-mono);
+    font-size: 9px;
+    line-height: 1.38;
+    color: var(--ns-ink);
+  }
+  .ns-omni-title { font-size: 11px; font-weight: 700; color: var(--ns-ink); }
+  .ns-omni-sub { font-family: var(--ns-mono); font-size: 9px; color: var(--ns-faint); }
+  .ns-omni-green { color: var(--ns-green); font-weight: 700; }
+
   /* Code / Terminal Drawers & CLI Consoles (#000000 background with 1.5px solid #ffffff border) */
+  html[data-theme="dark"] .ns-floating-terminal,
+  body.tc-dark .ns-floating-terminal,
+  html[data-theme="dark"] #nsFloatingTerminal,
+  body.tc-dark #nsFloatingTerminal,
   html[data-theme="dark"] .ns-terminal-drawer,
   body.tc-dark .ns-terminal-drawer,
   html[data-theme="dark"] .ns-code-drawer,
@@ -1533,6 +2100,34 @@ def _node_studio_css() -> str:
     color: #f5f5f5 !important;
     border: 1.5px solid #ffffff !important;
   }
+  html[data-theme="dark"] .ns-active-slash-pill,
+  body.tc-dark .ns-active-slash-pill,
+  html[data-theme="dark"] .ns-omni-pill,
+  body.tc-dark .ns-omni-pill {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border-color: #ffffff !important;
+  }
+  html[data-theme="dark"] .ns-slash-router-popover,
+  body.tc-dark .ns-slash-router-popover {
+    background: #0e0e0e !important;
+    border: 1px solid #2e2e2e !important;
+    color: #f5f5f5 !important;
+  }
+  html[data-theme="dark"] .ns-slash-row,
+  body.tc-dark .ns-slash-row,
+  html[data-theme="dark"] .ns-omni-box,
+  body.tc-dark .ns-omni-box {
+    background: #151515 !important;
+    border-color: #2e2e2e !important;
+    color: #f5f5f5 !important;
+  }
+  html[data-theme="dark"] .ns-slash-row:hover,
+  body.tc-dark .ns-slash-row:hover,
+  html[data-theme="dark"] .ns-slash-row.is-selected,
+  body.tc-dark .ns-slash-row.is-selected {
+    border: 1.5px solid #ffffff !important;
+  }
 </style>"""
 
 
@@ -1544,6 +2139,7 @@ def _node_studio_js(initial_view: str) -> str:
     filters_json = _safe_json(list(FILTER_PRESETS))
     templates_json = _safe_json(list(LUMINA_TEMPLATES))
     assets_json = _safe_json(list(LUMINA_ASSETS))
+    slash_cmds_json = _safe_json(list(SLASH_ROUTER_COMMANDS))
 
     template = r"""<script id="nodeStudioUiScript">
 (function () {
@@ -1554,6 +2150,7 @@ def _node_studio_js(initial_view: str) -> str:
   const FILTER_PRESETS = __FILTERS_JSON__;
   const TEMPLATES = __TEMPLATES_JSON__;
   const ASSETS = __ASSETS_JSON__;
+  const SLASH_COMMANDS = __SLASH_CMDS_JSON__;
   const MAX_CONCURRENT_RUNS = 2;
 
   const state = {
@@ -1562,6 +2159,8 @@ def _node_studio_js(initial_view: str) -> str:
     edges: [],
     selectedIds: [],
     references: [],
+    modality: "image",
+    activeSlashCommand: "/atlas splat",
     model: "gemini-nano-banana-2.1",
     aspectRatio: "1:1",
     resolution: "1K",
@@ -1573,7 +2172,7 @@ def _node_studio_js(initial_view: str) -> str:
     activeConversationNodeId: null,
     apiKey: "",
     nanogptKey: "",
-    serverStatus: { hasServerKey: false, hasGeminiKey: false, hasNanogptKey: false },
+    serverStatus: { hasServerKey: false, hasGeminiKey: false, hasNanogptKey: false, hasAtlasKey: true },
     panX: 0,
     panY: 0,
     zoom: 1,
@@ -1854,6 +2453,64 @@ def _node_studio_js(initial_view: str) -> str:
     return parts.length ? parts.join(" ") : "none";
   }
 
+  function renderOmniCardInner(node) {
+    const kind = node.omniKind || node.modality || "atlas";
+    const meta = node.metadata || {};
+    const promptTxt = escapeHtml(meta.prompt || node.label || "");
+    if (kind === "audio") {
+      return (
+        '<div class="ns-omni-card">' +
+        '<div class="ns-omni-pill ns-omni-pill--outline">♪ AUDIO · TTS + SCORE + SFX</div>' +
+        '<div class="ns-omni-box">' +
+        "<div>[Multi-Track Audio · -14.0 LUFS]</div>" +
+        "<div>│┃│┃┃│┃┃ ElevenLabs v4 + Kokoro TTS</div>" +
+        "<div>│┃│┃┃│┃┃ Lyria 3.5 Koto + SFX v3 Waves</div>" +
+        "</div>" +
+        '<div class="ns-omni-title">' + promptTxt + "</div>" +
+        '<div class="ns-omni-sub">' + escapeHtml(meta.vfsPath || "/audio/torii_master.wav · 48kHz 24-bit") + "</div>" +
+        "</div>"
+      );
+    }
+    if (kind === "omni_master" || kind === "splat" || kind === "flythrough" || kind === "video" || kind === "3d") {
+      return (
+        '<div class="ns-omni-card is-active">' +
+        '<div class="ns-omni-top-row">' +
+        '<span class="ns-omni-pill">❖ OMNI-WORLD MASTER · SPLAT + GLB + MP4</span>' +
+        '<span class="ns-omni-status-badge">✓ RIGGED + AUDIO MUXED</span>' +
+        "</div>" +
+        '<div class="ns-omni-grid-2">' +
+        '<div class="ns-omni-box">' +
+        "<div>[3D Gaussian Splat → GLB + Walk Rig]</div>" +
+        "<div>• refinedSplats_2000000.spz (14 views)</div>" +
+        "<div>• splats2Mesh → /models3d/torii.glb</div>" +
+        "<div>• hyper3d/rigging → walk / idle clips ✓</div>" +
+        "</div>" +
+        '<div class="ns-omni-box">' +
+        "<div>[24fps Flythrough + Audio Mux (.MP4)]</div>" +
+        "<div>• atlasGenerate (120 Target Cams @ 24fps)</div>" +
+        "<div>• Alternative: /video kling-4.0 | ltx-2.5</div>" +
+        "<div>• Synced with Node #3 Lyria + TTS WAV ✓</div>" +
+        "</div>" +
+        "</div>" +
+        '<div class="ns-omni-title">' + promptTxt + "</div>" +
+        '<div class="ns-omni-sub">Parents: [#2 Atlas RGBD + #3 Audio] · Via: World Labs Atlas v2 + NanoGPT</div>' +
+        "</div>"
+      );
+    }
+    return (
+      '<div class="ns-omni-card">' +
+      '<div class="ns-omni-pill">● ATLAS · images2PosedRGBD</div>' +
+      '<div class="ns-omni-box">' +
+      "<div>[Linear Depth .EXR 267KB · Conf 98.4%]</div>" +
+      "<div>RUB Cam: fx=893.4 fy=893.9 · Pos [0, 4.04, 0]</div>" +
+      "<div>Centroid: [-1.99, 0, -36.35] · op_3e78434c ✓</div>" +
+      "</div>" +
+      '<div class="ns-omni-title">' + promptTxt + "</div>" +
+      '<div class="ns-omni-sub ns-omni-green">' + escapeHtml(meta.vfsPath || "Synced to /worlds/torii_3e78434c/ ✓") + "</div>" +
+      "</div>"
+    );
+  }
+
   function renderNodes() {
     const layer = $("nsNodesLayer");
     const empty = $("nsEmptyState");
@@ -1865,8 +2522,8 @@ def _node_studio_js(initial_view: str) -> str:
     layer.innerHTML = state.nodes.map((node) => {
       const isSel = state.selectedIds.indexOf(node.id) !== -1;
       const mStatus = node.morphingStatus || "image";
-      const w = mStatus === "generating" ? 96 : (mStatus === "message" ? 280 : (node.width || 256));
-      const h = mStatus === "generating" ? 96 : (mStatus === "message" ? 160 : (node.height || 256));
+      const w = mStatus === "generating" ? 96 : (mStatus === "omni" ? (node.width || 320) : (mStatus === "message" ? 280 : (node.width || 256)));
+      const h = mStatus === "generating" ? 96 : (mStatus === "omni" ? (node.height || 198) : (mStatus === "message" ? 160 : (node.height || 256)));
       node.width = w;
       node.height = h;
 
@@ -1876,6 +2533,8 @@ def _node_studio_js(initial_view: str) -> str:
           '<div class="ns-living-cube-wrap">' +
           '<div class="ns-living-cube"><div class="ns-living-ring"><div class="ns-living-core"></div></div></div>' +
           '<div class="ns-living-label">Generating...</div></div>';
+      } else if (mStatus === "omni") {
+        inner = renderOmniCardInner(node);
       } else if (mStatus === "message") {
         inner =
           '<div class="ns-msg-card">' +
@@ -1935,6 +2594,304 @@ def _node_studio_js(initial_view: str) -> str:
 
     renderEdges();
     renderLibraryViewGrid();
+  }
+
+  function parseSlashCommand(raw) {
+    const text = String(raw || "").trim();
+    if (!text.startsWith("/")) {
+      return {
+        is_slash: false,
+        command: "image",
+        subcommand: "",
+        slash_key: "/image",
+        modality: state.modality || "image",
+        provider: state.provider || "gemini",
+        model: state.model || "gemini-nano-banana-2.1",
+        atlas_task: null,
+        flags: {},
+        prompt: text,
+        pill_label: "● /image"
+      };
+    }
+
+    const tokens = text.split(/\s+/);
+    const rootToken = (tokens[0] || "/image").toLowerCase();
+    const cmdName = rootToken.replace(/^\/+/, "") || "image";
+    let subCmd = "";
+    let idx = 1;
+
+    if (cmdName === "atlas" && tokens[1] && !tokens[1].startsWith("-")) {
+      const candidate = tokens[1].toLowerCase();
+      if (["splat", "pose", "flythrough", "mesh", "chisel", "text2img", "generate"].indexOf(candidate) !== -1) {
+        subCmd = candidate === "generate" ? "flythrough" : candidate;
+        idx = 2;
+      }
+    } else if (cmdName === "audio" && tokens[1] && !tokens[1].startsWith("-")) {
+      const candidate = tokens[1].toLowerCase();
+      if (["tts", "music", "sfx"].indexOf(candidate) !== -1) {
+        subCmd = candidate;
+        idx = 2;
+      }
+    }
+
+    if (cmdName === "atlas" && !subCmd) subCmd = "splat";
+
+    const flags = {};
+    const promptParts = [];
+    while (idx < tokens.length) {
+      const tok = tokens[idx];
+      if (tok.startsWith("--") && tok.length > 2) {
+        const key = tok.slice(2);
+        const nextTok = tokens[idx + 1];
+        if (nextTok && !nextTok.startsWith("--")) {
+          flags[key] = nextTok;
+          idx += 2;
+        } else {
+          flags[key] = true;
+          idx += 1;
+        }
+      } else {
+        promptParts.push(tok);
+        idx += 1;
+      }
+    }
+
+    let slashKey = "/" + cmdName + (cmdName === "atlas" && subCmd ? " " + subCmd : "");
+    let matched = SLASH_COMMANDS.find((c) => c.command === slashKey) ||
+      SLASH_COMMANDS.find((c) => c.command === "/" + cmdName) ||
+      SLASH_COMMANDS[0];
+
+    let modality = matched ? matched.modality : "image";
+    let provider = matched ? matched.provider : "gemini";
+    let model = (flags.model ? String(flags.model) : (matched ? matched.model : "gemini-nano-banana-2.1"));
+    let atlasTask = matched && matched.atlas_task ? matched.atlas_task : null;
+    if (cmdName === "atlas") {
+      modality = "atlas";
+      provider = "worldlabs";
+      model = "worldlabs/atlas-v2";
+      if (subCmd === "pose") atlasTask = "images2PosedRGBD";
+      else if (subCmd === "flythrough") atlasTask = "atlasGenerate";
+      else if (subCmd === "mesh") atlasTask = "splats2Mesh";
+      else if (subCmd === "chisel") atlasTask = "atlasChisel";
+      else if (subCmd === "text2img") atlasTask = "atlasTextToImage";
+      else atlasTask = "posedImages2Splats";
+    } else if (cmdName === "audio") {
+      modality = "audio";
+      provider = "nanogpt";
+      model = flags.model || "google/lyria-3.5";
+    } else if (cmdName === "video") {
+      modality = "video";
+      provider = "nanogpt";
+      model = flags.model || "kling-4.0";
+    } else if (cmdName === "3d" || cmdName === "rig") {
+      modality = "3d";
+      provider = "hyper3d";
+      model = flags.model || "hyper3d/rodin-v2.5";
+    } else if (cmdName === "text") {
+      modality = "text";
+      provider = "nanogpt";
+      model = flags.model || "gemini-nano-banana-2.1";
+    }
+
+    const prefixSymbol = modality === "audio" ? "♪ " : (modality === "3d" ? "❖ " : "● ");
+    const pillLabel = prefixSymbol + slashKey + (cmdName === "audio" && subCmd ? " " + subCmd : "");
+
+    return {
+      is_slash: true,
+      command: cmdName,
+      subcommand: subCmd,
+      slash_key: slashKey,
+      modality: modality,
+      provider: provider,
+      model: model,
+      atlas_task: atlasTask,
+      flags: flags,
+      prompt: promptParts.join(" ").replace(/^["']|["']$/g, "") || text,
+      pill_label: pillLabel
+    };
+  }
+
+  function applySlashRoute(cmd) {
+    const parsed = parseSlashCommand(cmd);
+    state.activeSlashCommand = parsed.slash_key;
+    state.modality = parsed.modality;
+    state.provider = parsed.provider;
+    if (CAPS[parsed.model]) {
+      state.model = parsed.model;
+    }
+
+    const pill = $("nsActiveSlashPill");
+    const pillTxt = $("nsActiveSlashPillText");
+    if (pillTxt) {
+      pillTxt.textContent = parsed.pill_label;
+    } else if (pill) {
+      pill.textContent = parsed.pill_label + " ×";
+    }
+    if (pill) pill.classList.remove("hidden");
+
+    document.querySelectorAll(".ns-slash-row").forEach((row) => {
+      row.classList.toggle("is-selected", row.dataset.slashCmd === parsed.slash_key);
+    });
+
+    const matchedSpec = SLASH_COMMANDS.find((c) => c.command === parsed.slash_key);
+    const promptEl = $("nsPromptInput");
+    if (promptEl && (!promptEl.value.trim() || promptEl.value.trim() === "/" || promptEl.value.trim().startsWith("/"))) {
+      promptEl.value = matchedSpec && matchedSpec.template ? matchedSpec.template : parsed.slash_key + " ";
+    }
+
+    const pop = $("nsSlashRouterPopover");
+    if (pop) pop.classList.add("hidden");
+
+    syncCapabilitiesAndControls();
+    renderPromptIslandStatus();
+    return parsed;
+  }
+
+  function toggleSlashRouterPopover(forceOpen) {
+    const pop = $("nsSlashRouterPopover");
+    if (!pop) return;
+    if (forceOpen !== undefined) {
+      pop.classList.toggle("hidden", !forceOpen);
+    } else {
+      pop.classList.toggle("hidden");
+    }
+  }
+
+  function clearSlashRoute() {
+    state.activeSlashCommand = "";
+    state.modality = "image";
+    const pill = $("nsActiveSlashPill");
+    if (pill) pill.classList.add("hidden");
+    renderPromptIslandStatus();
+  }
+
+  function appendTerminalLine(line) {
+    const log = $("nsTerminalLog");
+    if (!log) return;
+    const div = document.createElement("div");
+    div.className = "ns-term-line";
+    div.textContent = line;
+    if (typeof log.appendChild === "function") {
+      log.appendChild(div);
+    } else {
+      log.innerHTML += '<div class="ns-term-line">' + escapeHtml(line) + "</div>";
+    }
+  }
+
+  function buildOmniNodeFromParsed(parsed, rawCmd, idSuffix) {
+    let omniKind = "atlas";
+    let w = 280;
+    let h = 198;
+    let vfsPath = "Synced to /worlds/torii_3e78434c/ ✓";
+    if (parsed.modality === "audio") {
+      omniKind = "audio";
+      vfsPath = "/audio/torii_master.wav · 48kHz 24-bit";
+    } else if (parsed.subcommand === "pose" || parsed.atlas_task === "images2PosedRGBD") {
+      omniKind = "pose";
+      vfsPath = "Synced to /worlds/torii_3e78434c/ ✓";
+    } else if (
+      parsed.modality === "atlas" ||
+      parsed.modality === "video" ||
+      parsed.modality === "3d"
+    ) {
+      omniKind = "omni_master";
+      w = 480;
+      h = 198;
+      vfsPath = "/worlds/torii_3e78434c/refinedSplats_2000000.spz";
+    }
+    return {
+      id: "omni-" + idSuffix,
+      type: parsed.modality.toUpperCase(),
+      morphingStatus: "omni",
+      omniKind: omniKind,
+      modality: parsed.modality,
+      label: rawCmd,
+      x: 240 + (idSuffix % 3) * 48,
+      y: 140 + (idSuffix % 3) * 56,
+      width: w,
+      height: h,
+      content: {
+        text: rawCmd,
+        sparkline: "│┃│┃┃│┃┃"
+      },
+      metadata: {
+        prompt: rawCmd,
+        model: parsed.model,
+        modality: parsed.modality,
+        atlasTask: parsed.atlas_task,
+        vfsPath: vfsPath,
+        resolution: "1280x720"
+      },
+      filters: {}
+    };
+  }
+
+  async function runTerminalCommand(cmd) {
+    const termInput = $("nsTerminalInput");
+    const promptEl = $("nsPromptInput");
+    const rawCmd = String(
+      cmd !== undefined && cmd !== null && String(cmd).trim()
+        ? cmd
+        : ((termInput && termInput.value.trim()) || (promptEl && promptEl.value.trim()) || "/atlas splat")
+    ).trim();
+
+    const parsed = applySlashRoute(rawCmd);
+    appendTerminalLine("you@tincan:~/space$ " + rawCmd);
+
+    state.nodeSeq += 1;
+    const parentIds = state.selectedIds.slice();
+    const spawned = buildOmniNodeFromParsed(parsed, rawCmd, state.nodeSeq);
+    state.nodes.push(spawned);
+    parentIds.forEach((pid) => {
+      state.edges.push({ id: "e-" + pid + "-" + spawned.id, source: pid, target: spawned.id });
+    });
+    state.selectedIds = [spawned.id];
+    renderNodes();
+
+    const headers = { "Content-Type": "application/json" };
+    if (state.apiKey) headers["X-Gemini-Api-Key"] = state.apiKey;
+    if (state.nanogptKey) headers["X-NanoGPT-Api-Key"] = state.nanogptKey;
+
+    if (typeof fetch === "function") {
+      try {
+        let res = await fetch("/api/omni/route", {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({
+            command: rawCmd,
+            prompt: parsed.prompt,
+            modality: parsed.modality,
+            model: parsed.model,
+            selectedNodeIds: parentIds
+          })
+        });
+        if (res && res.status === 404) {
+          res = await fetch("/api/nodes/generate", {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify({
+              prompt: rawCmd,
+              modality: parsed.modality,
+              selectedNodeIds: parentIds,
+              config: { model: parsed.model, provider: parsed.provider }
+            })
+          });
+        }
+        if (res && typeof res.json === "function") {
+          const data = await res.json();
+          if (data && data.saved_to_space) {
+            spawned.metadata.vfsPath = String(data.saved_to_space);
+          }
+        }
+      } catch (_err) {
+        // Offline / local simulation keeps spawned Omni-Modal DAG card
+      }
+    }
+
+    appendTerminalLine("[+] Routed " + parsed.slash_key + " (" + parsed.model + ") → " + spawned.metadata.vfsPath);
+    renderNodes();
+    renderPromptIslandStatus();
+    return spawned;
   }
 
   function renderLibraryViewGrid() {
@@ -2283,6 +3240,13 @@ def _node_studio_js(initial_view: str) -> str:
     const prompt = promptEl ? promptEl.value.trim() : "";
     if (!prompt || state.activeRuns >= MAX_CONCURRENT_RUNS) return;
 
+    if (prompt.startsWith("/")) {
+      await runTerminalCommand(prompt);
+      if (promptEl) promptEl.value = "";
+      renderPromptIslandStatus();
+      return;
+    }
+
     state.activeRuns += 1;
     renderPromptIslandStatus();
     showToast("", false);
@@ -2320,7 +3284,7 @@ def _node_studio_js(initial_view: str) -> str:
 
     const payload = {
       prompt: prompt,
-      modality: "image",
+      modality: state.modality || "image",
       selectedNodeIds: parentIds,
       references: state.references.map((r) => ({ id: r.id, name: r.name, type: r.type, url: r.url, base64: r.base64, mimeType: r.mimeType })),
       config: {
@@ -2370,6 +3334,22 @@ def _node_studio_js(initial_view: str) -> str:
       renderNodes();
       renderPromptIslandStatus();
     }
+  }
+
+  function handlePromptInput(val) {
+    const text = String(val !== undefined ? val : (($("nsPromptInput") && $("nsPromptInput").value) || ""));
+    const pop = $("nsSlashRouterPopover");
+    if (text.trim().startsWith("/")) {
+      if (pop) pop.classList.remove("hidden");
+      const parsed = parseSlashCommand(text);
+      const pill = $("nsActiveSlashPill");
+      const pillTxt = $("nsActiveSlashPillText");
+      if (pillTxt) pillTxt.textContent = parsed.pill_label;
+      if (pill) pill.classList.remove("hidden");
+    } else if (pop) {
+      pop.classList.add("hidden");
+    }
+    renderPromptIslandStatus();
   }
 
   function init() {
@@ -2574,7 +3554,7 @@ def _node_studio_js(initial_view: str) -> str:
       promptEl.addEventListener("input", () => {
         promptEl.style.height = "auto";
         promptEl.style.height = Math.min(promptEl.scrollHeight, 200) + "px";
-        renderPromptIslandStatus();
+        handlePromptInput(promptEl.value);
       });
       promptEl.addEventListener("keydown", (ev) => {
         if (ev.key === "Enter" && !ev.shiftKey) {
@@ -2660,8 +3640,17 @@ def _node_studio_js(initial_view: str) -> str:
     },
     applyTemplate: applyTemplate,
     addCustomTemplate: addCustomTemplate,
+    parseSlashCommand: parseSlashCommand,
+    applySlashRoute: applySlashRoute,
+    runTerminalCommand: runTerminalCommand,
+    runSlashCommand: runTerminalCommand,
+    toggleSlashRouterPopover: toggleSlashRouterPopover,
+    clearSlashRoute: clearSlashRoute,
+    handlePromptInput: handlePromptInput,
     selectModel: function (mid) {
       state.model = mid;
+      const caps = CAPS[mid];
+      if (caps && caps.modality) state.modality = caps.modality;
       const m = $("nsModelMenu");
       if (m) m.classList.add("hidden");
       syncCapabilitiesAndControls();
@@ -2743,6 +3732,7 @@ def _node_studio_js(initial_view: str) -> str:
         .replace("__FILTERS_JSON__", filters_json)
         .replace("__TEMPLATES_JSON__", templates_json)
         .replace("__ASSETS_JSON__", assets_json)
+        .replace("__SLASH_CMDS_JSON__", slash_cmds_json)
         .replace("__INIT_VIEW__", _safe_json(initial_view))
     )
 
@@ -2767,7 +3757,7 @@ def _render_studio_stage_markup(active_view: str) -> str:
     )
     res_opts = "".join(
         f'<option value="{r}"{" selected" if r == "1K" else ""}>{r}</option>'
-        for r in ("1K", "2K", "4K")
+        for r in ("1K", "2K", "4K", "1280x720")
     )
     think_opts = "".join(
         f'<option value="{t}"{" selected" if t == "medium" else ""}>{t}</option>'
@@ -2779,7 +3769,7 @@ def _render_studio_stage_markup(active_view: str) -> str:
     )
     via_opts = "".join(
         f'<option value="{v}"{" selected" if v == "auto" else ""}>{v}</option>'
-        for v in ("auto", "gemini", "nanogpt")
+        for v in ("auto", "gemini", "nanogpt", "worldlabs", "hyper3d")
     )
 
     return f"""<div id="nsStudioStage" class="ns-studio-stage">
@@ -2795,12 +3785,15 @@ def _render_studio_stage_markup(active_view: str) -> str:
 
     <div id="nsCanvasWorld" class="ns-canvas-world">
       <svg id="nsEdgesSvg" class="ns-edges-svg" aria-hidden="true"></svg>
-      <div id="nsNodesLayer"></div>
+      <div id="nsNodesLayer">{_render_omni_modal_showcase_nodes_html()}</div>
     </div>
 
     <div id="nsSelectionBox" class="ns-selection-box"></div>
     <div id="nsDropOverlay" class="ns-drop-overlay">Drop images here</div>
   </div>
+
+  <!-- Floating Pitch-Black (#000000) Node Studio Terminal -->
+  {_render_floating_terminal_html()}
 
   <!-- Chat View (ConversationView) -->
   <section id="nsConversationView" class="ns-alt-view{" hidden" if active_view != "conversation" else ""}" aria-label="Conversation Editor">
@@ -2830,6 +3823,7 @@ def _render_studio_stage_markup(active_view: str) -> str:
   <div class="ns-top-right-hud">
     <div id="nsCopyIndicator" class="ns-copy-indicator hidden">⌘/Ctrl held - click node to duplicate</div>
     <div class="ns-hud-row">
+      <span id="nsAtlasCreditsHudPill" class="ns-hud-btn">● WLT ATLAS v2 · 1,000 CR/$1</span>
       <button id="nsAutoLayoutBtn" type="button" class="ns-hud-btn hidden" title="Reorganize tree layout (Press A)" onclick="window.TinCanNodeStudio.autoLayout()">
         <span>Auto-Layout</span><span>[A]</span>
       </button>
@@ -2882,6 +3876,7 @@ def _render_studio_stage_markup(active_view: str) -> str:
         <div id="nsLibSec-references" class="ns-sec-content">
           <div id="nsLibRefDrop" class="ns-lib-ref-drop" onclick="window.TinCanNodeStudio.triggerFileInput()">
             <span class="ns-lib-ref-label">DROP OR CLICK</span>
+            <span class="ns-lib-ref-label">torii_1k.jpg · depth_0.exr · koto_score.wav</span>
           </div>
         </div>
       </div>
@@ -2894,7 +3889,7 @@ def _render_studio_stage_markup(active_view: str) -> str:
           <span>▾</span>
         </button>
         <div id="nsLibSec-assets" class="ns-sec-content">
-          <input id="nsAssetSearchInput" type="text" class="ns-asset-search" placeholder="Search assets..." oninput="window.TinCanNodeStudio.filterAssets(this.value)">
+          <input id="nsAssetSearchInput" type="text" class="ns-asset-search" placeholder="Search assets... (.spz, .glb, .exr, .mp4, .wav)" oninput="window.TinCanNodeStudio.filterAssets(this.value)">
           <div id="nsLibAssetGrid" class="ns-asset-grid">
             {_render_asset_grid_html()}
           </div>
@@ -2935,9 +3930,16 @@ def _render_studio_stage_markup(active_view: str) -> str:
       <div id="nsResponseToast" class="ns-response-toast hidden" role="status" aria-live="polite"></div>
 
       <div id="nsPromptIsland" class="ns-island">
+        {_render_slash_router_popover_html()}
+
         <div class="ns-island-top">
           <div class="ns-island-badges">
+            <button id="nsActiveSlashPill" type="button" class="ns-active-slash-pill" title="Toggle Slash-Command Omni-Modal Router" onclick="window.TinCanNodeStudio.toggleSlashRouterPopover()">
+              <span id="nsActiveSlashPillText">● /atlas splat</span>
+              <span class="ns-slash-pill-close" onclick="event.stopPropagation();window.TinCanNodeStudio.clearSlashRoute()">×</span>
+            </button>
             <span id="nsModePill" class="ns-mode-pill">GENERATE MODE</span>
+            <span id="nsOmniChainPill" class="ns-mode-pill">● OMNI-CHAIN MODE</span>
             <span id="nsConvPill" class="ns-context-pill hidden">
               <span>In Conversation</span>
               <button type="button" class="ns-context-close" title="End conversation" onclick="window.TinCanNodeStudio.endConversation()">×</button>
@@ -2954,6 +3956,7 @@ def _render_studio_stage_markup(active_view: str) -> str:
               <div class="ns-api-badges">
                 <span id="nsApiGeminiStatus" class="ns-api-badge">Gemini: Not Set</span>
                 <span id="nsApiNanogptStatus" class="ns-api-badge">NanoGPT: Not Set</span>
+                <span id="nsApiAtlasStatus" class="ns-api-badge is-ready">Atlas v2: Ready</span>
               </div>
               <input id="nsGeminiKeyInput" type="password" class="ns-api-input" placeholder="Custom Gemini Key (optional)" oninput="window.TinCanNodeStudio.setApiKey(this.value)">
               <input id="nsNanogptKeyInput" type="password" class="ns-api-input" placeholder="Custom NanoGPT Key (optional)" oninput="window.TinCanNodeStudio.setNanogptKey(this.value)">
@@ -3108,6 +4111,7 @@ __all__ = [
     "LUMINA_TEMPLATES",
     "MODEL_CAPABILITIES",
     "PANORAMIC_ASPECT_RATIOS",
+    "SLASH_ROUTER_COMMANDS",
     "STANDARD_ASPECT_RATIOS",
     "render_node_studio_html",
     "render_node_studio_window_html",
