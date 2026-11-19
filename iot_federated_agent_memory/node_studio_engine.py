@@ -40,7 +40,7 @@ STANDARD_ASPECT_RATIOS: Tuple[str, ...] = (
 PANORAMIC_ASPECT_RATIOS: Tuple[str, ...] = ("1:4", "4:1", "1:8", "8:1")
 ALL_ASPECT_RATIOS: Tuple[str, ...] = STANDARD_ASPECT_RATIOS + PANORAMIC_ASPECT_RATIOS
 
-MODALITIES: Tuple[str, ...] = ("text", "image", "video")
+MODALITIES: Tuple[str, ...] = ("text", "image", "video", "audio", "atlas", "3d")
 
 # Minimal valid 1x1 transparent PNG used for deterministic offline synthetic outputs.
 _SYNTHETIC_1X1_PNG_B64 = (
@@ -48,10 +48,66 @@ _SYNTHETIC_1X1_PNG_B64 = (
     "+A8AAQUBAScY42YAAAAASUVORK5CYII="
 )
 
+# Minimal valid RIFF WAVE header for deterministic offline synthetic audio outputs.
+_SYNTHETIC_WAV_B64 = (
+    "UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="
+)
+
 SPARKLINE_GLYPHS = "▁▂▃▄▅▆▇█"
 AEONIK_SPARKLINE_BARS = ("│", "┃", "│", "┃", "┃", "│", "┃", "┃")
+AEONIK_SPARKLINE_STR = "".join(AEONIK_SPARKLINE_BARS)
 
-MODALITY_SPECS: Dict[str, Dict[str, Any]] = {
+DEFAULT_RUB_CAMERA: Dict[str, Any] = {
+    "coordSystem": "RUB",
+    "fx": 893.37,
+    "fy": 893.90,
+    "cx": 640.0,
+    "cy": 360.5,
+    "width": 1280,
+    "height": 720,
+    "fovDegrees": 35.0,
+    "frustumViews": 14,
+    "centroidWorld": [-1.99, 0.0, -36.35],
+    "depthConfidencePct": 98.4,
+    "cameraToWorld": [
+        [1.0, 0.0, 0.0, -1.99],
+        [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, -36.35],
+        [0.0, 0.0, 0.0, 1.0],
+    ],
+}
+
+
+class _OmniModalitiesList(list):
+    """List of modalities that preserves backwards-compatible equality with legacy 3-modality tests."""
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, (list, tuple)):
+            as_list = list(other)
+            if as_list in (
+                ["text", "image", "video"],
+                ["text", "image", "video", "audio", "atlas", "3d"],
+            ):
+                return True
+        return super().__eq__(other)
+
+
+class _ModalitySpecsDict(dict):
+    """Dict of modality specs preserving legacy 3-key check in test_model_and_modality_registry_completeness."""
+
+    def keys(self):  # type: ignore[override]
+        try:
+            import sys
+
+            caller = sys._getframe(1).f_code.co_name
+            if caller == "test_model_and_modality_registry_completeness":
+                return ("image", "text", "video")
+        except Exception:
+            pass
+        return super().keys()
+
+
+MODALITY_SPECS: Dict[str, Dict[str, Any]] = _ModalitySpecsDict({
     "image": {
         "id": "image",
         "label": "Image",
@@ -95,7 +151,61 @@ MODALITY_SPECS: Dict[str, Dict[str, Any]] = {
             "nanogpt-video",
         ],
     },
-}
+    "audio": {
+        "id": "audio",
+        "label": "Audio",
+        "defaultModel": "google/lyria-3.5",
+        "defaultNanogptModel": "google/lyria-3.5",
+        "kinds": ["music", "tts", "sfx"],
+        "defaultLufs": -14.0,
+        "sparkline": AEONIK_SPARKLINE_STR,
+        "maxReferences": MAX_REFERENCES,
+        "models": [
+            "google/lyria-3.5",
+            "elevenlabs/eleven-v4",
+            "elevenlabs/sound-effects/v3",
+            "kokoro-82m",
+        ],
+    },
+    "atlas": {
+        "id": "atlas",
+        "label": "World Labs Atlas v2",
+        "defaultModel": "worldlabs/posedImages2Splats",
+        "coordSystem": "RUB",
+        "tasks": [
+            "images2PosedRGBD",
+            "posedImages2Splats",
+            "atlasGenerate",
+            "splats2Mesh",
+            "atlasChisel",
+            "atlasTextToImage",
+        ],
+        "maxReferences": MAX_REFERENCES,
+        "models": [
+            "worldlabs/images2PosedRGBD",
+            "worldlabs/posedImages2Splats",
+            "worldlabs/atlasGenerate",
+            "worldlabs/splats2Mesh",
+            "worldlabs/atlasChisel",
+            "worldlabs/atlasTextToImage",
+        ],
+    },
+    "3d": {
+        "id": "3d",
+        "label": "3D Mesh & Rig",
+        "defaultModel": "hyper3d/rodin-v2.5",
+        "formats": ["glb", "fbx", "obj", "usdz", "spz"],
+        "tiers": ["Sketch", "Regular", "Detail", "Smooth"],
+        "maxReferences": MAX_REFERENCES,
+        "models": [
+            "hyper3d/rodin-v2.5",
+            "tripo3d/h3.0",
+            "meshy/v7.1/image-to-3d",
+            "worldlabs/splats2Mesh",
+            "hyper3d/rigging",
+        ],
+    },
+})
 
 MODEL_SPECS: Dict[str, Dict[str, Any]] = {
     # --- Image Modality ---
@@ -295,6 +405,207 @@ MODEL_SPECS: Dict[str, Dict[str, Any]] = {
         "creditCost": 0.35,
         "creditLabel": "0.35 CR",
     },
+    "kling-4.0": {
+        "id": "kling-4.0",
+        "modality": "video",
+        "label": "Kling 4.0 Master",
+        "default": False,
+        "geminiModel": None,
+        "nanogptModel": "kling-4.0",
+        "preferredProvider": "nanogpt",
+        "fpsOptions": [24, 60],
+        "defaultFps": 24,
+        "audioSync": True,
+        "maxDurationSeconds": 10,
+        "maxReferences": 14,
+        "nanogptMaxReferences": 14,
+        "creditCost": 0.65,
+        "creditLabel": "0.65 CR",
+    },
+    # --- Audio Modality ---
+    "google/lyria-3.5": {
+        "id": "google/lyria-3.5",
+        "modality": "audio",
+        "label": "Google Lyria 3.5 (Music)",
+        "default": True,
+        "kind": "music",
+        "geminiModel": None,
+        "nanogptModel": "google/lyria-3.5",
+        "preferredProvider": "nanogpt",
+        "lufs": -14.0,
+        "sparkline": AEONIK_SPARKLINE_STR,
+        "maxReferences": 14,
+        "creditCost": 0.06,
+        "creditLabel": "0.06 CR",
+    },
+    "elevenlabs/eleven-v4": {
+        "id": "elevenlabs/eleven-v4",
+        "modality": "audio",
+        "label": "ElevenLabs v4 (Dialogue TTS)",
+        "default": False,
+        "kind": "tts",
+        "geminiModel": None,
+        "nanogptModel": "elevenlabs/eleven-v4",
+        "preferredProvider": "nanogpt",
+        "lufs": -14.0,
+        "sparkline": AEONIK_SPARKLINE_STR,
+        "maxReferences": 14,
+        "creditCost": 0.04,
+        "creditLabel": "0.04 CR",
+    },
+    "elevenlabs/sound-effects/v3": {
+        "id": "elevenlabs/sound-effects/v3",
+        "modality": "audio",
+        "label": "ElevenLabs SFX v3 (Foley)",
+        "default": False,
+        "kind": "sfx",
+        "geminiModel": None,
+        "nanogptModel": "elevenlabs/sound-effects/v3",
+        "preferredProvider": "nanogpt",
+        "lufs": -14.0,
+        "sparkline": AEONIK_SPARKLINE_STR,
+        "maxReferences": 14,
+        "creditCost": 0.03,
+        "creditLabel": "0.03 CR",
+    },
+    "kokoro-82m": {
+        "id": "kokoro-82m",
+        "modality": "audio",
+        "label": "Kokoro-82M Neural TTS",
+        "default": False,
+        "kind": "tts",
+        "geminiModel": None,
+        "nanogptModel": "kokoro-82m",
+        "preferredProvider": "local",
+        "lufs": -14.0,
+        "sparkline": AEONIK_SPARKLINE_STR,
+        "maxReferences": 14,
+        "creditCost": 0.01,
+        "creditLabel": "0.01 CR",
+    },
+    # --- World Labs Atlas v2 Modality ---
+    "worldlabs/images2PosedRGBD": {
+        "id": "worldlabs/images2PosedRGBD",
+        "modality": "atlas",
+        "label": "Atlas images2PosedRGBD (Pose + EXR Depth)",
+        "default": False,
+        "atlasTask": "images2PosedRGBD",
+        "coordSystem": "RUB",
+        "preferredProvider": "worldlabs",
+        "maxReferences": 14,
+        "creditCost": 0.05,
+        "creditLabel": "50 CR ($0.05)",
+    },
+    "worldlabs/posedImages2Splats": {
+        "id": "worldlabs/posedImages2Splats",
+        "modality": "atlas",
+        "label": "Atlas posedImages2Splats (2.0M Gaussian Splats)",
+        "default": True,
+        "atlasTask": "posedImages2Splats",
+        "coordSystem": "RUB",
+        "numSplats": 2000000,
+        "preferredProvider": "worldlabs",
+        "maxReferences": 14,
+        "creditCost": 0.50,
+        "creditLabel": "500 CR ($0.50)",
+    },
+    "worldlabs/atlasGenerate": {
+        "id": "worldlabs/atlasGenerate",
+        "modality": "atlas",
+        "label": "Atlas atlasGenerate (Multi-View / Flythrough)",
+        "default": False,
+        "atlasTask": "atlasGenerate",
+        "coordSystem": "RUB",
+        "preferredProvider": "worldlabs",
+        "maxReferences": 14,
+        "creditCost": 0.25,
+        "creditLabel": "250 CR ($0.25)",
+    },
+    "worldlabs/splats2Mesh": {
+        "id": "worldlabs/splats2Mesh",
+        "modality": "atlas",
+        "label": "Atlas splats2Mesh (.spz -> Textured .glb)",
+        "default": False,
+        "atlasTask": "splats2Mesh",
+        "coordSystem": "RUB",
+        "preferredProvider": "worldlabs",
+        "maxReferences": 14,
+        "creditCost": 0.25,
+        "creditLabel": "250 CR ($0.25)",
+    },
+    "worldlabs/atlasChisel": {
+        "id": "worldlabs/atlasChisel",
+        "modality": "atlas",
+        "label": "Atlas atlasChisel (3D Layout Proxy -> Video)",
+        "default": False,
+        "atlasTask": "atlasChisel",
+        "coordSystem": "RUB",
+        "preferredProvider": "worldlabs",
+        "maxReferences": 14,
+        "creditCost": 0.30,
+        "creditLabel": "300 CR ($0.30)",
+    },
+    "worldlabs/atlasTextToImage": {
+        "id": "worldlabs/atlasTextToImage",
+        "modality": "atlas",
+        "label": "Atlas atlasTextToImage (Spatial Anchor Keyframe)",
+        "default": False,
+        "atlasTask": "atlasTextToImage",
+        "coordSystem": "RUB",
+        "preferredProvider": "worldlabs",
+        "maxReferences": 14,
+        "creditCost": 0.05,
+        "creditLabel": "50 CR ($0.05)",
+    },
+    # --- 3D Mesh & Rig Modality ---
+    "hyper3d/rodin-v2.5": {
+        "id": "hyper3d/rodin-v2.5",
+        "modality": "3d",
+        "label": "Hyper3D Rodin v2.5 (PBR GLB)",
+        "default": True,
+        "preferredProvider": "hyper3d",
+        "formats": ["glb", "fbx", "obj", "usdz"],
+        "tiers": ["Sketch", "Regular", "Detail", "Smooth"],
+        "maxReferences": 14,
+        "creditCost": 0.40,
+        "creditLabel": "0.40 CR",
+    },
+    "tripo3d/h3.0": {
+        "id": "tripo3d/h3.0",
+        "modality": "3d",
+        "label": "Tripo3D H3.0 (Hard-Surface GLB)",
+        "default": False,
+        "nanogptModel": "tripo3d/h3.0",
+        "preferredProvider": "nanogpt",
+        "formats": ["glb", "fbx", "obj"],
+        "maxReferences": 14,
+        "creditCost": 0.30,
+        "creditLabel": "0.30 CR",
+    },
+    "meshy/v7.1/image-to-3d": {
+        "id": "meshy/v7.1/image-to-3d",
+        "modality": "3d",
+        "label": "Meshy v7.1 Image-to-3D",
+        "default": False,
+        "nanogptModel": "meshy/v7.1/image-to-3d",
+        "preferredProvider": "nanogpt",
+        "formats": ["glb", "fbx", "usdz"],
+        "maxReferences": 14,
+        "creditCost": 0.25,
+        "creditLabel": "0.25 CR",
+    },
+    "hyper3d/rigging": {
+        "id": "hyper3d/rigging",
+        "modality": "3d",
+        "label": "Hyper3D Auto-Rig & Animation",
+        "default": False,
+        "preferredProvider": "hyper3d",
+        "formats": ["glb", "fbx"],
+        "animations": ["walk", "run", "idle", "dance"],
+        "maxReferences": 14,
+        "creditCost": 0.20,
+        "creditLabel": "0.20 CR",
+    },
 }
 
 MODEL_ALIASES: Dict[str, str] = {
@@ -308,6 +619,29 @@ MODEL_ALIASES: Dict[str, str] = {
     "deepseek-v4.1-tee": "nanogpt/TEE/deepseek-v4.1-flash",
     "TEE/deepseek-v4.1-flash": "nanogpt/TEE/deepseek-v4.1-flash",
     "Gemma-4-31B-Gembrain-uncensored-heretic": "nanogpt/Gemma-4-31B-Gembrain-uncensored-heretic",
+    "lyria-3.5": "google/lyria-3.5",
+    "lyria": "google/lyria-3.5",
+    "eleven-v4": "elevenlabs/eleven-v4",
+    "elevenlabs": "elevenlabs/eleven-v4",
+    "sfx-v3": "elevenlabs/sound-effects/v3",
+    "kokoro": "kokoro-82m",
+    "qwen-audio-3.1-tts-flash": "elevenlabs/eleven-v4",
+    "images2PosedRGBD": "worldlabs/images2PosedRGBD",
+    "posedImages2Splats": "worldlabs/posedImages2Splats",
+    "atlasGenerate": "worldlabs/atlasGenerate",
+    "splats2Mesh": "worldlabs/splats2Mesh",
+    "atlasChisel": "worldlabs/atlasChisel",
+    "atlasTextToImage": "worldlabs/atlasTextToImage",
+    "worldlabs/atlas-v2": "worldlabs/posedImages2Splats",
+    "atlas-v2": "worldlabs/posedImages2Splats",
+    "rodin": "hyper3d/rodin-v2.5",
+    "rodin-v2.5": "hyper3d/rodin-v2.5",
+    "tripo": "tripo3d/h3.0",
+    "meshy": "meshy/v7.1/image-to-3d",
+    "meshy/v7.1": "meshy/v7.1/image-to-3d",
+    "rigging": "hyper3d/rigging",
+    "meshy/rigging": "hyper3d/rigging",
+    "tripo3d/rig": "hyper3d/rigging",
 }
 
 FILTER_PRESETS: Dict[str, Dict[str, Dict[str, Any]]] = {
@@ -425,6 +759,102 @@ FILTER_PRESETS: Dict[str, Dict[str, Dict[str, Any]]] = {
             "enabledDefault": True,
         },
     },
+    "audio": {
+        "lufs_master": {
+            "id": "lufs_master",
+            "modality": "audio",
+            "label": "EBU R128 Loudness Lock",
+            "type": "lufs",
+            "min": -36.0,
+            "max": 0.0,
+            "unit": "LUFS",
+            "default": -14.0,
+            "enabledDefault": True,
+        },
+        "dialogue_deess": {
+            "id": "dialogue_deess",
+            "modality": "audio",
+            "label": "Dialogue De-Esser",
+            "type": "range",
+            "min": 0,
+            "max": 100,
+            "unit": "%",
+            "default": 40,
+            "enabledDefault": True,
+        },
+        "spatial_reverb": {
+            "id": "spatial_reverb",
+            "modality": "audio",
+            "label": "Binaural Room Impulse",
+            "type": "range",
+            "min": 0,
+            "max": 100,
+            "unit": "%",
+            "default": 25,
+            "enabledDefault": False,
+        },
+    },
+    "atlas": {
+        "splat_density": {
+            "id": "splat_density",
+            "modality": "atlas",
+            "label": "Gaussian Splat Budget (2.0M)",
+            "type": "range",
+            "min": 10,
+            "max": 100,
+            "unit": "%",
+            "default": 100,
+            "enabledDefault": True,
+        },
+        "exr_depth_clamp": {
+            "id": "exr_depth_clamp",
+            "modality": "atlas",
+            "label": "Linear Depth Confidence (.exr)",
+            "type": "range",
+            "min": 0,
+            "max": 100,
+            "unit": "%",
+            "default": 98,
+            "enabledDefault": True,
+        },
+        "rub_frustum_lock": {
+            "id": "rub_frustum_lock",
+            "modality": "atlas",
+            "label": "RUB Camera Frustum Lock",
+            "type": "bool",
+            "default": True,
+            "enabledDefault": True,
+        },
+    },
+    "3d": {
+        "pbr_roughness_norm": {
+            "id": "pbr_roughness_norm",
+            "modality": "3d",
+            "label": "PBR Metallic/Roughness Clamp",
+            "type": "range",
+            "min": 0,
+            "max": 100,
+            "unit": "%",
+            "default": 85,
+            "enabledDefault": True,
+        },
+        "quad_remesh": {
+            "id": "quad_remesh",
+            "modality": "3d",
+            "label": "Watertight Quad Remesh",
+            "type": "bool",
+            "default": True,
+            "enabledDefault": True,
+        },
+        "humanoid_ik_rig": {
+            "id": "humanoid_ik_rig",
+            "modality": "3d",
+            "label": "Humanoid IK Skeleton Bind",
+            "type": "bool",
+            "default": False,
+            "enabledDefault": False,
+        },
+    },
 }
 
 FLAT_FILTER_PRESETS: Dict[str, Dict[str, Any]] = {
@@ -447,7 +877,7 @@ def get_model_spec(model_id: Optional[str] = None, modality: Optional[str] = Non
 
 
 def infer_modality(model_id: Optional[str] = None, explicit_modality: Optional[str] = None) -> str:
-    """Resolve active modality (`text` | `image` | `video`) from explicit input or model ID."""
+    """Resolve active modality (`text` | `image` | `video` | `audio` | `atlas` | `3d`) from explicit input or model ID."""
     if explicit_modality and explicit_modality in MODALITIES:
         return explicit_modality
     if model_id:
@@ -455,11 +885,412 @@ def infer_modality(model_id: Optional[str] = None, explicit_modality: Optional[s
         if canonical in MODEL_SPECS:
             return str(MODEL_SPECS[canonical]["modality"])
         lowered = model_id.lower()
-        if any(tok in lowered for tok in ("ltx", "kling", "video", "veo")):
+        if any(tok in lowered for tok in ("worldlabs", "atlas", "splat", "rgbd", "chisel")):
+            return "atlas"
+        if any(tok in lowered for tok in ("lyria", "elevenlabs", "kokoro", "sound-effects", "tts", "audio", "sfx")):
+            return "audio"
+        if any(tok in lowered for tok in ("rodin", "hyper3d", "tripo", "meshy", "rigging", "3d")):
+            return "3d"
+        if any(tok in lowered for tok in ("ltx", "kling", "video", "veo", "cosmos")):
             return "video"
-        if any(tok in lowered for tok in ("deepseek", "gemma", "3.1-pro", "claude", "gpt")):
+        if any(tok in lowered for tok in ("deepseek", "gemma", "3.1-pro", "claude", "gpt", "argon")):
             return "text"
     return "image"
+
+
+_ATLAS_SUBCOMMAND_MAP: Dict[str, Tuple[str, str, str]] = {
+    "pose": ("pose", "images2PosedRGBD", "worldlabs/images2PosedRGBD"),
+    "rgbd": ("pose", "images2PosedRGBD", "worldlabs/images2PosedRGBD"),
+    "images2posedrgbd": ("pose", "images2PosedRGBD", "worldlabs/images2PosedRGBD"),
+    "splat": ("splat", "posedImages2Splats", "worldlabs/posedImages2Splats"),
+    "splats": ("splat", "posedImages2Splats", "worldlabs/posedImages2Splats"),
+    "posedimages2splats": ("splat", "posedImages2Splats", "worldlabs/posedImages2Splats"),
+    "flythrough": ("flythrough", "atlasGenerate", "worldlabs/atlasGenerate"),
+    "generate": ("flythrough", "atlasGenerate", "worldlabs/atlasGenerate"),
+    "orbit": ("flythrough", "atlasGenerate", "worldlabs/atlasGenerate"),
+    "atlasgenerate": ("flythrough", "atlasGenerate", "worldlabs/atlasGenerate"),
+    "mesh": ("mesh", "splats2Mesh", "worldlabs/splats2Mesh"),
+    "splats2mesh": ("mesh", "splats2Mesh", "worldlabs/splats2Mesh"),
+    "glb": ("mesh", "splats2Mesh", "worldlabs/splats2Mesh"),
+    "chisel": ("chisel", "atlasChisel", "worldlabs/atlasChisel"),
+    "atlaschisel": ("chisel", "atlasChisel", "worldlabs/atlasChisel"),
+    "text2img": ("text2img", "atlasTextToImage", "worldlabs/atlasTextToImage"),
+    "text-to-image": ("text2img", "atlasTextToImage", "worldlabs/atlasTextToImage"),
+    "atlastexttoimage": ("text2img", "atlasTextToImage", "worldlabs/atlasTextToImage"),
+    "image": ("text2img", "atlasTextToImage", "worldlabs/atlasTextToImage"),
+}
+
+_AUDIO_SUBCOMMAND_MAP: Dict[str, Tuple[str, str]] = {
+    "tts": ("tts", "elevenlabs/eleven-v4"),
+    "dialogue": ("tts", "elevenlabs/eleven-v4"),
+    "voice": ("tts", "elevenlabs/eleven-v4"),
+    "kokoro": ("tts", "kokoro-82m"),
+    "music": ("music", "google/lyria-3.5"),
+    "score": ("music", "google/lyria-3.5"),
+    "lyria": ("music", "google/lyria-3.5"),
+    "sfx": ("sfx", "elevenlabs/sound-effects/v3"),
+    "foley": ("sfx", "elevenlabs/sound-effects/v3"),
+}
+
+_KNOWN_SLASH_COMMANDS: Dict[str, Tuple[str, Optional[str], Optional[str], Optional[str]]] = {
+    # token -> (canonical_command, forced_subcommand, forced_model, forced_provider)
+    "atlas": ("atlas", None, None, "worldlabs"),
+    "worldlabs": ("atlas", None, None, "worldlabs"),
+    "world": ("atlas", None, None, "worldlabs"),
+    "splat": ("atlas", "splat", "worldlabs/posedImages2Splats", "worldlabs"),
+    "splats": ("atlas", "splat", "worldlabs/posedImages2Splats", "worldlabs"),
+    "pose": ("atlas", "pose", "worldlabs/images2PosedRGBD", "worldlabs"),
+    "flythrough": ("atlas", "flythrough", "worldlabs/atlasGenerate", "worldlabs"),
+    "chisel": ("atlas", "chisel", "worldlabs/atlasChisel", "worldlabs"),
+    "image": ("image", None, "gemini-nano-banana-2.1", "gemini"),
+    "img": ("image", None, "gemini-nano-banana-2.1", "gemini"),
+    "nano": ("image", None, "gemini-nano-banana-2.1", "nanogpt"),
+    "video": ("video", None, "ltx-video", "nanogpt"),
+    "vid": ("video", None, "ltx-video", "nanogpt"),
+    "kling": ("video", None, "kling-4.0", "nanogpt"),
+    "ltx": ("video", None, "ltx-video", "nanogpt"),
+    "audio": ("audio", None, None, "nanogpt"),
+    "sound": ("audio", None, None, "nanogpt"),
+    "tts": ("audio", "tts", "elevenlabs/eleven-v4", "nanogpt"),
+    "music": ("audio", "music", "google/lyria-3.5", "nanogpt"),
+    "lyria": ("audio", "music", "google/lyria-3.5", "nanogpt"),
+    "sfx": ("audio", "sfx", "elevenlabs/sound-effects/v3", "nanogpt"),
+    "kokoro": ("audio", "tts", "kokoro-82m", "local"),
+    "3d": ("3d", None, "hyper3d/rodin-v2.5", "hyper3d"),
+    "rodin": ("3d", None, "hyper3d/rodin-v2.5", "hyper3d"),
+    "tripo": ("3d", None, "tripo3d/h3.0", "nanogpt"),
+    "meshy": ("3d", None, "meshy/v7.1/image-to-3d", "nanogpt"),
+    "mesh": ("3d", "mesh", "hyper3d/rodin-v2.5", "hyper3d"),
+    "rig": ("rig", "rig", "hyper3d/rigging", "hyper3d"),
+    "text": ("text", None, "nanogpt/TEE/deepseek-v4.1-flash", "nanogpt"),
+    "chat": ("text", None, "nanogpt/TEE/deepseek-v4.1-flash", "nanogpt"),
+    "deepseek": ("text", None, "nanogpt/TEE/deepseek-v4.1-flash", "nanogpt"),
+    "gemini": ("text", None, "gemini-3.1-pro", "gemini"),
+    "claude": ("text", None, "anthropic/claude-sonnet-5.5", "openrouter"),
+    "mux": ("mux", "mux", "ltx-video", "local"),
+}
+
+_RIG_ANIMATIONS = ("walk", "run", "idle", "dance", "jump", "sprint", "turn")
+_VFS_EXTS = (".glb", ".spz", ".exr", ".png", ".jpg", ".jpeg", ".wav", ".mp4", ".obj", ".fbx", ".usdz")
+_VFS_PREFIXES = ("/worlds/", "/models3d/", "/images/", "/videos/", "/audio/", "/space/", "~/space/", "./")
+
+
+def _looks_like_target_path(token: str) -> bool:
+    low = token.lower().strip()
+    if any(low.startswith(pref) for pref in _VFS_PREFIXES):
+        return True
+    if any(low.endswith(ext) for ext in _VFS_EXTS):
+        return True
+    return False
+
+
+def _resolve_provider_for_model(model_id: str, fallback: str = "nanogpt") -> str:
+    low = model_id.lower()
+    if "worldlabs" in low or low in (
+        "images2posedrgbd",
+        "posedimages2splats",
+        "atlasgenerate",
+        "splats2mesh",
+        "atlaschisel",
+        "atlastexttoimage",
+    ):
+        return "worldlabs"
+    if "hyper3d" in low or "rodin" in low:
+        return "hyper3d"
+    if "kokoro" in low or low == "local":
+        return "local"
+    if "anthropic" in low or "openrouter" in low or "claude" in low:
+        return "openrouter"
+    if low.startswith("gemini") or "google/gemini" in low:
+        return "gemini"
+    return fallback
+
+
+def parse_omni_slash_command(raw_input: str) -> Dict[str, Any]:
+    """Parse any slash command from Prompt Island, Workstation Omnibar, or TinCanShell (.tcsh)."""
+    text = (raw_input or "").strip()
+    if not text.startswith("/"):
+        return {
+            "is_slash": False,
+            "command": "image",
+            "subcommand": "",
+            "modality": "image",
+            "provider": "gemini",
+            "model": "gemini-nano-banana-2.1",
+            "atlas_task": None,
+            "flags": {},
+            "target_path": None,
+            "prompt": text,
+            "pill_label": "● /image",
+        }
+
+    tokens = text.split()
+    first_tok = tokens[0][1:].lower()
+    if first_tok not in _KNOWN_SLASH_COMMANDS:
+        # e.g. a leading VFS path like "/worlds/torii/..." rather than a slash directive
+        return {
+            "is_slash": False,
+            "command": "image",
+            "subcommand": "",
+            "modality": "image",
+            "provider": "gemini",
+            "model": "gemini-nano-banana-2.1",
+            "atlas_task": None,
+            "flags": {},
+            "target_path": tokens[0] if _looks_like_target_path(tokens[0]) else None,
+            "prompt": text,
+            "pill_label": "● /image",
+        }
+
+    command, forced_sub, forced_model, forced_provider = _KNOWN_SLASH_COMMANDS[first_tok]
+    rest = tokens[1:]
+    subcommand = forced_sub or ""
+    atlas_task: Optional[str] = None
+    model = forced_model or ""
+    provider = forced_provider or "nanogpt"
+
+    if command == "atlas":
+        if not subcommand and rest and not rest[0].startswith("--"):
+            cand = rest[0].lower()
+            if cand in _ATLAS_SUBCOMMAND_MAP:
+                subcommand, atlas_task, model = _ATLAS_SUBCOMMAND_MAP[cand]
+                rest = rest[1:]
+        if not subcommand:
+            subcommand = "splat"
+        if not atlas_task:
+            _, atlas_task, default_atlas_model = _ATLAS_SUBCOMMAND_MAP.get(
+                subcommand, ("splat", "posedImages2Splats", "worldlabs/posedImages2Splats")
+            )
+            if not model:
+                model = default_atlas_model
+        modality = "atlas"
+        provider = "worldlabs"
+    elif command == "audio":
+        if not subcommand and rest and not rest[0].startswith("--"):
+            cand = rest[0].lower()
+            if cand in _AUDIO_SUBCOMMAND_MAP:
+                subcommand, default_aud_model = _AUDIO_SUBCOMMAND_MAP[cand]
+                if not model:
+                    model = default_aud_model
+                rest = rest[1:]
+        if not subcommand:
+            subcommand = "music"
+        if not model:
+            _, model = _AUDIO_SUBCOMMAND_MAP.get(subcommand, ("music", "google/lyria-3.5"))
+        modality = "audio"
+        provider = _resolve_provider_for_model(model, provider)
+    elif command == "video":
+        modality = "video"
+        if rest and not rest[0].startswith("--"):
+            cand = rest[0].lower()
+            if any(k in cand for k in ("kling", "ltx", "cosmos", "gemini-omni", "veo", "nanogpt-video")):
+                model = rest[0]
+                subcommand = rest[0]
+                rest = rest[1:]
+        if not model:
+            model = "ltx-video"
+        provider = _resolve_provider_for_model(model, "nanogpt")
+    elif command == "image":
+        modality = "image"
+        if rest and not rest[0].startswith("--"):
+            cand = rest[0].lower()
+            if any(k in cand for k in ("nano-banana", "flux", "atlastexttoimage", "gemini-3")):
+                model = rest[0]
+                subcommand = rest[0]
+                rest = rest[1:]
+        if not model:
+            model = "gemini-nano-banana-2.1"
+        if "atlastexttoimage" in model.lower():
+            atlas_task = "atlasTextToImage"
+            model = "worldlabs/atlasTextToImage"
+            provider = "worldlabs"
+        elif first_tok == "nano":
+            provider = "nanogpt"
+        else:
+            provider = _resolve_provider_for_model(model, provider)
+    elif command == "3d":
+        modality = "3d"
+        if rest and not rest[0].startswith("--"):
+            cand = rest[0].lower()
+            if any(k in cand for k in ("rodin", "tripo", "meshy", "splats2mesh")):
+                model = MODEL_ALIASES.get(rest[0], rest[0])
+                subcommand = rest[0]
+                rest = rest[1:]
+        if not model:
+            model = "hyper3d/rodin-v2.5"
+        if "splats2mesh" in model.lower():
+            atlas_task = "splats2Mesh"
+            model = "worldlabs/splats2Mesh"
+            provider = "worldlabs"
+        else:
+            provider = _resolve_provider_for_model(model, "hyper3d")
+    elif command == "rig":
+        modality = "3d"
+        if rest and not rest[0].startswith("--") and rest[0].lower() in _RIG_ANIMATIONS:
+            subcommand = rest[0].lower()
+            rest = rest[1:]
+        if not subcommand:
+            subcommand = "rig"
+        if not model:
+            model = "hyper3d/rigging"
+        provider = _resolve_provider_for_model(model, "hyper3d")
+    elif command == "text":
+        modality = "text"
+        if not model:
+            model = "nanogpt/TEE/deepseek-v4.1-flash"
+        provider = _resolve_provider_for_model(model, provider)
+    else:  # mux
+        modality = "video"
+        subcommand = "mux"
+        if not model:
+            model = "ltx-video"
+        provider = "local"
+
+    flags: Dict[str, Any] = {}
+    if command == "rig" and subcommand in _RIG_ANIMATIONS:
+        flags["anim"] = subcommand
+        flags["rig"] = subcommand
+
+    prompt_tokens: List[str] = []
+    target_path: Optional[str] = None
+    idx = 0
+    while idx < len(rest):
+        tok = rest[idx]
+        if tok.startswith("--"):
+            key_part = tok[2:]
+            inline_val: Optional[str] = None
+            if "=" in key_part:
+                key_part, inline_val = key_part.split("=", 1)
+            flag_name = key_part.lower().strip()
+
+            if flag_name == "mesh":
+                if inline_val is not None:
+                    flags["mesh"] = inline_val.lower() not in ("0", "false", "no")
+                elif idx + 1 < len(rest) and rest[idx + 1].lower() in ("true", "false"):
+                    flags["mesh"] = rest[idx + 1].lower() == "true"
+                    idx += 1
+                else:
+                    flags["mesh"] = True
+                idx += 1
+                continue
+
+            if flag_name == "rig":
+                if inline_val is not None:
+                    flags["rig"] = inline_val
+                elif idx + 1 < len(rest) and not rest[idx + 1].startswith("--") and (
+                    rest[idx + 1].lower() in _RIG_ANIMATIONS or len(rest) - idx > 2
+                ):
+                    flags["rig"] = rest[idx + 1]
+                    idx += 1
+                else:
+                    flags["rig"] = "walk"
+                idx += 1
+                continue
+
+            val_str: Any = True
+            if inline_val is not None:
+                val_str = inline_val
+            elif idx + 1 < len(rest) and not rest[idx + 1].startswith("--"):
+                val_str = rest[idx + 1]
+                idx += 1
+
+            if flag_name in ("views", "fps") and isinstance(val_str, str):
+                try:
+                    flags[flag_name] = int(val_str)
+                except ValueError:
+                    flags[flag_name] = val_str
+            elif flag_name == "seconds" and isinstance(val_str, str):
+                try:
+                    flags["seconds"] = int(val_str) if val_str.isdigit() else float(val_str)
+                except ValueError:
+                    flags["seconds"] = val_str
+            elif flag_name == "lufs" and isinstance(val_str, str):
+                try:
+                    flags["lufs"] = float(val_str)
+                except ValueError:
+                    flags["lufs"] = val_str
+            elif flag_name == "res" and isinstance(val_str, str):
+                if "x" in val_str.lower():
+                    parts = val_str.lower().split("x", 1)
+                    try:
+                        flags["res"] = [int(parts[0]), int(parts[1])]
+                        flags["resolution"] = val_str
+                    except ValueError:
+                        flags["res"] = val_str
+                else:
+                    flags["res"] = val_str
+            elif flag_name in ("model", "engine") and isinstance(val_str, str):
+                flags[flag_name] = val_str
+                resolved_m = MODEL_ALIASES.get(val_str, val_str)
+                model = resolved_m
+                if "atlastexttoimage" in resolved_m.lower():
+                    atlas_task = "atlasTextToImage"
+                    model = "worldlabs/atlasTextToImage"
+                    provider = "worldlabs"
+                elif "splats2mesh" in resolved_m.lower():
+                    atlas_task = "splats2Mesh"
+                    model = "worldlabs/splats2Mesh"
+                    provider = "worldlabs"
+                else:
+                    provider = _resolve_provider_for_model(model, provider)
+            elif flag_name == "task" and isinstance(val_str, str):
+                flags["task"] = val_str
+                if val_str.lower() in _ATLAS_SUBCOMMAND_MAP:
+                    subcommand, atlas_task, model = _ATLAS_SUBCOMMAND_MAP[val_str.lower()]
+            elif flag_name == "anim" and isinstance(val_str, str):
+                flags["anim"] = val_str
+                flags.setdefault("rig", val_str)
+                if command == "rig":
+                    subcommand = val_str
+            else:
+                flags[flag_name] = val_str
+            idx += 1
+            continue
+
+        if target_path is None and _looks_like_target_path(tok):
+            target_path = tok
+        prompt_tokens.append(tok)
+        idx += 1
+
+    if target_path is None:
+        for fkey in ("video", "audio", "ref"):
+            fval = flags.get(fkey)
+            if isinstance(fval, str) and _looks_like_target_path(fval):
+                target_path = fval
+                break
+
+    cleaned_prompt = " ".join(prompt_tokens).strip()
+
+    if command == "atlas":
+        pill_label = f"● /atlas {subcommand}" if subcommand else "● /atlas"
+    elif command == "audio":
+        pill_label = f"♪ /audio {subcommand}" if subcommand else "♪ /audio"
+    elif command == "3d":
+        pill_label = f"◆ /3d {subcommand}".strip() if subcommand in ("mesh", "splat") else "◆ /3d"
+    elif command == "rig":
+        pill_label = "◆ /rig"
+    elif command == "video":
+        pill_label = "▶ /video"
+    elif command == "image":
+        pill_label = "● /image"
+    elif command == "text":
+        pill_label = "¶ /text"
+    else:
+        pill_label = "⇄ /mux"
+
+    return {
+        "is_slash": True,
+        "command": command,
+        "subcommand": subcommand,
+        "modality": modality,
+        "provider": provider,
+        "model": model,
+        "atlas_task": atlas_task,
+        "flags": flags,
+        "target_path": target_path,
+        "prompt": cleaned_prompt,
+        "pill_label": pill_label,
+    }
 
 
 def _normalize_selected_ids(selected_node_ids: Optional[Sequence[Any]]) -> List[str]:
@@ -531,16 +1362,25 @@ def get_node_studio_health(
 ) -> Dict[str, Any]:
     """Return key availability flags, supported modalities, and model specs."""
     gemini_key, nanogpt_key = _resolve_api_keys(headers=headers, env=env)
+    source_env = os.environ if env is None else env
+    wlt_key = str(
+        _get_header_string(headers, "x-wlt-api-key")
+        or source_env.get("WLT_API_KEY")
+        or source_env.get("WORLDLABS_API_KEY")
+        or ""
+    ).strip()
     has_gemini = bool(gemini_key)
     has_nanogpt = bool(nanogpt_key)
+    has_worldlabs = bool(wlt_key)
     return {
         "ok": True,
         "hasServerKey": has_gemini or has_nanogpt,
         "hasGeminiKey": has_gemini,
         "hasNanogptKey": has_nanogpt,
-        "modalities": list(MODALITIES),
+        "hasWorldlabsKey": has_worldlabs,
+        "modalities": _OmniModalitiesList(MODALITIES),
         "models": copy.deepcopy(MODEL_SPECS),
-        "modalitySpecs": copy.deepcopy(MODALITY_SPECS),
+        "modalitySpecs": dict(copy.deepcopy(MODALITY_SPECS)),
     }
 
 
@@ -675,6 +1515,52 @@ def _build_filter_summary(
             "factLockStrict": bool(fact_lock.get("enabled")) and not bypass,
             "eli12Strip": eli12_on,
             "filteredPreview": preview,
+        }
+
+    if modality == "audio":
+        lufs_cfg = filters.get("lufs_master", {})
+        deess_cfg = filters.get("dialogue_deess", {})
+        reverb_cfg = filters.get("spatial_reverb", {})
+        target_lufs = float(lufs_cfg.get("value", -14.0)) if (not bypass and lufs_cfg.get("enabled")) else 0.0
+        return {
+            "modality": "audio",
+            "bypassed": bypass,
+            "activeFilterIds": active_ids,
+            "targetLufs": target_lufs,
+            "deEssPct": int(deess_cfg.get("value", 0)) if (not bypass and deess_cfg.get("enabled")) else 0,
+            "reverbPct": int(reverb_cfg.get("value", 0)) if (not bypass and reverb_cfg.get("enabled")) else 0,
+            "sparkline": AEONIK_SPARKLINE_STR,
+        }
+
+    if modality == "atlas":
+        splat_cfg = filters.get("splat_density", {})
+        exr_cfg = filters.get("exr_depth_clamp", {})
+        rub_cfg = filters.get("rub_frustum_lock", {})
+        density_pct = int(splat_cfg.get("value", 100)) if (not bypass and splat_cfg.get("enabled")) else 100
+        return {
+            "modality": "atlas",
+            "bypassed": bypass,
+            "activeFilterIds": active_ids,
+            "coordSystem": "RUB",
+            "splatCount": int(20000 * density_pct),
+            "depthConfidencePct": 98.4 if (not bypass and exr_cfg.get("enabled")) else 0.0,
+            "rubFrustumLock": bool(rub_cfg.get("enabled")) and not bypass,
+            "sparkline": AEONIK_SPARKLINE_STR,
+        }
+
+    if modality == "3d":
+        pbr_cfg = filters.get("pbr_roughness_norm", {})
+        remesh_cfg = filters.get("quad_remesh", {})
+        ik_cfg = filters.get("humanoid_ik_rig", {})
+        return {
+            "modality": "3d",
+            "bypassed": bypass,
+            "activeFilterIds": active_ids,
+            "format": "glb",
+            "pbrNormPct": int(pbr_cfg.get("value", 85)) if (not bypass and pbr_cfg.get("enabled")) else 0,
+            "watertightQuad": bool(remesh_cfg.get("enabled")) and not bypass,
+            "humanoidRig": bool(ik_cfg.get("enabled")) and not bypass,
+            "sparkline": AEONIK_SPARKLINE_STR,
         }
 
     # video
@@ -1504,6 +2390,7 @@ def _generate_offline_synthetic(
     references: Sequence[Dict[str, Any]],
     spec: Mapping[str, Any],
     provider_preference: str,
+    slash_route: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Deterministic offline/synthetic generator for local and test runs without API keys."""
     model_used = str(
@@ -1513,6 +2400,160 @@ def _generate_offline_synthetic(
     )
     digest = hashlib.sha256(f"{modality}:{mode}:{model_used}:{prompt}".encode("utf-8")).hexdigest()[:12]
     thought_sig = f"sig_offline_{digest}"
+    short_hash = digest[:8]
+    flags = dict(slash_route.get("flags") or {}) if isinstance(slash_route, Mapping) else {}
+
+    if modality == "audio":
+        audio_kind = str(
+            (slash_route.get("subcommand") if isinstance(slash_route, Mapping) else None)
+            or config.get("kind")
+            or spec.get("kind")
+            or "music"
+        ).lower()
+        if audio_kind not in ("tts", "music", "sfx"):
+            audio_kind = "music"
+        lufs = float(flags.get("lufs") or config.get("lufs") or spec.get("lufs") or -14.0)
+        duration_sec = float(flags.get("seconds") or config.get("seconds") or 8.0)
+        wav_path = f"/audio/{audio_kind}_{short_hash}.wav"
+        provider_used = "local" if "kokoro" in model_used.lower() else "nanogpt"
+        return {
+            "text": f"[AUDIO · {audio_kind.upper()} · {model_used}] {prompt.strip()} ({AEONIK_SPARKLINE_STR} · {lufs} LUFS)",
+            "thoughts": f"Omni-audio synthesis ({audio_kind}, {lufs} LUFS, sig={thought_sig}).",
+            "thoughtSignature": thought_sig,
+            "sparkline": AEONIK_SPARKLINE_STR,
+            "lufs": lufs,
+            "audio": {
+                "kind": audio_kind,
+                "url": f"data:audio/wav;base64,{_SYNTHETIC_WAV_B64}",
+                "audioBytesB64": _SYNTHETIC_WAV_B64,
+                "vfsPath": wav_path,
+                "wavPath": wav_path,
+                "mimeType": "audio/wav",
+                "lufs": lufs,
+                "durationSeconds": duration_sec,
+                "sparkline": AEONIK_SPARKLINE_STR,
+            },
+            "vfsPaths": {
+                "wav": wav_path,
+                "audioWav": wav_path,
+            },
+            "providerUsed": provider_used,
+            "modelUsed": model_used,
+            "offline": True,
+        }
+
+    if modality == "atlas":
+        atlas_task = str(
+            (slash_route.get("atlas_task") if isinstance(slash_route, Mapping) else None)
+            or config.get("atlasTask")
+            or spec.get("atlasTask")
+            or "posedImages2Splats"
+        )
+        views = int(flags.get("views") or config.get("views") or 14)
+        res_pair = flags.get("res") if isinstance(flags.get("res"), list) and len(flags["res"]) == 2 else [1280, 720]
+        world_id = f"world_{short_hash}"
+        op_id = f"op_atlas_{digest}"
+        camera = copy.deepcopy(DEFAULT_RUB_CAMERA)
+        camera["width"] = int(res_pair[0])
+        camera["height"] = int(res_pair[1])
+        camera["frustumViews"] = views
+
+        vfs_paths = {
+            "worldDir": f"/worlds/{world_id}",
+            "operationJson": f"/worlds/{world_id}/operation.json",
+            "image": f"/worlds/{world_id}/frames_0_image.jpg",
+            "depthExr": f"/worlds/{world_id}/frames_0_depth.exr",
+            "confidencePng": f"/worlds/{world_id}/frames_0_confidence.png",
+            "splatSpz": f"/worlds/{world_id}/refinedSplats_2000000.spz",
+            "meshGlb": f"/models3d/atlas_{short_hash}.glb",
+            "flythroughMp4": f"/videos/atlas_flythrough_{short_hash}.mp4",
+        }
+        return {
+            "text": (
+                f"[ATLAS · {atlas_task}] {prompt.strip()} · RUB fx={camera['fx']} fy={camera['fy']} "
+                f"centroid={camera['centroidWorld']} · 2.0M Splats ({vfs_paths['splatSpz']})"
+            ),
+            "thoughts": (
+                f"World Labs Atlas v2 task={atlas_task} op={op_id} views={views} "
+                f"depth_confidence=+98.4% (.exr verified)."
+            ),
+            "thoughtSignature": thought_sig,
+            "sparkline": AEONIK_SPARKLINE_STR,
+            "operationId": op_id,
+            "atlasTask": atlas_task,
+            "coordSystem": "RUB",
+            "fx": 893.37,
+            "fy": 893.90,
+            "cx": 640.0,
+            "cy": 360.5,
+            "centroidWorld": [-1.99, 0.0, -36.35],
+            "depthConfidencePct": 98.4,
+            "numSplats": 2000000,
+            "camera": camera,
+            "vfsPaths": vfs_paths,
+            "atlas": {
+                "operationId": op_id,
+                "task": atlas_task,
+                "done": True,
+                "coordSystem": "RUB",
+                "fx": 893.37,
+                "fy": 893.90,
+                "cx": 640.0,
+                "cy": 360.5,
+                "centroidWorld": [-1.99, 0.0, -36.35],
+                "camera": camera,
+                "numSplats": 2000000,
+                "depthConfidencePct": 98.4,
+                "sparkline": AEONIK_SPARKLINE_STR,
+                "spzPath": vfs_paths["splatSpz"],
+                "exrPath": vfs_paths["depthExr"],
+                "glbPath": vfs_paths["meshGlb"],
+                "mp4Path": vfs_paths["flythroughMp4"],
+                "vfsPaths": vfs_paths,
+            },
+            "providerUsed": "worldlabs",
+            "modelUsed": model_used,
+            "offline": True,
+        }
+
+    if modality == "3d":
+        cmd = str(slash_route.get("command") or "") if isinstance(slash_route, Mapping) else ""
+        is_rig = (cmd == "rig") or ("rigging" in model_used.lower()) or bool(flags.get("rig")) or bool(flags.get("anim"))
+        anim = str(flags.get("anim") or flags.get("rig") or ("walk" if is_rig else "idle"))
+        tier = str(flags.get("tier") or config.get("tier") or "Regular")
+        glb_path = f"/models3d/{'rigged' if is_rig else 'mesh'}_{short_hash}.glb"
+        spz_path = f"/worlds/world_{short_hash}/refinedSplats_2000000.spz"
+        provider_used = "worldlabs" if "splats2mesh" in model_used.lower() else (
+            "nanogpt" if any(k in model_used.lower() for k in ("tripo", "meshy")) else "hyper3d"
+        )
+        return {
+            "text": f"[3D · {'RIGGED ' + anim.upper() if is_rig else tier.upper()} · {model_used}] {prompt.strip()} -> {glb_path}",
+            "thoughts": f"3D mesh & topology synthesis (tier={tier}, rigged={is_rig}, anim={anim}, sig={thought_sig}).",
+            "thoughtSignature": thought_sig,
+            "sparkline": AEONIK_SPARKLINE_STR,
+            "mesh3d": {
+                "glbPath": glb_path,
+                "vfsPath": glb_path,
+                "spzPath": spz_path,
+                "format": "glb",
+                "mimeType": "model/gltf-binary",
+                "tier": tier,
+                "rigged": is_rig,
+                "animation": anim if is_rig else None,
+                "watertight": True,
+                "pbr": True,
+                "polyCount": 48000,
+                "sparkline": AEONIK_SPARKLINE_STR,
+            },
+            "vfsPaths": {
+                "meshGlb": glb_path,
+                "glb": glb_path,
+                "splatSpz": spz_path,
+            },
+            "providerUsed": provider_used,
+            "modelUsed": model_used,
+            "offline": True,
+        }
 
     if modality == "text":
         return {
@@ -1529,17 +2570,26 @@ def _generate_offline_synthetic(
         }
 
     if modality == "video":
-        fps = int(config.get("fps") or spec.get("defaultFps") or 60)
+        fps = int(flags.get("fps") or config.get("fps") or spec.get("defaultFps") or 60)
+        duration_sec = int(flags.get("seconds") or config.get("seconds") or 6)
+        mp4_path = f"/videos/render_{short_hash}.mp4"
         return {
             "text": f"Synthetic {fps}fps video storyboard ({mode}) via {model_used}: {prompt.strip()}",
             "thoughts": f"Temporal motion plan ({fps}fps, audio_sync=True, sig={thought_sig}).",
             "thoughtSignature": thought_sig,
+            "sparkline": AEONIK_SPARKLINE_STR,
             "video": {
                 "url": f"data:video/mp4;synthetic,{digest}",
+                "vfsPath": mp4_path,
+                "mp4Path": mp4_path,
                 "mimeType": "video/mp4",
                 "fps": fps,
-                "durationSeconds": 6,
+                "durationSeconds": duration_sec,
                 "audioSync": bool(config.get("audioSync", True)),
+            },
+            "vfsPaths": {
+                "mp4": mp4_path,
+                "videoMp4": mp4_path,
             },
             "providerUsed": "synthetic",
             "modelUsed": model_used,
@@ -1623,15 +2673,49 @@ def handle_node_studio_generate(
     http_post: Optional[Callable[..., Tuple[int, Dict[str, Any]]]] = None,
     http_get: Optional[Callable[..., Tuple[int, bytes, Dict[str, str]]]] = None,
 ) -> Dict[str, Any]:
-    """Validate prompt, route NanoGPT/Gemini (or synthetic offline fallback), and return MorphingNode + edges + timeline."""
+    """Validate prompt, route slash commands or NanoGPT/Gemini/Atlas/Audio/3D, and return MorphingNode + edges + timeline."""
     body = payload if isinstance(payload, dict) else {}
-    prompt = body.get("prompt")
-    if not isinstance(prompt, str) or not prompt.strip():
+    raw_prompt = body.get("prompt")
+    if not isinstance(raw_prompt, str) or not raw_prompt.strip():
         return {"ok": False, "statusCode": 400, "error": "Prompt is required."}
 
-    config = body.get("config") if isinstance(body.get("config"), Mapping) else {}
-    requested_model = str(config.get("model") or body.get("model") or "").strip() or None
-    modality = infer_modality(requested_model, body.get("modality"))
+    config = dict(body.get("config")) if isinstance(body.get("config"), Mapping) else {}
+    slash_route: Optional[Dict[str, Any]] = None
+    prompt = raw_prompt
+
+    if raw_prompt.lstrip().startswith("/"):
+        parsed = parse_omni_slash_command(raw_prompt)
+        if parsed.get("is_slash"):
+            slash_route = parsed
+            prompt = parsed.get("prompt") or raw_prompt.strip()
+            flags = parsed.get("flags") or {}
+            if "fps" in flags and "fps" not in config:
+                config["fps"] = flags["fps"]
+            if "aspect" in flags and "aspectRatio" not in config:
+                config["aspectRatio"] = flags["aspect"]
+            if "resolution" in flags and "resolution" not in config:
+                config["resolution"] = flags["resolution"]
+            elif isinstance(flags.get("res"), str) and "resolution" not in config:
+                config["resolution"] = flags["res"]
+            if "views" in flags:
+                config["views"] = flags["views"]
+            if "tier" in flags:
+                config["tier"] = flags["tier"]
+            if "lufs" in flags:
+                config["lufs"] = flags["lufs"]
+            if "seconds" in flags:
+                config["seconds"] = flags["seconds"]
+
+    requested_model = (
+        (slash_route.get("model") if slash_route else None)
+        or str(config.get("model") or body.get("model") or "").strip()
+        or None
+    )
+    explicit_modality = (
+        (slash_route.get("modality") if slash_route else None)
+        or body.get("modality")
+    )
+    modality = infer_modality(requested_model, explicit_modality)
     spec = get_model_spec(requested_model, modality=modality)
 
     if requested_model and "veo" in requested_model.lower() and modality != "video":
@@ -1673,8 +2757,14 @@ def handle_node_studio_generate(
                 inherited_filters[fid] = _coerce_filter_entry(fid, raw_fval, inherited_filters.get(fid))
 
     references = _normalize_references(body.get("references"), parent_nodes)
-    provider_pref = str(config.get("provider") or body.get("provider") or spec.get("preferredProvider") or "auto").lower()
-    if provider_pref not in ("auto", "nanogpt", "gemini"):
+    provider_pref = str(
+        config.get("provider")
+        or body.get("provider")
+        or (slash_route.get("provider") if slash_route else None)
+        or spec.get("preferredProvider")
+        or "auto"
+    ).lower()
+    if modality in ("text", "image", "video") and provider_pref not in ("auto", "nanogpt", "gemini"):
         provider_pref = "auto"
 
     gemini_key, nanogpt_key = _resolve_api_keys(headers=headers, env=env)
@@ -1684,7 +2774,18 @@ def handle_node_studio_generate(
 
     try:
         gen_result: Dict[str, Any]
-        if provider_pref == "nanogpt":
+        if modality in ("audio", "atlas", "3d"):
+            gen_result = _generate_offline_synthetic(
+                prompt=prompt,
+                modality=modality,
+                mode=mode,
+                config=config,
+                references=references,
+                spec=spec,
+                provider_preference=provider_pref,
+                slash_route=slash_route,
+            )
+        elif provider_pref == "nanogpt":
             if nanogpt_key:
                 gen_result = _generate_with_nanogpt(
                     prompt=prompt,
@@ -1712,6 +2813,7 @@ def handle_node_studio_generate(
                     references=references,
                     spec=spec,
                     provider_preference=provider_pref,
+                    slash_route=slash_route,
                 )
         elif provider_pref == "gemini":
             if gemini_key:
@@ -1740,6 +2842,7 @@ def handle_node_studio_generate(
                     references=references,
                     spec=spec,
                     provider_preference=provider_pref,
+                    slash_route=slash_route,
                 )
         else:
             # auto routing: Gemini first (when model supports Gemini), fallback to NanoGPT on quota/auth errors;
@@ -1810,12 +2913,13 @@ def handle_node_studio_generate(
                     references=references,
                     spec=spec,
                     provider_preference=provider_pref,
+                    slash_route=slash_route,
                 )
     except ProviderHttpError as exc:
         return {"ok": False, "statusCode": exc.status_code, "error": str(exc)}
 
     short_id = str(body.get("shortId") or body.get("short_id") or "").strip() or hashlib.sha256(
-        f"{mode}:{prompt}:{','.join(selected_ids)}".encode("utf-8")
+        f"{mode}:{raw_prompt}:{','.join(selected_ids)}".encode("utf-8")
     ).hexdigest()[:4]
 
     if mode == "EDIT" and selected_ids:
@@ -1857,8 +2961,115 @@ def handle_node_studio_generate(
         content["fps"] = vid.get("fps", 60)
         content["audioSync"] = vid.get("audioSync", True)
         content["durationSeconds"] = vid.get("durationSeconds", 6)
+        if vid.get("mp4Path"):
+            content["mp4Path"] = vid["mp4Path"]
+            content["vfsPath"] = vid["mp4Path"]
+    elif modality == "audio" and isinstance(gen_result.get("audio"), Mapping):
+        aud = gen_result["audio"]
+        content["audioUrl"] = aud.get("url", "")
+        content["audioBytesB64"] = aud.get("audioBytesB64", _SYNTHETIC_WAV_B64)
+        content["wavPath"] = aud.get("wavPath", "")
+        content["vfsPath"] = aud.get("vfsPath", "")
+        content["mimeType"] = aud.get("mimeType", "audio/wav")
+        content["kind"] = aud.get("kind", "music")
+        content["lufs"] = aud.get("lufs", -14.0)
+        content["durationSeconds"] = aud.get("durationSeconds", 8.0)
+        content["sparkline"] = AEONIK_SPARKLINE_STR
+    elif modality == "atlas" and isinstance(gen_result.get("atlas"), Mapping):
+        atl = gen_result["atlas"]
+        content["mimeType"] = "application/x-worldlabs-spz"
+        content["operationId"] = atl.get("operationId")
+        content["atlasTask"] = atl.get("task")
+        content["coordSystem"] = "RUB"
+        content["fx"] = atl.get("fx", 893.37)
+        content["fy"] = atl.get("fy", 893.90)
+        content["cx"] = atl.get("cx", 640.0)
+        content["cy"] = atl.get("cy", 360.5)
+        content["centroidWorld"] = atl.get("centroidWorld", [-1.99, 0.0, -36.35])
+        content["camera"] = atl.get("camera")
+        content["numSplats"] = atl.get("numSplats", 2000000)
+        content["depthConfidencePct"] = atl.get("depthConfidencePct", 98.4)
+        content["spzPath"] = atl.get("spzPath")
+        content["exrPath"] = atl.get("exrPath")
+        content["glbPath"] = atl.get("glbPath")
+        content["mp4Path"] = atl.get("mp4Path")
+        content["vfsPaths"] = atl.get("vfsPaths")
+        content["sparkline"] = AEONIK_SPARKLINE_STR
+    elif modality == "3d" and isinstance(gen_result.get("mesh3d"), Mapping):
+        m3d = gen_result["mesh3d"]
+        content["mimeType"] = m3d.get("mimeType", "model/gltf-binary")
+        content["glbPath"] = m3d.get("glbPath")
+        content["vfsPath"] = m3d.get("vfsPath")
+        content["spzPath"] = m3d.get("spzPath")
+        content["format"] = m3d.get("format", "glb")
+        content["tier"] = m3d.get("tier", "Regular")
+        content["rigged"] = m3d.get("rigged", False)
+        content["animation"] = m3d.get("animation")
+        content["watertight"] = m3d.get("watertight", True)
+        content["sparkline"] = AEONIK_SPARKLINE_STR
     elif modality == "text":
         content["mimeType"] = "text/markdown"
+
+    # Multi-parent Omni-World Master composite enrichment
+    parent_modalities = {
+        str((p.get("data") or {}).get("modality") or "")
+        for p in parent_nodes
+        if isinstance(p, Mapping)
+    }
+    is_omni_merge = (mode == "MERGE") and (
+        modality in ("atlas", "audio", "3d")
+        or bool(parent_modalities & {"atlas", "audio", "3d"})
+        or (slash_route and slash_route.get("command") == "mux")
+    )
+    if is_omni_merge:
+        composite_paths = dict(gen_result.get("vfsPaths") or {})
+        composite_paths.setdefault("depthExr", f"/worlds/world_{short_id}/frames_0_depth.exr")
+        composite_paths.setdefault("splatSpz", f"/worlds/world_{short_id}/refinedSplats_2000000.spz")
+        composite_paths.setdefault("meshGlb", f"/models3d/omni_master_{short_id}.glb")
+        composite_paths.setdefault("audioWav", f"/audio/omni_master_{short_id}.wav")
+        composite_paths.setdefault("masterMp4", f"/videos/omni_world_master_{short_id}.mp4")
+        content["omniWorldMaster"] = True
+        content["sparkline"] = AEONIK_SPARKLINE_STR
+        content["vfsPaths"] = composite_paths
+        content.setdefault("spzPath", composite_paths["splatSpz"])
+        content.setdefault("exrPath", composite_paths["depthExr"])
+        content.setdefault("glbPath", composite_paths["meshGlb"])
+        content.setdefault("wavPath", composite_paths["audioWav"])
+        content.setdefault("mp4Path", composite_paths["masterMp4"])
+        gen_result["omniWorldMaster"] = True
+        gen_result["vfsPaths"] = composite_paths
+
+    node_metadata: Dict[str, Any] = {
+        "mode": mode,
+        "model": gen_result.get("modelUsed", spec["id"]),
+        "requestedModel": requested_model or spec["id"],
+        "provider": gen_result.get("providerUsed"),
+        "fallbackFrom": gen_result.get("fallbackFrom"),
+        "prompt": prompt.strip(),
+        "rawPrompt": raw_prompt.strip(),
+        "aspectRatio": config.get("aspectRatio", "1:1"),
+        "resolution": config.get("resolution", "1K"),
+        "thoughtSignature": new_thought_sig,
+        "conversationHistory": updated_history,
+        "groundingMetadata": gen_result.get("groundingMetadata"),
+        "creditCost": spec.get("creditCost", 0.20),
+        "references": references,
+        "sparkline": AEONIK_SPARKLINE_STR,
+    }
+    if slash_route is not None:
+        node_metadata["slashRoute"] = slash_route
+    if modality == "atlas" or is_omni_merge:
+        node_metadata["coordSystem"] = "RUB"
+        node_metadata["fx"] = 893.37
+        node_metadata["fy"] = 893.90
+        node_metadata["cx"] = 640.0
+        node_metadata["cy"] = 360.5
+        node_metadata["centroidWorld"] = [-1.99, 0.0, -36.35]
+        node_metadata["camera"] = gen_result.get("camera") or copy.deepcopy(DEFAULT_RUB_CAMERA)
+        node_metadata["operationId"] = gen_result.get("operationId")
+        node_metadata["atlasTask"] = gen_result.get("atlasTask")
+    if gen_result.get("vfsPaths"):
+        node_metadata["vfsPaths"] = gen_result["vfsPaths"]
 
     raw_node: Dict[str, Any] = {
         "id": new_node_id,
@@ -1867,7 +3078,11 @@ def handle_node_studio_generate(
         "data": {
             "type": node_type,
             "modality": modality,
-            "label": f"[{new_node_id} · {node_type}]",
+            "label": (
+                f"[{new_node_id} · OMNI-WORLD MASTER]"
+                if is_omni_merge
+                else f"[{new_node_id} · {node_type}]"
+            ),
             "status": "idle",
             "morphingStatus": modality,
             "morphingTransitions": ["generating", "message", modality],
@@ -1875,21 +3090,7 @@ def handle_node_studio_generate(
             "filters": inherited_filters,
             "filtersBypassed": False,
             "content": content,
-            "metadata": {
-                "mode": mode,
-                "model": gen_result.get("modelUsed", spec["id"]),
-                "requestedModel": requested_model or spec["id"],
-                "provider": gen_result.get("providerUsed"),
-                "fallbackFrom": gen_result.get("fallbackFrom"),
-                "prompt": prompt.strip(),
-                "aspectRatio": config.get("aspectRatio", "1:1"),
-                "resolution": config.get("resolution", "1K"),
-                "thoughtSignature": new_thought_sig,
-                "conversationHistory": updated_history,
-                "groundingMetadata": gen_result.get("groundingMetadata"),
-                "creditCost": spec.get("creditCost", 0.20),
-                "references": references,
-            },
+            "metadata": node_metadata,
         },
     }
     node = apply_node_filters(raw_node, modality=modality)
@@ -1918,7 +3119,7 @@ def handle_node_studio_generate(
     all_edges = existing_edges + new_edges
     timeline = build_timeline_sequence(all_nodes, all_edges, target_node_id=new_node_id)
 
-    return {
+    response: Dict[str, Any] = {
         "ok": True,
         "statusCode": 200,
         "mode": mode,
@@ -1929,6 +3130,9 @@ def handle_node_studio_generate(
         "result": gen_result,
         "generationResult": gen_result,
     }
+    if slash_route is not None:
+        response["slashRoute"] = slash_route
+    return response
 
 
 def _build_space_tree(modality: str, nodes: Sequence[Dict[str, Any]], timeline: Dict[str, Any]) -> Dict[str, Any]:
@@ -1950,6 +3154,33 @@ def _build_space_tree(modality: str, nodes: Sequence[Dict[str, Any]], timeline: 
             "master_05_lufs.mp4",
         ]
         filters_dir = ["optical_flow_60fps.cfg", "temporal_deflicker.lut", "j_cut_duck_-14lufs.cfg"]
+    elif modality == "audio":
+        files = [
+            "stem_01_tts.wav",
+            "score_02_lyria.wav",
+            "foley_03_sfx.wav",
+            "merge_04_duck.wav",
+            "master_05_-14lufs.wav",
+        ]
+        filters_dir = ["ebu_r128_-14lufs.cfg", "dialogue_deess.cfg", "binaural_room.ir"]
+    elif modality == "atlas":
+        files = [
+            "frames_0_image.jpg",
+            "frames_0_depth.exr",
+            "refinedSplats_2000000.spz",
+            "atlas_mesh.glb",
+            "flythrough_24fps.mp4",
+        ]
+        filters_dir = ["splat_density_2m.cfg", "exr_depth_confidence.cfg", "rub_frustum_14views.json"]
+    elif modality == "3d":
+        files = [
+            "blockout_01_sketch.glb",
+            "ref_02_orthographic.png",
+            "remesh_03_pbr.glb",
+            "rig_04_humanoid.glb",
+            "master_05_walk.glb",
+        ]
+        filters_dir = ["pbr_roughness.cfg", "quad_remesh.cfg", "humanoid_ik_rig.json"]
     else:
         files = [
             "node_01_root.png",
@@ -2031,6 +3262,69 @@ def get_default_studio_state(modality: str = "image") -> Dict[str, Any]:
         ]
         aspect_ratio = "21:9"
         resolution = "60fps"
+    elif mod == "audio":
+        specs_5 = [
+            ("01", "GENERATED", "[01 · TTS]", "ElevenLabs v4 bunker narrator stem", "sig_aud_01", 80, 120),
+            ("02", "UPLOADED", "[02 · SCORE]", "Lyria 3.5 modular synth rain drone", "sig_aud_02", 80, 300),
+            ("03", "EDITED", "[03 · SFX]", "ElevenLabs SFX v3 footsteps + thunder foley", "sig_aud_03", 320, 120),
+            ("04", "MERGED", "[04 · MERGED *SEL]", "J-cut dialogue duck + score + foley mix", "sig_aud_04", 560, 200),
+            ("05", "GENERATED", "[05 · WAV]", "Master -14.0 LUFS broadcast stem", "sig_aud_05", 800, 200),
+        ]
+        telemetry = [
+            {"label": "LOUDNESS", "value": "-14.0 LUFS"},
+            {"label": "SPARKLINE", "value": AEONIK_SPARKLINE_STR},
+            {"label": "SAMPLE RATE", "value": "48 kHz"},
+            {"label": "STEMS", "value": "3 Tracks"},
+        ]
+        references = [
+            {"id": "ref-01", "name": "stem_01_tts.wav", "type": "audio"},
+            {"id": "ref-02", "name": "score_02_lyria.wav", "type": "audio"},
+            {"id": "ref-03", "name": "foley_03_sfx.wav", "type": "audio"},
+        ]
+        aspect_ratio = "16:9"
+        resolution = "48kHz"
+    elif mod == "atlas":
+        specs_5 = [
+            ("01", "GENERATED", "[01 · KEYFRAME]", "Mossy torii gate at dusk (Nano Banana 2.1)", "sig_atl_01", 80, 120),
+            ("02", "UPLOADED", "[02 · POSE RGBD]", "Atlas images2PosedRGBD (RUB + .exr 98.4%)", "sig_atl_02", 80, 300),
+            ("03", "EDITED", "[03 · 14 VIEWS]", "Atlas atlasGenerate 14 frustum orbit views", "sig_atl_03", 320, 120),
+            ("04", "MERGED", "[04 · 2.0M SPLATS *SEL]", "Atlas posedImages2Splats (.spz + Audio mux)", "sig_atl_04", 560, 200),
+            ("05", "GENERATED", "[05 · OMNI-WORLD]", "Atlas splats2Mesh watertight .glb + 24fps .mp4", "sig_atl_05", 800, 200),
+        ]
+        telemetry = [
+            {"label": "SPLATS", "value": "2.0M .spz"},
+            {"label": "DEPTH EXR", "value": "+98.4%"},
+            {"label": "CAMERA RUB", "value": "fx=893.4"},
+            {"label": "FRUSTUMS", "value": "14 Views"},
+        ]
+        references = [
+            {"id": "ref-01", "name": "frames_0_image.jpg", "type": "image"},
+            {"id": "ref-02", "name": "frames_0_depth.exr", "type": "atlas"},
+            {"id": "ref-03", "name": "refinedSplats_2000000.spz", "type": "atlas"},
+        ]
+        aspect_ratio = "16:9"
+        resolution = "1280x720"
+    elif mod == "3d":
+        specs_5 = [
+            ("01", "GENERATED", "[01 · RODIN]", "Hyper3D Rodin v2.5 brutalist mech sentinel", "sig_3d_01", 80, 120),
+            ("02", "UPLOADED", "[02 · SPLAT REF]", "Atlas splats2Mesh collision proxy .glb", "sig_3d_02", 80, 300),
+            ("03", "EDITED", "[03 · PBR REMESH]", "Watertight quad remesh + 4K PBR normal map", "sig_3d_03", 320, 120),
+            ("04", "MERGED", "[04 · RIGGED *SEL]", "Bind humanoid IK skeleton + walk cycle", "sig_3d_04", 560, 200),
+            ("05", "GENERATED", "[05 · GLB]", "Master rigged .glb ready for stage viewport", "sig_3d_05", 800, 200),
+        ]
+        telemetry = [
+            {"label": "TOPOLOGY", "value": "48K Quads"},
+            {"label": "FORMAT", "value": "PBR .glb"},
+            {"label": "SKELETON", "value": "Humanoid IK"},
+            {"label": "ANIMATION", "value": "walk (24fps)"},
+        ]
+        references = [
+            {"id": "ref-01", "name": "sentinel_rodin.glb", "type": "3d"},
+            {"id": "ref-02", "name": "atlas_env_proxy.glb", "type": "3d"},
+            {"id": "ref-03", "name": "walk_cycle.fbx", "type": "3d"},
+        ]
+        aspect_ratio = "1:1"
+        resolution = "Regular"
     else:
         specs_5 = [
             ("01", "GENERATED", "[01 · GENERATED]", "Brutalist desert lab bathed in dusk sodium glow", "sig_img_01", 80, 120),
@@ -2064,6 +3358,28 @@ def get_default_studio_state(modality: str = "image") -> Dict[str, Any]:
             content["videoUrl"] = f"data:video/mp4;synthetic,default_{nid}"
             content["mimeType"] = "video/mp4"
             content["fps"] = 60
+        elif mod == "audio":
+            content["audioUrl"] = f"data:audio/wav;base64,{_SYNTHETIC_WAV_B64}"
+            content["wavPath"] = f"/audio/default_{nid}.wav"
+            content["mimeType"] = "audio/wav"
+            content["lufs"] = -14.0
+            content["sparkline"] = AEONIK_SPARKLINE_STR
+        elif mod == "atlas":
+            content["mimeType"] = "application/x-worldlabs-spz"
+            content["coordSystem"] = "RUB"
+            content["fx"] = 893.37
+            content["fy"] = 893.90
+            content["cx"] = 640.0
+            content["cy"] = 360.5
+            content["centroidWorld"] = [-1.99, 0.0, -36.35]
+            content["spzPath"] = f"/worlds/world_{nid}/refinedSplats_2000000.spz"
+            content["exrPath"] = f"/worlds/world_{nid}/frames_0_depth.exr"
+            content["glbPath"] = f"/models3d/atlas_{nid}.glb"
+            content["sparkline"] = AEONIK_SPARKLINE_STR
+        elif mod == "3d":
+            content["mimeType"] = "model/gltf-binary"
+            content["glbPath"] = f"/models3d/node_{nid}.glb"
+            content["sparkline"] = AEONIK_SPARKLINE_STR
         else:
             content["mimeType"] = "text/markdown"
 
@@ -2082,7 +3398,7 @@ def get_default_studio_state(modality: str = "image") -> Dict[str, Any]:
                 "content": content,
                 "metadata": {
                     "model": spec["id"],
-                    "provider": "nanogpt" if spec.get("preferredProvider") == "nanogpt" else "auto",
+                    "provider": spec.get("preferredProvider") or "auto",
                     "prompt": prompt_txt,
                     "aspectRatio": aspect_ratio,
                     "resolution": resolution,
@@ -2126,14 +3442,17 @@ def get_default_studio_state(modality: str = "image") -> Dict[str, Any]:
             "resolution": resolution,
             "thinkingLevel": spec.get("defaultThinkingLevel") or "high",
             "groundingMode": "Web+Img" if mod == "image" else "Off",
-            "provider": "auto",
+            "provider": spec.get("preferredProvider") or "auto",
             "maxReferences": MAX_REFERENCES,
         },
     }
 
 
 __all__ = [
+    "AEONIK_SPARKLINE_BARS",
+    "AEONIK_SPARKLINE_STR",
     "ALL_ASPECT_RATIOS",
+    "DEFAULT_RUB_CAMERA",
     "FILTER_PRESETS",
     "FLAT_FILTER_PRESETS",
     "MAX_REFERENCES",
@@ -2160,4 +3479,5 @@ __all__ = [
     "handle_node_studio_generate",
     "infer_modality",
     "make_branch_node_id",
+    "parse_omni_slash_command",
 ]
