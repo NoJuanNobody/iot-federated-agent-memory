@@ -2513,8 +2513,9 @@ def _node_studio_js(initial_view: str) -> str:
 
     const promptEl = $("nsPromptInput");
     const hasPrompt = promptEl ? promptEl.value.trim().length > 0 : false;
+    const hasPhotos = state.references.filter((r) => r.type === "image").length > 0;
     const genBtn = $("nsGenerateBtn");
-    if (genBtn) genBtn.disabled = !hasPrompt || state.activeRuns >= MAX_CONCURRENT_RUNS;
+    if (genBtn) genBtn.disabled = (!hasPrompt && !hasPhotos) || state.activeRuns >= MAX_CONCURRENT_RUNS;
   }
 
   function renderReferencesStrip() {
@@ -4066,11 +4067,16 @@ def _node_studio_js(initial_view: str) -> str:
     const flowX = (clientX - rect.left - state.panX) / state.zoom;
     const flowY = (clientY - rect.top - state.panY) / state.zoom;
     const droppedIds = [];
-    const imageFiles = Array.from(fileList || []).filter((f) => f && f.type && f.type.indexOf("image/") === 0);
+    const imageFiles = Array.from(fileList || []).filter((f) => {
+      if (!f) return false;
+      if (f.type && f.type.indexOf("image/") === 0) return true;
+      return /\.(jpe?g|png|webp|heic|heif|bmp|gif)$/i.test(String(f.name || ""));
+    });
     imageFiles.forEach((file, idx) => {
       const reader = new FileReader();
       reader.onload = function () {
         const dataUrl = String(reader.result || "");
+        const b64 = _extractDataUrlBase64(dataUrl);
         state.nodeSeq += 1;
         const nid = "uploaded-" + state.nodeSeq;
         state.nodes.push({
@@ -4082,9 +4088,19 @@ def _node_studio_js(initial_view: str) -> str:
           y: Math.round(flowY + idx * 28),
           width: 256,
           height: 256,
-          content: { imageUrl: dataUrl, base64: _extractDataUrlBase64(dataUrl), mimeType: file.type },
+          content: { imageUrl: dataUrl, base64: b64, mimeType: file.type || "image/jpeg" },
           metadata: { resolution: "1024x1024", model: "Uploaded", prompt: "Uploaded: " + file.name },
           filters: {}
+        });
+        state.references.push({
+          id: nid,
+          source: "upload",
+          url: dataUrl,
+          base64: b64,
+          name: file.name,
+          type: "image",
+          mimeType: file.type || "image/jpeg",
+          size: file.size || 0
         });
         droppedIds.push(nid);
         if (droppedIds.length === imageFiles.length) {
@@ -4201,10 +4217,14 @@ def _node_studio_js(initial_view: str) -> str:
 
   async function generate() {
     const promptEl = $("nsPromptInput");
-    const prompt = promptEl ? promptEl.value.trim() : "";
+    const rawPrompt = promptEl ? promptEl.value.trim() : "";
+    const hasPhotos = state.references.filter((r) => r.type === "image").length > 0;
+    const prompt = rawPrompt || (hasPhotos ? "Multi-view 3D Gaussian Splat" : "");
     if (!prompt || state.activeRuns >= MAX_CONCURRENT_RUNS) return;
 
-    if (prompt.startsWith("/") || state.modality === "atlas" || state.model === "worldlabs/atlas-v2") {
+    const slashPill = $("nsActiveSlashPill");
+    const slashPillActive = !!(slashPill && !slashPill.classList.contains("hidden") && state.activeSlashCommand && state.activeSlashCommand.indexOf("/atlas") === 0);
+    if (prompt.startsWith("/") || state.modality === "atlas" || state.model === "worldlabs/atlas-v2" || (slashPillActive && hasPhotos)) {
       const effectiveCmd = prompt.startsWith("/")
         ? prompt
         : ((state.activeSlashCommand || "/atlas splat") + " " + prompt);

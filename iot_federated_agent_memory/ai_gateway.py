@@ -3382,20 +3382,48 @@ class DynamicAIGatewayRouter:
                 "sizeBytes": len(raw_bytes),
             }
             try:
-                # Step 1: POST /assets:createUploadUrl
-                req1 = urllib.request.Request(
-                    f"{base_url}/assets:createUploadUrl",
-                    data=json.dumps(create_payload).encode("utf-8"),
-                    headers=auth_headers,
-                    method="POST",
-                )
-                with urllib.request.urlopen(req1, timeout=15.0) as resp1:
-                    step1 = json.loads(resp1.read().decode("utf-8") or "{}") or {}
+                # Step 1: Try legacy 3-step POST /assets:createUploadUrl, falling back to official Atlas v2 4-step flow
+                # (POST /assets -> POST /assets/{id}:createUploadUrl -> PUT -> POST /assets/{id}:completeUpload) on 404.
+                step1: Dict[str, Any] = {}
+                created_asset_id: Optional[str] = None
+                try:
+                    req1 = urllib.request.Request(
+                        f"{base_url}/assets:createUploadUrl",
+                        data=json.dumps(create_payload).encode("utf-8"),
+                        headers=auth_headers,
+                        method="POST",
+                    )
+                    with urllib.request.urlopen(req1, timeout=15.0) as resp1:
+                        step1 = json.loads(resp1.read().decode("utf-8") or "{}") or {}
+                except urllib.error.HTTPError as he:
+                    if he.code != 404:
+                        raise
+                    # Official Atlas v2 Step 1a: POST /assets
+                    req_create = urllib.request.Request(
+                        f"{base_url}/assets",
+                        data=json.dumps({"asset": {"displayName": clean_filename}}).encode("utf-8"),
+                        headers=auth_headers,
+                        method="POST",
+                    )
+                    with urllib.request.urlopen(req_create, timeout=15.0) as resp_create:
+                        created = json.loads(resp_create.read().decode("utf-8") or "{}") or {}
+                    raw_name = str(created.get("name") or created.get("id") or created.get("assetId") or "")
+                    created_asset_id = raw_name.split("/")[-1] if raw_name else fallback_asset_id
+                    # Official Atlas v2 Step 1b: POST /assets/{id}:createUploadUrl
+                    req_ticket = urllib.request.Request(
+                        f"{base_url}/assets/{created_asset_id}:createUploadUrl",
+                        data=json.dumps({"contentLength": len(raw_bytes), "contentType": clean_mime}).encode("utf-8"),
+                        headers=auth_headers,
+                        method="POST",
+                    )
+                    with urllib.request.urlopen(req_ticket, timeout=15.0) as resp_ticket:
+                        step1 = json.loads(resp_ticket.read().decode("utf-8") or "{}") or {}
 
                 asset_obj = step1.get("asset") if isinstance(step1.get("asset"), dict) else {}
                 upload_obj = step1.get("upload") if isinstance(step1.get("upload"), dict) else {}
                 asset_id = str(
-                    step1.get("assetId")
+                    created_asset_id
+                    or step1.get("assetId")
                     or step1.get("id")
                     or asset_obj.get("id")
                     or asset_obj.get("assetId")
