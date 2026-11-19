@@ -1206,6 +1206,139 @@ def _omni_route(
         "saved_to_space": saved_to_space,
     }
 
+
+def _normalize_node_graph_path(raw_path: Optional[str] = None, raw_name: Optional[str] = None) -> Tuple[str, str]:
+    """Normalize a Node Studio graph name/path to `/nodes/<slug>.nodes.json` inside `.space` VFS."""
+    candidate = (raw_path or raw_name or "workspace").strip()
+    if candidate.startswith("/nodes/"):
+        candidate = candidate[len("/nodes/"):]
+    candidate = candidate.strip("/")
+    for suffix in (".nodes.json", ".nodegraph.json", ".json"):
+        if candidate.lower().endswith(suffix):
+            candidate = candidate[: -len(suffix)]
+            break
+    slug = re.sub(r"[^a-zA-Z0-9_-]+", "_", candidate).strip("_-") or "workspace"
+    slug = slug[:64]
+    return f"/nodes/{slug}.nodes.json", slug
+
+
+def _node_graph_list(scope: str = "user", owner_id: str = "default") -> Tuple[int, Dict[str, Any]]:
+    sm = _get_space_manager()
+    sp = sm.get_or_create_space((scope or "user").strip(), (owner_id or "default").strip())
+    summary = sp.get_summary()
+    raw_files = summary.get("files") if isinstance(summary, dict) else []
+    graphs: List[Dict[str, Any]] = []
+    for f in (raw_files or []):
+        if not isinstance(f, dict):
+            continue
+        fpath = str(f.get("path") or "")
+        if fpath.startswith("/nodes/") and fpath.endswith(".nodes.json"):
+            _, name = _normalize_node_graph_path(fpath)
+            graphs.append({
+                "path": fpath,
+                "name": name,
+                "size_bytes": f.get("size_bytes", 0),
+                "updated_at": f.get("updated_at"),
+                "sha256": f.get("sha256"),
+            })
+    graphs.sort(key=lambda g: str(g.get("updated_at") or ""), reverse=True)
+    return 200, {
+        "ok": True,
+        "scope": scope,
+        "owner_id": owner_id,
+        "graphs": graphs,
+        "count": len(graphs),
+    }
+
+
+def _node_graph_load(
+    scope: str = "user",
+    owner_id: str = "default",
+    path: Optional[str] = None,
+    name: Optional[str] = None,
+) -> Tuple[int, Dict[str, Any]]:
+    norm_path, norm_name = _normalize_node_graph_path(path, name)
+    sm = _get_space_manager()
+    sp = sm.get_or_create_space((scope or "user").strip(), (owner_id or "default").strip())
+    try:
+        rec = sp.read_file(norm_path, as_text=True)
+    except FileNotFoundError:
+        return 404, {
+            "ok": False,
+            "error": f"Node graph not found: {norm_path}",
+            "path": norm_path,
+            "name": norm_name,
+        }
+    raw_text = rec.get("content") or "{}"
+    try:
+        graph_obj = json.loads(raw_text) if isinstance(raw_text, str) else {}
+    except Exception:
+        graph_obj = {}
+    return 200, {
+        "ok": True,
+        "scope": scope,
+        "owner_id": owner_id,
+        "path": norm_path,
+        "name": norm_name,
+        "updated_at": rec.get("updated_at"),
+        "sha256": rec.get("sha256"),
+        "graph": graph_obj,
+    }
+
+
+def _node_graph_save(data: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
+    if not isinstance(data, dict):
+        return 400, {"ok": False, "error": "Payload must be a JSON object"}
+    scope = (data.get("scope") or "user").strip()
+    owner_id = (data.get("owner_id") or data.get("peer_id") or "default").strip()
+    updated_by = (data.get("updated_by") or data.get("peer_id") or owner_id or "user").strip()
+    norm_path, norm_name = _normalize_node_graph_path(data.get("path"), data.get("name"))
+
+    graph_in = data.get("graph") if isinstance(data.get("graph"), dict) else data
+    nodes = graph_in.get("nodes") if isinstance(graph_in.get("nodes"), list) else []
+    edges = graph_in.get("edges") if isinstance(graph_in.get("edges"), list) else []
+    references = graph_in.get("references") if isinstance(graph_in.get("references"), list) else []
+    viewport = graph_in.get("viewport") if isinstance(graph_in.get("viewport"), dict) else {"panX": 0, "panY": 0, "zoom": 1}
+    config = graph_in.get("config") if isinstance(graph_in.get("config"), dict) else {}
+    selected_ids = graph_in.get("selectedIds") if isinstance(graph_in.get("selectedIds"), list) else []
+    saved_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+    payload = {
+        "schema": "tincan.node_studio.graph.v1",
+        "name": norm_name,
+        "path": norm_path,
+        "savedAt": saved_at,
+        "viewport": viewport,
+        "config": config,
+        "nodeSeq": int(graph_in.get("nodeSeq") or len(nodes)),
+        "selectedIds": selected_ids,
+        "nodes": nodes,
+        "edges": edges,
+        "references": references,
+    }
+
+    sm = _get_space_manager()
+    sp = sm.get_or_create_space(scope, owner_id)
+    out = sp.write_file(
+        norm_path,
+        json.dumps(payload, indent=2),
+        mime_type="application/json",
+        updated_by=updated_by,
+    )
+    return 200, {
+        "ok": True,
+        "scope": scope,
+        "owner_id": owner_id,
+        "path": norm_path,
+        "name": norm_name,
+        "saved_at": saved_at,
+        "node_count": len(nodes),
+        "edge_count": len(edges),
+        "reference_count": len(references),
+        "merkle_root": out.get("merkle_root") if isinstance(out, dict) else sp.compute_merkle_root(),
+    }
+
+
 PORT = int(os.environ.get("PORT", 8080))
 
 
@@ -4812,6 +4945,15 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "error": str(ve)}, 400)
             except Exception as e:
                 self._send_json({"ok": False, "error": str(e)}, 500)
+        elif parsed.path == "/api/nodes/graph":
+            try:
+                data = self._read_json_body()
+                code, res = _node_graph_save(data)
+                self._send_json(res, code)
+            except ValueError as ve:
+                self._send_json({"ok": False, "error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
         elif parsed.path == "/api/atlas/assets/upload":
             try:
                 data = self._read_json_body()
@@ -5534,6 +5676,20 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             query = parse_qs(parsed.query)
             modality = _normalize_node_modality(query.get("modality", ["image"])[0])
             self._send_json(_node_studio_state(modality), 200)
+        elif parsed.path == "/api/nodes/graphs":
+            query = parse_qs(parsed.query)
+            scope = query.get("scope", ["user"])[0]
+            owner_id = query.get("owner_id", query.get("peer_id", ["default"]))[0]
+            code, res = _node_graph_list(scope=scope, owner_id=owner_id)
+            self._send_json(res, code)
+        elif parsed.path == "/api/nodes/graph":
+            query = parse_qs(parsed.query)
+            scope = query.get("scope", ["user"])[0]
+            owner_id = query.get("owner_id", query.get("peer_id", ["default"]))[0]
+            path = query.get("path", [""])[0] or None
+            name = query.get("name", [""])[0] or None
+            code, res = _node_graph_load(scope=scope, owner_id=owner_id, path=path, name=name)
+            self._send_json(res, code)
         elif parsed.path == "/api/workstation/status":
             query = parse_qs(parsed.query)
             scope, owner_id = self._resolve_space_query(query)
@@ -5955,6 +6111,21 @@ def _api_health():
 @app.get("/api/nodes/state")
 def _nodes_state(modality: str = "image"):
     return _node_studio_state(modality=modality)
+
+@app.get("/api/nodes/graphs")
+def _nodes_graphs_list(scope: str = "user", owner_id: str = "default"):
+    _, res = _node_graph_list(scope=scope, owner_id=owner_id)
+    return res
+
+@app.get("/api/nodes/graph")
+def _nodes_graph_get(scope: str = "user", owner_id: str = "default", path: Optional[str] = None, name: Optional[str] = None):
+    _, res = _node_graph_load(scope=scope, owner_id=owner_id, path=path, name=name)
+    return res
+
+@app.post("/api/nodes/graph")
+def _nodes_graph_post(payload: Optional[Dict[str, Any]] = None):
+    _, res = _node_graph_save(payload or {})
+    return res
 
 @app.post("/api/nodes/generate")
 def _nodes_generate(payload: Optional[Dict[str, Any]] = None):

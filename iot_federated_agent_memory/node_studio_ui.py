@@ -1949,6 +1949,108 @@ def _node_studio_css() -> str:
     color: #000000;
     border-color: #ffffff;
   }
+
+  /* Saved .nodes.json Graphs Popover (Terminal Aeonik Light & Dark) */
+  .ns-graphs-popover {
+    width: 300px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--ns-card);
+    border: var(--ns-hair);
+    box-shadow: var(--ns-shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    color: var(--ns-ink);
+  }
+  .ns-graphs-popover.hidden { display: none; }
+  .ns-graphs-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--ns-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--ns-ink);
+  }
+  .ns-graphs-saveas-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .ns-graphs-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 5px 8px;
+    border-radius: 6px;
+    border: var(--ns-hair-soft);
+    background: var(--ns-paper);
+    color: var(--ns-ink);
+    font-family: var(--ns-mono);
+    font-size: 10px;
+    outline: none;
+  }
+  .ns-graphs-input:focus { border-color: var(--ns-ink); }
+  .ns-graphs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .ns-graph-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+    padding: 6px 8px;
+    border-radius: 7px;
+    border: var(--ns-hair-soft);
+    background: var(--ns-paper);
+    color: var(--ns-ink);
+    font-family: var(--ns-mono);
+    font-size: 10px;
+    cursor: pointer;
+  }
+  .ns-graph-item:hover,
+  .ns-graph-item.is-active {
+    border-color: var(--ns-ink);
+    background: var(--ns-bg);
+  }
+  .ns-graph-item-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ns-graph-item-meta { font-size: 9px; color: var(--ns-faint); white-space: nowrap; }
+  .ns-graphs-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding-top: 6px;
+    border-top: var(--ns-hair-soft);
+  }
+  html[data-theme="dark"] .ns-graphs-popover,
+  body.tc-dark .ns-graphs-popover {
+    background: #0e0e0e;
+    border-color: #2e2e2e;
+    color: #f5f5f5;
+  }
+  html[data-theme="dark"] .ns-graphs-input,
+  body.tc-dark .ns-graphs-input,
+  html[data-theme="dark"] .ns-graph-item,
+  body.tc-dark .ns-graph-item {
+    background: #151515;
+    border-color: #2e2e2e;
+    color: #f5f5f5;
+  }
+  html[data-theme="dark"] .ns-graph-item:hover,
+  body.tc-dark .ns-graph-item:hover,
+  html[data-theme="dark"] .ns-graph-item.is-active,
+  body.tc-dark .ns-graph-item.is-active {
+    border-color: #ffffff;
+    background: #1f1f1f;
+  }
   .ns-term-title { display: inline-flex; align-items: center; gap: 8px; color: #f5f5f5; }
   .ns-term-dots { color: #a3a3a3; font-size: 9px; }
   .ns-term-status { color: #ffffff; font-size: 10px; font-weight: 700; }
@@ -2372,7 +2474,12 @@ def _node_studio_js(initial_view: str) -> str:
     sections: { references: true, assets: true, templates: false },
     libRefs: [],
     templates: TEMPLATES.slice(),
-    nodeSeq: 0
+    nodeSeq: 0,
+    graphName: "workspace",
+    graphPath: "/nodes/workspace.nodes.json",
+    savedGraphs: [],
+    _autoSaveTimer: null,
+    _suppressAutoSave: false
   };
 
   function $(id) { return document.getElementById(id); }
@@ -2861,6 +2968,9 @@ def _node_studio_js(initial_view: str) -> str:
     renderEdges();
     renderLibraryViewGrid();
     mountAllSplatCanvases();
+    if (!state._suppressAutoSave && state.nodes.length > 0) {
+      scheduleAutoSave();
+    }
   }
 
   function parseSlashCommand(raw) {
@@ -4351,6 +4461,14 @@ def _node_studio_js(initial_view: str) -> str:
     updateApiBadges();
     mountAllSplatCanvases();
 
+    const qGraph = params ? (params.get("graph") || params.get("file")) : null;
+    if (qGraph) {
+      loadGraphFromSpace(qGraph, false);
+    } else {
+      loadGraphFromSpace(state.graphPath, true);
+    }
+    listSavedGraphs();
+
     if (typeof fetch === "function") {
       fetch("/api/nodes/health").then((r) => (r.ok ? r.json() : fetch("/api/health").then((r2) => r2.json())))
         .then((health) => {
@@ -4574,6 +4692,11 @@ def _node_studio_js(initial_view: str) -> str:
         const ci = $("nsCopyIndicator");
         if (ci) ci.classList.remove("hidden");
       }
+      if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "s") {
+        ev.preventDefault();
+        saveGraphToSpace();
+        return;
+      }
       const tag = ev.target && ev.target.tagName ? ev.target.tagName.toLowerCase() : "";
       if (tag === "input" || tag === "textarea" || tag === "select") {
         if ((ev.metaKey || ev.ctrlKey) && ev.key === "Enter") {
@@ -4630,7 +4753,335 @@ def _node_studio_js(initial_view: str) -> str:
         if (apiMenu) apiMenu.classList.add("hidden");
         if (modelMenu) modelMenu.classList.add("hidden");
       }
+      const graphsPop = $("nsGraphsPopover");
+      const graphsBtn = $("nsGraphsMenuBtn");
+      if (graphsPop && !graphsPop.classList.contains("hidden") &&
+          !graphsPop.contains(ev.target) && (!graphsBtn || !graphsBtn.contains(ev.target))) {
+        graphsPop.classList.add("hidden");
+      }
     });
+  }
+
+  function _resolveSpaceTarget() {
+    const params = typeof window !== "undefined" && window.location && window.location.search
+      ? new URLSearchParams(window.location.search) : null;
+    const scope = (typeof window !== "undefined" && window.currentSpaceScope) ||
+      (params && params.get("scope")) || "user";
+    const owner_id = (typeof window !== "undefined" && window.currentSpaceOwner) ||
+      (params && (params.get("owner_id") || params.get("peer_id"))) || "default";
+    return { scope: String(scope || "user"), owner_id: String(owner_id || "default") };
+  }
+
+  function _cleanGraphName(rawName) {
+    let s = String(rawName || state.graphName || "workspace").trim();
+    if (s.indexOf("/nodes/") === 0) s = s.slice(7);
+    s = s.replace(/\.nodes\.json$/i, "").replace(/\.json$/i, "");
+    s = s.replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/^[_-]+|[_-]+$/g, "");
+    return (s || "workspace").slice(0, 64);
+  }
+
+  function _updateSaveGraphHud(statusSuffix) {
+    const lbl = $("nsSaveGraphStatus");
+    if (lbl) {
+      lbl.textContent = "[" + state.graphName + (statusSuffix ? (" " + statusSuffix) : "") + "]";
+    }
+    const nameInp = $("nsGraphNameInput");
+    if (nameInp && !nameInp.value) nameInp.value = state.graphName;
+  }
+
+  function serializeGraphState() {
+    const cleanNodes = state.nodes.map((n) => {
+      const content = Object.assign({}, n.content || {});
+      if (content.imageUrl && content.imageUrl.indexOf("blob:") === 0 && content.base64) {
+        content.imageUrl = "data:" + (content.mimeType || "image/jpeg") + ";base64," + content.base64;
+      }
+      return {
+        id: n.id,
+        type: n.type,
+        morphingStatus: n.morphingStatus,
+        omniKind: n.omniKind,
+        modality: n.modality,
+        label: n.label,
+        x: n.x,
+        y: n.y,
+        width: n.width,
+        height: n.height,
+        splatState: n.splatState ? Object.assign({}, n.splatState) : undefined,
+        content: content,
+        metadata: Object.assign({}, n.metadata || {}),
+        filters: Object.assign({}, n.filters || {})
+      };
+    });
+    const cleanRefs = state.references.map((r) => {
+      const b64 = r.base64 || _extractDataUrlBase64(r.url);
+      const persistentUrl = (r.url && r.url.indexOf("blob:") !== 0)
+        ? r.url
+        : (b64 ? ("data:" + (r.mimeType || "image/jpeg") + ";base64," + b64) : "");
+      return {
+        id: r.id,
+        source: r.source || "upload",
+        name: r.name,
+        type: r.type || "image",
+        mimeType: r.mimeType || "image/jpeg",
+        url: persistentUrl,
+        base64: b64,
+        size: r.size || 0
+      };
+    });
+    return {
+      schema: "tincan.node_studio.graph.v1",
+      name: state.graphName,
+      path: "/nodes/" + state.graphName + ".nodes.json",
+      savedAt: new Date().toISOString(),
+      viewport: { panX: state.panX, panY: state.panY, zoom: state.zoom },
+      config: {
+        model: state.model,
+        modality: state.modality,
+        activeSlashCommand: state.activeSlashCommand,
+        aspectRatio: state.aspectRatio,
+        resolution: state.resolution,
+        thinkingLevel: state.thinkingLevel,
+        includeThoughts: state.includeThoughts,
+        groundingMode: state.groundingMode,
+        provider: state.provider
+      },
+      nodeSeq: state.nodeSeq,
+      selectedIds: state.selectedIds.slice(),
+      nodes: cleanNodes,
+      edges: state.edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
+      references: cleanRefs
+    };
+  }
+
+  function applyGraphState(graphObj, meta) {
+    if (!graphObj || typeof graphObj !== "object") return false;
+    const nodes = Array.isArray(graphObj.nodes) ? graphObj.nodes : [];
+    const edges = Array.isArray(graphObj.edges) ? graphObj.edges : [];
+    const refs = Array.isArray(graphObj.references) ? graphObj.references : [];
+    const vp = graphObj.viewport || {};
+    const cfg = graphObj.config || {};
+
+    state._suppressAutoSave = true;
+    try {
+      state.graphName = _cleanGraphName((meta && meta.name) || graphObj.name || state.graphName);
+      state.graphPath = (meta && meta.path) || graphObj.path || ("/nodes/" + state.graphName + ".nodes.json");
+      state.nodes = nodes.map((n) => Object.assign({}, n, { _splatCloud: null, _splatImgLoading: false }));
+      state.edges = edges.slice();
+      state.references = refs.slice();
+      state.selectedIds = Array.isArray(graphObj.selectedIds) ? graphObj.selectedIds.slice() : [];
+      state.nodeSeq = typeof graphObj.nodeSeq === "number" ? graphObj.nodeSeq : state.nodes.length;
+      if (typeof vp.panX === "number") state.panX = vp.panX;
+      if (typeof vp.panY === "number") state.panY = vp.panY;
+      if (typeof vp.zoom === "number" && vp.zoom > 0) state.zoom = vp.zoom;
+      if (cfg.model && CAPS[cfg.model]) state.model = cfg.model;
+      if (cfg.modality) state.modality = cfg.modality;
+      if (cfg.activeSlashCommand) {
+        state.activeSlashCommand = cfg.activeSlashCommand;
+        const pillTxt = $("nsActiveSlashPillText");
+        if (pillTxt) pillTxt.textContent = "● " + cfg.activeSlashCommand;
+      }
+      if (cfg.aspectRatio) state.aspectRatio = cfg.aspectRatio;
+      if (cfg.resolution) state.resolution = cfg.resolution;
+      if (cfg.thinkingLevel) state.thinkingLevel = cfg.thinkingLevel;
+      if (typeof cfg.includeThoughts === "boolean") state.includeThoughts = cfg.includeThoughts;
+      if (cfg.groundingMode) state.groundingMode = cfg.groundingMode;
+      if (cfg.provider) state.provider = cfg.provider;
+
+      applyCanvasTransform();
+      renderReferencesStrip();
+      syncCapabilitiesAndControls();
+      renderNodes();
+      renderPromptIslandStatus();
+      _updateSaveGraphHud("✓");
+    } finally {
+      state._suppressAutoSave = false;
+    }
+    return true;
+  }
+
+  function scheduleAutoSave() {
+    if (state._autoSaveTimer) clearTimeout(state._autoSaveTimer);
+    state._autoSaveTimer = setTimeout(function () {
+      state._autoSaveTimer = null;
+      if (state.nodes.length > 0) {
+        saveGraphToSpace(state.graphName, true);
+      }
+    }, 1200);
+  }
+
+  async function saveGraphToSpace(customName, silent) {
+    const targetName = _cleanGraphName(
+      customName !== undefined && customName !== null && String(customName).trim()
+        ? customName
+        : state.graphName
+    );
+    state.graphName = targetName;
+    state.graphPath = "/nodes/" + targetName + ".nodes.json";
+    const graphObj = serializeGraphState();
+    const tgt = _resolveSpaceTarget();
+
+    try {
+      if (typeof localStorage !== "undefined" && localStorage.setItem) {
+        localStorage.setItem("tincan_ns_graph_" + targetName, JSON.stringify(graphObj));
+      }
+    } catch (_lsErr) {}
+
+    let savedRes = null;
+    if (typeof fetch === "function") {
+      try {
+        const res = await fetch("/api/nodes/graph", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            scope: tgt.scope,
+            owner_id: tgt.owner_id,
+            name: targetName,
+            path: state.graphPath,
+            graph: graphObj
+          })
+        });
+        if (res && typeof res.json === "function") {
+          savedRes = await res.json();
+        }
+      } catch (_err) {}
+    }
+
+    _updateSaveGraphHud("✓");
+    if (!silent) {
+      showToast("Saved " + state.graphPath + " to .space (" + graphObj.nodes.length + " nodes)", false);
+      appendTerminalLine("[+] Saved node graph → " + state.graphPath + " (" + graphObj.nodes.length + " nodes, " + graphObj.edges.length + " edges)");
+      listSavedGraphs();
+    }
+    return savedRes || { ok: true, path: state.graphPath, name: targetName };
+  }
+
+  function renderSavedGraphsList() {
+    const listEl = $("nsGraphsList");
+    if (!listEl) return;
+    if (!state.savedGraphs || !state.savedGraphs.length) {
+      listEl.innerHTML = '<div class="ns-graph-item-meta" style="padding:4px 2px;">No saved .nodes.json files in .space yet. Click Save [⌘S] to save this canvas.</div>';
+      return;
+    }
+    listEl.innerHTML = state.savedGraphs.map((g) => {
+      const isAct = g.path === state.graphPath || g.name === state.graphName;
+      const kb = Math.max(1, Math.round((g.size_bytes || 0) / 1024));
+      return '<button type="button" class="ns-graph-item' + (isAct ? " is-active" : "") + '" ' +
+        'onclick="window.TinCanNodeStudio.loadGraphFromSpace(\'' + escapeHtml(g.path) + '\', false)">' +
+        '<span class="ns-graph-item-name">' + escapeHtml(g.name + ".nodes.json") + "</span>" +
+        '<span class="ns-graph-item-meta">' + kb + " KB</span>" +
+        "</button>";
+    }).join("");
+  }
+
+  async function listSavedGraphs() {
+    const tgt = _resolveSpaceTarget();
+    if (typeof fetch !== "function") return state.savedGraphs;
+    try {
+      const url = "/api/nodes/graphs?scope=" + encodeURIComponent(tgt.scope) + "&owner_id=" + encodeURIComponent(tgt.owner_id);
+      const res = await fetch(url);
+      if (res && res.ok && typeof res.json === "function") {
+        const data = await res.json();
+        if (data && Array.isArray(data.graphs)) {
+          state.savedGraphs = data.graphs;
+          renderSavedGraphsList();
+        }
+      }
+    } catch (_err) {}
+    return state.savedGraphs;
+  }
+
+  async function loadGraphFromSpace(pathOrName, silent) {
+    const cleanName = _cleanGraphName(pathOrName);
+    const targetPath = "/nodes/" + cleanName + ".nodes.json";
+    const tgt = _resolveSpaceTarget();
+    let loaded = null;
+
+    if (typeof fetch === "function") {
+      try {
+        const url = "/api/nodes/graph?scope=" + encodeURIComponent(tgt.scope) +
+          "&owner_id=" + encodeURIComponent(tgt.owner_id) +
+          "&path=" + encodeURIComponent(targetPath);
+        const res = await fetch(url);
+        if (res && res.ok && typeof res.json === "function") {
+          const data = await res.json();
+          if (data && data.ok && data.graph && typeof data.graph === "object") {
+            loaded = data.graph;
+          }
+        }
+      } catch (_err) {}
+    }
+
+    if (!loaded) {
+      try {
+        if (typeof localStorage !== "undefined" && localStorage.getItem) {
+          const raw = localStorage.getItem("tincan_ns_graph_" + cleanName);
+          if (raw) loaded = JSON.parse(raw);
+        }
+      } catch (_lsErr) {}
+    }
+
+    if (loaded && Array.isArray(loaded.nodes) && (loaded.nodes.length > 0 || !silent)) {
+      applyGraphState(loaded, { name: cleanName, path: targetPath });
+      const pop = $("nsGraphsPopover");
+      if (pop) pop.classList.add("hidden");
+      if (!silent) {
+        showToast("Reopened " + targetPath + " (" + loaded.nodes.length + " nodes)", false);
+        appendTerminalLine("[+] Reopened node graph ← " + targetPath + " (" + loaded.nodes.length + " nodes)");
+      }
+      renderSavedGraphsList();
+      return true;
+    }
+    if (!silent) {
+      showToast("No saved graph found at " + targetPath, true);
+    }
+    return false;
+  }
+
+  function toggleGraphsPopover(forceOpen) {
+    const pop = $("nsGraphsPopover");
+    if (!pop) return;
+    const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : pop.classList.contains("hidden");
+    pop.classList.toggle("hidden", !shouldOpen);
+    if (shouldOpen) {
+      _updateSaveGraphHud("");
+      listSavedGraphs();
+    }
+  }
+
+  function newBlankGraph() {
+    state._suppressAutoSave = true;
+    try {
+      state.graphName = "graph_" + String(Date.now()).slice(-4);
+      state.graphPath = "/nodes/" + state.graphName + ".nodes.json";
+      state.nodes = [];
+      state.edges = [];
+      state.selectedIds = [];
+      state.references = [];
+      state.nodeSeq = 0;
+      state.panX = 0;
+      state.panY = 0;
+      state.zoom = 1;
+      applyCanvasTransform();
+      renderReferencesStrip();
+      renderNodes();
+      renderPromptIslandStatus();
+      _updateSaveGraphHud("");
+    } finally {
+      state._suppressAutoSave = false;
+    }
+    const pop = $("nsGraphsPopover");
+    if (pop) pop.classList.add("hidden");
+    showToast("Started new blank canvas (" + state.graphName + ".nodes.json)", false);
+  }
+
+  function exportGraphJson() {
+    const graphObj = serializeGraphState();
+    const a = document.createElement("a");
+    a.href = "data:application/json;charset=utf-8," + encodeURIComponent(JSON.stringify(graphObj, null, 2));
+    a.download = state.graphName + ".nodes.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
 
   function toggleTerminal(forceOpen) {
@@ -4673,6 +5124,13 @@ def _node_studio_js(initial_view: str) -> str:
     runTerminalCommand: runTerminalCommand,
     runSlashCommand: runTerminalCommand,
     toggleTerminal: toggleTerminal,
+    saveGraphToSpace: saveGraphToSpace,
+    loadGraphFromSpace: loadGraphFromSpace,
+    listSavedGraphs: listSavedGraphs,
+    toggleGraphsPopover: toggleGraphsPopover,
+    newBlankGraph: newBlankGraph,
+    exportGraphJson: exportGraphJson,
+    serializeGraphState: serializeGraphState,
     toggleSlashRouterPopover: toggleSlashRouterPopover,
     clearSlashRoute: clearSlashRoute,
     handlePromptInput: handlePromptInput,
@@ -4871,6 +5329,12 @@ def _render_studio_stage_markup(active_view: str) -> str:
     <div id="nsCopyIndicator" class="ns-copy-indicator hidden">⌘/Ctrl held - click node to duplicate</div>
     <div class="ns-hud-row">
       <span id="nsAtlasCreditsHudPill" class="ns-hud-btn">● WLT ATLAS v2 · 1,000 CR/$1</span>
+      <button id="nsSaveGraphBtn" type="button" class="ns-hud-btn" title="Save node graph to .space (/nodes/*.nodes.json · ⌘S)" onclick="window.TinCanNodeStudio.saveGraphToSpace()">
+        <span>Save</span><span id="nsSaveGraphStatus">[workspace]</span>
+      </button>
+      <button id="nsGraphsMenuBtn" type="button" class="ns-hud-btn" title="Open or manage saved .nodes.json graphs in your .space" onclick="window.TinCanNodeStudio.toggleGraphsPopover()">
+        <span>Graphs</span><span>▾</span>
+      </button>
       <button id="nsTerminalToggleBtn" type="button" class="ns-hud-btn" title="Show/Hide Node Studio Dark Terminal (Press `)" onclick="window.TinCanNodeStudio.toggleTerminal()">
         <span>Terminal</span><span id="nsTerminalToggleState">[Hide]</span>
       </button>
@@ -4884,10 +5348,27 @@ def _render_studio_stage_markup(active_view: str) -> str:
         <span>Keys</span><span>[i]</span>
       </button>
     </div>
+    <div id="nsGraphsPopover" class="ns-graphs-popover hidden" role="dialog" aria-label="Saved Node Studio Graphs">
+      <div class="ns-graphs-head">
+        <span>SAVED .NODES.JSON (.SPACE)</span>
+        <button type="button" class="ns-icon-btn" title="Close" onclick="window.TinCanNodeStudio.toggleGraphsPopover(false)">×</button>
+      </div>
+      <div class="ns-graphs-saveas-row">
+        <input id="nsGraphNameInput" type="text" class="ns-graphs-input" placeholder="workspace (e.g. torii_shrine)"
+          onkeydown="if(event.key==='Enter'){{event.preventDefault();window.TinCanNodeStudio.saveGraphToSpace(this.value, false);}}">
+        <button id="nsGraphSaveAsBtn" type="button" class="ns-top-btn" onclick="window.TinCanNodeStudio.saveGraphToSpace(document.getElementById('nsGraphNameInput').value, false)">Save As</button>
+      </div>
+      <div id="nsGraphsList" class="ns-graphs-list"></div>
+      <div class="ns-graphs-foot">
+        <button id="nsGraphNewBtn" type="button" class="ns-top-btn" onclick="window.TinCanNodeStudio.newBlankGraph()">+ New Blank</button>
+        <button id="nsGraphExportBtn" type="button" class="ns-top-btn" onclick="window.TinCanNodeStudio.exportGraphJson()">↓ Export .nodes.json</button>
+      </div>
+    </div>
     <div id="nsShortcutsPopover" class="ns-shortcuts-popover hidden"
       onmouseenter="window.TinCanNodeStudio.toggleShortcutsPopover(false)"
       onmouseleave="window.TinCanNodeStudio.hideShortcutsIfUnpinned()">
       <div class="ns-shortcuts-title">Keyboard Shortcuts</div>
+      <div class="ns-shortcut-line"><span>Save graph to .space</span><span>⌘/Ctrl + S</span></div>
       <div class="ns-shortcut-line"><span>Delete nodes</span><span>Delete / Backspace</span></div>
       <div class="ns-shortcut-line"><span>Auto-layout</span><span>⌘/Ctrl + A</span></div>
       <div class="ns-shortcut-line"><span>Select all nodes</span><span>A</span></div>

@@ -9001,6 +9001,16 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           text: isText ? rec.content : null, binary: !isText, mediaUrl, pagesUrl,
           b64: rec.content_b64 || null,
         });
+        if (String(fpath || '').toLowerCase().endsWith('.nodes.json') &&
+            window.TinCanNodeStudio && typeof window.TinCanNodeStudio.loadGraphFromSpace === 'function') {
+          try {
+            const winEl = document.getElementById('win-nodes');
+            if (winEl && winEl.classList.contains('hidden') && typeof toggleWindow === 'function') {
+              toggleWindow('win-nodes');
+            }
+            window.TinCanNodeStudio.loadGraphFromSpace(fpath, false);
+          } catch (_nsErr) {}
+        }
       } catch (err) {
         if (editor) editor.value = `Error loading file: ${err.message}`;
         showViewerError(path, err.message);

@@ -275,6 +275,42 @@ def test_audio_generate_and_omni_slash_router_endpoints(tmp_path, monkeypatch):
         assert len(r_multi["result"]["uploaded_assets"]) == 4
         assert r_multi["result"].get("stage1_pose_operation_id")
 
+        # Node Studio .nodes.json graph persistence (save -> list -> reopen from .space VFS)
+        st_gsave, r_gsave = _req(
+            base_url,
+            "POST",
+            "/api/nodes/graph",
+            {
+                "scope": "user",
+                "owner_id": "omni_peer",
+                "name": "courtyard_world",
+                "graph": {
+                    "nodes": [{"id": "omni-1", "label": "Courtyard Splat", "x": 120, "y": 140}],
+                    "edges": [],
+                    "references": [{"id": "r1", "name": "view_0.jpg", "type": "image"}],
+                    "viewport": {"panX": 15, "panY": -10, "zoom": 1.1},
+                },
+            },
+        )
+        assert st_gsave == 200, r_gsave
+        assert r_gsave["ok"] is True
+        assert r_gsave["path"] == "/nodes/courtyard_world.nodes.json"
+        assert r_gsave["node_count"] == 1
+
+        st_glist, r_glist = _req(base_url, "GET", "/api/nodes/graphs?scope=user&owner_id=omni_peer")
+        assert st_glist == 200, r_glist
+        assert any(g["path"] == "/nodes/courtyard_world.nodes.json" for g in r_glist["graphs"])
+
+        st_gload, r_gload = _req(
+            base_url,
+            "GET",
+            "/api/nodes/graph?scope=user&owner_id=omni_peer&path=/nodes/courtyard_world.nodes.json",
+        )
+        assert st_gload == 200, r_gload
+        assert r_gload["ok"] is True
+        assert r_gload["graph"]["nodes"][0]["label"] == "Courtyard Splat"
+        assert r_gload["graph"]["viewport"]["zoom"] == 1.1
+
         st_r_3d, r_3d = _req(
             base_url,
             "POST",

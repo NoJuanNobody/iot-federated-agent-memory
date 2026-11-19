@@ -283,10 +283,13 @@ function makeEl(id) {{
   "nsSlashRouterPopover", "nsActiveSlashPill", "nsActiveSlashPillText",
   "nsFloatingTerminal", "nsTerminalLog", "nsTerminalInput", "nsTerminalRunBtn",
   "nsTerminalHideBtn", "nsTerminalToggleBtn", "nsTerminalToggleState",
+  "nsSaveGraphBtn", "nsSaveGraphStatus", "nsGraphsMenuBtn", "nsGraphsPopover",
+  "nsGraphNameInput", "nsGraphSaveAsBtn", "nsGraphsList", "nsGraphNewBtn", "nsGraphExportBtn",
   "nsSplatViewerModal", "nsSplatModalTitle", "nsSplatModalMeta", "nsSplatModalCanvas"
 ].forEach((id) => elements.set(id, makeEl(id)));
 
 const fetchCalls = [];
+const mockGraphStore = new Map();
 global.window = {{
   innerWidth: 1280,
   innerHeight: 800,
@@ -302,7 +305,25 @@ global.document = {{
   body: {{ appendChild() {{}}, removeChild() {{}} }}
 }};
 global.fetch = (url, opts) => {{
-  fetchCalls.push({{ url, method: (opts && opts.method) || "GET", body: opts && opts.body ? JSON.parse(opts.body) : null }});
+  const method = (opts && opts.method) || "GET";
+  const body = opts && opts.body ? JSON.parse(opts.body) : null;
+  fetchCalls.push({{ url, method, body }});
+  if (url === "/api/nodes/graph" && method === "POST" && body && body.path) {{
+    mockGraphStore.set(body.path, body.graph);
+    return Promise.resolve({{ status: 200, ok: true, json: async () => ({{ ok: true, path: body.path, name: body.name, node_count: (body.graph.nodes || []).length }}) }});
+  }}
+  if (String(url).startsWith("/api/nodes/graphs")) {{
+    const graphs = Array.from(mockGraphStore.keys()).map((p) => ({{ path: p, name: p.replace("/nodes/", "").replace(".nodes.json", ""), size_bytes: 2048 }}));
+    return Promise.resolve({{ status: 200, ok: true, json: async () => ({{ ok: true, graphs, count: graphs.length }}) }});
+  }}
+  if (String(url).startsWith("/api/nodes/graph?")) {{
+    const m = String(url).match(/path=([^&]+)/);
+    const p = m ? decodeURIComponent(m[1]) : "/nodes/workspace.nodes.json";
+    if (!mockGraphStore.has(p)) {{
+      return Promise.resolve({{ status: 404, ok: false, json: async () => ({{ ok: false }}) }});
+    }}
+    return Promise.resolve({{ status: 200, ok: true, json: async () => ({{ ok: true, path: p, graph: mockGraphStore.get(p) }}) }});
+  }}
   if (url === "/api/omni/route" && fetchCalls.filter((c) => c.url === "/api/omni/route").length === 2) {{
     return Promise.resolve({{ status: 404, ok: false, json: async () => ({{ ok: false }}) }});
   }}
@@ -391,6 +412,17 @@ global.fetch = (url, opts) => {{
   out.terminalShownAgain = !elements.get("nsFloatingTerminal").classList.contains("hidden");
   out.terminalLabelWhenShown = elements.get("nsTerminalToggleState").textContent;
 
+  // 8. Saving .nodes.json to .space, starting a blank canvas, and reopening it intact
+  const savedMeta = await api.saveGraphToSpace("torii_scene", false);
+  out.savedGraphPath = savedMeta.path;
+  api.newBlankGraph();
+  out.nodeCountAfterBlank = api.getState().nodes.length;
+  const reopenedOk = await api.loadGraphFromSpace("/nodes/torii_scene.nodes.json", false);
+  out.reopenedOk = reopenedOk;
+  out.nodeCountAfterReopen = api.getState().nodes.length;
+  out.refCountAfterReopen = api.getState().references.length;
+  out.graphNameAfterReopen = api.getState().graphName;
+
   out.nodesHtml = elements.get("nsNodesLayer").innerHTML;
   out.terminalLogHtml = elements.get("nsTerminalLog").innerHTML;
   out.fetchUrls = fetchCalls.map((c) => c.url);
@@ -442,6 +474,12 @@ global.fetch = (url, opts) => {{
     assert res["terminalLabelWhenHidden"] == "[Show]"
     assert res["terminalShownAgain"] is True
     assert res["terminalLabelWhenShown"] == "[Hide]"
+    assert res["savedGraphPath"] == "/nodes/torii_scene.nodes.json"
+    assert res["nodeCountAfterBlank"] == 0
+    assert res["reopenedOk"] is True
+    assert res["nodeCountAfterReopen"] == 4
+    assert res["refCountAfterReopen"] == 4
+    assert res["graphNameAfterReopen"] == "torii_scene"
     assert "3D GAUSSIAN SPLAT VIEWER (.SPZ)" in res["splatModalTitle"]
     assert "[object Object]" not in res["splatModalMeta"]
     assert "[object Object]" not in res["nodesHtml"]
