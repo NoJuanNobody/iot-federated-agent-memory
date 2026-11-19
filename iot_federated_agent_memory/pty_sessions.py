@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .agent_space import (
     HARNESS_NO_SYNC_DIRS,
+    PTY_SCRUBBED_SECRET_KEYS,
     WasmAndCodePlaygroundRunner,
     build_space_context_summary,
     prepare_harness_sandbox_env,
@@ -140,7 +141,14 @@ class PTYSession:
 
         self.initial_hashes = WasmAndCodePlaygroundRunner._materialize_space(vfs, self.tmpdir)
 
-        env = prepare_harness_sandbox_env(self.tmpdir, self.cache_dir, extra_env=extra_env)
+        env = prepare_harness_sandbox_env(
+            self.tmpdir,
+            self.cache_dir,
+            extra_env=extra_env,
+            scrub_secrets=True,
+        )
+        for secret_key in PTY_SCRUBBED_SECRET_KEYS:
+            env.pop(secret_key, None)
         # Write ephemeral space & Context Palace briefing into sandbox HOME & agent instruction files without polluting .space.
         tincan_meta_dir = os.path.join(self.tmpdir, ".tincan")
         os.makedirs(tincan_meta_dir, exist_ok=True)
@@ -169,6 +177,7 @@ class PTYSession:
             env["TINCAN_ACTIVE_FILE"] = active_file
         if space_context_text:
             env["TINCAN_SPACE_CONTEXT_FILE"] = ctx_file
+        self.env = dict(env)
 
         master_fd, slave_fd = pty.openpty()
         self.master_fd: Optional[int] = master_fd
@@ -406,12 +415,18 @@ class PTYSessionManager:
         )
         tui_tool_guide = (
             "\n\n[Sandbox Generative Tools — Already Authenticated via TinCan Server]\n"
-            "Do NOT claim you lack an API key or Rodin/image tool inside this session.\n"
+            "Do NOT claim you lack an API key or Rodin/image/Atlas tool inside this session.\n"
             "Run these pre-installed CLI commands directly in your shell (on PATH):\n"
             "- Generate a 2D image (.png/.jpg saved into ./images/ & .space VFS):\n"
             '  tincan-gen image "a cartoon picture of spongebob"\n'
             "- Generate a 3D mesh (.glb via Hyper3D Rodin v2 saved into ./models3d/ & .space VFS):\n"
             '  tincan-gen 3d "a 3D stylized goose" --tier Regular\n'
+            "- Run World Labs Atlas v2 spatial tasks (pose|generate|splats|mesh|chisel|flythrough into ./worlds/ & .space VFS):\n"
+            '  tincan-gen atlas splats "kyoto bamboo shrine"\n'
+            "- Generate omni-modal audio (tts|music|sfx into ./audio/ & .space VFS):\n"
+            '  tincan-gen audio music "cyberpunk synthwave score"\n'
+            "- Route any unified Terminal Aeonik slash command:\n"
+            '  tincan-gen slash "/atlas splat kyoto torii gate"\n'
             "- Inspect live models & Rodin billing:\n"
             "  tincan-gen models\n"
         )

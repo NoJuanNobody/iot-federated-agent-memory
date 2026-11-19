@@ -106,7 +106,7 @@ try:
 except Exception:
     _node_studio_engine = None
 
-_VALID_NODE_MODALITIES = ("image", "text", "video")
+_VALID_NODE_MODALITIES = ("image", "text", "video", "audio", "atlas", "3d")
 _VALID_NODE_VIEWS = ("editor", "timeline", "gateway")
 
 
@@ -322,6 +322,792 @@ def _node_studio_filter(payload: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
         "filters": filters,
         "timeline": [],
         "fallback": True,
+    }
+
+
+# ---------------------------------------------------------------------------
+# World Labs Atlas v2, Omni-Audio & Unified Slash-Command Router Helpers
+# ---------------------------------------------------------------------------
+
+_ATLAS_CANONICAL_TASKS: Tuple[str, ...] = (
+    "atlasTextToImage",
+    "images2PosedRGBD",
+    "atlasGenerate",
+    "atlasChisel",
+    "posedImages2Splats",
+    "splats2Mesh",
+)
+
+_ATLAS_SUBCMD_TO_TASK: Dict[str, str] = {
+    "pose": "images2PosedRGBD",
+    "rgbd": "images2PosedRGBD",
+    "generate": "atlasGenerate",
+    "flythrough": "atlasGenerate",
+    "splats": "posedImages2Splats",
+    "splat": "posedImages2Splats",
+    "mesh": "splats2Mesh",
+    "chisel": "atlasChisel",
+    "text2img": "atlasTextToImage",
+    "text-to-image": "atlasTextToImage",
+}
+
+
+def _build_minimal_wav_bytes(duration_ms: int = 120) -> bytes:
+    """Build a valid minimal 16-bit mono PCM WAV payload for deterministic offline audio fallback."""
+    sample_rate = 16000
+    num_samples = max(160, int(sample_rate * (duration_ms / 1000.0)))
+    pcm_bytes = b"\x00\x00" * num_samples
+    data_size = len(pcm_bytes)
+    header = struct.pack(
+        "<4sI4s4sIHHIIHH4sI",
+        b"RIFF",
+        36 + data_size,
+        b"WAVE",
+        b"fmt ",
+        16,
+        1,
+        1,
+        sample_rate,
+        sample_rate * 2,
+        2,
+        16,
+        b"data",
+        data_size,
+    )
+    return header + pcm_bytes
+
+
+def _atlas_health(ai_router: Any = None) -> Dict[str, Any]:
+    rtr = ai_router or globals().get("router")
+    if rtr is not None and hasattr(rtr, "check_atlas_health"):
+        res = dict(rtr.check_atlas_health())
+        res.setdefault("ok", True)
+        return res
+    wlt_key = (
+        getattr(rtr, "worldlabs_key", None)
+        or os.environ.get("WLT_API_KEY")
+        or os.environ.get("WORLDLABS_API_KEY")
+        or ""
+    )
+    base_url = getattr(rtr, "ATLAS_BASE_URL", None) or os.environ.get(
+        "WLT_API_BASE_URL", "https://api.atlas.worldlabs.ai/api/v2"
+    )
+    tasks = list(getattr(rtr, "ATLAS_TASKS", _ATLAS_CANONICAL_TASKS))
+    return {
+        "ok": True,
+        "status": "ok",
+        "service": "worldlabs-atlas-v2",
+        "base_url": base_url,
+        "key_configured": bool(wlt_key),
+        "tasks": tasks,
+        "credit_usd_rate": 0.001,
+    }
+
+
+def _atlas_upload_asset(data: Dict[str, Any], ai_router: Any = None) -> Tuple[int, Dict[str, Any]]:
+    if not isinstance(data, dict):
+        return 400, {"ok": False, "error": "Payload must be a JSON object"}
+    rtr = ai_router or globals().get("router")
+    vfs_path = (data.get("vfs_path") or data.get("path") or "").strip()
+    data_b64 = (data.get("data_b64") or data.get("bytes_b64") or data.get("content_b64") or "").strip()
+    scope = (data.get("scope") or "user").strip()
+    owner_id = (data.get("owner_id") or data.get("peer_id") or "default").strip()
+
+    file_bytes: Optional[bytes] = None
+    mime_type = (data.get("mime_type") or "").strip()
+    filename = (data.get("filename") or "").strip()
+
+    if data_b64:
+        try:
+            file_bytes = base64.b64decode(data_b64)
+        except Exception as err:
+            return 400, {"ok": False, "error": f"Invalid base64 payload: {err}"}
+        if not filename:
+            filename = os.path.basename(vfs_path) if vfs_path else "input.jpg"
+    elif vfs_path:
+        sm = _get_space_manager()
+        sp = sm.get_or_create_space(scope, owner_id)
+        try:
+            rec = sp.read_file(vfs_path, as_text=False)
+        except FileNotFoundError as err:
+            return 404, {"ok": False, "error": str(err)}
+        file_bytes = base64.b64decode(rec.get("content_b64") or "")
+        if not mime_type:
+            mime_type = str(rec.get("mime_type") or "")
+        if not filename:
+            filename = os.path.basename(vfs_path) or "input.jpg"
+    else:
+        return 400, {"ok": False, "error": "Provide 'vfs_path' or 'data_b64'"}
+
+    if not mime_type:
+        mime_type = guess_mime_type(filename or "input.jpg") or "image/jpeg"
+
+    if rtr is not None and hasattr(rtr, "upload_atlas_asset"):
+        res = dict(rtr.upload_atlas_asset(file_bytes, mime_type=mime_type, filename=filename))
+    else:
+        sha = hashlib.sha256(file_bytes).hexdigest()[:16]
+        res = {
+            "ok": True,
+            "asset_id": f"asset_{sha}",
+            "id": f"asset_{sha}",
+            "filename": filename,
+            "mime_type": mime_type,
+            "size_bytes": len(file_bytes),
+            "simulated": True,
+        }
+    res.setdefault("ok", True)
+    res.setdefault("filename", filename)
+    res.setdefault("mime_type", mime_type)
+    res.setdefault("size_bytes", len(file_bytes))
+    if vfs_path:
+        res["vfs_path"] = vfs_path
+    return (200 if res.get("ok") else 400), res
+
+
+def _atlas_run_task(
+    data: Dict[str, Any],
+    headers: Optional[Dict[str, str]] = None,
+    ai_router: Any = None,
+) -> Tuple[int, Dict[str, Any]]:
+    if not isinstance(data, dict):
+        return 400, {"ok": False, "error": "Payload must be a JSON object"}
+    rtr = ai_router or globals().get("router")
+    raw_task = (data.get("task") or data.get("task_name") or "").strip()
+    if not raw_task:
+        return 400, {"ok": False, "error": "Missing 'task'"}
+
+    canonical_task = _ATLAS_SUBCMD_TO_TASK.get(raw_task.lower(), raw_task)
+    allowed_tasks = tuple(getattr(rtr, "ATLAS_TASKS", _ATLAS_CANONICAL_TASKS))
+    if canonical_task not in allowed_tasks:
+        return 400, {
+            "ok": False,
+            "error": f"Unsupported Atlas v2 task '{raw_task}'. Must be one of {list(allowed_tasks)}",
+        }
+
+    req_body = data.get("request_body")
+    if not isinstance(req_body, dict):
+        req_body = data.get("request") if isinstance(data.get("request"), dict) else {}
+        req_body = dict(req_body)
+        for k in ("prompt", "asset_id", "images", "frames", "splat_asset_id", "views", "resolution", "fps"):
+            if k in data and k not in req_body:
+                req_body[k] = data[k]
+
+    hdrs = {str(k).lower(): str(v) for k, v in (headers or {}).items()}
+    idem_key = (
+        data.get("idempotency_key")
+        or hdrs.get("idempotency-key")
+        or str(uuid.uuid4())
+    )
+
+    if rtr is not None and hasattr(rtr, "submit_atlas_task"):
+        try:
+            res = dict(rtr.submit_atlas_task(canonical_task, req_body, idempotency_key=idem_key))
+        except ValueError as ve:
+            return 400, {"ok": False, "error": str(ve)}
+    else:
+        digest = hashlib.sha256(f"{canonical_task}:{idem_key}:{json.dumps(req_body, sort_keys=True)}".encode("utf-8")).hexdigest()[:12]
+        op_id = f"op_atlas_{digest}"
+        res = {
+            "ok": True,
+            "id": op_id,
+            "operation_id": op_id,
+            "task": canonical_task,
+            "idempotency_key": idem_key,
+            "done": True,
+            "simulated": True,
+            "response": {
+                "task": canonical_task,
+                "frames": [
+                    {
+                        "index": 0,
+                        "imageAssetId": f"asset_img_{digest[:8]}",
+                        "depthAssetId": f"asset_depth_{digest[:8]}",
+                        "confidenceAssetId": f"asset_conf_{digest[:8]}",
+                        "intrinsics": {"fx": 886.81, "fy": 886.81, "cx": 640.0, "cy": 360.0},
+                        "extrinsics": {"coordinateSystem": "RUB", "centroidWorld": [0.0, 1.15, -2.4]},
+                    }
+                ],
+                "splatAsset": {"id": f"asset_spz_{digest[:8]}", "numSplats": 2000000, "format": "spz"},
+                "meshAsset": (
+                    {"id": f"asset_glb_{digest[:8]}", "format": "glb"}
+                    if canonical_task == "splats2Mesh"
+                    else None
+                ),
+            },
+            "metadata": {
+                "task": canonical_task,
+                "credits_used": 500,
+                "cost_usd": 0.50,
+            },
+        }
+        if rtr is not None:
+            ops = getattr(rtr, "atlas_operations", None)
+            if isinstance(ops, dict):
+                ops[op_id] = res
+            else:
+                setattr(rtr, "atlas_operations", {op_id: res})
+
+    status_code = int(res.get("status_code") or (200 if res.get("ok", True) else 400))
+    return status_code, res
+
+
+def _atlas_operation_status(operation_id: str, ai_router: Any = None) -> Tuple[int, Dict[str, Any]]:
+    op_id = (operation_id or "").strip()
+    if not op_id:
+        return 400, {"ok": False, "error": "Missing 'operation_id'"}
+    rtr = ai_router or globals().get("router")
+    if rtr is not None and hasattr(rtr, "get_atlas_operation"):
+        res = dict(rtr.get_atlas_operation(op_id))
+    else:
+        ops = getattr(rtr, "atlas_operations", {}) if rtr is not None else {}
+        if isinstance(ops, dict) and op_id in ops:
+            res = dict(ops[op_id])
+        else:
+            res = {
+                "ok": True,
+                "id": op_id,
+                "operation_id": op_id,
+                "done": True,
+                "simulated": True,
+                "response": {
+                    "frames": [{"index": 0, "intrinsics": {"fx": 886.81, "fy": 886.81, "cx": 640.0, "cy": 360.0}}],
+                    "splatAsset": {"id": f"asset_{op_id[-8:]}", "numSplats": 2000000, "format": "spz"},
+                },
+            }
+    status_code = int(res.get("status_code") or (200 if res.get("ok", True) else 400))
+    return status_code, res
+
+
+def _atlas_download_operation(data: Dict[str, Any], ai_router: Any = None) -> Tuple[int, Dict[str, Any]]:
+    if not isinstance(data, dict):
+        return 400, {"ok": False, "error": "Payload must be a JSON object"}
+    op_id = (data.get("operation_id") or data.get("id") or data.get("op_id") or "").strip()
+    if not op_id:
+        return 400, {"ok": False, "error": "Missing 'operation_id'"}
+    scope = (data.get("scope") or "user").strip()
+    owner_id = (data.get("owner_id") or data.get("peer_id") or "default").strip()
+    target_dir = (data.get("target_dir") or "/worlds").strip() or "/worlds"
+    author = (data.get("author") or data.get("peer_id") or owner_id or "atlas").strip()
+
+    sm = _get_space_manager()
+    target_vfs = sm.get_or_create_space(scope, owner_id)
+    rtr = ai_router or globals().get("router")
+
+    if rtr is not None and hasattr(rtr, "download_atlas_operation_to_vfs"):
+        dl_res = dict(
+            rtr.download_atlas_operation_to_vfs(
+                op_id,
+                target_vfs,
+                target_dir=target_dir,
+                author=author,
+            )
+        )
+    else:
+        from iot_federated_agent_memory.agent_space import generate_minimal_glb_bytes
+
+        _, op_data = _atlas_operation_status(op_id, ai_router=rtr)
+        short_id = re.sub(r"[^a-zA-Z0-9_-]", "", op_id.replace("op_atlas_", ""))[:12] or "world"
+        world_dir = "/" + target_dir.strip("/") + f"/{short_id}"
+        saved_files: List[str] = []
+
+        op_json_path = f"{world_dir}/operation.json"
+        target_vfs.write_file(op_json_path, json.dumps(op_data, indent=2), mime_type="application/json", updated_by=author)
+        saved_files.append(op_json_path)
+
+        resp_obj = op_data.get("response") if isinstance(op_data.get("response"), dict) else {}
+        task_name = str(op_data.get("task") or resp_obj.get("task") or "")
+
+        img_path = f"{world_dir}/frames_0_image.jpg"
+        target_vfs.write_file(img_path, b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xff\xd9", mime_type="image/jpeg", updated_by=author)
+        saved_files.append(img_path)
+
+        depth_path = f"{world_dir}/frames_0_depth.exr"
+        target_vfs.write_file(depth_path, b"v/2\x01\x02\x00\x00\x00EXR_LINEAR_DEPTH", mime_type="image/x-exr", updated_by=author)
+        saved_files.append(depth_path)
+
+        conf_path = f"{world_dir}/frames_0_confidence.png"
+        target_vfs.write_file(
+            conf_path,
+            base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="),
+            mime_type="image/png",
+            updated_by=author,
+        )
+        saved_files.append(conf_path)
+
+        splat_path = f"{world_dir}/refinedSplats_2000000.spz"
+        target_vfs.write_file(splat_path, b"SPZ\x02WORLDLABS_GAUSSIAN_SPLATS_2M", mime_type="application/octet-stream", updated_by=author)
+        saved_files.append(splat_path)
+
+        if resp_obj.get("meshAsset") or task_name == "splats2Mesh" or data.get("include_mesh"):
+            glb_path = f"/models3d/atlas_{short_id}.glb"
+            target_vfs.write_file(glb_path, generate_minimal_glb_bytes(f"atlas_{short_id}"), mime_type="model/gltf-binary", updated_by=author)
+            saved_files.append(glb_path)
+
+        dl_res = {
+            "ok": True,
+            "operation_id": op_id,
+            "saved_files": saved_files,
+        }
+
+    files_b64: Dict[str, str] = {}
+    for fpath in dl_res.get("saved_files") or []:
+        try:
+            frec = target_vfs.read_file(fpath, as_text=False)
+            if frec.get("content_b64"):
+                files_b64[fpath] = frec["content_b64"]
+        except Exception:
+            pass
+
+    dl_res.setdefault("ok", True)
+    dl_res["operation_id"] = op_id
+    dl_res["scope"] = scope
+    dl_res["owner_id"] = owner_id
+    dl_res["files_b64"] = files_b64
+    return (200 if dl_res.get("ok") else 400), dl_res
+
+
+def _audio_generate_and_save(data: Dict[str, Any], ai_router: Any = None) -> Tuple[int, Dict[str, Any]]:
+    if not isinstance(data, dict):
+        return 400, {"ok": False, "error": "Payload must be a JSON object"}
+    from iot_federated_agent_memory.agent_space import _slug_from_prompt, _unique_space_path
+
+    prompt = (data.get("prompt") or "").strip()
+    if not prompt:
+        return 400, {"ok": False, "error": "Missing 'prompt'"}
+    kind = (data.get("kind") or "music").strip().lower()
+    if kind not in ("tts", "music", "sfx"):
+        kind = "music"
+    model = data.get("model")
+    voice = data.get("voice")
+    scope = (data.get("scope") or "user").strip()
+    owner_id = (data.get("owner_id") or data.get("peer_id") or "default").strip()
+    peer_id = (data.get("peer_id") or owner_id or "peer").strip()
+    save_path = (data.get("save_path") or "").strip()
+
+    rtr = ai_router or globals().get("router")
+    if rtr is not None and hasattr(rtr, "generate_omni_audio"):
+        res = dict(rtr.generate_omni_audio(prompt, kind=kind, model=model, voice=voice))
+    else:
+        default_models = {
+            "tts": "elevenlabs/eleven-v4",
+            "music": "google/lyria-3.5",
+            "sfx": "elevenlabs/sound-effects/v3",
+        }
+        resolved_model = model or default_models.get(kind, "google/lyria-3.5")
+        wav_bytes = _build_minimal_wav_bytes()
+        res = {
+            "ok": True,
+            "kind": kind,
+            "model": resolved_model,
+            "prompt": prompt,
+            "audio_bytes_b64": base64.b64encode(wav_bytes).decode("ascii"),
+            "mime_type": "audio/wav",
+            "sparkline": "│┃│┃┃│┃┃",
+            "lufs": -14.0,
+        }
+
+    wav_b64 = res.get("audio_bytes_b64") or ""
+    if not wav_b64:
+        wav_bytes = _build_minimal_wav_bytes()
+        wav_b64 = base64.b64encode(wav_bytes).decode("ascii")
+        res["audio_bytes_b64"] = wav_b64
+    else:
+        wav_bytes = base64.b64decode(wav_b64)
+
+    sm = _get_space_manager()
+    sp = sm.get_or_create_space(scope, owner_id)
+    slug = _slug_from_prompt(prompt, default=f"{kind}_track")
+    sp_path = save_path or _unique_space_path(sp, "/audio", f"{kind}_{slug}", ".wav")
+    sp.write_file(sp_path, wav_bytes, mime_type=res.get("mime_type") or "audio/wav", updated_by=peer_id)
+
+    res["ok"] = True
+    res["path"] = sp_path
+    res["size_bytes"] = len(wav_bytes)
+    res["saved_to_space"] = {"scope": scope, "owner_id": owner_id, "path": sp_path}
+    return 200, res
+
+
+def _fallback_parse_omni_slash_command(raw_input: str) -> Dict[str, Any]:
+    """Defensive fallback parser matching node_studio_engine.parse_omni_slash_command contract."""
+    text = (raw_input or "").strip()
+    is_slash = text.startswith("/")
+    tokens = text.split()
+    cmd = "image"
+    subcmd = ""
+    idx = 0
+    if is_slash and tokens:
+        head = tokens[0].lstrip("/").lower()
+        idx = 1
+        if head in ("atlas", "image", "video", "audio", "3d", "rodin", "rig", "text", "mux"):
+            cmd = "3d" if head == "rodin" else head
+        else:
+            cmd = "text"
+
+    if cmd == "atlas" and idx < len(tokens) and not tokens[idx].startswith("-"):
+        cand = tokens[idx].lower()
+        if cand in _ATLAS_SUBCMD_TO_TASK or cand in _ATLAS_CANONICAL_TASKS:
+            subcmd = cand
+            idx += 1
+    elif cmd == "audio" and idx < len(tokens) and not tokens[idx].startswith("-"):
+        cand = tokens[idx].lower()
+        if cand in ("tts", "music", "sfx"):
+            subcmd = cand
+            idx += 1
+
+    flags: Dict[str, Any] = {}
+    prompt_parts: List[str] = []
+    target_path: Optional[str] = None
+    while idx < len(tokens):
+        tok = tokens[idx]
+        if tok.startswith("--"):
+            key = tok[2:].lower()
+            if key == "mesh":
+                flags["mesh"] = True
+                idx += 1
+            elif idx + 1 < len(tokens) and not tokens[idx + 1].startswith("--"):
+                val = tokens[idx + 1]
+                if key in ("views", "fps", "seconds"):
+                    try:
+                        flags[key] = int(val)
+                    except ValueError:
+                        flags[key] = val
+                elif key == "lufs":
+                    try:
+                        flags[key] = float(val)
+                    except ValueError:
+                        flags[key] = val
+                elif key == "res" and "x" in val.lower():
+                    parts = val.lower().split("x", 1)
+                    try:
+                        flags["res"] = [int(parts[0]), int(parts[1])]
+                    except ValueError:
+                        flags["res"] = val
+                else:
+                    flags[key] = val
+                idx += 2
+            else:
+                flags[key] = True
+                idx += 1
+        else:
+            if (tok.startswith("/") or tok.endswith((".glb", ".spz", ".exr", ".png", ".jpg", ".wav", ".mp4"))) and target_path is None:
+                target_path = tok
+            prompt_parts.append(tok)
+            idx += 1
+
+    clean_prompt = " ".join(prompt_parts).strip() or text
+
+    if cmd == "atlas":
+        subcmd = subcmd or "splat"
+        atlas_task = _ATLAS_SUBCMD_TO_TASK.get(subcmd.lower(), subcmd if subcmd in _ATLAS_CANONICAL_TASKS else "posedImages2Splats")
+        modality = "atlas"
+        provider = "worldlabs"
+        model = str(flags.get("model") or f"worldlabs/{atlas_task}")
+        pill_label = f"● /atlas {subcmd}"
+    elif cmd == "audio":
+        subcmd = subcmd or "music"
+        atlas_task = None
+        modality = "audio"
+        provider = "nanogpt"
+        default_aud_models = {
+            "tts": "elevenlabs/eleven-v4",
+            "music": "google/lyria-3.5",
+            "sfx": "elevenlabs/sound-effects/v3",
+        }
+        model = str(flags.get("model") or default_aud_models.get(subcmd, "google/lyria-3.5"))
+        pill_label = f"♪ /audio {subcmd}"
+    elif cmd == "3d":
+        subcmd = subcmd or "generate"
+        atlas_task = "splats2Mesh" if flags.get("model") == "splats2Mesh" else None
+        modality = "3d"
+        provider = "hyper3d"
+        model = str(flags.get("model") or "hyper3d/rodin-v2.5")
+        pill_label = "◆ /3d mesh"
+    elif cmd == "rig":
+        subcmd = subcmd or str(flags.get("anim") or "walk")
+        atlas_task = None
+        modality = "3d"
+        provider = "local" if flags.get("engine") == "local" else "nanogpt"
+        model = str(flags.get("engine") or flags.get("model") or "hyper3d/rigging")
+        pill_label = f"◆ /rig {subcmd}"
+    elif cmd == "video":
+        subcmd = subcmd or "generate"
+        atlas_task = None
+        modality = "video"
+        provider = "nanogpt"
+        model = str(flags.get("model") or "kling-4.0")
+        pill_label = "▶ /video"
+    elif cmd == "text":
+        subcmd = subcmd or "chat"
+        atlas_task = None
+        modality = "text"
+        provider = "nanogpt"
+        model = str(flags.get("model") or "nanogpt/TEE/deepseek-v4.1-flash")
+        pill_label = "¶ /text"
+    elif cmd == "mux":
+        subcmd = subcmd or "master"
+        atlas_task = None
+        modality = "video"
+        provider = "local"
+        model = "omni-mux"
+        pill_label = "⊕ /mux"
+    else:
+        subcmd = subcmd or "generate"
+        atlas_task = "atlasTextToImage" if flags.get("model") == "atlasTextToImage" else None
+        modality = "image"
+        provider = "worldlabs" if atlas_task else "gemini"
+        model = str(flags.get("model") or "gemini-nano-banana-2.1")
+        pill_label = "◼ /image"
+
+    return {
+        "is_slash": is_slash,
+        "command": cmd,
+        "subcommand": subcmd,
+        "modality": modality,
+        "provider": provider,
+        "model": model,
+        "atlas_task": atlas_task,
+        "flags": flags,
+        "target_path": target_path,
+        "prompt": clean_prompt,
+        "pill_label": pill_label,
+    }
+
+
+def _parse_omni_slash_command(raw_input: str) -> Dict[str, Any]:
+    eng = _get_node_studio_engine()
+    if eng is not None and hasattr(eng, "parse_omni_slash_command"):
+        try:
+            parsed = dict(eng.parse_omni_slash_command(raw_input))
+            if parsed.get("command") == "rodin":
+                parsed["command"] = "3d"
+                parsed["modality"] = "3d"
+            return parsed
+        except Exception:
+            pass
+    return _fallback_parse_omni_slash_command(raw_input)
+
+
+def _omni_route(
+    data: Dict[str, Any],
+    headers: Optional[Dict[str, str]] = None,
+    ai_router: Any = None,
+) -> Tuple[int, Dict[str, Any]]:
+    if not isinstance(data, dict):
+        return 400, {"ok": False, "error": "Payload must be a JSON object"}
+
+    raw_cmd = (data.get("command") or "").strip()
+    raw_prompt = (data.get("prompt") or "").strip()
+    if raw_cmd and raw_prompt and raw_prompt not in raw_cmd:
+        combined_input = f"{raw_cmd} {raw_prompt}".strip()
+    else:
+        combined_input = raw_cmd or raw_prompt
+
+    if not combined_input:
+        return 400, {"ok": False, "error": "Missing 'command' or 'prompt'"}
+
+    parsed_route = _parse_omni_slash_command(combined_input)
+    if raw_cmd.lower().startswith("/rodin"):
+        parsed_route["command"] = "3d"
+        parsed_route["modality"] = "3d"
+
+    cmd = str(parsed_route.get("command") or "image").lower()
+    scope = (data.get("scope") or "user").strip()
+    owner_id = (data.get("owner_id") or data.get("peer_id") or "default").strip()
+    peer_id = (data.get("peer_id") or owner_id or "peer").strip()
+    rtr = ai_router or globals().get("router")
+
+    if cmd == "atlas" or parsed_route.get("modality") == "atlas":
+        atlas_task = parsed_route.get("atlas_task") or _ATLAS_SUBCMD_TO_TASK.get(
+            str(parsed_route.get("subcommand") or "splat").lower(),
+            "posedImages2Splats",
+        )
+        req_body = {
+            "prompt": parsed_route.get("prompt") or combined_input,
+            "subcommand": parsed_route.get("subcommand") or "splat",
+            "flags": parsed_route.get("flags") or {},
+        }
+        if parsed_route.get("target_path"):
+            req_body["target_path"] = parsed_route["target_path"]
+        _, run_res = _atlas_run_task(
+            {
+                "task": atlas_task,
+                "request_body": req_body,
+                "idempotency_key": data.get("idempotency_key"),
+            },
+            headers=headers,
+            ai_router=rtr,
+        )
+        op_id = run_res.get("operation_id") or run_res.get("id") or "op_atlas_sim"
+        _, dl_res = _atlas_download_operation(
+            {
+                "operation_id": op_id,
+                "scope": scope,
+                "owner_id": owner_id,
+                "peer_id": peer_id,
+                "target_dir": data.get("target_dir") or "/worlds",
+                "include_mesh": bool((parsed_route.get("flags") or {}).get("mesh") or atlas_task == "splats2Mesh"),
+            },
+            ai_router=rtr,
+        )
+        saved_files = dl_res.get("saved_files") or []
+        saved_to_space = {
+            "scope": scope,
+            "owner_id": owner_id,
+            "files": saved_files,
+            "path": saved_files[0] if saved_files else None,
+        }
+        return 200, {
+            "ok": True,
+            "route": parsed_route,
+            "result": {
+                **run_res,
+                "download": {k: v for k, v in dl_res.items() if k != "files_b64"},
+            },
+            "saved_to_space": saved_to_space,
+            "files_b64": dl_res.get("files_b64") or {},
+        }
+
+    if cmd == "audio" or parsed_route.get("modality") == "audio":
+        kind = str(parsed_route.get("subcommand") or "music").lower()
+        if kind not in ("tts", "music", "sfx"):
+            kind = "music"
+        flags = parsed_route.get("flags") or {}
+        _, aud_res = _audio_generate_and_save(
+            {
+                "prompt": parsed_route.get("prompt") or combined_input,
+                "kind": kind,
+                "model": flags.get("model") or parsed_route.get("model"),
+                "voice": flags.get("voice") or data.get("voice"),
+                "scope": scope,
+                "owner_id": owner_id,
+                "peer_id": peer_id,
+                "save_path": data.get("save_path"),
+            },
+            ai_router=rtr,
+        )
+        sp_path = aud_res.get("path")
+        files_b64 = {sp_path: aud_res["audio_bytes_b64"]} if (sp_path and aud_res.get("audio_bytes_b64")) else {}
+        return 200, {
+            "ok": True,
+            "route": parsed_route,
+            "result": aud_res,
+            "saved_to_space": aud_res.get("saved_to_space"),
+            "files_b64": files_b64,
+        }
+
+    if cmd in ("3d", "rodin"):
+        from iot_federated_agent_memory.agent_space import (
+            _slug_from_prompt,
+            _unique_space_path,
+            generate_minimal_glb_bytes,
+        )
+
+        flags = parsed_route.get("flags") or {}
+        tier = str(flags.get("tier") or data.get("tier") or "Regular")
+        prompt_3d = parsed_route.get("prompt") or combined_input
+        res_3d = _dispatch_rodin(
+            rtr,
+            prompt=prompt_3d,
+            tier=tier,
+            geometry_file_format="glb",
+        )
+        glb_b64 = res_3d.get("glb_bytes_b64") or ""
+        if not glb_b64:
+            glb_b64 = base64.b64encode(generate_minimal_glb_bytes(_slug_from_prompt(prompt_3d, default="mesh"))).decode("ascii")
+            res_3d["glb_bytes_b64"] = glb_b64
+        sm = _get_space_manager()
+        sp = sm.get_or_create_space(scope, owner_id)
+        slug = _slug_from_prompt(prompt_3d, default="rodin_mesh")
+        sp_path = data.get("save_path") or _unique_space_path(sp, "/models3d", slug, ".glb")
+        sp.write_file(sp_path, glb_b64, is_base64=True, mime_type="model/gltf-binary", updated_by=peer_id)
+        saved_to_space = {"scope": scope, "owner_id": owner_id, "path": sp_path}
+        res_3d["saved_to_space"] = saved_to_space
+        return 200, {
+            "ok": True,
+            "route": parsed_route,
+            "result": res_3d,
+            "saved_to_space": saved_to_space,
+            "files_b64": {sp_path: glb_b64},
+        }
+
+    if cmd == "rig":
+        import posixpath
+        from iot_federated_agent_memory.agent_space import (
+            _unique_space_path,
+            generate_minimal_glb_bytes,
+        )
+        from iot_federated_agent_memory.glb_rigger import rig_glb_bytes
+
+        flags = parsed_route.get("flags") or {}
+        src_path = (
+            parsed_route.get("target_path")
+            or data.get("path")
+            or "/models3d/mesh.glb"
+        )
+        if not src_path.startswith("/"):
+            src_path = "/" + src_path
+        anim = str(flags.get("anim") or data.get("animation") or parsed_route.get("subcommand") or "walk")
+        rig_type = str(flags.get("rig") or data.get("rig_type") or "auto")
+        sm = _get_space_manager()
+        sp = sm.get_or_create_space(scope, owner_id)
+        try:
+            rec = sp.read_file(src_path, as_text=False)
+            src_bytes = base64.b64decode(rec.get("content_b64") or "")
+        except FileNotFoundError:
+            src_bytes = generate_minimal_glb_bytes("rig_source")
+            sp.write_file(src_path, src_bytes, mime_type="model/gltf-binary", updated_by=peer_id)
+
+        out_bytes, meta = rig_glb_bytes(src_bytes, rig_type=rig_type, animation=anim)
+        out_b64 = base64.b64encode(out_bytes).decode("ascii")
+        dname = posixpath.dirname(src_path) or "/models3d"
+        stem = posixpath.splitext(posixpath.basename(src_path))[0] or "mesh"
+        if stem.endswith("_rigged"):
+            stem = stem[:-7] or "mesh"
+        out_path = data.get("save_path") or _unique_space_path(sp, dname, f"{stem}_rigged", ".glb")
+        sp.write_file(out_path, out_b64, is_base64=True, mime_type="model/gltf-binary", updated_by=peer_id)
+        saved_to_space = {"scope": scope, "owner_id": owner_id, "path": out_path}
+        rig_res = {
+            "ok": True,
+            "provider": "tincan-auto-rigger",
+            "source_path": src_path,
+            "path": out_path,
+            "rig_type": meta["rig_type"],
+            "bones": meta["bones"],
+            "bone_count": meta["bone_count"],
+            "animations": meta["animations"],
+            "size_bytes": meta["size_bytes"],
+            "saved_to_space": saved_to_space,
+        }
+        return 200, {
+            "ok": True,
+            "route": parsed_route,
+            "result": rig_res,
+            "saved_to_space": saved_to_space,
+            "files_b64": {out_path: out_b64},
+        }
+
+    # Default: /text, /image, /video, /mux -> route to handle_node_studio_generate
+    ns_payload = {
+        **data,
+        "prompt": combined_input,
+        "modality": parsed_route.get("modality") or cmd,
+        "model": parsed_route.get("model") or data.get("model"),
+    }
+    code, ns_res = _node_studio_generate(ns_payload, headers=headers)
+    saved_to_space = ns_res.get("saved_to_space")
+    if not saved_to_space:
+        sm = _get_space_manager()
+        sp = sm.get_or_create_space(scope, owner_id)
+        node_obj = ns_res.get("node") if isinstance(ns_res.get("node"), dict) else {}
+        node_id = str(node_obj.get("id") or f"node_{uuid.uuid4().hex[:6]}")
+        meta_path = f"/nodes/{cmd}_{node_id}.json"
+        sp.write_file(meta_path, json.dumps({"route": parsed_route, "node": node_obj}, indent=2), mime_type="application/json", updated_by=peer_id)
+        saved_to_space = {"scope": scope, "owner_id": owner_id, "path": meta_path}
+    return code, {
+        "ok": ns_res.get("ok", True),
+        "route": parsed_route,
+        "result": ns_res,
+        "saved_to_space": saved_to_space,
     }
 
 PORT = int(os.environ.get("PORT", 8080))
@@ -3930,6 +4716,61 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "error": str(ve)}, 400)
             except Exception as e:
                 self._send_json({"ok": False, "error": str(e)}, 500)
+        elif parsed.path == "/api/atlas/assets/upload":
+            try:
+                data = self._read_json_body()
+                code, res = _atlas_upload_asset(data, ai_router=router)
+                self._send_json(res, code)
+            except ValueError as ve:
+                self._send_json({"ok": False, "error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
+        elif parsed.path == "/api/atlas/tasks/run":
+            try:
+                data = self._read_json_body()
+                code, res = _atlas_run_task(data, headers=dict(self.headers), ai_router=router)
+                self._send_json(res, code)
+            except ValueError as ve:
+                self._send_json({"ok": False, "error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
+        elif parsed.path == "/api/atlas/operations/status":
+            try:
+                data = self._read_json_body()
+                op_id = (data.get("operation_id") or data.get("id") or data.get("op_id") or "").strip()
+                code, res = _atlas_operation_status(op_id, ai_router=router)
+                self._send_json(res, code)
+            except ValueError as ve:
+                self._send_json({"ok": False, "error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
+        elif parsed.path == "/api/atlas/operations/download":
+            try:
+                data = self._read_json_body()
+                code, res = _atlas_download_operation(data, ai_router=router)
+                self._send_json(res, code)
+            except ValueError as ve:
+                self._send_json({"ok": False, "error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
+        elif parsed.path == "/api/audio/generate":
+            try:
+                data = self._read_json_body()
+                code, res = _audio_generate_and_save(data, ai_router=router)
+                self._send_json(res, code)
+            except ValueError as ve:
+                self._send_json({"ok": False, "error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
+        elif parsed.path == "/api/omni/route":
+            try:
+                data = self._read_json_body()
+                code, res = _omni_route(data, headers=dict(self.headers), ai_router=router)
+                self._send_json(res, code)
+            except ValueError as ve:
+                self._send_json({"ok": False, "error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
         elif parsed.path == "/api/thread/file":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
@@ -4582,6 +5423,17 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "error": str(e)}, 502)
         elif parsed.path in ("/api/nodes/health", "/api/health"):
             self._send_json(_node_studio_health(dict(self.headers)), 200)
+        elif parsed.path == "/api/atlas/health":
+            self._send_json(_atlas_health(ai_router=router), 200)
+        elif parsed.path == "/api/atlas/operations/status":
+            query = parse_qs(parsed.query)
+            op_id = (
+                query.get("operation_id", [""])[0]
+                or query.get("id", [""])[0]
+                or query.get("op_id", [""])[0]
+            ).strip()
+            code, res = _atlas_operation_status(op_id, ai_router=router)
+            self._send_json(res, code)
         elif parsed.path == "/api/nodes/state":
             query = parse_qs(parsed.query)
             modality = _normalize_node_modality(query.get("modality", ["image"])[0])
@@ -5021,4 +5873,45 @@ def _api_generate(payload: Optional[Dict[str, Any]] = None):
 @app.post("/api/nodes/filter")
 def _nodes_filter(payload: Optional[Dict[str, Any]] = None):
     _, res = _node_studio_filter(payload or {})
+    return res
+
+@app.get("/api/atlas/health")
+def _api_atlas_health():
+    return _atlas_health(ai_router=router)
+
+@app.post("/api/atlas/assets/upload")
+def _api_atlas_assets_upload(payload: Optional[Dict[str, Any]] = None):
+    _, res = _atlas_upload_asset(payload or {}, ai_router=router)
+    return res
+
+@app.post("/api/atlas/tasks/run")
+def _api_atlas_tasks_run(payload: Optional[Dict[str, Any]] = None):
+    _, res = _atlas_run_task(payload or {}, ai_router=router)
+    return res
+
+@app.get("/api/atlas/operations/status")
+def _api_atlas_operations_status_get(operation_id: str = ""):
+    _, res = _atlas_operation_status(operation_id, ai_router=router)
+    return res
+
+@app.post("/api/atlas/operations/status")
+def _api_atlas_operations_status_post(payload: Optional[Dict[str, Any]] = None):
+    data = payload or {}
+    op_id = (data.get("operation_id") or data.get("id") or data.get("op_id") or "").strip()
+    _, res = _atlas_operation_status(op_id, ai_router=router)
+    return res
+
+@app.post("/api/atlas/operations/download")
+def _api_atlas_operations_download(payload: Optional[Dict[str, Any]] = None):
+    _, res = _atlas_download_operation(payload or {}, ai_router=router)
+    return res
+
+@app.post("/api/audio/generate")
+def _api_audio_generate(payload: Optional[Dict[str, Any]] = None):
+    _, res = _audio_generate_and_save(payload or {}, ai_router=router)
+    return res
+
+@app.post("/api/omni/route")
+def _api_omni_route(payload: Optional[Dict[str, Any]] = None):
+    _, res = _omni_route(payload or {}, ai_router=router)
     return res
