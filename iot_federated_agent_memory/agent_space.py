@@ -1397,6 +1397,14 @@ HARNESS_AUTH_ENV_KEYS = (
     "CLAUDE_MODEL",
     "IS_SANDBOX",
 )
+PTY_SCRUBBED_SECRET_KEYS = (
+    "WLT_API_KEY",
+    "WORLDLABS_API_KEY",
+    "HYPER3D_API_KEY",
+    "RODIN_API_KEY",
+    "NANOGPT_API_KEY",
+    "OPENROUTER_API_KEY",
+)
 _TOOLCHAIN_DIRS = (
     "/usr/local/cargo/bin",
     "/home/linuxbrew/.linuxbrew/bin",
@@ -1540,6 +1548,54 @@ def main() -> int:
     p_rig.add_argument("--anim", default="walk", choices=["walk", "run", "idle", "dance", "all"])
     p_rig.add_argument("--out", default=None, help="Optional VFS / relative output path (default <stem>_rigged.glb)")
 
+    p_atlas = sub.add_parser(
+        "atlas",
+        help="Run World Labs Atlas v2 spatial tasks (pose|generate|splats|mesh|chisel|flythrough) and download into ./worlds/ & .space",
+    )
+    p_atlas.add_argument(
+        "subcmd",
+        choices=[
+            "pose",
+            "generate",
+            "splats",
+            "splat",
+            "mesh",
+            "chisel",
+            "flythrough",
+            "text2img",
+            "images2PosedRGBD",
+            "atlasGenerate",
+            "posedImages2Splats",
+            "splats2Mesh",
+            "atlasChisel",
+            "atlasTextToImage",
+        ],
+        help="Atlas subcommand or v2 task name",
+    )
+    p_atlas.add_argument("prompt", nargs="?", default="", help="Prompt or input VFS path")
+    p_atlas.add_argument("--views", type=int, default=14, help="Number of camera views (default: 14)")
+    p_atlas.add_argument("--res", default="1280x720", help="Resolution WxH (default: 1280x720)")
+    p_atlas.add_argument("--fps", type=int, default=24, help="Camera path framerate (default: 24)")
+    p_atlas.add_argument("--out", default="/worlds", help="Target VFS directory (default: /worlds)")
+    p_atlas.add_argument("--idempotency-key", default=None, help="Optional Idempotency-Key")
+    p_atlas.add_argument("--no-download", action="store_true", help="Skip automatic operation download into VFS")
+
+    p_aud = sub.add_parser(
+        "audio",
+        help="Generate omni-modal audio (tts|music|sfx) via TinCan Server and save .wav into ./audio/ & .space",
+    )
+    p_aud.add_argument("kind", choices=["tts", "music", "sfx"], help="Audio modality kind (tts|music|sfx)")
+    p_aud.add_argument("prompt", nargs="?", default="cinematic ambient synthesis", help="Audio prompt or dialogue")
+    p_aud.add_argument("--model", default=None, help="Optional model ID override")
+    p_aud.add_argument("--voice", default=None, help="Optional voice preset")
+    p_aud.add_argument("--out", default=None, help="Optional VFS / relative path (e.g. /audio/track.wav)")
+
+    p_slash = sub.add_parser(
+        "slash",
+        help="Route a unified Terminal Aeonik slash command (/atlas, /image, /video, /audio, /3d, /rig, /text, /mux)",
+    )
+    p_slash.add_argument("command", help="Full slash command string, e.g. '/atlas splat kyoto shrine'")
+
     sub.add_parser("models", help="Inspect live TinCan chat, 2D image, and 3D Rodin availability")
 
     args = parser.parse_args()
@@ -1664,6 +1720,115 @@ def main() -> int:
                 wf.write(base64.b64decode(res["glb_bytes_b64"]))
         res_out = {k: v for k, v in res.items() if k != "glb_bytes_b64"}
         res_out["local_path"] = local_rel
+        print(json.dumps(res_out, indent=2))
+        return 0
+
+    if args.cmd == "atlas":
+        subcmd_map = {
+            "pose": "images2PosedRGBD",
+            "generate": "atlasGenerate",
+            "flythrough": "atlasGenerate",
+            "splats": "posedImages2Splats",
+            "splat": "posedImages2Splats",
+            "mesh": "splats2Mesh",
+            "chisel": "atlasChisel",
+            "text2img": "atlasTextToImage",
+        }
+        task_name = subcmd_map.get(args.subcmd, args.subcmd)
+        req_body = {
+            "prompt": args.prompt,
+            "subcommand": args.subcmd,
+            "views": args.views,
+            "resolution": args.res,
+            "fps": args.fps,
+        }
+        run_res = _req_json("/api/atlas/tasks/run", {
+            "task": task_name,
+            "request_body": req_body,
+            "idempotency_key": args.idempotency_key,
+            "scope": scope,
+            "owner_id": owner,
+        }, timeout=120.0)
+        if not run_res.get("ok"):
+            print(json.dumps(run_res, indent=2), file=sys.stderr)
+            return 1
+        op_id = run_res.get("operation_id") or run_res.get("id")
+        saved_files = []
+        local_files = []
+        if op_id and not args.no_download:
+            dl_res = _req_json("/api/atlas/operations/download", {
+                "operation_id": op_id,
+                "scope": scope,
+                "owner_id": owner,
+                "target_dir": args.out or "/worlds",
+            }, timeout=120.0)
+            saved_files = dl_res.get("saved_files") or []
+            files_b64 = dl_res.get("files_b64") or {}
+            for vfs_p in saved_files:
+                rel_p = str(vfs_p).lstrip("/")
+                abs_p = os.path.join(os.getcwd(), rel_p)
+                os.makedirs(os.path.dirname(abs_p), exist_ok=True)
+                b64_blob = files_b64.get(vfs_p)
+                if b64_blob:
+                    with open(abs_p, "wb") as wf:
+                        wf.write(base64.b64decode(b64_blob))
+                local_files.append(rel_p)
+        out_payload = {
+            "ok": True,
+            "task": task_name,
+            "subcommand": args.subcmd,
+            "operation_id": op_id,
+            "idempotency_key": run_res.get("idempotency_key"),
+            "done": run_res.get("done", True),
+            "saved_files": saved_files,
+            "local_files": local_files,
+        }
+        print(json.dumps(out_payload, indent=2))
+        return 0
+
+    if args.cmd == "audio":
+        res = _req_json("/api/audio/generate", {
+            "prompt": args.prompt,
+            "kind": args.kind,
+            "model": args.model,
+            "voice": args.voice,
+            "scope": scope,
+            "owner_id": owner,
+            "save_path": args.out,
+        }, timeout=120.0)
+        if not res.get("ok"):
+            print(json.dumps(res, indent=2), file=sys.stderr)
+            return 1
+        vfs_path = res.get("path") or args.out or f"/audio/{args.kind}.wav"
+        local_rel = vfs_path.lstrip("/")
+        local_abs = os.path.join(os.getcwd(), local_rel)
+        if res.get("audio_bytes_b64"):
+            os.makedirs(os.path.dirname(local_abs), exist_ok=True)
+            with open(local_abs, "wb") as wf:
+                wf.write(base64.b64decode(res["audio_bytes_b64"]))
+        res_out = {k: v for k, v in res.items() if k != "audio_bytes_b64"}
+        res_out["local_path"] = local_rel
+        print(json.dumps(res_out, indent=2))
+        return 0
+
+    if args.cmd == "slash":
+        res = _req_json("/api/omni/route", {
+            "command": args.command,
+            "scope": scope,
+            "owner_id": owner,
+            "peer_id": owner,
+        }, timeout=140.0)
+        if not res.get("ok"):
+            print(json.dumps(res, indent=2), file=sys.stderr)
+            return 1
+        files_b64 = res.get("files_b64") or {}
+        for vfs_p, b64_blob in files_b64.items():
+            rel_p = str(vfs_p).lstrip("/")
+            abs_p = os.path.join(os.getcwd(), rel_p)
+            os.makedirs(os.path.dirname(abs_p), exist_ok=True)
+            with open(abs_p, "wb") as wf:
+                wf.write(base64.b64decode(b64_blob))
+        res_out = {k: v for k, v in res.items() if k != "files_b64"}
         print(json.dumps(res_out, indent=2))
         return 0
 
@@ -1805,6 +1970,8 @@ def prepare_harness_sandbox_env(
     tmpdir: str,
     cache_dir: str,
     extra_env: Optional[Dict[str, str]] = None,
+    *,
+    scrub_secrets: bool = False,
 ) -> Dict[str, str]:
     """Build an isolated sandbox env keeping HOME, TMPDIR, CODEX_HOME, OpenCode config, and `tincan-gen` ready."""
     sandbox_home = os.path.join(cache_dir, "home")
@@ -1814,7 +1981,7 @@ def prepare_harness_sandbox_env(
     os.makedirs(sandbox_tmp, exist_ok=True)
     os.makedirs(codex_home, exist_ok=True)
     os.makedirs(opencode_cfg_dir, exist_ok=True)
-    if os.environ.get("OPENROUTER_API_KEY"):
+    if os.environ.get("OPENROUTER_API_KEY") and not scrub_secrets:
         with open(os.path.join(opencode_cfg_dir, "opencode.json"), "w", encoding="utf-8") as ocf:
             json.dump(
                 {
@@ -1848,11 +2015,19 @@ def prepare_harness_sandbox_env(
             local_url = f"http://127.0.0.1:{port}"
         sandbox_env["TINCAN_LOCAL_URL"] = local_url
     for key in HARNESS_AUTH_ENV_KEYS:
+        if scrub_secrets and key in PTY_SCRUBBED_SECRET_KEYS:
+            continue
         val = os.environ.get(key)
         if val:
             sandbox_env[key] = val
     if extra_env:
         sandbox_env.update({k: v for k, v in extra_env.items() if v is not None})
+    # Never expose World Labs Atlas or Hyper3D keys inside sandboxed shells/harnesses
+    for secret_key in ("WLT_API_KEY", "WORLDLABS_API_KEY", "HYPER3D_API_KEY", "RODIN_API_KEY"):
+        sandbox_env.pop(secret_key, None)
+    if scrub_secrets:
+        for secret_key in PTY_SCRUBBED_SECRET_KEYS:
+            sandbox_env.pop(secret_key, None)
     sandbox_env.setdefault("IS_SANDBOX", "1")
     return sandbox_env
 
@@ -2427,7 +2602,7 @@ def build_tincan_capability_manifest(
         "- Live GitHub-Pages Hosting & Localhost Browser (`/pages/<scope>/<owner_id>/...` & `/localhost/<port>/...`): builds and HTML/JS/CSS/3D apps written to `.space` (`/index.html`, `/dist/index.html`, `/models3d/...`) serve directly with relative assets at `/pages/<scope>/<owner_id>/` and inside the `#win-localhost` (`Localhost`) desktop browser; running dev servers inside the container can be previewed at `/localhost/<port>/`. Workstation File Viewer renders all file types (PDF, live HTML, CSV/TSV tables, `.ipynb` notebooks, `.docx`/`.xlsx`/`.pptx`, `.sqlite`/`.db`, `.zip`/`.tar`, `.obj`/`.stl`/`.ply`/`.glb`, `.dxf`, fonts, and binary Hex+ASCII).",
         "- Code & ArtCraft Tools in `.space`: Python 3 & Node.js sandbox execution, `cadcraft` (`.dxf`), `vectorcraft` (`.svg`), `scriptcraft` (`.fountain`), `deckcraft`, plus `.space` file CRUD.",
         "- Interactive Terminal TUIs (`xterm.js` PTY) & Coding Harnesses: `bash`, `claude`, `codex`, `opencode`, `goose`, `gemini`, `dsx` (run `<cli> \"prompt\"`, `hey <cli> <prompt>`, or click TUI buttons).\n"
-        "- Sandbox Shell Helpers (`tincan-gen` & `tincan-browse`, pre-authenticated on PATH): inside any shell/TUI run `tincan-gen image \"<prompt>\"`, `tincan-gen 3d \"<prompt>\"`, `tincan-gen rig /models3d/<mesh>.glb --anim walk`, or `tincan-browse open|text|screenshot|save \"https://...\"` (`HYPER3D_API_KEY`, `OPENROUTER_API_KEY`, and `NANOGPT_API_KEY` are held securely by TinCan Server).",
+        "- Sandbox Shell Helpers (`tincan-gen` & `tincan-browse`, pre-authenticated on PATH): inside any shell/TUI run `tincan-gen image \"<prompt>\"`, `tincan-gen 3d \"<prompt>\"`, `tincan-gen rig /models3d/<mesh>.glb --anim walk`, `tincan-gen atlas (pose|generate|splats|mesh|chisel|flythrough) \"<prompt>\"`, `tincan-gen audio (tts|music|sfx) \"<prompt>\"`, `tincan-gen slash \"/atlas splat <prompt>\"`, or `tincan-browse open|text|screenshot|save \"https://...\"` (`WLT_API_KEY`, `WORLDLABS_API_KEY`, `HYPER3D_API_KEY`, `OPENROUTER_API_KEY`, and `NANOGPT_API_KEY` are held securely by TinCan Server).",
         "- One-Click Install CLI Instructions (share with users when asked how to install TinCan): `brew install https://iot-federated-agent-memory-production.up.railway.app/Formula/tincan.rb` or `curl -sSL https://iot-federated-agent-memory-production.up.railway.app/install.sh | bash` (plus `npx skills add NoJuanNobody/tincan-skills -g -y` for Agent Skills), or click `One-Click Install` in the top bar.",
         "- Disambiguation Note: `/models3d/README.txt` inside `.space` ONLY documents the `/models3d/` folder for 3D `.glb` meshes from Hyper3D Rodin. Hyper3D Rodin is ONLY for 3D `.glb` meshes — 2D images use OpenRouter / NanoGPT image models and save to `/images/`. When the user asks 'what models do?' or 'rodin', explain both clearly.",
         "- CRITICAL: Never say 'My capabilities are limited to text' or 'I cannot generate images' — TinCan supports real 2D image generation, 3D Rodin generation, free `.glb` auto-rigging, and `.space` code/file tools.",

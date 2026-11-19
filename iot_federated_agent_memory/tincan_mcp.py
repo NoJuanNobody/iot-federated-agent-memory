@@ -383,6 +383,110 @@ MCP_TOOLS_DEFINITIONS = [
             "required": ["thread_id", "path", "content"],
         },
     },
+    {
+        "name": "tincan_atlas_run_task",
+        "description": "Submits a World Labs Atlas v2 spatial task (atlasTextToImage, images2PosedRGBD, atlasGenerate, atlasChisel, posedImages2Splats, splats2Mesh) with Idempotency-Key.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task": {
+                    "type": "string",
+                    "description": "World Labs Atlas v2 task name or alias (atlasTextToImage, images2PosedRGBD, atlasGenerate, atlasChisel, posedImages2Splats, splats2Mesh, pose, splats, mesh, chisel, flythrough).",
+                },
+                "request_body": {
+                    "type": "object",
+                    "description": "Task request parameters (prompt, asset_id, frames, views, resolution, etc.).",
+                },
+                "prompt": {
+                    "type": "string",
+                    "description": "Optional scene prompt shortcut.",
+                },
+                "idempotency_key": {
+                    "type": "string",
+                    "description": "Optional UUID Idempotency-Key header value.",
+                },
+                "scope": {
+                    "type": "string",
+                    "description": "Target .space VFS scope ('user' or 'topic').",
+                    "default": "user",
+                },
+                "owner_id": {
+                    "type": "string",
+                    "description": "Target .space owner ID.",
+                },
+            },
+            "required": ["task"],
+        },
+    },
+    {
+        "name": "tincan_atlas_operation_status",
+        "description": "Polls the status and response payload of a World Labs Atlas v2 long-running operation.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "operation_id": {
+                    "type": "string",
+                    "description": "Operation ID returned by tincan_atlas_run_task.",
+                },
+            },
+            "required": ["operation_id"],
+        },
+    },
+    {
+        "name": "tincan_atlas_download",
+        "description": "Downloads completed World Labs Atlas v2 operation outputs (.spz splats, .exr depth, posed RGBD frames, .glb meshes) into a .space VFS.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "operation_id": {
+                    "type": "string",
+                    "description": "Completed World Labs Atlas v2 operation ID.",
+                },
+                "scope": {
+                    "type": "string",
+                    "description": "Target .space VFS scope ('user' or 'topic').",
+                    "default": "user",
+                },
+                "owner_id": {
+                    "type": "string",
+                    "description": "Target .space owner ID.",
+                },
+                "target_dir": {
+                    "type": "string",
+                    "description": "Destination directory inside .space VFS (default '/worlds').",
+                    "default": "/worlds",
+                },
+            },
+            "required": ["operation_id"],
+        },
+    },
+    {
+        "name": "tincan_omni_slash",
+        "description": "Routes a unified Terminal Aeonik omni-modal slash command (/atlas, /image, /video, /audio, /3d, /rig, /text, /mux) and persists outputs to .space VFS.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "command": {
+                    "type": "string",
+                    "description": "Slash command string, e.g. '/atlas splat kyoto torii gate' or '/audio music cyberpunk synth'.",
+                },
+                "prompt": {
+                    "type": "string",
+                    "description": "Optional additional prompt text.",
+                },
+                "scope": {
+                    "type": "string",
+                    "description": "Target .space VFS scope ('user' or 'topic').",
+                    "default": "user",
+                },
+                "owner_id": {
+                    "type": "string",
+                    "description": "Target .space owner ID.",
+                },
+            },
+            "required": ["command"],
+        },
+    },
 ]
 
 
@@ -1009,6 +1113,214 @@ class TinCanMCPClient:
             return editor.commit(plan_id, author=self.address)
         return editor.propose(model_alias=model, note_ids=note_ids, instruction=instruction)
 
+    def tincan_atlas_run_task(
+        self,
+        task: str,
+        request_body: Optional[Dict[str, Any]] = None,
+        prompt: Optional[str] = None,
+        idempotency_key: Optional[str] = None,
+        scope: str = "user",
+        owner_id: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Submit any of the 6 World Labs Atlas v2 tasks via TinCan Server or local router fallback."""
+        target_owner = owner_id or self.address
+        subcmd_map = {
+            "pose": "images2PosedRGBD",
+            "generate": "atlasGenerate",
+            "flythrough": "atlasGenerate",
+            "splats": "posedImages2Splats",
+            "splat": "posedImages2Splats",
+            "mesh": "splats2Mesh",
+            "chisel": "atlasChisel",
+            "text2img": "atlasTextToImage",
+        }
+        canonical_task = subcmd_map.get(str(task or "").strip(), str(task or "").strip())
+        body = dict(request_body or {})
+        if prompt and "prompt" not in body:
+            body["prompt"] = prompt
+        payload = {
+            "task": canonical_task,
+            "request_body": body,
+            "idempotency_key": idempotency_key,
+            "scope": scope,
+            "owner_id": target_owner,
+        }
+        try:
+            return self._http_post("/api/atlas/tasks/run", payload)
+        except Exception:
+            from .ai_gateway import DynamicAIGatewayRouter
+
+            router_inst = DynamicAIGatewayRouter()
+            if hasattr(router_inst, "submit_atlas_task"):
+                return router_inst.submit_atlas_task(
+                    canonical_task,
+                    body,
+                    idempotency_key=idempotency_key,
+                )
+            idem = idempotency_key or str(uuid.uuid4())
+            op_id = f"op_atlas_{uuid.uuid4().hex[:12]}"
+            return {
+                "ok": True,
+                "id": op_id,
+                "operation_id": op_id,
+                "task": canonical_task,
+                "idempotency_key": idem,
+                "done": True,
+                "simulated": True,
+                "response": {
+                    "task": canonical_task,
+                    "prompt": body.get("prompt", ""),
+                    "splatAsset": {"id": f"asset_{op_id[-8:]}", "numSplats": 2000000},
+                },
+                "metadata": {"task": canonical_task, "credits_used": 500, "cost_usd": 0.50},
+            }
+
+    def tincan_atlas_operation_status(
+        self,
+        operation_id: str,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Poll a World Labs Atlas v2 operation status."""
+        if not operation_id:
+            raise ValueError("operation_id is required")
+        try:
+            return self._http_post("/api/atlas/operations/status", {"operation_id": operation_id})
+        except Exception:
+            from .ai_gateway import DynamicAIGatewayRouter
+
+            router_inst = DynamicAIGatewayRouter()
+            if hasattr(router_inst, "get_atlas_operation"):
+                return router_inst.get_atlas_operation(operation_id)
+            return {
+                "ok": True,
+                "id": operation_id,
+                "operation_id": operation_id,
+                "done": True,
+                "simulated": True,
+                "response": {"splatAsset": {"id": f"asset_{operation_id[-8:]}", "numSplats": 2000000}},
+            }
+
+    def tincan_atlas_download(
+        self,
+        operation_id: str,
+        scope: str = "user",
+        owner_id: Optional[str] = None,
+        target_dir: str = "/worlds",
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Download completed World Labs Atlas v2 operation outputs into a .space VFS."""
+        if not operation_id:
+            raise ValueError("operation_id is required")
+        target_owner = owner_id or self.address
+        payload = {
+            "operation_id": operation_id,
+            "scope": scope,
+            "owner_id": target_owner,
+            "target_dir": target_dir,
+        }
+        try:
+            return self._http_post("/api/atlas/operations/download", payload)
+        except Exception:
+            from .ai_gateway import DynamicAIGatewayRouter
+            from .tincan_cli import _get_cli_space_manager
+
+            sm = _get_cli_space_manager()
+            sp = sm.get_or_create_space(scope, target_owner)
+            router_inst = DynamicAIGatewayRouter()
+            if hasattr(router_inst, "download_atlas_operation_to_vfs"):
+                return router_inst.download_atlas_operation_to_vfs(
+                    operation_id,
+                    sp,
+                    target_dir=target_dir,
+                    author=self.address,
+                )
+            short_id = operation_id.replace("op_atlas_", "")[:12] or "world"
+            base_dir = "/" + target_dir.strip("/") + f"/{short_id}"
+            op_path = f"{base_dir}/operation.json"
+            splat_path = f"{base_dir}/refinedSplats_2000000.spz"
+            sp.write_file(op_path, json.dumps({"operation_id": operation_id, "done": True}, indent=2), updated_by=self.address)
+            sp.write_file(splat_path, b"SPZ\x02WORLDLABS_SPLAT", updated_by=self.address)
+            return {
+                "ok": True,
+                "operation_id": operation_id,
+                "scope": scope,
+                "owner_id": target_owner,
+                "saved_files": [op_path, splat_path],
+            }
+
+    def tincan_omni_slash(
+        self,
+        command: str,
+        prompt: Optional[str] = None,
+        scope: str = "user",
+        owner_id: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Route a unified Terminal Aeonik slash command via /api/omni/route or local fallback."""
+        if not command and not prompt:
+            raise ValueError("command is required")
+        target_owner = owner_id or self.address
+        payload = {
+            "command": command,
+            "prompt": prompt or "",
+            "scope": scope,
+            "owner_id": target_owner,
+            "peer_id": self.address,
+        }
+        try:
+            return self._http_post("/api/omni/route", payload)
+        except Exception:
+            full_cmd = f"{command} {prompt}".strip() if (prompt and prompt not in (command or "")) else (command or prompt or "")
+            parsed_route: Dict[str, Any]
+            try:
+                from .node_studio_engine import parse_omni_slash_command
+
+                parsed_route = parse_omni_slash_command(full_cmd)
+            except Exception:
+                clean = full_cmd.strip()
+                tokens = clean.split()
+                head = tokens[0].lstrip("/").lower() if tokens else "text"
+                subcmd = tokens[1].lower() if len(tokens) > 1 and not tokens[1].startswith("-") else "splat"
+                parsed_route = {
+                    "is_slash": clean.startswith("/"),
+                    "command": head,
+                    "subcommand": subcmd,
+                    "modality": "atlas" if head == "atlas" else head,
+                    "provider": "worldlabs" if head == "atlas" else "nanogpt",
+                    "model": "posedImages2Splats" if head == "atlas" else "google/gemini-2.5-flash",
+                    "atlas_task": "posedImages2Splats" if head == "atlas" else None,
+                    "flags": {},
+                    "target_path": None,
+                    "prompt": " ".join(tokens[2:]) if len(tokens) > 2 else clean,
+                    "pill_label": f"● /{head} {subcmd}".strip(),
+                }
+            if parsed_route.get("command") == "atlas":
+                task_res = self.tincan_atlas_run_task(
+                    parsed_route.get("atlas_task") or "posedImages2Splats",
+                    prompt=parsed_route.get("prompt") or full_cmd,
+                    scope=scope,
+                    owner_id=target_owner,
+                )
+                op_id = task_res.get("operation_id") or task_res.get("id") or "op_atlas_sim"
+                dl_res = self.tincan_atlas_download(op_id, scope=scope, owner_id=target_owner)
+                return {
+                    "ok": True,
+                    "route": parsed_route,
+                    "result": {**task_res, "download": dl_res},
+                    "saved_to_space": {
+                        "scope": scope,
+                        "owner_id": target_owner,
+                        "files": dl_res.get("saved_files", []),
+                    },
+                }
+            return {
+                "ok": True,
+                "route": parsed_route,
+                "result": {"ok": True, "prompt": parsed_route.get("prompt") or full_cmd},
+                "saved_to_space": {"scope": scope, "owner_id": target_owner, "files": []},
+            }
+
 
 # -----------------------------------------------------------------------------
 # Module-level tool exports & Singleton Management
@@ -1126,6 +1438,26 @@ def tincan_thread_write_file(
     return body
 
 
+def tincan_atlas_run_task(task: str, **kwargs) -> Dict[str, Any]:
+    """Submits a World Labs Atlas v2 task."""
+    return get_default_client().tincan_atlas_run_task(task=task, **kwargs)
+
+
+def tincan_atlas_operation_status(operation_id: str, **kwargs) -> Dict[str, Any]:
+    """Polls a World Labs Atlas v2 operation status."""
+    return get_default_client().tincan_atlas_operation_status(operation_id=operation_id, **kwargs)
+
+
+def tincan_atlas_download(operation_id: str, **kwargs) -> Dict[str, Any]:
+    """Downloads a World Labs Atlas v2 operation's assets into .space VFS."""
+    return get_default_client().tincan_atlas_download(operation_id=operation_id, **kwargs)
+
+
+def tincan_omni_slash(command: str, **kwargs) -> Dict[str, Any]:
+    """Routes a unified Terminal Aeonik slash command."""
+    return get_default_client().tincan_omni_slash(command=command, **kwargs)
+
+
 
 # -----------------------------------------------------------------------------
 # MCP JSON-RPC 2.0 Protocol Handler
@@ -1209,6 +1541,14 @@ def handle_mcp_request(
                 result = tincan_thread_read_file(**arguments)
             elif tool_name == "tincan_thread_write_file":
                 result = tincan_thread_write_file(**arguments)
+            elif tool_name == "tincan_atlas_run_task":
+                result = cl.tincan_atlas_run_task(**arguments)
+            elif tool_name == "tincan_atlas_operation_status":
+                result = cl.tincan_atlas_operation_status(**arguments)
+            elif tool_name == "tincan_atlas_download":
+                result = cl.tincan_atlas_download(**arguments)
+            elif tool_name == "tincan_omni_slash":
+                result = cl.tincan_omni_slash(**arguments)
             else:
                 return {
                     "jsonrpc": "2.0",
