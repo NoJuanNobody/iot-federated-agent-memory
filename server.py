@@ -921,13 +921,80 @@ def _omni_route(
             str(parsed_route.get("subcommand") or "splat").lower(),
             "posedImages2Splats",
         )
-        req_body = {
+        flags = parsed_route.get("flags") or {}
+        res_flag = flags.get("res")
+        target_res = res_flag if (isinstance(res_flag, list) and len(res_flag) == 2) else [1280, 720]
+
+        # Ingest ALL multi-view image references (up to 14 uploaded photos)
+        raw_refs = data.get("references") or data.get("images") or []
+        atlas_frames: List[Dict[str, Any]] = []
+        uploaded_assets: List[Dict[str, Any]] = []
+        if isinstance(raw_refs, list):
+            for idx, ref in enumerate(raw_refs[:14]):
+                if not isinstance(ref, dict):
+                    continue
+                ref_type = str(ref.get("type") or "image").lower()
+                if ref_type not in ("image", ""):
+                    continue
+                b64_val = str(ref.get("base64") or ref.get("data_b64") or "").strip()
+                url_val = str(ref.get("url") or "").strip()
+                mime_val = str(ref.get("mimeType") or ref.get("mime_type") or "image/jpeg").strip()
+                fname_val = str(ref.get("name") or ref.get("filename") or f"view_{idx}.jpg").strip()
+                if not b64_val and url_val.startswith("data:") and ";base64," in url_val:
+                    b64_val = url_val.split(";base64,", 1)[1]
+                if b64_val:
+                    up_status, up_res = _atlas_upload_asset(
+                        {
+                            "data_b64": b64_val,
+                            "mime_type": mime_val,
+                            "filename": fname_val,
+                            "scope": scope,
+                            "owner_id": owner_id,
+                        },
+                        ai_router=rtr,
+                    )
+                    asset_id = up_res.get("asset_id") or up_res.get("id")
+                    if up_status == 200 and asset_id:
+                        uploaded_assets.append({"filename": fname_val, "asset_id": asset_id, "mime_type": mime_val})
+                        atlas_frames.append({"imageAsset": {"assetId": asset_id}})
+                elif url_val.startswith(("http://", "https://")):
+                    uploaded_assets.append({"filename": fname_val, "url": url_val, "mime_type": mime_val})
+                    atlas_frames.append({"imageAsset": {"url": url_val}})
+
+        req_body: Dict[str, Any] = {
             "prompt": parsed_route.get("prompt") or combined_input,
             "subcommand": parsed_route.get("subcommand") or "splat",
-            "flags": parsed_route.get("flags") or {},
+            "flags": flags,
         }
         if parsed_route.get("target_path"):
             req_body["target_path"] = parsed_route["target_path"]
+
+        stage1_pose_res: Optional[Dict[str, Any]] = None
+        if atlas_frames:
+            if atlas_task == "images2PosedRGBD":
+                req_body = {"frames": atlas_frames, "targetResolution": target_res}
+            elif atlas_task == "posedImages2Splats":
+                # Two-stage multi-view pipeline: pose all uploaded photos -> generate 3D Gaussian Splat
+                _, stage1_pose_res = _atlas_run_task(
+                    {
+                        "task": "images2PosedRGBD",
+                        "request_body": {"frames": atlas_frames, "targetResolution": target_res},
+                    },
+                    headers=headers,
+                    ai_router=rtr,
+                )
+                s1_resp = (stage1_pose_res or {}).get("response") or {}
+                posed_frames = s1_resp.get("posedFrames") or s1_resp.get("frames") or atlas_frames
+                req_body = {
+                    "posedFrames": posed_frames,
+                    "frames": atlas_frames,
+                    "targetResolution": target_res,
+                    "prompt": parsed_route.get("prompt") or combined_input,
+                }
+            else:
+                req_body["frames"] = atlas_frames
+                req_body["targetResolution"] = target_res
+
         _, run_res = _atlas_run_task(
             {
                 "task": atlas_task,
@@ -962,7 +1029,7 @@ def _omni_route(
                 "owner_id": owner_id,
                 "peer_id": peer_id,
                 "target_dir": data.get("target_dir") or "/worlds",
-                "include_mesh": bool((parsed_route.get("flags") or {}).get("mesh") or atlas_task == "splats2Mesh"),
+                "include_mesh": bool(flags.get("mesh") or atlas_task == "splats2Mesh"),
             },
             ai_router=rtr,
         )
@@ -973,13 +1040,18 @@ def _omni_route(
             "files": saved_files,
             "path": saved_files[0] if saved_files else None,
         }
+        result_payload: Dict[str, Any] = {
+            **run_res,
+            "input_frame_count": len(atlas_frames),
+            "uploaded_assets": uploaded_assets,
+            "download": {k: v for k, v in dl_res.items() if k != "files_b64"},
+        }
+        if stage1_pose_res is not None:
+            result_payload["stage1_pose_operation_id"] = stage1_pose_res.get("operation_id") or stage1_pose_res.get("id")
         return 200, {
             "ok": True,
             "route": parsed_route,
-            "result": {
-                **run_res,
-                "download": {k: v for k, v in dl_res.items() if k != "files_b64"},
-            },
+            "result": result_payload,
             "saved_to_space": saved_to_space,
             "files_b64": dl_res.get("files_b64") or {},
         }

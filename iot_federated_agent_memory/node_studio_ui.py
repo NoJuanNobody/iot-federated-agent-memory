@@ -2428,10 +2428,18 @@ def _node_studio_js(initial_view: str) -> str:
     if (viaVal) viaVal.textContent = state.provider;
 
     const refCounter = $("nsRefCounter");
+    const imgRefCount = state.references.filter((r) => r.type === "image").length;
     if (refCounter) {
-      refCounter.textContent = state.references.length + "/" + caps.maxReferences +
-        (caps.supportsVideoAndPdf ? " refs (Img/Vid/PDF)" : " refs");
+      if (state.modality === "atlas" || state.model === "worldlabs/atlas-v2") {
+        refCounter.textContent = imgRefCount + "/" + caps.maxReferences +
+          (imgRefCount >= 3 ? " views · Multi-view Splat ready ✓" : " views (select 3–14 photos for Splat)");
+      } else {
+        refCounter.textContent = state.references.length + "/" + caps.maxReferences +
+          (caps.supportsVideoAndPdf ? " refs (Img/Vid/PDF)" : " refs");
+      }
     }
+    const libRefCount = $("nsLibRefCount");
+    if (libRefCount) libRefCount.textContent = String(state.references.length);
 
     const promptInput = $("nsPromptInput");
     if (promptInput) {
@@ -2482,11 +2490,9 @@ def _node_studio_js(initial_view: str) -> str:
   function renderReferencesStrip() {
     const strip = $("nsRefsStrip");
     const row = $("nsRefsRow");
-    const attachTrigger = $("nsAttachTrigger");
     if (!strip || !row) return;
 
     strip.classList.toggle("has-refs", state.references.length > 0);
-    if (attachTrigger) attachTrigger.classList.toggle("hidden", state.references.length > 0);
 
     const chips = state.references.map((ref, idx) => {
       let inner = "";
@@ -2504,7 +2510,7 @@ def _node_studio_js(initial_view: str) -> str:
 
     if (state.references.length > 0) {
       chips.push(
-        '<button type="button" class="ns-ref-slot-btn" title="Add more references" onclick="window.TinCanNodeStudio.triggerFileInput()">+</button>'
+        '<button type="button" class="ns-ref-slot-btn" title="Add more photos (multi-select up to 14)" onclick="window.TinCanNodeStudio.triggerFileInput()">+ Photos</button>'
       );
       if (state.references.length > 1) {
         chips.push(
@@ -2516,6 +2522,52 @@ def _node_studio_js(initial_view: str) -> str:
     bindRefDragEvents();
     syncCapabilitiesAndControls();
     renderPromptIslandStatus();
+  }
+
+  function _extractDataUrlBase64(url) {
+    if (!url || typeof url !== "string") return "";
+    const idx = url.indexOf(";base64,");
+    if (url.indexOf("data:") === 0 && idx !== -1) {
+      return url.slice(idx + 8);
+    }
+    return "";
+  }
+
+  function collectAllImageReferences() {
+    const caps = getCaps();
+    const maxRefs = (caps && caps.maxReferences) || 14;
+    const seen = new Set();
+    const out = [];
+    function pushRef(r) {
+      if (!r || out.length >= maxRefs) return;
+      const key = r.id || r.name || r.url || ("idx-" + out.length);
+      if (seen.has(key)) return;
+      seen.add(key);
+      const b64 = r.base64 || _extractDataUrlBase64(r.url);
+      out.push({
+        id: r.id || ("ref-" + out.length),
+        name: r.name || ("view_" + out.length + ".jpg"),
+        type: r.type || "image",
+        mimeType: r.mimeType || "image/jpeg",
+        url: r.url || "",
+        base64: b64
+      });
+    }
+    state.references.forEach(pushRef);
+    state.selectedIds.forEach((pid) => {
+      const n = state.nodes.find((x) => x.id === pid);
+      if (n && n.content && (n.content.imageUrl || n.content.base64)) {
+        pushRef({
+          id: n.id,
+          name: n.label || (n.id + ".png"),
+          type: "image",
+          mimeType: n.content.mimeType || "image/png",
+          url: n.content.imageUrl || "",
+          base64: n.content.base64 || _extractDataUrlBase64(n.content.imageUrl)
+        });
+      }
+    });
+    return out;
   }
 
   function bindRefDragEvents() {
@@ -2540,14 +2592,18 @@ def _node_studio_js(initial_view: str) -> str:
   }
 
   function syncSelectionRefs() {
+    const uploadedRefs = state.references.filter((r) => r.source === "upload");
     const selectedNodes = state.nodes.filter((n) => state.selectedIds.indexOf(n.id) !== -1);
-    const nextRefs = [];
+    const nextRefs = uploadedRefs.slice();
+    const seenIds = new Set(nextRefs.map((r) => r.id));
     selectedNodes.forEach((n) => {
-      if (n.content && (n.content.imageUrl || n.content.base64)) {
+      if (!seenIds.has(n.id) && n.content && (n.content.imageUrl || n.content.base64)) {
+        seenIds.add(n.id);
         nextRefs.push({
           id: n.id,
+          source: "node",
           url: n.content.imageUrl || "",
-          base64: n.content.base64 || "",
+          base64: n.content.base64 || _extractDataUrlBase64(n.content.imageUrl),
           mimeType: n.content.mimeType || "image/png",
           name: n.label || n.id,
           type: "image"
@@ -2605,11 +2661,15 @@ def _node_studio_js(initial_view: str) -> str:
     const nid = escapeHtml(node.id);
     const sMode = (node.splatState && node.splatState.mode) || "rgb";
     const showFrustums = !node.splatState || node.splatState.frustums !== false;
+    const inViews = (node.metadata && node.metadata.inputViewCount) ? Number(node.metadata.inputViewCount) : 0;
+    const hudTag = inViews > 0
+      ? (inViews + " INPUT PHOTO" + (inViews === 1 ? "" : "S") + " → 2.0M SPLATS (.SPZ) · DRAG TO ORBIT")
+      : "2.0M GAUSSIAN SPLATS (.SPZ) · DRAG TO ORBIT";
     return (
       '<div class="ns-splat-stage" onmousedown="event.stopPropagation()">' +
       '<canvas id="nsSplatCanvas-' + nid + '" class="ns-splat-canvas" data-splat-node-id="' + nid + '" width="440" height="164"></canvas>' +
       '<div class="ns-splat-hud-top">' +
-      '<span class="ns-splat-hud-tag">2.0M GAUSSIAN SPLATS (.SPZ) · DRAG TO ORBIT</span>' +
+      '<span class="ns-splat-hud-tag">' + hudTag + "</span>" +
       '<span class="ns-splat-hud-tag">RUB CAM · 1280×720</span>' +
       "</div>" +
       '<div class="ns-splat-toolbar">' +
@@ -3043,17 +3103,14 @@ def _node_studio_js(initial_view: str) -> str:
 
     state.nodeSeq += 1;
     const parentIds = state.selectedIds.slice();
+    const multiRefs = collectAllImageReferences();
+    const imageRefs = multiRefs.filter((r) => r.type === "image");
     const spawned = buildOmniNodeFromParsed(parsed, rawCmd, state.nodeSeq);
-    // Inherit reference image from selected parent node or attached references for 3D RGBD splat projection
-    for (let i = 0; i < parentIds.length; i++) {
-      const pNode = state.nodes.find((n) => n.id === parentIds[i]);
-      if (pNode && pNode.content && pNode.content.imageUrl) {
-        spawned.content.imageUrl = pNode.content.imageUrl;
-        break;
-      }
-    }
-    if (!spawned.content.imageUrl && state.references.length > 0 && state.references[0].url) {
-      spawned.content.imageUrl = state.references[0].url;
+    // Attach ALL multi-view uploaded/selected photos for 3D Gaussian Splat generation
+    if (imageRefs.length > 0) {
+      spawned.content.imageUrl = imageRefs[0].url || (imageRefs[0].base64 ? ("data:" + (imageRefs[0].mimeType || "image/jpeg") + ";base64," + imageRefs[0].base64) : "");
+      spawned.content.referenceImages = imageRefs.map((r) => r.url || (r.base64 ? ("data:" + (r.mimeType || "image/jpeg") + ";base64," + r.base64) : "")).filter(Boolean);
+      spawned.metadata.inputViewCount = imageRefs.length;
     }
 
     state.nodes.push(spawned);
@@ -3077,7 +3134,8 @@ def _node_studio_js(initial_view: str) -> str:
             prompt: parsed.prompt,
             modality: parsed.modality,
             model: parsed.model,
-            selectedNodeIds: parentIds
+            selectedNodeIds: parentIds,
+            references: multiRefs
           })
         });
         if (res && res.status === 404) {
@@ -3088,6 +3146,7 @@ def _node_studio_js(initial_view: str) -> str:
               prompt: rawCmd,
               modality: parsed.modality,
               selectedNodeIds: parentIds,
+              references: multiRefs,
               config: { model: parsed.model, provider: parsed.provider }
             })
           });
@@ -3096,6 +3155,9 @@ def _node_studio_js(initial_view: str) -> str:
           const data = await res.json();
           if (data && data.saved_to_space) {
             spawned.metadata.vfsPath = _extractSavedVfsPath(data.saved_to_space, spawned.metadata.vfsPath);
+          }
+          if (data && data.result && typeof data.result.input_frame_count === "number" && data.result.input_frame_count > 0) {
+            spawned.metadata.inputViewCount = data.result.input_frame_count;
           }
           if (data && data.files_b64 && typeof data.files_b64 === "object") {
             const keys = Object.keys(data.files_b64);
@@ -3116,7 +3178,8 @@ def _node_studio_js(initial_view: str) -> str:
       }
     }
 
-    appendTerminalLine("[+] Routed " + parsed.slash_key + " (" + parsed.model + ") → " + spawned.metadata.vfsPath);
+    const viewSuffix = imageRefs.length > 0 ? (" [" + imageRefs.length + " input photo" + (imageRefs.length === 1 ? "" : "s") + "]") : "";
+    appendTerminalLine("[+] Routed " + parsed.slash_key + " (" + parsed.model + ")" + viewSuffix + " → " + spawned.metadata.vfsPath);
     renderNodes();
     renderPromptIslandStatus();
     return spawned;
@@ -3883,18 +3946,38 @@ def _node_studio_js(initial_view: str) -> str:
     const files = Array.from(fileList || []);
     files.forEach((file) => {
       if (state.references.length >= caps.maxReferences) return;
-      const mime = file.type || (file.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/png");
+      const fname = (file && file.name) || ("photo_" + (state.references.length + 1) + ".jpg");
+      const mime = (file && file.type) || (fname.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg");
       const rType = mime === "application/pdf" ? "pdf" : (mime.indexOf("video/") === 0 ? "video" : "image");
       if (!caps.supportsVideoAndPdf && rType !== "image") return;
-      const url = typeof URL !== "undefined" && URL.createObjectURL ? URL.createObjectURL(file) : "";
-      state.references.push({
+      const url = (typeof URL !== "undefined" && URL.createObjectURL && file instanceof Blob)
+        ? URL.createObjectURL(file)
+        : ((file && file.url) || "");
+      const refObj = {
         id: "ref-" + Date.now() + "-" + Math.random().toString(16).slice(2, 6),
+        source: "upload",
         url: url,
-        name: file.name,
+        base64: (file && file.base64) || _extractDataUrlBase64(url),
+        name: fname,
         type: rType,
         mimeType: mime,
-        size: file.size
-      });
+        size: (file && file.size) || 0
+      };
+      state.references.push(refObj);
+      if (rType === "image" && !refObj.base64 && typeof FileReader !== "undefined" && typeof Blob !== "undefined" && file instanceof Blob) {
+        try {
+          const reader = new FileReader();
+          reader.onload = function () {
+            const dataUrl = String(reader.result || "");
+            if (dataUrl) {
+              if (!refObj.url) refObj.url = dataUrl;
+              refObj.base64 = _extractDataUrlBase64(dataUrl);
+              renderReferencesStrip();
+            }
+          };
+          reader.readAsDataURL(file);
+        } catch (_e) {}
+      }
     });
     renderReferencesStrip();
   }
@@ -3904,24 +3987,32 @@ def _node_studio_js(initial_view: str) -> str:
     const rect = canvas ? canvas.getBoundingClientRect() : { left: 0, top: 0 };
     const flowX = (clientX - rect.left - state.panX) / state.zoom;
     const flowY = (clientY - rect.top - state.panY) / state.zoom;
-    Array.from(fileList || []).forEach((file, idx) => {
-      if (!file.type || file.type.indexOf("image/") !== 0) return;
+    const droppedIds = [];
+    const imageFiles = Array.from(fileList || []).filter((f) => f && f.type && f.type.indexOf("image/") === 0);
+    imageFiles.forEach((file, idx) => {
       const reader = new FileReader();
       reader.onload = function () {
+        const dataUrl = String(reader.result || "");
         state.nodeSeq += 1;
+        const nid = "uploaded-" + state.nodeSeq;
         state.nodes.push({
-          id: "uploaded-" + state.nodeSeq,
+          id: nid,
           type: "UPLOADED",
           morphingStatus: "image",
           label: file.name,
-          x: Math.round(flowX + idx * 24),
-          y: Math.round(flowY + idx * 24),
+          x: Math.round(flowX + idx * 36),
+          y: Math.round(flowY + idx * 28),
           width: 256,
           height: 256,
-          content: { imageUrl: String(reader.result || ""), mimeType: file.type },
+          content: { imageUrl: dataUrl, base64: _extractDataUrlBase64(dataUrl), mimeType: file.type },
           metadata: { resolution: "1024x1024", model: "Uploaded", prompt: "Uploaded: " + file.name },
           filters: {}
         });
+        droppedIds.push(nid);
+        if (droppedIds.length === imageFiles.length) {
+          state.selectedIds = droppedIds.slice();
+          syncSelectionRefs();
+        }
         renderNodes();
       };
       reader.readAsDataURL(file);
@@ -4348,6 +4439,22 @@ def _node_studio_js(initial_view: str) -> str:
       });
     }
 
+    ["nsLibRefDrop", "nsPromptIsland"].forEach((dropId) => {
+      const dz = $(dropId);
+      if (!dz) return;
+      dz.addEventListener("dragover", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+      });
+      dz.addEventListener("drop", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files.length) {
+          addFilesToRefs(ev.dataTransfer.files);
+        }
+      });
+    });
+
     const promptEl = $("nsPromptInput");
     if (promptEl) {
       promptEl.addEventListener("input", () => {
@@ -4703,8 +4810,8 @@ def _render_studio_stage_markup(active_view: str) -> str:
         </button>
         <div id="nsLibSec-references" class="ns-sec-content">
           <div id="nsLibRefDrop" class="ns-lib-ref-drop" onclick="window.TinCanNodeStudio.triggerFileInput()">
-            <span class="ns-lib-ref-label">DROP OR CLICK</span>
-            <span class="ns-lib-ref-label">torii_1k.jpg · depth_0.exr · koto_score.wav</span>
+            <span class="ns-lib-ref-label">DROP OR CLICK · MULTI-SELECT 3–14 PHOTOS</span>
+            <span class="ns-lib-ref-label">torii_1k.jpg · view_02.jpg · view_03.jpg · depth_0.exr</span>
           </div>
         </div>
       </div>

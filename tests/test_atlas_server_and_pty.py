@@ -253,6 +253,28 @@ def test_audio_generate_and_omni_slash_router_endpoints(tmp_path, monkeypatch):
         assert r_audio["route"]["command"] == "audio"
         assert r_audio["saved_to_space"]["path"].startswith("/audio/")
 
+        # Multi-view Atlas Splat route with 4 uploaded photos
+        tiny_jpg_b64 = base64.b64encode(b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xff\xd9").decode("ascii")
+        st_multi, r_multi = _req(
+            base_url,
+            "POST",
+            "/api/omni/route",
+            {
+                "command": "/atlas splat multi-view courtyard",
+                "scope": "user",
+                "owner_id": "omni_peer",
+                "references": [
+                    {"name": f"view_{i}.jpg", "type": "image", "mimeType": "image/jpeg", "base64": tiny_jpg_b64}
+                    for i in range(4)
+                ],
+            },
+        )
+        assert st_multi == 200, r_multi
+        assert r_multi["ok"] is True
+        assert r_multi["result"]["input_frame_count"] == 4
+        assert len(r_multi["result"]["uploaded_assets"]) == 4
+        assert r_multi["result"].get("stage1_pose_operation_id")
+
         st_r_3d, r_3d = _req(
             base_url,
             "POST",

@@ -349,10 +349,27 @@ global.fetch = (url, opts) => {{
   await api.runTerminalCommand('/audio music "Koto + waves"'); // triggers 404 fallback to /api/nodes/generate
   await api.runTerminalCommand('/atlas splat /images/torii_gate.jpg --views 14');
 
-  // 5. Selecting World Labs Atlas v2 model and running generate() with plain prompt routes to /atlas splat
+  // 5. Selecting World Labs Atlas v2 model, attaching 4 multi-view photos, and running generate() sends all 4 to /api/omni/route
   api.selectModel("worldlabs/atlas-v2");
+  api.handleFilesSelected([
+    {{ name: "view_01.jpg", type: "image/jpeg", size: 1024, url: "data:image/jpeg;base64,AAAA1111" }},
+    {{ name: "view_02.jpg", type: "image/jpeg", size: 1024, url: "data:image/jpeg;base64,BBBB2222" }},
+    {{ name: "view_03.jpg", type: "image/jpeg", size: 1024, url: "data:image/jpeg;base64,CCCC3333" }},
+    {{ name: "view_04.jpg", type: "image/jpeg", size: 1024, url: "data:image/jpeg;base64,DDDD4444" }}
+  ]);
+  out.multiRefCount = api.getState().references.length;
+  out.refCounterText = elements.get("nsRefCounter").textContent;
+  // Clearing canvas selection must preserve uploaded multi-view photos
+  api.clearSelection();
+  out.multiRefCountAfterClearSel = api.getState().references.length;
+
   elements.get("nsPromptInput").value = "Lake Ashi shrine at twilight";
   await api.generate();
+  const lastOmniCall = fetchCalls.filter((c) => c.url === "/api/omni/route").pop();
+  out.sentMultiRefCount = lastOmniCall && lastOmniCall.body && Array.isArray(lastOmniCall.body.references)
+    ? lastOmniCall.body.references.length : 0;
+  out.sentMultiRefB64Count = lastOmniCall && lastOmniCall.body && Array.isArray(lastOmniCall.body.references)
+    ? lastOmniCall.body.references.filter((r) => !!r.base64).length : 0;
 
   // 6. Opening and closing Fullscreen 3D Gaussian Splat Viewer Modal
   const latestNodeId = api.getState().nodes[api.getState().nodes.length - 1].id;
@@ -405,6 +422,11 @@ global.fetch = (url, opts) => {{
     assert "/api/omni/route" in res["fetchUrls"]
     assert "/api/nodes/generate" in res["fetchUrls"]
     assert res["nodeCount"] == 4
+    assert res["multiRefCount"] == 4
+    assert res["multiRefCountAfterClearSel"] == 4
+    assert "4/14 views" in res["refCounterText"]
+    assert res["sentMultiRefCount"] == 4
+    assert res["sentMultiRefB64Count"] == 4
     assert res["splatModalVisible"] is True
     assert res["splatModalClosed"] is True
     assert "3D GAUSSIAN SPLAT VIEWER (.SPZ)" in res["splatModalTitle"]
