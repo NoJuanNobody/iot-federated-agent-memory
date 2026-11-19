@@ -82,6 +82,20 @@ def classify_gateway(alias_or_config: Any, *, router: Any = None) -> str:
         if raw.startswith(("ronin/", "rodin/", "hyper3d/")) or low in ("ronin", "rodin", "hyper3d"):
             return "hyper3d"
         if (
+            raw.startswith(("worldlabs/", "atlas/"))
+            or low in ("worldlabs", "atlas", "worldlabs-atlas", "wlt")
+            or raw in (
+                "atlasTextToImage",
+                "images2PosedRGBD",
+                "atlasGenerate",
+                "atlasChisel",
+                "posedImages2Splats",
+                "splats2Mesh",
+            )
+            or "atlas.worldlabs.ai" in low
+        ):
+            return "worldlabs"
+        if (
             raw == "nanogpt-brain"
             or low.startswith(("nanogpt/", "tee/", "abliteration-ai/", "huihui-ai/", "pqhaz/", "xtools-at/"))
             or "abliterated" in low
@@ -119,6 +133,13 @@ def classify_gateway(alias_or_config: Any, *, router: Any = None) -> str:
         return "nanogpt-tee"
     if api_key_env == "HYPER3D_API_KEY" or gateway in ("hyper3d", "ronin") or lab_id in ("ronin", "hyper3d", "rodin"):
         return "hyper3d"
+    if (
+        api_key_env in ("WLT_API_KEY", "WORLDLABS_API_KEY")
+        or gateway in ("worldlabs", "atlas")
+        or lab_id in ("worldlabs", "atlas")
+        or "atlas.worldlabs.ai" in endpoint
+    ):
+        return "worldlabs"
     if model_alias:
         return classify_gateway(model_alias)
     return "openrouter"
@@ -231,6 +252,33 @@ def estimate_preflight(
             "display_badge": f"Est: {credits} CR (${tier_usd:.2f})",
         }
 
+    if gw == "worldlabs":
+        low = alias.lower()
+        if "posedrgbd" in low or "texttoimage" in low:
+            task_usd = 0.05
+        elif "splats2mesh" in low:
+            task_usd = 0.20
+        elif "splats" in low:
+            task_usd = 0.50
+        else:
+            task_usd = 0.25
+        credits = int(round(task_usd * _CREDITS_PER_USD))
+        return {
+            "model_alias": alias,
+            "gateway": "worldlabs",
+            "is_local": False,
+            "is_zero_burn": False,
+            "estimated_credits": credits,
+            "credits_label": f"{credits} CR",
+            "estimated_usd": task_usd,
+            "cloud_equivalent_credits": credits,
+            "cloud_equivalent_usd": task_usd,
+            "estimated_prompt_tokens": est_prompt_tokens,
+            "estimated_completion_tokens": 64,
+            "recommended_route": "worldlabs atlas v2",
+            "display_badge": f"Est: {credits} CR (${task_usd:.2f})",
+        }
+
     in_per_1m, out_per_1m = _lookup_model_rates(alias, router=router)
     est_usd = round(
         (est_prompt_tokens / 1_000_000.0) * in_per_1m + (est_completion_tokens / 1_000_000.0) * out_per_1m,
@@ -334,7 +382,7 @@ def _aggregate_usage(
 ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
     buckets: Dict[str, Dict[str, Any]] = {
         gw: {"calls": 0, "tokens": 0, "cost_usd": 0.0}
-        for gw in ("ollama", "local", "fau-owlchat", "nanogpt-tee", "openrouter", "hyper3d")
+        for gw in ("ollama", "local", "fau-owlchat", "nanogpt-tee", "openrouter", "hyper3d", "worldlabs")
     }
 
     raw_providers = getattr(router, "providers", None)
