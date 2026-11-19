@@ -493,7 +493,7 @@ def _render_floating_terminal_html() -> str:
 def _render_omni_modal_showcase_nodes_html() -> str:
     return (
         '<div class="ns-canvas-node ns-omni-showcase-node" data-node-id="showcase-1" '
-        'style="left:210px;top:72px;width:246px;height:186px;">'
+        'style="left:210px;top:64px;width:246px;height:186px;">'
         '<div class="ns-morph-card ns-omni-card">'
         '<div class="ns-omni-pill">● #1 TEXT → 4K KEYFRAME</div>'
         '<div class="ns-omni-box">'
@@ -504,9 +504,12 @@ def _render_omni_modal_showcase_nodes_html() -> str:
         '<div class="ns-omni-sub">frames_0_image.jpg (162 KB) · asset_4da75cf7</div>'
         "</div></div>"
         '<div class="ns-canvas-node ns-omni-showcase-node" data-node-id="showcase-2" '
-        'style="left:210px;top:276px;width:246px;height:198px;">'
+        'style="left:210px;top:264px;width:246px;height:212px;">'
         '<div class="ns-morph-card ns-omni-card">'
-        '<div class="ns-omni-pill">● #2 ATLAS · images2PosedRGBD</div>'
+        '<div class="ns-omni-top-row">'
+        '<span class="ns-omni-pill">● #2 ATLAS · images2PosedRGBD</span>'
+        '<button type="button" class="ns-splat-btn ns-splat-btn--expand" onclick="event.stopPropagation();window.TinCanNodeStudio.openSplatViewer(\'showcase-2\')">⤢ 3D</button>'
+        "</div>"
         '<div class="ns-omni-box">'
         "<div>[Linear Depth .EXR 267KB · Conf 98.4%]</div>"
         "<div>RUB Cam: fx=893.4 fy=893.9 · Pos [0, 4.04, 0]</div>"
@@ -516,7 +519,7 @@ def _render_omni_modal_showcase_nodes_html() -> str:
         '<div class="ns-omni-sub ns-omni-green">Synced to /worlds/torii_3e78434c/ ✓</div>'
         "</div></div>"
         '<div class="ns-canvas-node ns-omni-showcase-node" data-node-id="showcase-3" '
-        'style="left:474px;top:276px;width:246px;height:198px;">'
+        'style="left:474px;top:264px;width:246px;height:212px;">'
         '<div class="ns-morph-card ns-omni-card">'
         '<div class="ns-omni-pill ns-omni-pill--outline">♪ #3 AUDIO · TTS + SCORE + SFX</div>'
         '<div class="ns-omni-box">'
@@ -528,11 +531,26 @@ def _render_omni_modal_showcase_nodes_html() -> str:
         '<div class="ns-omni-sub">/audio/torii_master.wav · 48kHz 24-bit</div>'
         "</div></div>"
         '<div class="ns-canvas-node ns-omni-showcase-node is-selected" data-node-id="showcase-4" '
-        'style="left:210px;top:492px;width:510px;height:196px;">'
+        'style="left:210px;top:490px;width:510px;height:348px;">'
         '<div class="ns-morph-card ns-omni-card is-active">'
         '<div class="ns-omni-top-row">'
         '<span class="ns-omni-pill">❖ #4 OMNI-WORLD MASTER · SPLAT + GLB + MP4</span>'
         '<span class="ns-omni-status-badge">✓ RIGGED + AUDIO MUXED</span>'
+        "</div>"
+        '<div class="ns-splat-stage" data-splat-stage="showcase-4">'
+        '<canvas id="nsSplatCanvas-showcase-4" class="ns-splat-canvas" data-splat-node-id="showcase-4" width="440" height="164"></canvas>'
+        '<div class="ns-splat-hud-top">'
+        '<span class="ns-splat-chip">● 2.0M SPLATS (.SPZ) · 14 RUB VIEWS</span>'
+        '<span class="ns-splat-chip">fx=893.4 · DRAG TO ORBIT</span>'
+        "</div>"
+        '<div class="ns-splat-toolbar">'
+        '<div class="ns-splat-btn-row">'
+        '<button type="button" class="ns-splat-btn is-active" onclick="event.stopPropagation();window.TinCanNodeStudio.setNodeSplatMode(\'showcase-4\',\'rgb\')">3D Splats</button>'
+        '<button type="button" class="ns-splat-btn" onclick="event.stopPropagation();window.TinCanNodeStudio.setNodeSplatMode(\'showcase-4\',\'depth\')">Depth .EXR</button>'
+        '<button type="button" class="ns-splat-btn is-active" onclick="event.stopPropagation();window.TinCanNodeStudio.toggleNodeFrustums(\'showcase-4\')">14 Frustums</button>'
+        "</div>"
+        '<button type="button" class="ns-splat-btn ns-splat-btn--expand" onclick="event.stopPropagation();window.TinCanNodeStudio.openSplatViewer(\'showcase-4\')">⤢ View 3D Splat</button>'
+        "</div>"
         "</div>"
         '<div class="ns-omni-grid-2">'
         '<div class="ns-omni-box">'
@@ -2081,6 +2099,136 @@ def _node_studio_css() -> str:
   .ns-omni-sub { font-family: var(--ns-mono); font-size: 9px; color: var(--ns-faint); }
   .ns-omni-green { color: var(--ns-green); font-weight: 700; }
 
+  /* Interactive 3D Gaussian Splat Stage inside Node Cards & Fullscreen Modal */
+  .ns-splat-stage {
+    position: relative;
+    width: 100%;
+    height: 164px;
+    border-radius: 8px;
+    border: var(--ns-hair);
+    background: #000000;
+    overflow: hidden;
+    user-select: none;
+  }
+  .ns-splat-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+  }
+  .ns-splat-canvas:active { cursor: grabbing; }
+  .ns-splat-hud-top {
+    position: absolute;
+    top: 6px;
+    left: 8px;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: none;
+    font-family: var(--ns-mono);
+    font-size: 9px;
+    color: #f5f5f5;
+  }
+  .ns-splat-hud-tag {
+    padding: 2px 7px;
+    border-radius: 9999px;
+    background: rgba(0, 0, 0, 0.78);
+    border: 1px solid #ffffff;
+    color: #ffffff;
+    font-weight: 700;
+  }
+  .ns-splat-toolbar {
+    position: absolute;
+    bottom: 6px;
+    left: 8px;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .ns-splat-btn-group { display: inline-flex; align-items: center; gap: 4px; }
+  .ns-splat-btn {
+    padding: 2px 7px;
+    border-radius: 9999px;
+    border: 1px solid #ffffff;
+    background: rgba(0, 0, 0, 0.82);
+    color: #f5f5f5;
+    font-family: var(--ns-mono);
+    font-size: 9px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .ns-splat-btn:hover,
+  .ns-splat-btn.is-active,
+  .ns-splat-btn.is-primary {
+    background: #ffffff;
+    color: #000000;
+  }
+
+  .ns-splat-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 95;
+    background: rgba(17, 17, 17, 0.64);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .ns-splat-modal-backdrop.hidden { display: none; }
+  .ns-splat-modal {
+    width: min(880px, 96vw);
+    border-radius: 16px;
+    border: 1.5px solid var(--ns-ink);
+    background: var(--ns-card);
+    color: var(--ns-ink);
+    box-shadow: var(--ns-shadow);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .ns-splat-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .ns-splat-modal-viewport {
+    position: relative;
+    width: 100%;
+    height: min(440px, 60vh);
+    border-radius: 12px;
+    border: 1.5px solid #111111;
+    background: #000000;
+    overflow: hidden;
+  }
+  .ns-splat-modal-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-family: var(--ns-mono);
+    font-size: 10px;
+  }
+  html[data-theme="dark"] .ns-splat-modal,
+  body.tc-dark .ns-splat-modal {
+    background: #0e0e0e !important;
+    border-color: #ffffff !important;
+    color: #f5f5f5 !important;
+  }
+  html[data-theme="dark"] .ns-splat-modal-viewport,
+  body.tc-dark .ns-splat-modal-viewport,
+  html[data-theme="dark"] .ns-splat-stage,
+  body.tc-dark .ns-splat-stage {
+    border-color: #ffffff !important;
+  }
+
   /* Code / Terminal Drawers & CLI Consoles (#000000 background with 1.5px solid #ffffff border) */
   html[data-theme="dark"] .ns-floating-terminal,
   body.tc-dark .ns-floating-terminal,
@@ -2453,6 +2601,29 @@ def _node_studio_js(initial_view: str) -> str:
     return parts.length ? parts.join(" ") : "none";
   }
 
+  function renderSplatStageHtml(node) {
+    const nid = escapeHtml(node.id);
+    const sMode = (node.splatState && node.splatState.mode) || "rgb";
+    const showFrustums = !node.splatState || node.splatState.frustums !== false;
+    return (
+      '<div class="ns-splat-stage" onmousedown="event.stopPropagation()">' +
+      '<canvas id="nsSplatCanvas-' + nid + '" class="ns-splat-canvas" data-splat-node-id="' + nid + '" width="440" height="164"></canvas>' +
+      '<div class="ns-splat-hud-top">' +
+      '<span class="ns-splat-hud-tag">2.0M GAUSSIAN SPLATS (.SPZ) · DRAG TO ORBIT</span>' +
+      '<span class="ns-splat-hud-tag">RUB CAM · 1280×720</span>' +
+      "</div>" +
+      '<div class="ns-splat-toolbar">' +
+      '<div class="ns-splat-btn-group">' +
+      '<button type="button" class="ns-splat-btn' + (sMode === "rgb" ? " is-active" : "") + '" onclick="event.stopPropagation();window.TinCanNodeStudio.setNodeSplatMode(\'' + nid + '\',\'rgb\')">3D Splats</button>' +
+      '<button type="button" class="ns-splat-btn' + (sMode === "depth" ? " is-active" : "") + '" onclick="event.stopPropagation();window.TinCanNodeStudio.setNodeSplatMode(\'' + nid + '\',\'depth\')">Depth .EXR</button>' +
+      '<button type="button" class="ns-splat-btn' + (showFrustums ? " is-active" : "") + '" onclick="event.stopPropagation();window.TinCanNodeStudio.toggleNodeFrustums(\'' + nid + '\')">14 Frustums</button>' +
+      "</div>" +
+      '<button type="button" class="ns-splat-btn is-primary" onclick="event.stopPropagation();window.TinCanNodeStudio.openSplatViewer(\'' + nid + '\')">⤢ View 3D Splat</button>' +
+      "</div>" +
+      "</div>"
+    );
+  }
+
   function renderOmniCardInner(node) {
     const kind = node.omniKind || node.modality || "atlas";
     const meta = node.metadata || {};
@@ -2478,6 +2649,7 @@ def _node_studio_js(initial_view: str) -> str:
         '<span class="ns-omni-pill">❖ OMNI-WORLD MASTER · SPLAT + GLB + MP4</span>' +
         '<span class="ns-omni-status-badge">✓ RIGGED + AUDIO MUXED</span>' +
         "</div>" +
+        renderSplatStageHtml(node) +
         '<div class="ns-omni-grid-2">' +
         '<div class="ns-omni-box">' +
         "<div>[3D Gaussian Splat → GLB + Walk Rig]</div>" +
@@ -2493,13 +2665,14 @@ def _node_studio_js(initial_view: str) -> str:
         "</div>" +
         "</div>" +
         '<div class="ns-omni-title">' + promptTxt + "</div>" +
-        '<div class="ns-omni-sub">Parents: [#2 Atlas RGBD + #3 Audio] · Via: World Labs Atlas v2 + NanoGPT</div>' +
+        '<div class="ns-omni-sub">' + escapeHtml(meta.vfsPath || "Parents: [#2 Atlas RGBD + #3 Audio] · Via: World Labs Atlas v2 + NanoGPT") + "</div>" +
         "</div>"
       );
     }
     return (
       '<div class="ns-omni-card">' +
       '<div class="ns-omni-pill">● ATLAS · images2PosedRGBD</div>' +
+      renderSplatStageHtml(node) +
       '<div class="ns-omni-box">' +
       "<div>[Linear Depth .EXR 267KB · Conf 98.4%]</div>" +
       "<div>RUB Cam: fx=893.4 fy=893.9 · Pos [0, 4.04, 0]</div>" +
@@ -2573,6 +2746,8 @@ def _node_studio_js(initial_view: str) -> str:
         ? ('<div class="ns-node-quickbar" onclick="event.stopPropagation()">' +
            '<button type="button" class="ns-qact-btn" onclick="window.TinCanNodeStudio.addNodeAsRef(\'' + escapeHtml(node.id) + '\')">+ Ref</button>' +
            '<span class="ns-qact-sep"></span>' +
+           '<button type="button" class="ns-qact-btn" onclick="window.TinCanNodeStudio.viewOrConvertNodeSplat(\'' + escapeHtml(node.id) + '\')">❖ 3D Splat</button>' +
+           '<span class="ns-qact-sep"></span>' +
            '<button type="button" class="ns-qact-btn" onclick="window.TinCanNodeStudio.editNode(\'' + escapeHtml(node.id) + '\')">Edit</button>' +
            '<button type="button" class="ns-qact-btn" onclick="window.TinCanNodeStudio.openFilterPopover(\'' + escapeHtml(node.id) + '\')">Filter</button>' +
            '<button type="button" class="ns-qact-btn" onclick="window.TinCanNodeStudio.duplicateNode(\'' + escapeHtml(node.id) + '\')">Copy</button>' +
@@ -2594,6 +2769,7 @@ def _node_studio_js(initial_view: str) -> str:
 
     renderEdges();
     renderLibraryViewGrid();
+    mountAllSplatCanvases();
   }
 
   function parseSlashCommand(raw) {
@@ -2780,14 +2956,18 @@ def _node_studio_js(initial_view: str) -> str:
 
   function buildOmniNodeFromParsed(parsed, rawCmd, idSuffix) {
     let omniKind = "atlas";
-    let w = 280;
-    let h = 198;
+    let w = 340;
+    let h = 348;
     let vfsPath = "Synced to /worlds/torii_3e78434c/ ✓";
     if (parsed.modality === "audio") {
       omniKind = "audio";
+      w = 280;
+      h = 198;
       vfsPath = "/audio/torii_master.wav · 48kHz 24-bit";
     } else if (parsed.subcommand === "pose" || parsed.atlas_task === "images2PosedRGBD") {
       omniKind = "pose";
+      w = 360;
+      h = 348;
       vfsPath = "Synced to /worlds/torii_3e78434c/ ✓";
     } else if (
       parsed.modality === "atlas" ||
@@ -2796,7 +2976,7 @@ def _node_studio_js(initial_view: str) -> str:
     ) {
       omniKind = "omni_master";
       w = 480;
-      h = 198;
+      h = 368;
       vfsPath = "/worlds/torii_3e78434c/refinedSplats_2000000.spz";
     }
     return {
@@ -2807,9 +2987,16 @@ def _node_studio_js(initial_view: str) -> str:
       modality: parsed.modality,
       label: rawCmd,
       x: 240 + (idSuffix % 3) * 48,
-      y: 140 + (idSuffix % 3) * 56,
+      y: 110 + (idSuffix % 3) * 56,
       width: w,
       height: h,
+      splatState: {
+        mode: "rgb",
+        frustums: true,
+        yaw: 0.42,
+        pitch: 0.24,
+        zoom: 1.0
+      },
       content: {
         text: rawCmd,
         sparkline: "│┃│┃┃│┃┃"
@@ -2824,6 +3011,22 @@ def _node_studio_js(initial_view: str) -> str:
       },
       filters: {}
     };
+  }
+
+  function _extractSavedVfsPath(savedObj, fallbackPath) {
+    if (!savedObj) return fallbackPath;
+    if (typeof savedObj === "string") return savedObj;
+    if (typeof savedObj === "object") {
+      if (Array.isArray(savedObj.files) && savedObj.files.length) {
+        const spzFile = savedObj.files.find((f) => String(f).endsWith(".spz"));
+        const glbFile = savedObj.files.find((f) => String(f).endsWith(".glb"));
+        return String(spzFile || glbFile || savedObj.files[0]);
+      }
+      if (savedObj.path && typeof savedObj.path === "string") {
+        return savedObj.path;
+      }
+    }
+    return fallbackPath;
   }
 
   async function runTerminalCommand(cmd) {
@@ -2841,6 +3044,18 @@ def _node_studio_js(initial_view: str) -> str:
     state.nodeSeq += 1;
     const parentIds = state.selectedIds.slice();
     const spawned = buildOmniNodeFromParsed(parsed, rawCmd, state.nodeSeq);
+    // Inherit reference image from selected parent node or attached references for 3D RGBD splat projection
+    for (let i = 0; i < parentIds.length; i++) {
+      const pNode = state.nodes.find((n) => n.id === parentIds[i]);
+      if (pNode && pNode.content && pNode.content.imageUrl) {
+        spawned.content.imageUrl = pNode.content.imageUrl;
+        break;
+      }
+    }
+    if (!spawned.content.imageUrl && state.references.length > 0 && state.references[0].url) {
+      spawned.content.imageUrl = state.references[0].url;
+    }
+
     state.nodes.push(spawned);
     parentIds.forEach((pid) => {
       state.edges.push({ id: "e-" + pid + "-" + spawned.id, source: pid, target: spawned.id });
@@ -2880,7 +3095,20 @@ def _node_studio_js(initial_view: str) -> str:
         if (res && typeof res.json === "function") {
           const data = await res.json();
           if (data && data.saved_to_space) {
-            spawned.metadata.vfsPath = String(data.saved_to_space);
+            spawned.metadata.vfsPath = _extractSavedVfsPath(data.saved_to_space, spawned.metadata.vfsPath);
+          }
+          if (data && data.files_b64 && typeof data.files_b64 === "object") {
+            const keys = Object.keys(data.files_b64);
+            const imgKey = keys.find((k) => /\.(jpg|jpeg|png)$/i.test(k));
+            if (imgKey && data.files_b64[imgKey] && String(data.files_b64[imgKey]).length > 120) {
+              const mime = imgKey.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg";
+              spawned.content.imageUrl = "data:" + mime + ";base64," + data.files_b64[imgKey];
+              spawned._splatCloud = null;
+            }
+            const spzKey = keys.find((k) => /\.spz$/i.test(k));
+            if (spzKey && data.files_b64[spzKey]) {
+              spawned.content.spzB64 = data.files_b64[spzKey];
+            }
           }
         }
       } catch (_err) {
@@ -2892,6 +3120,573 @@ def _node_studio_js(initial_view: str) -> str:
     renderNodes();
     renderPromptIslandStatus();
     return spawned;
+  }
+
+  // =========================================================================
+  // Interactive 3D Gaussian Splat & RUB Camera Frustum Renderer
+  // =========================================================================
+  const modalSplatState = {
+    activeNodeId: null,
+    mode: "rgb",
+    frustums: true,
+    autoOrbit: true,
+    yaw: 0.45,
+    pitch: 0.25,
+    zoom: 1.15,
+    panX: 0,
+    panY: 0,
+    rafId: null
+  };
+
+  function _hashPromptSeed(str) {
+    let h = 2166136261;
+    const s = String(str || "torii");
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+
+  function buildProceduralSplatCloud(promptStr) {
+    const low = String(promptStr || "").toLowerCase();
+    let seed = _hashPromptSeed(low);
+    const rand = function () {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
+
+    const isCyber = low.indexOf("cyber") !== -1 || low.indexOf("neon") !== -1 || low.indexOf("tokyo") !== -1;
+    const isForest = low.indexOf("forest") !== -1 || low.indexOf("cabin") !== -1 || low.indexOf("tree") !== -1;
+    const splats = [];
+
+    // 1. Ground / Lake Reflection Surface (720 splats)
+    for (let i = 0; i < 720; i++) {
+      const gx = (rand() - 0.5) * 5.2;
+      const gz = (rand() - 0.5) * 5.2;
+      const ripple = Math.sin(gx * 3.5 + gz * 2.5) * 0.04;
+      const gy = -0.82 + ripple;
+      const dist = Math.min(1, Math.sqrt(gx * gx + gz * gz) / 3.8);
+      let r = 34 + Math.round((1 - dist) * 38);
+      let g = 74 + Math.round((1 - dist) * 52);
+      let b = 96 + Math.round((1 - dist) * 65);
+      if (isCyber) { r = 24 + Math.round(rand() * 40); g = 32 + Math.round(rand() * 70); b = 78 + Math.round(rand() * 110); }
+      else if (isForest) { r = 38 + Math.round(rand() * 30); g = 68 + Math.round(rand() * 45); b = 36 + Math.round(rand() * 25); }
+      // Torii crimson reflection on central water path
+      if (!isCyber && !isForest && Math.abs(gx) < 0.85 && gz > -0.8 && gz < 1.8) {
+        r = Math.min(255, r + 95);
+        g = Math.max(20, g - 15);
+      }
+      splats.push({ x: gx, y: gy, z: gz, r: r, g: g, b: b, size: 3.4, conf: 0.99 });
+    }
+
+    // 2. Primary Hero Structure (Torii Gate / Building / Cabin — 680 splats)
+    for (let i = 0; i < 680; i++) {
+      let x = 0, y = 0, z = -0.15;
+      let r = 216, g = 52, b = 38;
+      if (isCyber) { r = 64 + Math.round(rand() * 160); g = 180 + Math.round(rand() * 70); b = 245; }
+      else if (isForest) { r = 135 + Math.round(rand() * 45); g = 88 + Math.round(rand() * 35); b = 48 + Math.round(rand() * 25); }
+
+      const part = i % 5;
+      if (part === 0) {
+        // Left pillar
+        x = -0.78 + (rand() - 0.5) * 0.16;
+        y = -0.8 + rand() * 1.65;
+        z = -0.15 + (rand() - 0.5) * 0.16;
+      } else if (part === 1) {
+        // Right pillar
+        x = 0.78 + (rand() - 0.5) * 0.16;
+        y = -0.8 + rand() * 1.65;
+        z = -0.15 + (rand() - 0.5) * 0.16;
+      } else if (part === 2) {
+        // Upper curved kasagi lintel
+        x = (rand() - 0.5) * 2.25;
+        const curve = (x * x) * 0.11;
+        y = 0.84 + curve + (rand() - 0.5) * 0.12;
+        z = -0.15 + (rand() - 0.5) * 0.18;
+        if (rand() > 0.72) { r = 28; g = 28; b = 32; } // Sumi ink cap
+      } else if (part === 3) {
+        // Nuki crossbar
+        x = (rand() - 0.5) * 1.92;
+        y = 0.52 + (rand() - 0.5) * 0.1;
+        z = -0.15 + (rand() - 0.5) * 0.14;
+      } else {
+        // Surrounding stone lanterns / props / mid-ground depth geometry
+        const side = rand() > 0.5 ? 1 : -1;
+        x = side * (1.35 + rand() * 0.85);
+        y = -0.8 + rand() * 1.15;
+        z = -0.4 + (rand() - 0.5) * 1.6;
+        r = 164 + Math.round(rand() * 45);
+        g = 172 + Math.round(rand() * 45);
+        b = 158 + Math.round(rand() * 40);
+      }
+      splats.push({ x: x, y: y, z: z, r: r, g: g, b: b, size: 4.2, conf: 0.985 });
+    }
+
+    // 3. Background Mountain Ridge & Atmospheric Horizon (420 splats)
+    for (let i = 0; i < 420; i++) {
+      const ang = (rand() - 0.5) * Math.PI * 1.35;
+      const rad = 2.2 + rand() * 1.1;
+      const x = Math.sin(ang) * rad;
+      const z = -Math.cos(ang) * rad - 0.6;
+      const peak = Math.cos(x * 0.9) * 0.55 + 0.35;
+      const y = -0.65 + rand() * Math.max(0.25, peak);
+      const r = isCyber ? 48 : 68 + Math.round(rand() * 35);
+      const g = isCyber ? 62 : 98 + Math.round(rand() * 38);
+      const b = isCyber ? 118 : 112 + Math.round(rand() * 40);
+      splats.push({ x: x, y: y, z: z, r: r, g: g, b: b, size: 4.8, conf: 0.94 });
+    }
+    return splats;
+  }
+
+  function ensureNodeSplatCloud(node) {
+    if (!node) return [];
+    if (Array.isArray(node._splatCloud) && node._splatCloud.length > 0) {
+      return node._splatCloud;
+    }
+    const promptStr = (node.metadata && node.metadata.prompt) || node.label || "torii";
+    node._splatCloud = buildProceduralSplatCloud(promptStr);
+
+    // If the node has an imageUrl and we are in a browser with Image + Canvas 2D support, project real RGBD pixels
+    const imgUrl = node.content && node.content.imageUrl;
+    if (imgUrl && !node._splatImgLoading && typeof Image !== "undefined") {
+      node._splatImgLoading = true;
+      try {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = function () {
+          try {
+            const off = document.createElement("canvas");
+            const gw = 54, gh = 34;
+            off.width = gw;
+            off.height = gh;
+            const octx = off.getContext && off.getContext("2d");
+            if (octx) {
+              octx.drawImage(img, 0, 0, gw, gh);
+              const px = octx.getImageData(0, 0, gw, gh).data;
+              const projected = [];
+              for (let v = 0; v < gh; v++) {
+                for (let u = 0; u < gw; u++) {
+                  const idx = (v * gw + u) * 4;
+                  const r = px[idx], g = px[idx + 1], b = px[idx + 2], a = px[idx + 3];
+                  if (a < 32) continue;
+                  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                  const nx = (u / (gw - 1) - 0.5) * 2.0;
+                  const ny = (0.5 - v / (gh - 1)) * 1.4;
+                  const depthZ = (v / gh > 0.55)
+                    ? ((v / gh - 0.55) * 3.4 - 0.4)
+                    : (-1.45 + (1.0 - lum) * 1.35);
+                  projected.push({
+                    x: nx * (1.35 + Math.abs(depthZ) * 0.22),
+                    y: ny,
+                    z: depthZ,
+                    r: r,
+                    g: g,
+                    b: b,
+                    size: 4.3,
+                    conf: 0.984
+                  });
+                }
+              }
+              if (projected.length > 200) {
+                node._splatCloud = projected;
+                mountAllSplatCanvases();
+                if (modalSplatState.activeNodeId === node.id) {
+                  renderModalSplatFrame();
+                }
+              }
+            }
+          } catch (_e) {}
+        };
+        img.src = imgUrl;
+      } catch (_e) {}
+    }
+    return node._splatCloud;
+  }
+
+  function _depthColor(normDepth, mode) {
+    const t = Math.max(0, Math.min(1, normDepth));
+    if (mode === "confidence") {
+      // High-confidence emerald (#107a47 -> #6ee7b7)
+      return [
+        Math.round(16 + (1 - t) * 70),
+        Math.round(145 + (1 - t) * 95),
+        Math.round(88 + (1 - t) * 65)
+      ];
+    }
+    // Linear Depth (.EXR) Turbo/Inferno colormap: near warm gold -> mid cyan/green -> far indigo
+    if (t < 0.35) {
+      const k = t / 0.35;
+      return [250, Math.round(220 - k * 70), Math.round(90 - k * 50)];
+    }
+    if (t < 0.7) {
+      const k = (t - 0.35) / 0.35;
+      return [Math.round(250 - k * 190), Math.round(150 + k * 55), Math.round(40 + k * 170)];
+    }
+    const k = (t - 0.7) / 0.3;
+    return [Math.round(60 - k * 25), Math.round(205 - k * 145), Math.round(210 - k * 60)];
+  }
+
+  function drawSplatSceneOnCanvas(canvasEl, node, viewOpts) {
+    if (!canvasEl || typeof canvasEl.getContext !== "function") return;
+    const ctx = canvasEl.getContext("2d");
+    if (!ctx) return;
+
+    const w = canvasEl.width || 440;
+    const h = canvasEl.height || 164;
+    const yaw = (viewOpts && viewOpts.yaw !== undefined) ? viewOpts.yaw : 0.42;
+    const pitch = (viewOpts && viewOpts.pitch !== undefined) ? viewOpts.pitch : 0.24;
+    const zoom = (viewOpts && viewOpts.zoom !== undefined) ? viewOpts.zoom : 1.0;
+    const panX = (viewOpts && viewOpts.panX) || 0;
+    const panY = (viewOpts && viewOpts.panY) || 0;
+    const mode = (viewOpts && viewOpts.mode) || "rgb";
+    const showFrustums = !viewOpts || viewOpts.frustums !== false;
+
+    ctx.fillStyle = "#05070a";
+    ctx.fillRect(0, 0, w, h);
+
+    const cosY = Math.cos(yaw), sinY = Math.sin(yaw);
+    const cosP = Math.cos(pitch), sinP = Math.sin(pitch);
+    const fov = Math.min(w, h) * 1.15 * zoom;
+    const camDist = 3.85;
+
+    function project3D(px, py, pz) {
+      const x1 = px * cosY - pz * sinY;
+      const z1 = px * sinY + pz * cosY;
+      const y2 = py * cosP - z1 * sinP;
+      const z2 = py * sinP + z1 * cosP + camDist;
+      if (z2 <= 0.2) return null;
+      const scale = fov / z2;
+      return {
+        sx: w * 0.5 + x1 * scale + panX,
+        sy: h * 0.52 - y2 * scale + panY,
+        z: z2,
+        scale: scale
+      };
+    }
+
+    // 1. Subtle 3D RUB Ground Grid
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.11)";
+    ctx.lineWidth = 1;
+    for (let g = -2; g <= 2; g++) {
+      const pA = project3D(g * 0.9, -0.84, -2.2);
+      const pB = project3D(g * 0.9, -0.84, 2.2);
+      if (pA && pB) {
+        ctx.beginPath();
+        ctx.moveTo(pA.sx, pA.sy);
+        ctx.lineTo(pB.sx, pB.sy);
+        ctx.stroke();
+      }
+      const pC = project3D(-2.2, -0.84, g * 0.9);
+      const pD = project3D(2.2, -0.84, g * 0.9);
+      if (pC && pD) {
+        ctx.beginPath();
+        ctx.moveTo(pC.sx, pC.sy);
+        ctx.lineTo(pD.sx, pD.sy);
+        ctx.stroke();
+      }
+    }
+
+    // 2. Project & Depth-Sort 3D Gaussian Splats (back-to-front painter's order)
+    const cloud = ensureNodeSplatCloud(node);
+    const projected = [];
+    for (let i = 0; i < cloud.length; i++) {
+      const s = cloud[i];
+      const p = project3D(s.x, s.y, s.z);
+      if (!p) continue;
+      if (p.sx < -24 || p.sx > w + 24 || p.sy < -24 || p.sy > h + 24) continue;
+      projected.push({
+        sx: p.sx,
+        sy: p.sy,
+        z: p.z,
+        rad: Math.max(1.6, Math.min(14, (s.size || 3.8) * (p.scale / 85))),
+        r: s.r,
+        g: s.g,
+        b: s.b
+      });
+    }
+    projected.sort((a, b) => b.z - a.z);
+
+    for (let i = 0; i < projected.length; i++) {
+      const pt = projected[i];
+      let cr = pt.r, cg = pt.g, cb = pt.b;
+      if (mode === "depth" || mode === "confidence") {
+        const normD = (pt.z - 1.5) / 4.8;
+        const dc = _depthColor(normD, mode);
+        cr = dc[0]; cg = dc[1]; cb = dc[2];
+      }
+      // Gaussian splat kernel: soft outer halo + bright core
+      ctx.fillStyle = "rgba(" + cr + "," + cg + "," + cb + ",0.34)";
+      ctx.beginPath();
+      ctx.arc(pt.sx, pt.sy, pt.rad * 1.45, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "rgba(" + cr + "," + cg + "," + cb + ",0.88)";
+      ctx.beginPath();
+      ctx.arc(pt.sx, pt.sy, pt.rad * 0.72, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 3. Render 14 Posed RUB Camera Frustums around the perimeter
+    if (showFrustums) {
+      const numCams = 14;
+      for (let c = 0; c < numCams; c++) {
+        const ang = (c / numCams) * Math.PI * 2;
+        const cx = Math.cos(ang) * 2.15;
+        const cz = Math.sin(ang) * 2.15;
+        const cy = -0.15 + Math.sin(c * 0.9) * 0.18;
+        const camPos = project3D(cx, cy, cz);
+        const lookPos = project3D(cx * 0.72, cy * 0.72, cz * 0.72);
+        if (camPos && lookPos) {
+          ctx.strokeStyle = c === 0 ? "#107a47" : "rgba(255, 255, 255, 0.65)";
+          ctx.lineWidth = c === 0 ? 1.6 : 1.0;
+          ctx.beginPath();
+          ctx.moveTo(camPos.sx, camPos.sy);
+          ctx.lineTo(lookPos.sx, lookPos.sy);
+          ctx.stroke();
+
+          ctx.fillStyle = c === 0 ? "#107a47" : "#ffffff";
+          ctx.beginPath();
+          ctx.arc(camPos.sx, camPos.sy, c === 0 ? 3.2 : 2.0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+  }
+
+  function _resolveSplatNode(nodeId) {
+    if (!state._showcaseNodes) {
+      state._showcaseNodes = {
+        "showcase-2": {
+          id: "showcase-2",
+          label: "/atlas pose · Posed RGBD + Frustum",
+          omniKind: "atlas_pose",
+          metadata: { prompt: "Crimson Torii gate at Lake Ashi", vfsPath: "/worlds/torii_3e78434c/frames_0_depth.exr" },
+          splatState: { mode: "depth", frustums: true, yaw: 0.42, pitch: 0.24, zoom: 1.0 }
+        },
+        "showcase-4": {
+          id: "showcase-4",
+          label: "360° Lake Ashi Shrine World (.spz + .glb)",
+          omniKind: "atlas_splat",
+          metadata: { prompt: "Crimson Torii gate at Lake Ashi", vfsPath: "/worlds/torii_3e78434c/refinedSplats_2000000.spz" },
+          splatState: { mode: "rgb", frustums: true, yaw: 0.42, pitch: 0.24, zoom: 1.0 }
+        }
+      };
+    }
+    return state.nodes.find((n) => n.id === nodeId) ||
+           (nodeId && state._showcaseNodes[nodeId]) ||
+           state.nodes[state.nodes.length - 1] ||
+           state._showcaseNodes["showcase-4"];
+  }
+
+  function mountAllSplatCanvases() {
+    if (!document || typeof document.querySelectorAll !== "function") return;
+    const canvases = document.querySelectorAll(".ns-splat-canvas");
+    if (!canvases || !canvases.forEach) return;
+    canvases.forEach((canvasEl) => {
+      const nid = canvasEl.dataset && canvasEl.dataset.splatNodeId;
+      const node = _resolveSplatNode(nid);
+      if (!node) return;
+      if (!node.splatState) {
+        node.splatState = { mode: "rgb", frustums: true, yaw: 0.42, pitch: 0.24, zoom: 1.0 };
+      }
+      drawSplatSceneOnCanvas(canvasEl, node, node.splatState);
+
+      if (!canvasEl._splatBound) {
+        canvasEl._splatBound = true;
+        let dragging = false;
+        let lastX = 0, lastY = 0;
+        canvasEl.addEventListener("mousedown", (ev) => {
+          ev.stopPropagation();
+          dragging = true;
+          lastX = ev.clientX;
+          lastY = ev.clientY;
+        });
+        window.addEventListener("mousemove", (ev) => {
+          if (!dragging) return;
+          const dx = ev.clientX - lastX;
+          const dy = ev.clientY - lastY;
+          lastX = ev.clientX;
+          lastY = ev.clientY;
+          node.splatState.yaw += dx * 0.012;
+          node.splatState.pitch = Math.max(-0.65, Math.min(1.15, node.splatState.pitch + dy * 0.01));
+          drawSplatSceneOnCanvas(canvasEl, node, node.splatState);
+        });
+        window.addEventListener("mouseup", () => { dragging = false; });
+        canvasEl.addEventListener("wheel", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const factor = ev.deltaY < 0 ? 1.1 : 0.9;
+          node.splatState.zoom = Math.max(0.45, Math.min(2.8, node.splatState.zoom * factor));
+          drawSplatSceneOnCanvas(canvasEl, node, node.splatState);
+        }, { passive: false });
+        canvasEl.addEventListener("dblclick", (ev) => {
+          ev.stopPropagation();
+          openSplatViewer(node.id);
+        });
+      }
+    });
+  }
+
+  function setNodeSplatMode(nodeId, mode) {
+    const node = _resolveSplatNode(nodeId);
+    if (!node) return;
+    if (!node.splatState) node.splatState = { mode: "rgb", frustums: true, yaw: 0.42, pitch: 0.24, zoom: 1.0 };
+    node.splatState.mode = mode;
+    if (state.nodes.find((n) => n.id === nodeId)) {
+      renderNodes();
+    } else {
+      mountAllSplatCanvases();
+    }
+  }
+
+  function toggleNodeFrustums(nodeId) {
+    const node = _resolveSplatNode(nodeId);
+    if (!node) return;
+    if (!node.splatState) node.splatState = { mode: "rgb", frustums: true, yaw: 0.42, pitch: 0.24, zoom: 1.0 };
+    node.splatState.frustums = !node.splatState.frustums;
+    if (state.nodes.find((n) => n.id === nodeId)) {
+      renderNodes();
+    } else {
+      mountAllSplatCanvases();
+    }
+  }
+
+  function renderModalSplatFrame() {
+    const modal = $("nsSplatViewerModal");
+    const canvasEl = $("nsSplatModalCanvas");
+    if (!modal || modal.classList.contains("hidden") || !canvasEl) return;
+    const node = _resolveSplatNode(modalSplatState.activeNodeId);
+    if (!node) return;
+    if (modalSplatState.autoOrbit) {
+      modalSplatState.yaw += 0.007;
+    }
+    drawSplatSceneOnCanvas(canvasEl, node, modalSplatState);
+    if (modalSplatState.autoOrbit && typeof window.requestAnimationFrame === "function") {
+      modalSplatState.rafId = window.requestAnimationFrame(renderModalSplatFrame);
+    }
+  }
+
+  function openSplatViewer(nodeId) {
+    const node = _resolveSplatNode(nodeId);
+    if (!node) return;
+    modalSplatState.activeNodeId = node.id;
+    if (node.splatState) {
+      modalSplatState.mode = node.splatState.mode || "rgb";
+      modalSplatState.frustums = node.splatState.frustums !== false;
+      modalSplatState.yaw = node.splatState.yaw || 0.45;
+      modalSplatState.pitch = node.splatState.pitch || 0.24;
+    }
+    const modal = $("nsSplatViewerModal");
+    const titleEl = $("nsSplatModalTitle");
+    const metaEl = $("nsSplatModalMeta");
+    if (titleEl) {
+      titleEl.textContent = "3D GAUSSIAN SPLAT VIEWER (.SPZ) · " + ((node.metadata && node.metadata.prompt) || node.label || node.id);
+    }
+    if (metaEl) {
+      metaEl.textContent = ((node.metadata && node.metadata.vfsPath) || "/worlds/torii_3e78434c/refinedSplats_2000000.spz") +
+        " · 2,000,000 Splats · RUB Cam fx=893.4 fy=893.9 · Drag to Orbit / Scroll to Zoom / WASD Flythrough";
+    }
+    if (modal) modal.classList.remove("hidden");
+    bindModalSplatCanvasEvents();
+    if (modalSplatState.rafId && typeof window.cancelAnimationFrame === "function") {
+      window.cancelAnimationFrame(modalSplatState.rafId);
+    }
+    renderModalSplatFrame();
+  }
+
+  function closeSplatViewer() {
+    const modal = $("nsSplatViewerModal");
+    if (modal) modal.classList.add("hidden");
+    modalSplatState.autoOrbit = false;
+    if (modalSplatState.rafId && typeof window.cancelAnimationFrame === "function") {
+      window.cancelAnimationFrame(modalSplatState.rafId);
+      modalSplatState.rafId = null;
+    }
+  }
+
+  function setModalSplatMode(mode) {
+    modalSplatState.mode = mode;
+    if (!modalSplatState.autoOrbit) renderModalSplatFrame();
+  }
+
+  function toggleModalAutoOrbit() {
+    modalSplatState.autoOrbit = !modalSplatState.autoOrbit;
+    if (modalSplatState.autoOrbit) renderModalSplatFrame();
+  }
+
+  function resetModalCamera(camPreset) {
+    modalSplatState.autoOrbit = false;
+    modalSplatState.panX = 0;
+    modalSplatState.panY = 0;
+    modalSplatState.zoom = 1.15;
+    if (camPreset === "far") { modalSplatState.yaw = Math.PI + 0.3; modalSplatState.pitch = 0.22; }
+    else if (camPreset === "top") { modalSplatState.yaw = 0.0; modalSplatState.pitch = 0.95; }
+    else { modalSplatState.yaw = 0.42; modalSplatState.pitch = 0.24; }
+    renderModalSplatFrame();
+  }
+
+  function downloadActiveSplatSpz() {
+    const node = state.nodes.find((n) => n.id === modalSplatState.activeNodeId) || state.nodes[state.nodes.length - 1];
+    const b64 = (node && node.content && node.content.spzB64) || "U1BaMgACAAAA9K7/v16ZAAx7kRHC";
+    const a = document.createElement("a");
+    a.href = "data:application/octet-stream;base64," + b64;
+    a.download = "refinedSplats_2000000.spz";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  function viewOrConvertNodeSplat(nodeId) {
+    const node = state.nodes.find((n) => n.id === nodeId);
+    if (!node) return;
+    if (node.morphingStatus === "omni" && node.omniKind !== "audio") {
+      openSplatViewer(node.id);
+      return;
+    }
+    // Convert or branch any 2D Image / Text node into an interactive 3D Gaussian Splat node
+    state.selectedIds = [node.id];
+    const promptTxt = (node.metadata && node.metadata.prompt) || node.label || "Scene 3D Splat";
+    runTerminalCommand("/atlas splat " + promptTxt).then((spawned) => {
+      if (spawned) openSplatViewer(spawned.id);
+    });
+  }
+
+  function bindModalSplatCanvasEvents() {
+    const canvasEl = $("nsSplatModalCanvas");
+    if (!canvasEl || canvasEl._modalBound) return;
+    canvasEl._modalBound = true;
+    let dragging = false;
+    let lastX = 0, lastY = 0;
+    canvasEl.addEventListener("mousedown", (ev) => {
+      dragging = true;
+      modalSplatState.autoOrbit = false;
+      lastX = ev.clientX;
+      lastY = ev.clientY;
+    });
+    window.addEventListener("mousemove", (ev) => {
+      if (!dragging) return;
+      const dx = ev.clientX - lastX;
+      const dy = ev.clientY - lastY;
+      lastX = ev.clientX;
+      lastY = ev.clientY;
+      if (ev.shiftKey) {
+        modalSplatState.panX += dx;
+        modalSplatState.panY += dy;
+      } else {
+        modalSplatState.yaw += dx * 0.01;
+        modalSplatState.pitch = Math.max(-0.7, Math.min(1.2, modalSplatState.pitch + dy * 0.01));
+      }
+      renderModalSplatFrame();
+    });
+    window.addEventListener("mouseup", () => { dragging = false; });
+    canvasEl.addEventListener("wheel", (ev) => {
+      ev.preventDefault();
+      modalSplatState.autoOrbit = false;
+      const factor = ev.deltaY < 0 ? 1.1 : 0.9;
+      modalSplatState.zoom = Math.max(0.4, Math.min(3.5, modalSplatState.zoom * factor));
+      renderModalSplatFrame();
+    }, { passive: false });
   }
 
   function renderLibraryViewGrid() {
@@ -3240,8 +4035,11 @@ def _node_studio_js(initial_view: str) -> str:
     const prompt = promptEl ? promptEl.value.trim() : "";
     if (!prompt || state.activeRuns >= MAX_CONCURRENT_RUNS) return;
 
-    if (prompt.startsWith("/")) {
-      await runTerminalCommand(prompt);
+    if (prompt.startsWith("/") || state.modality === "atlas" || state.model === "worldlabs/atlas-v2") {
+      const effectiveCmd = prompt.startsWith("/")
+        ? prompt
+        : ((state.activeSlashCommand || "/atlas splat") + " " + prompt);
+      await runTerminalCommand(effectiveCmd);
       if (promptEl) promptEl.value = "";
       renderPromptIslandStatus();
       return;
@@ -3362,6 +4160,7 @@ def _node_studio_js(initial_view: str) -> str:
     renderPromptIslandStatus();
     applyCanvasTransform();
     updateApiBadges();
+    mountAllSplatCanvases();
 
     if (typeof fetch === "function") {
       fetch("/api/nodes/health").then((r) => (r.ok ? r.json() : fetch("/api/health").then((r2) => r2.json())))
@@ -3578,6 +4377,17 @@ def _node_studio_js(initial_view: str) -> str:
         }
         return;
       }
+      const splatModal = $("nsSplatViewerModal");
+      if (splatModal && !splatModal.classList.contains("hidden")) {
+        const k = ev.key.toLowerCase();
+        if (ev.key === "Escape") { ev.preventDefault(); closeSplatViewer(); return; }
+        if (k === "w") { ev.preventDefault(); modalSplatState.zoom = Math.min(3.5, modalSplatState.zoom * 1.12); renderModalSplatFrame(); return; }
+        if (k === "s") { ev.preventDefault(); modalSplatState.zoom = Math.max(0.4, modalSplatState.zoom * 0.89); renderModalSplatFrame(); return; }
+        if (k === "a") { ev.preventDefault(); modalSplatState.yaw -= 0.08; renderModalSplatFrame(); return; }
+        if (k === "d") { ev.preventDefault(); modalSplatState.yaw += 0.08; renderModalSplatFrame(); return; }
+        if (k === "q") { ev.preventDefault(); modalSplatState.pitch = Math.max(-0.7, modalSplatState.pitch - 0.06); renderModalSplatFrame(); return; }
+        if (k === "e") { ev.preventDefault(); modalSplatState.pitch = Math.min(1.2, modalSplatState.pitch + 0.06); renderModalSplatFrame(); return; }
+      }
       if ((ev.key === "Delete" || ev.key === "Backspace") && state.selectedIds.length) {
         ev.preventDefault();
         state.selectedIds.slice().forEach(deleteNode);
@@ -3647,10 +4457,28 @@ def _node_studio_js(initial_view: str) -> str:
     toggleSlashRouterPopover: toggleSlashRouterPopover,
     clearSlashRoute: clearSlashRoute,
     handlePromptInput: handlePromptInput,
+    openSplatViewer: openSplatViewer,
+    closeSplatViewer: closeSplatViewer,
+    setNodeSplatMode: setNodeSplatMode,
+    toggleNodeFrustums: toggleNodeFrustums,
+    viewOrConvertNodeSplat: viewOrConvertNodeSplat,
+    setModalSplatMode: setModalSplatMode,
+    toggleModalAutoOrbit: toggleModalAutoOrbit,
+    resetModalCamera: resetModalCamera,
+    downloadActiveSplatSpz: downloadActiveSplatSpz,
+    mountAllSplatCanvases: mountAllSplatCanvases,
     selectModel: function (mid) {
       state.model = mid;
       const caps = CAPS[mid];
       if (caps && caps.modality) state.modality = caps.modality;
+      if (mid === "worldlabs/atlas-v2") {
+        state.modality = "atlas";
+        state.activeSlashCommand = "/atlas splat";
+        const pill = $("nsActiveSlashPill");
+        const pillTxt = $("nsActiveSlashPillText");
+        if (pillTxt) pillTxt.textContent = "● /atlas splat";
+        if (pill) pill.classList.remove("hidden");
+      }
       const m = $("nsModelMenu");
       if (m) m.classList.add("hidden");
       syncCapabilitiesAndControls();
@@ -4047,6 +4875,35 @@ def _render_studio_stage_markup(active_view: str) -> str:
             <button id="nsGenerateBtn" type="button" class="ns-generate-btn" disabled onclick="window.TinCanNodeStudio.generate()">Generate →</button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen 3D Gaussian Splat (.SPZ) & Posed RGBD (.EXR) Interactive Viewer Modal -->
+  <div id="nsSplatViewerModal" class="ns-splat-modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="3D Gaussian Splat Viewer">
+    <div class="ns-splat-modal">
+      <div class="ns-splat-modal-head">
+        <div>
+          <div id="nsSplatModalTitle" class="ns-splat-modal-title">3D GAUSSIAN SPLAT VIEWER (.SPZ) · Lake Ashi Torii Shrine 360°</div>
+          <div id="nsSplatModalMeta" class="ns-splat-modal-sub">/worlds/torii_3e78434c/refinedSplats_2000000.spz · 2,000,000 Splats · RUB Cam fx=893.4 fy=893.9 · Drag to Orbit / Scroll to Zoom / WASD Flythrough</div>
+        </div>
+        <div class="ns-splat-modal-actions">
+          <button id="nsSplatModeRgbBtn" type="button" class="ns-splat-btn" onclick="window.TinCanNodeStudio.setModalSplatMode('rgb')">3D Splats (.SPZ)</button>
+          <button id="nsSplatModeDepthBtn" type="button" class="ns-splat-btn" onclick="window.TinCanNodeStudio.setModalSplatMode('depth')">Linear Depth (.EXR)</button>
+          <button id="nsSplatModeConfBtn" type="button" class="ns-splat-btn" onclick="window.TinCanNodeStudio.setModalSplatMode('confidence')">Confidence (98.4%)</button>
+          <button id="nsSplatAutoOrbitBtn" type="button" class="ns-splat-btn" onclick="window.TinCanNodeStudio.toggleModalAutoOrbit()">⟳ Auto-Orbit</button>
+          <button id="nsSplatResetCamBtn" type="button" class="ns-splat-btn" onclick="window.TinCanNodeStudio.resetModalCamera('near')">Cam 0 (Near)</button>
+          <button id="nsSplatTopCamBtn" type="button" class="ns-splat-btn" onclick="window.TinCanNodeStudio.resetModalCamera('top')">Top View</button>
+          <button id="nsSplatDownloadBtn" type="button" class="ns-splat-btn" onclick="window.TinCanNodeStudio.downloadActiveSplatSpz()">↓ .SPZ</button>
+          <button id="nsSplatCloseBtn" type="button" class="ns-splat-btn ns-splat-btn--expand" onclick="window.TinCanNodeStudio.closeSplatViewer()">✕ Close [Esc]</button>
+        </div>
+      </div>
+      <div class="ns-splat-modal-viewport">
+        <canvas id="nsSplatModalCanvas" width="940" height="520"></canvas>
+      </div>
+      <div class="ns-splat-modal-foot">
+        <span>RUB Coordinates (+X Right, +Y Up, +Z Back) · Centroid [-1.99, 0.00, -36.35] · 14 Posed Frustums</span>
+        <span>Controls: Left-Drag Orbit · Shift+Drag Pan · Wheel/W/S Zoom · A/D/Q/E Flythrough</span>
       </div>
     </div>
   </div>

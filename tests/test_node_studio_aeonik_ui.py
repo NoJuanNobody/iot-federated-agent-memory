@@ -281,7 +281,8 @@ function makeEl(id) {{
   "nsSearchWrap", "nsSearchSelect", "nsSearchVal", "nsViaVal", "nsRefCounter",
   "nsActiveRunsCount", "nsGenerateBtn", "nsResponseToast",
   "nsSlashRouterPopover", "nsActiveSlashPill", "nsActiveSlashPillText",
-  "nsFloatingTerminal", "nsTerminalLog", "nsTerminalInput", "nsTerminalRunBtn"
+  "nsFloatingTerminal", "nsTerminalLog", "nsTerminalInput", "nsTerminalRunBtn",
+  "nsSplatViewerModal", "nsSplatModalTitle", "nsSplatModalMeta", "nsSplatModalCanvas"
 ].forEach((id) => elements.set(id, makeEl(id)));
 
 const fetchCalls = [];
@@ -307,7 +308,15 @@ global.fetch = (url, opts) => {{
   return Promise.resolve({{
     status: 200,
     ok: true,
-    json: async () => ({{ ok: true, saved_to_space: "/worlds/torii_3e78434c/refinedSplats_2000000.spz" }})
+    json: async () => ({{
+      ok: true,
+      saved_to_space: {{
+        scope: "user",
+        owner_id: "default",
+        files: ["/worlds/torii_3e78434c/refinedSplats_2000000.spz"],
+        path: "/worlds/torii_3e78434c/refinedSplats_2000000.spz"
+      }}
+    }})
   }});
 }};
 
@@ -339,6 +348,22 @@ global.fetch = (url, opts) => {{
   await api.runTerminalCommand('/atlas pose /images/torii_gate.jpg');
   await api.runTerminalCommand('/audio music "Koto + waves"'); // triggers 404 fallback to /api/nodes/generate
   await api.runTerminalCommand('/atlas splat /images/torii_gate.jpg --views 14');
+
+  // 5. Selecting World Labs Atlas v2 model and running generate() with plain prompt routes to /atlas splat
+  api.selectModel("worldlabs/atlas-v2");
+  elements.get("nsPromptInput").value = "Lake Ashi shrine at twilight";
+  await api.generate();
+
+  // 6. Opening and closing Fullscreen 3D Gaussian Splat Viewer Modal
+  const latestNodeId = api.getState().nodes[api.getState().nodes.length - 1].id;
+  api.setNodeSplatMode(latestNodeId, "depth");
+  api.toggleNodeFrustums(latestNodeId);
+  api.openSplatViewer(latestNodeId);
+  out.splatModalVisible = !elements.get("nsSplatViewerModal").classList.contains("hidden");
+  out.splatModalTitle = elements.get("nsSplatModalTitle").textContent;
+  out.splatModalMeta = elements.get("nsSplatModalMeta").textContent;
+  api.closeSplatViewer();
+  out.splatModalClosed = elements.get("nsSplatViewerModal").classList.contains("hidden");
 
   out.nodesHtml = elements.get("nsNodesLayer").innerHTML;
   out.terminalLogHtml = elements.get("nsTerminalLog").innerHTML;
@@ -379,7 +404,15 @@ global.fetch = (url, opts) => {{
 
     assert "/api/omni/route" in res["fetchUrls"]
     assert "/api/nodes/generate" in res["fetchUrls"]
-    assert res["nodeCount"] == 3
+    assert res["nodeCount"] == 4
+    assert res["splatModalVisible"] is True
+    assert res["splatModalClosed"] is True
+    assert "3D GAUSSIAN SPLAT VIEWER (.SPZ)" in res["splatModalTitle"]
+    assert "[object Object]" not in res["splatModalMeta"]
+    assert "[object Object]" not in res["nodesHtml"]
+    assert "[object Object]" not in res["terminalLogHtml"]
+    assert "ns-splat-canvas" in res["nodesHtml"]
+    assert "View 3D Splat" in res["nodesHtml"]
     assert "ATLAS · images2PosedRGBD" in res["nodesHtml"]
     assert "AUDIO · TTS + SCORE + SFX" in res["nodesHtml"]
     assert "│┃│┃┃│┃┃" in res["nodesHtml"]
