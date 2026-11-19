@@ -282,6 +282,7 @@ function makeEl(id) {{
   "nsActiveRunsCount", "nsGenerateBtn", "nsResponseToast",
   "nsSlashRouterPopover", "nsActiveSlashPill", "nsActiveSlashPillText",
   "nsFloatingTerminal", "nsTerminalLog", "nsTerminalInput", "nsTerminalRunBtn",
+  "nsTerminalHideBtn", "nsTerminalToggleBtn", "nsTerminalToggleState",
   "nsSplatViewerModal", "nsSplatModalTitle", "nsSplatModalMeta", "nsSplatModalCanvas"
 ].forEach((id) => elements.set(id, makeEl(id)));
 
@@ -382,6 +383,14 @@ global.fetch = (url, opts) => {{
   api.closeSplatViewer();
   out.splatModalClosed = elements.get("nsSplatViewerModal").classList.contains("hidden");
 
+  // 7. Hiding and showing the Node Studio Dark Terminal
+  api.toggleTerminal(false);
+  out.terminalHidden = elements.get("nsFloatingTerminal").classList.contains("hidden");
+  out.terminalLabelWhenHidden = elements.get("nsTerminalToggleState").textContent;
+  api.toggleTerminal(true);
+  out.terminalShownAgain = !elements.get("nsFloatingTerminal").classList.contains("hidden");
+  out.terminalLabelWhenShown = elements.get("nsTerminalToggleState").textContent;
+
   out.nodesHtml = elements.get("nsNodesLayer").innerHTML;
   out.terminalLogHtml = elements.get("nsTerminalLog").innerHTML;
   out.fetchUrls = fetchCalls.map((c) => c.url);
@@ -429,6 +438,10 @@ global.fetch = (url, opts) => {{
     assert res["sentMultiRefB64Count"] == 4
     assert res["splatModalVisible"] is True
     assert res["splatModalClosed"] is True
+    assert res["terminalHidden"] is True
+    assert res["terminalLabelWhenHidden"] == "[Show]"
+    assert res["terminalShownAgain"] is True
+    assert res["terminalLabelWhenShown"] == "[Hide]"
     assert "3D GAUSSIAN SPLAT VIEWER (.SPZ)" in res["splatModalTitle"]
     assert "[object Object]" not in res["splatModalMeta"]
     assert "[object Object]" not in res["nodesHtml"]

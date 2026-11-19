@@ -467,7 +467,11 @@ def _render_floating_terminal_html() -> str:
         '<span class="ns-term-dots" aria-hidden="true">● ● ●</span>'
         "<span>NODE STUDIO DARK TERMINAL · /api/omni/route</span>"
         "</div>"
+        '<div class="ns-term-head-right">'
         '<span class="ns-term-status">● DAG SYNCED</span>'
+        '<button id="nsTerminalHideBtn" type="button" class="ns-term-hide-btn" title="Hide Dark Terminal (Press `)" '
+        'onclick="window.TinCanNodeStudio.toggleTerminal(false)">Hide ×</button>'
+        "</div>"
         "</div>"
         '<div id="nsTerminalLog" class="ns-term-log" role="log" aria-live="polite">'
         '<div class="ns-term-line">you@tincan:~/space$ /atlas splat /images/torii_gate.jpg --views 14 --mesh --rig walk</div>'
@@ -1908,6 +1912,10 @@ def _node_studio_css() -> str:
     flex-direction: column;
     gap: 8px;
   }
+  .ns-floating-terminal.hidden,
+  #nsFloatingTerminal.hidden {
+    display: none !important;
+  }
   .ns-term-head {
     display: flex;
     align-items: center;
@@ -1918,6 +1926,28 @@ def _node_studio_css() -> str:
     color: #a3a3a3;
     border-bottom: 1px solid #2e2e2e;
     padding-bottom: 6px;
+  }
+  .ns-term-head-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ns-term-hide-btn {
+    border: 1px solid #2e2e2e;
+    background: #151515;
+    color: #f5f5f5;
+    font-family: var(--ns-mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 6px;
+    cursor: pointer;
+    line-height: 1.2;
+  }
+  .ns-term-hide-btn:hover {
+    background: #ffffff;
+    color: #000000;
+    border-color: #ffffff;
   }
   .ns-term-title { display: inline-flex; align-items: center; gap: 8px; color: #f5f5f5; }
   .ns-term-dots { color: #a3a3a3; font-size: 9px; }
@@ -4510,6 +4540,9 @@ def _node_studio_js(initial_view: str) -> str:
         ev.preventDefault();
         autoLayout();
         fitView();
+      } else if (ev.key === "`") {
+        ev.preventDefault();
+        toggleTerminal();
       }
     });
 
@@ -4530,6 +4563,16 @@ def _node_studio_js(initial_view: str) -> str:
         if (modelMenu) modelMenu.classList.add("hidden");
       }
     });
+  }
+
+  function toggleTerminal(forceOpen) {
+    const termEl = $("nsFloatingTerminal");
+    const isCurrentlyOpen = termEl ? !termEl.classList.contains("hidden") : state.isTerminalOpen !== false;
+    const nextOpen = typeof forceOpen === "boolean" ? forceOpen : !isCurrentlyOpen;
+    state.isTerminalOpen = nextOpen;
+    if (termEl) termEl.classList.toggle("hidden", !nextOpen);
+    const stateLbl = $("nsTerminalToggleState");
+    if (stateLbl) stateLbl.textContent = nextOpen ? "[Hide]" : "[Show]";
   }
 
   window.TinCanNodeStudio = {
@@ -4561,6 +4604,7 @@ def _node_studio_js(initial_view: str) -> str:
     applySlashRoute: applySlashRoute,
     runTerminalCommand: runTerminalCommand,
     runSlashCommand: runTerminalCommand,
+    toggleTerminal: toggleTerminal,
     toggleSlashRouterPopover: toggleSlashRouterPopover,
     clearSlashRoute: clearSlashRoute,
     handlePromptInput: handlePromptInput,
@@ -4759,6 +4803,9 @@ def _render_studio_stage_markup(active_view: str) -> str:
     <div id="nsCopyIndicator" class="ns-copy-indicator hidden">⌘/Ctrl held - click node to duplicate</div>
     <div class="ns-hud-row">
       <span id="nsAtlasCreditsHudPill" class="ns-hud-btn">● WLT ATLAS v2 · 1,000 CR/$1</span>
+      <button id="nsTerminalToggleBtn" type="button" class="ns-hud-btn" title="Show/Hide Node Studio Dark Terminal (Press `)" onclick="window.TinCanNodeStudio.toggleTerminal()">
+        <span>Terminal</span><span id="nsTerminalToggleState">[Hide]</span>
+      </button>
       <button id="nsAutoLayoutBtn" type="button" class="ns-hud-btn hidden" title="Reorganize tree layout (Press A)" onclick="window.TinCanNodeStudio.autoLayout()">
         <span>Auto-Layout</span><span>[A]</span>
       </button>
@@ -4778,6 +4825,7 @@ def _render_studio_stage_markup(active_view: str) -> str:
       <div class="ns-shortcut-line"><span>Select all nodes</span><span>A</span></div>
       <div class="ns-shortcut-line"><span>Fit view</span><span>F</span></div>
       <div class="ns-shortcut-line"><span>Invert image selection</span><span>I</span></div>
+      <div class="ns-shortcut-line"><span>Toggle dark terminal</span><span>`</span></div>
     </div>
   </div>
 
