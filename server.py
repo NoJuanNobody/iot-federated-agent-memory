@@ -217,6 +217,119 @@ def _node_studio_state(modality: str = "image") -> Dict[str, Any]:
     }
 
 
+def _build_space_raw_url(scope: str, owner_id: str, vfs_path: str) -> str:
+    return (
+        f"/api/space/file?raw=1&scope={urllib.parse.quote(str(scope))}"
+        f"&owner_id={urllib.parse.quote(str(owner_id))}"
+        f"&path={urllib.parse.quote(str(vfs_path))}"
+    )
+
+
+def _parse_http_byte_range(range_header: str, total_length: int) -> Tuple[str, int, int]:
+    """Parse an HTTP Range header (bytes=start-end, bytes=start-, bytes=-suffix).
+
+    Returns ("none", 0, 0) when no bytes range was requested,
+    ("ok", start, end) for a valid inclusive byte range, or
+    ("unsatisfiable", 0, 0) when the requested range cannot be satisfied.
+    """
+    hdr = str(range_header or "").strip()
+    if not hdr:
+        return "none", 0, 0
+    if not hdr.lower().startswith("bytes="):
+        return "none", 0, 0
+    if total_length <= 0:
+        return "unsatisfiable", 0, 0
+
+    spec = hdr[6:].split(",", 1)[0].strip()
+    if "-" not in spec:
+        return "unsatisfiable", 0, 0
+    start_s, end_s = spec.split("-", 1)
+    start_s = start_s.strip()
+    end_s = end_s.strip()
+    if not start_s and not end_s:
+        return "unsatisfiable", 0, 0
+
+    try:
+        if not start_s:
+            suffix = int(end_s)
+            if suffix <= 0:
+                return "unsatisfiable", 0, 0
+            start = max(0, total_length - suffix)
+            end = total_length - 1
+            return "ok", start, end
+
+        start = int(start_s)
+        if start < 0 or start >= total_length:
+            return "unsatisfiable", 0, 0
+        if not end_s:
+            end = total_length - 1
+        else:
+            end = int(end_s)
+            if end < start:
+                return "unsatisfiable", 0, 0
+            end = min(end, total_length - 1)
+        return "ok", start, end
+    except ValueError:
+        return "unsatisfiable", 0, 0
+
+
+def _mirror_remote_media_to_space(
+    remote_url: str,
+    scope: str,
+    owner_id: str,
+    target_dir: str,
+    slug: str,
+    ext: str,
+    mime_type: str,
+    peer_id: str = "peer",
+) -> Tuple[Optional[str], Optional[str], int, bytes]:
+    """Download a real non-media.local HTTP/HTTPS media asset and persist it to .space VFS."""
+    url = str(remote_url or "").strip()
+    if not url.startswith(("http://", "https://")):
+        return None, None, 0, b""
+    parsed_url = urllib.parse.urlparse(url)
+    host = (parsed_url.hostname or "").lower()
+    if not host or host == "media.local" or host.endswith(".media.local"):
+        return None, None, 0, b""
+
+    req_headers = {"User-Agent": "TinCan-NodeStudio/1.0"}
+    if host == "api.nano-gpt.com":
+        ng_key = (
+            (os.environ.get("NANOGPT_API_KEY") or "").strip()
+            or (getattr(globals().get("router"), "nanogpt_key", None) or "").strip()
+        )
+        if ng_key:
+            req_headers["Authorization"] = f"Bearer {ng_key}"
+            req_headers["x-api-key"] = ng_key
+
+    try:
+        req = urllib.request.Request(url, headers=req_headers, method="GET")
+        with urllib.request.urlopen(req, timeout=60.0) as resp:
+            raw_bytes = resp.read()
+    except Exception:
+        return None, None, 0, b""
+
+    if not raw_bytes:
+        return None, None, 0, b""
+
+    try:
+        from iot_federated_agent_memory.agent_space import _slug_from_prompt, _unique_space_path
+
+        sm = _get_space_manager()
+        sp = sm.get_or_create_space(scope, owner_id)
+        clean_dir = "/" + str(target_dir or "/media").strip("/")
+        clean_slug = _slug_from_prompt(slug or "media", default="media")
+        clean_ext = str(ext or ".bin")
+        if not clean_ext.startswith("."):
+            clean_ext = "." + clean_ext
+        vfs_path = _unique_space_path(sp, clean_dir, clean_slug, clean_ext)
+        sp.write_file(vfs_path, raw_bytes, mime_type=mime_type, updated_by=peer_id)
+        raw_url = _build_space_raw_url(scope, owner_id, vfs_path)
+        return vfs_path, raw_url, len(raw_bytes), raw_bytes
+    except Exception:
+        return None, None, 0, b""
+
+
 def _node_studio_generate(
     payload: Dict[str, Any], headers: Optional[Dict[str, str]] = None
 ) -> Tuple[int, Dict[str, Any]]:
@@ -230,6 +343,59 @@ def _node_studio_generate(
             out.setdefault("ok", True)
             raw_code = out.get("statusCode")
             status_code = raw_code if isinstance(raw_code, int) else (400 if out.get("ok") is False else 200)
+            if (
+                status_code == 200
+                and out.get("ok") is not False
+                and out.get("modality") == "video"
+                and not out.get("async")
+            ):
+                node_obj = out.get("node") if isinstance(out.get("node"), dict) else {}
+                node_data = node_obj.get("data") if isinstance(node_obj.get("data"), dict) else {}
+                content = node_data.get("content") if isinstance(node_data.get("content"), dict) else {}
+                res_obj = out.get("result") if isinstance(out.get("result"), dict) else {}
+                vid_obj = res_obj.get("video") if isinstance(res_obj.get("video"), dict) else {}
+                remote_video_url = str(content.get("videoUrl") or vid_obj.get("url") or "").strip()
+                if remote_video_url.startswith(("http://", "https://")):
+                    scope = str(payload.get("scope") or "user").strip() or "user"
+                    owner_id = str(payload.get("owner_id") or payload.get("peer_id") or "default").strip() or "default"
+                    peer_id = str(payload.get("peer_id") or owner_id or "peer").strip() or "peer"
+                    slug = str(payload.get("prompt") or "video").strip()
+                    vfs_path, raw_url, size_bytes, _ = _mirror_remote_media_to_space(
+                        remote_video_url,
+                        scope,
+                        owner_id,
+                        "/videos",
+                        slug,
+                        ".mp4",
+                        "video/mp4",
+                        peer_id=peer_id,
+                    )
+                    if vfs_path and raw_url:
+                        if content:
+                            content["remoteUrl"] = remote_video_url
+                            content["videoUrl"] = raw_url
+                            content["vfsPath"] = vfs_path
+                            content["mp4Path"] = vfs_path
+                            content["sizeBytes"] = size_bytes
+                        if vid_obj:
+                            vid_obj["remoteUrl"] = remote_video_url
+                            vid_obj["url"] = raw_url
+                            vid_obj["vfsPath"] = vfs_path
+                            vid_obj["mp4Path"] = vfs_path
+                        gen_res = out.get("generationResult") if isinstance(out.get("generationResult"), dict) else {}
+                        gen_vid = gen_res.get("video") if isinstance(gen_res.get("video"), dict) else {}
+                        if gen_vid and gen_vid is not vid_obj:
+                            gen_vid["remoteUrl"] = remote_video_url
+                            gen_vid["url"] = raw_url
+                            gen_vid["vfsPath"] = vfs_path
+                            gen_vid["mp4Path"] = vfs_path
+                        out["saved_to_space"] = {"scope": scope, "owner_id": owner_id, "path": vfs_path}
+                        out["video_url"] = raw_url
+                        out["remote_url"] = remote_video_url
+                        out["vfs_path"] = vfs_path
+                        out["size_bytes"] = size_bytes
+                    elif content:
+                        content.setdefault("remoteUrl", remote_video_url)
             return status_code, out
         except ValueError as ve:
             return 400, {"ok": False, "error": str(ve)}
@@ -261,6 +427,250 @@ def _node_studio_generate(
         "edges": [{"from": p, "to": node_id} for p in selected],
         "timeline": [{"timecode": "00:00", "node_id": node_id, "modality": modality}],
         "fallback": True,
+    }
+
+
+def _node_studio_video_status(
+    params: Optional[Dict[str, Any]],
+    headers: Optional[Dict[str, str]] = None,
+) -> Tuple[int, Dict[str, Any]]:
+    p = params if isinstance(params, dict) else {}
+    job_id = str(
+        p.get("job_id")
+        or p.get("jobId")
+        or p.get("run_id")
+        or p.get("runId")
+        or p.get("request_id")
+        or p.get("id")
+        or ""
+    ).strip()
+    if not job_id:
+        return 400, {"ok": False, "error": "Missing 'job_id'"}
+
+    model_slug = str(p.get("model_slug") or p.get("modelSlug") or p.get("model") or "").strip() or None
+    scope = str(p.get("scope") or "user").strip() or "user"
+    owner_id = str(p.get("owner_id") or p.get("peer_id") or "default").strip() or "default"
+    peer_id = str(p.get("peer_id") or owner_id or "peer").strip() or "peer"
+    prompt = str(p.get("prompt") or "").strip()
+
+    hdrs = {str(k).lower(): str(v) for k, v in (headers or {}).items()}
+    api_key = (
+        hdrs.get("x-nanogpt-api-key", "").strip()
+        or (os.environ.get("NANOGPT_API_KEY") or "").strip()
+        or (getattr(globals().get("router"), "nanogpt_key", None) or "").strip()
+    )
+
+    eng = _get_node_studio_engine()
+    if eng is None or not hasattr(eng, "poll_nanogpt_video_status"):
+        return 503, {
+            "ok": False,
+            "done": True,
+            "status": "FAILED",
+            "job_id": job_id,
+            "error": "Node Studio video polling engine is unavailable.",
+        }
+
+    poll_res = dict(
+        eng.poll_nanogpt_video_status(
+            job_id,
+            model_slug=model_slug,
+            api_key=api_key,
+        )
+    )
+    if poll_res.get("done") and poll_res.get("ok") and poll_res.get("remote_url"):
+        remote_url = str(poll_res["remote_url"])
+        slug = prompt or f"video_{job_id[:12]}"
+        vfs_path, raw_url, size_bytes, _ = _mirror_remote_media_to_space(
+            remote_url,
+            scope,
+            owner_id,
+            "/videos",
+            slug,
+            ".mp4",
+            "video/mp4",
+            peer_id=peer_id,
+        )
+        out_res: Dict[str, Any] = {
+            "ok": True,
+            "done": True,
+            "status": "SUCCEEDED",
+            "job_id": job_id,
+            "model_slug": poll_res.get("model_slug") or model_slug,
+            "video_url": raw_url or remote_url,
+            "remote_url": remote_url,
+            "vfs_path": vfs_path,
+            "size_bytes": size_bytes,
+        }
+        if vfs_path:
+            out_res["saved_to_space"] = {"scope": scope, "owner_id": owner_id, "path": vfs_path}
+        return 200, out_res
+
+    return 200, poll_res
+
+
+def _node_studio_mesh_status(
+    params: Optional[Dict[str, Any]],
+    ai_router: Any = None,
+) -> Tuple[int, Dict[str, Any]]:
+    p = params if isinstance(params, dict) else {}
+    job_id = str(
+        p.get("job_id")
+        or p.get("jobId")
+        or p.get("subscription_key")
+        or p.get("uuid")
+        or p.get("task_uuid")
+        or p.get("id")
+        or ""
+    ).strip()
+    if not job_id:
+        return 400, {"ok": False, "error": "Missing 'job_id'"}
+
+    scope = str(p.get("scope") or "user").strip() or "user"
+    owner_id = str(p.get("owner_id") or p.get("peer_id") or "default").strip() or "default"
+    peer_id = str(p.get("peer_id") or owner_id or "peer").strip() or "peer"
+    prompt = str(p.get("prompt") or "").strip()
+    rtr = ai_router or globals().get("router")
+
+    st = _check_rodin_status(rtr, job_id)
+    st_dict = st if isinstance(st, dict) else {}
+    active_id = str(st_dict.get("uuid") or st_dict.get("subscription_key") or job_id)
+    top_status = str(st_dict.get("status") or "").strip()
+    jobs = st_dict.get("jobs") or []
+    job_statuses = [str(j.get("status") or "").strip() for j in jobs if isinstance(j, dict)]
+
+    failed_vals = {"failed", "error", "canceled", "cancelled"}
+    done_vals = {"done", "succeeded", "success", "completed", "complete"}
+    is_failed = (top_status.lower() in failed_vals) or any(s.lower() in failed_vals for s in job_statuses)
+    is_done = (not is_failed) and (
+        top_status.lower() in done_vals
+        or (bool(job_statuses) and all(s.lower() in done_vals for s in job_statuses))
+    )
+
+    if is_failed:
+        err_msg = st_dict.get("error") or st_dict.get("remote_error") or "3D mesh generation failed"
+        return 200, {
+            "ok": False,
+            "done": True,
+            "status": "FAILED",
+            "job_id": active_id,
+            "error": str(err_msg),
+        }
+
+    if is_done:
+        glb_bytes = b""
+        vfs_path: Optional[str] = None
+        glb_raw_url: Optional[str] = None
+        size_bytes = 0
+        remote_url: Optional[str] = None
+        dl_error: Optional[str] = None
+        slug = prompt or f"rodin_{active_id[:12]}"
+
+        if rtr is not None and hasattr(rtr, "download_rodin_glb"):
+            try:
+                dl_glb = rtr.download_rodin_glb(active_id)
+                if isinstance(dl_glb, (bytes, bytearray)):
+                    glb_bytes = bytes(dl_glb)
+                elif isinstance(dl_glb, dict):
+                    if dl_glb.get("glb_bytes_b64"):
+                        glb_bytes = base64.b64decode(dl_glb["glb_bytes_b64"])
+                    elif isinstance(dl_glb.get("bytes"), (bytes, bytearray)):
+                        glb_bytes = bytes(dl_glb["bytes"])
+                    remote_url = dl_glb.get("url") or remote_url
+            except Exception as exc:
+                dl_error = str(exc)
+
+        if not glb_bytes and st_dict.get("glb_bytes_b64"):
+            try:
+                glb_bytes = base64.b64decode(st_dict["glb_bytes_b64"])
+            except Exception as exc:
+                dl_error = str(exc)
+
+        urls = list(st_dict.get("urls") or [])
+        if not urls and st_dict.get("glb_url"):
+            urls = [str(st_dict["glb_url"])]
+        if not glb_bytes and urls:
+            remote_url = str(urls[0])
+            vfs_path, glb_raw_url, size_bytes, glb_bytes = _mirror_remote_media_to_space(
+                remote_url,
+                scope,
+                owner_id,
+                "/models3d",
+                slug,
+                ".glb",
+                "model/gltf-binary",
+                peer_id=peer_id,
+            )
+
+        if not glb_bytes:
+            try:
+                dl_res = _download_rodin_assets(rtr, active_id)
+                if isinstance(dl_res, dict):
+                    if dl_res.get("glb_bytes_b64"):
+                        glb_bytes = base64.b64decode(dl_res["glb_bytes_b64"])
+                    remote_url = dl_res.get("url") or (dl_res.get("urls") or [None])[0] or remote_url
+                    if not glb_bytes and remote_url:
+                        vfs_path, glb_raw_url, size_bytes, glb_bytes = _mirror_remote_media_to_space(
+                            str(remote_url),
+                            scope,
+                            owner_id,
+                            "/models3d",
+                            slug,
+                            ".glb",
+                            "model/gltf-binary",
+                            peer_id=peer_id,
+                        )
+                    if not glb_bytes and dl_res.get("download_error"):
+                        dl_error = str(dl_res["download_error"])
+            except Exception as exc:
+                dl_error = str(exc)
+
+        if not glb_bytes:
+            return 200, {
+                "ok": False,
+                "done": True,
+                "status": "FAILED",
+                "job_id": active_id,
+                "error": dl_error or "Failed to download completed 3D mesh.",
+            }
+
+        if not vfs_path:
+            from iot_federated_agent_memory.agent_space import _slug_from_prompt, _unique_space_path
+
+            sm = _get_space_manager()
+            sp = sm.get_or_create_space(scope, owner_id)
+            clean_slug = _slug_from_prompt(slug, default="rodin_mesh")
+            vfs_path = _unique_space_path(sp, "/models3d", clean_slug, ".glb")
+            sp.write_file(vfs_path, glb_bytes, mime_type="model/gltf-binary", updated_by=peer_id)
+            glb_raw_url = _build_space_raw_url(scope, owner_id, vfs_path)
+            size_bytes = len(glb_bytes)
+
+        glb_b64 = (
+            base64.b64encode(glb_bytes).decode("ascii")
+            if size_bytes <= 2 * 1024 * 1024
+            else ""
+        )
+        out_mesh: Dict[str, Any] = {
+            "ok": True,
+            "done": True,
+            "status": "SUCCEEDED",
+            "job_id": active_id,
+            "glb_raw_url": glb_raw_url,
+            "glb_bytes_b64": glb_b64,
+            "vfs_path": vfs_path,
+            "size_bytes": size_bytes,
+            "saved_to_space": {"scope": scope, "owner_id": owner_id, "path": vfs_path},
+        }
+        if remote_url:
+            out_mesh["remote_url"] = remote_url
+        if st_dict.get("model"):
+            out_mesh["model"] = st_dict["model"]
+        return 200, out_mesh
+
+    return 200, {
+        "ok": True,
+        "done": False,
+        "status": "RUNNING",
+        "job_id": active_id,
     }
 
 
@@ -1346,6 +1756,24 @@ def _omni_route(
             geometry_file_format="glb",
         )
         glb_b64 = res_3d.get("glb_bytes_b64") or ""
+        is_simulated = bool(res_3d.get("simulated"))
+        raw_status = str(res_3d.get("status") or "").strip()
+        job_id = res_3d.get("subscription_key") or res_3d.get("uuid") or res_3d.get("run_id")
+        if (
+            not is_simulated
+            and not glb_b64
+            and job_id
+            and raw_status.lower() not in ("done", "failed")
+        ):
+            return 200, {
+                "ok": True,
+                "async": True,
+                "done": False,
+                "status": "RUNNING",
+                "job_id": str(job_id),
+                "route": parsed_route,
+                "result": res_3d,
+            }
         if not glb_b64:
             glb_b64 = base64.b64encode(generate_minimal_glb_bytes(_slug_from_prompt(prompt_3d, default="mesh"))).decode("ascii")
             res_3d["glb_bytes_b64"] = glb_b64
@@ -1355,9 +1783,13 @@ def _omni_route(
         sp_path = data.get("save_path") or _unique_space_path(sp, "/models3d", slug, ".glb")
         sp.write_file(sp_path, glb_b64, is_base64=True, mime_type="model/gltf-binary", updated_by=peer_id)
         saved_to_space = {"scope": scope, "owner_id": owner_id, "path": sp_path}
+        glb_raw_url = _build_space_raw_url(scope, owner_id, sp_path)
         res_3d["saved_to_space"] = saved_to_space
+        res_3d["glb_raw_url"] = glb_raw_url
         return 200, {
             "ok": True,
+            "done": True,
+            "glb_raw_url": glb_raw_url,
             "route": parsed_route,
             "result": res_3d,
             "saved_to_space": saved_to_space,
@@ -1437,12 +1869,21 @@ def _omni_route(
         meta_path = f"/nodes/{cmd}_{node_id}.json"
         sp.write_file(meta_path, json.dumps({"route": parsed_route, "node": node_obj}, indent=2), mime_type="application/json", updated_by=peer_id)
         saved_to_space = {"scope": scope, "owner_id": owner_id, "path": meta_path}
-    return code, {
+    omni_out: Dict[str, Any] = {
         "ok": ns_res.get("ok", True),
         "route": parsed_route,
         "result": ns_res,
         "saved_to_space": saved_to_space,
     }
+    if ns_res.get("async"):
+        omni_out["async"] = True
+        omni_out["done"] = False
+        omni_out["status"] = ns_res.get("status", "RUNNING")
+        if ns_res.get("job_id"):
+            omni_out["job_id"] = ns_res["job_id"]
+        if ns_res.get("model_slug"):
+            omni_out["model_slug"] = ns_res["model_slug"]
+    return code, omni_out
 
 
 def _normalize_node_graph_path(raw_path: Optional[str] = None, raw_name: Optional[str] = None) -> Tuple[str, str]:
@@ -2553,7 +2994,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-NanoGPT-Api-Key, X-Gemini-Api-Key")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, Range, X-NanoGPT-Api-Key, X-Gemini-Api-Key")
         for hk, hv in (headers or []):
             self.send_header(hk, hv)
         self.end_headers()
@@ -2789,7 +3230,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-NanoGPT-Api-Key, X-Gemini-Api-Key")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, Range, X-NanoGPT-Api-Key, X-Gemini-Api-Key")
         self.end_headers()
 
     def _client_key(self) -> str:
@@ -5914,6 +6355,44 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             query = parse_qs(parsed.query)
             modality = _normalize_node_modality(query.get("modality", ["image"])[0])
             self._send_json(_node_studio_state(modality), 200)
+        elif parsed.path == "/api/nodes/video/status":
+            query = parse_qs(parsed.query)
+            params = {
+                "job_id": (
+                    query.get("job_id", [""])[0]
+                    or query.get("jobId", [""])[0]
+                    or query.get("run_id", [""])[0]
+                    or query.get("runId", [""])[0]
+                    or query.get("request_id", [""])[0]
+                    or query.get("id", [""])[0]
+                ).strip(),
+                "model": (query.get("model", [""])[0] or "").strip(),
+                "model_slug": (query.get("model_slug", [""])[0] or query.get("modelSlug", [""])[0] or "").strip(),
+                "scope": query.get("scope", ["user"])[0],
+                "owner_id": query.get("owner_id", query.get("peer_id", ["default"]))[0],
+                "peer_id": query.get("peer_id", query.get("owner_id", ["default"]))[0],
+                "prompt": query.get("prompt", [""])[0],
+            }
+            code, res = _node_studio_video_status(params, headers=dict(self.headers))
+            self._send_json(res, code)
+        elif parsed.path == "/api/nodes/mesh/status":
+            query = parse_qs(parsed.query)
+            params = {
+                "job_id": (
+                    query.get("job_id", [""])[0]
+                    or query.get("jobId", [""])[0]
+                    or query.get("subscription_key", [""])[0]
+                    or query.get("uuid", [""])[0]
+                    or query.get("task_uuid", [""])[0]
+                    or query.get("id", [""])[0]
+                ).strip(),
+                "scope": query.get("scope", ["user"])[0],
+                "owner_id": query.get("owner_id", query.get("peer_id", ["default"]))[0],
+                "peer_id": query.get("peer_id", query.get("owner_id", ["default"]))[0],
+                "prompt": query.get("prompt", [""])[0],
+            }
+            code, res = _node_studio_mesh_status(params, ai_router=router)
+            self._send_json(res, code)
         elif parsed.path == "/api/nodes/graphs":
             query = parse_qs(parsed.query)
             scope = query.get("scope", ["user"])[0]
@@ -6000,11 +6479,39 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 rec = sp.read_file(path, as_text=not raw_flag)
                 if raw_flag:
                     raw_bytes = base64.b64decode(rec.get("content_b64") or "")
+                    total_len = len(raw_bytes)
                     ctype = guess_mime_type(path, rec.get("mime_type") or "")
+                    range_hdr = self.headers.get("Range") or ""
+                    range_kind, range_start, range_end = _parse_http_byte_range(range_hdr, total_len)
+                    if range_kind == "unsatisfiable":
+                        self.send_response(416, "Range Not Satisfiable")
+                        self.send_header("Content-Range", f"bytes */{total_len}")
+                        self.send_header("Content-Length", "0")
+                        self.send_header("Accept-Ranges", "bytes")
+                        self.send_header("Access-Control-Allow-Origin", "*")
+                        self.send_header("Cache-Control", "no-store")
+                        self.end_headers()
+                        return
+                    if range_kind == "ok":
+                        chunk = raw_bytes[range_start : range_end + 1]
+                        self.send_response(206, "Partial Content")
+                        self.send_header("Content-Type", ctype)
+                        self.send_header("Content-Range", f"bytes {range_start}-{range_end}/{total_len}")
+                        self.send_header("Content-Length", str(len(chunk)))
+                        self.send_header("Accept-Ranges", "bytes")
+                        self.send_header("Access-Control-Allow-Origin", "*")
+                        self.send_header("Access-Control-Expose-Headers", "Accept-Ranges, Content-Range, Content-Length")
+                        self.send_header("Cache-Control", "no-store")
+                        self.end_headers()
+                        if getattr(self, "command", "GET") != "HEAD":
+                            self.wfile.write(chunk)
+                        return
                     self.send_response(200)
                     self.send_header("Content-Type", ctype)
-                    self.send_header("Content-Length", str(len(raw_bytes)))
+                    self.send_header("Content-Length", str(total_len))
+                    self.send_header("Accept-Ranges", "bytes")
                     self.send_header("Access-Control-Allow-Origin", "*")
+                    self.send_header("Access-Control-Expose-Headers", "Accept-Ranges, Content-Range, Content-Length")
                     self.send_header("Cache-Control", "no-store")
                     self.end_headers()
                     if getattr(self, "command", "GET") != "HEAD":
@@ -6349,6 +6856,45 @@ def _api_health():
 @app.get("/api/nodes/state")
 def _nodes_state(modality: str = "image"):
     return _node_studio_state(modality=modality)
+
+@app.get("/api/nodes/video/status")
+def _nodes_video_status(
+    job_id: str = "",
+    model: str = "",
+    model_slug: str = "",
+    scope: str = "user",
+    owner_id: str = "default",
+    prompt: str = "",
+):
+    _, res = _node_studio_video_status(
+        {
+            "job_id": job_id,
+            "model": model,
+            "model_slug": model_slug,
+            "scope": scope,
+            "owner_id": owner_id,
+            "prompt": prompt,
+        }
+    )
+    return res
+
+@app.get("/api/nodes/mesh/status")
+def _nodes_mesh_status(
+    job_id: str = "",
+    scope: str = "user",
+    owner_id: str = "default",
+    prompt: str = "",
+):
+    _, res = _node_studio_mesh_status(
+        {
+            "job_id": job_id,
+            "scope": scope,
+            "owner_id": owner_id,
+            "prompt": prompt,
+        },
+        ai_router=router,
+    )
+    return res
 
 @app.get("/api/nodes/graphs")
 def _nodes_graphs_list(scope: str = "user", owner_id: str = "default"):
