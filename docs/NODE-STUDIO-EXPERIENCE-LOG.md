@@ -32,3 +32,23 @@ A running, chronological record of hands-on user testing feedback, root causes d
   - **Video nodes**: Dedicated `<video controls>` card + FPS/model metadata + `.MP4` download.
   - **3D Mesh nodes**: Dedicated PBR `.GLB` card + `.GLB` download + 1-click `Auto-Rig Walk`.
 - **Engine fixes (`node_studio_engine.py`)**: Auto-extract `base64`/`mimeType` from `data:` URLs in `_normalize_references`, pass selected Text & Image references cleanly to Gemini and NanoGPT, and prevent single-parent `conversationHistory` leakage during multi-image `MERGE` mode.
+
+---
+
+## Entry #2 — 2026-11-19 (Argon Orchestrator Swarm · Full-Parity Upgrade)
+
+### Follow-Up Goal
+Resolve every remaining Node Studio limitation via parallel worktree swarm (`swarm/ns-backend-async` + `swarm/ns-ui-async-media` -> `feat/node-studio-full-parity` -> `main`) and deploy to Railway production.
+
+### Shipped Enhancements
+1. **Async Video Polling + Durable `.space` Streaming**:
+   - `_generate_with_nanogpt()` now handles NanoGPT asynchronous `runId` / `requestId` video jobs cleanly instead of fabricating `media.local` URLs, and `poll_nanogpt_video_status()` polls `GET https://api.nano-gpt.com/api/video/status`.
+   - Added `GET /api/nodes/video/status` (and synchronous video mirroring) in `server.py`, persisting finished `.mp4` bytes to `.space/videos/` and serving them via `/api/space/file?raw=1...` with full **HTTP `Range` (`206 Partial Content`, `Accept-Ranges: bytes`, `Content-Range`, `416`)** support for Chrome and Safari/WebKit.
+   - Added live 4s `pollVideoJobForNode()` in `node_studio_ui.py` with elapsed timers, error boxes, graph reload auto-resume, and live hot-swap into `<video controls playsinline loop>`.
+2. **Inline Interactive 3D `.GLB` Preview + Async Rodin Polling**:
+   - Added `GET /api/nodes/mesh/status` + async `/api/omni/route` `/3d` handling in `server.py` with `.space/models3d/` persistence and `glb_raw_url`.
+   - Added lazy `@google/model-viewer@3.5.0` loading with automatic offline Canvas 2D rotating wireframe fallback directly inside 3D Mesh cards (`.ns-mesh-stage`), cached Blob URL lifecycle cleanup, live 4s `pollMeshJobForNode()`, and a Fullscreen 3D Mesh Inspector modal (`#nsMeshViewerModal`) with orbit, auto-rotate, animation play/pause, `.GLB` download, and `Esc` close.
+3. **Synced `Chat` & `Library` Top Views**:
+   - Upgraded `#nsConversationView` (`Chat`) into a live canvas-lineage conversation feed (`renderConversationView`) with rich multi-modal previews, `Focus on Canvas`, and direct inline reply composer (`sendChatPrompt`).
+   - Upgraded `#nsLibraryView` (`Library`) with modality filter pills (`All | Image | Text | Video | Audio | 3D Mesh | 3D Splat`), live search, and 1-click `Focus`, `+ Ref`, `Download`, and `Delete` actions.
+

@@ -6310,7 +6310,7 @@ def _node_studio_js(initial_view: str) -> str:
     });
 
     if (!state.nodes.length) {
-      grid.innerHTML = '<div class="ns-alt-desc">No generated assets yet. Generate or drop images in Editor view to populate your Asset Library.</div>';
+      grid.innerHTML = '<div class="ns-chat-empty" style="grid-column:1 / -1;">No generated assets yet. Generate or drop images in Editor view to populate your Asset Library.</div>';
       return;
     }
 
@@ -6336,7 +6336,7 @@ def _node_studio_js(initial_view: str) -> str:
     });
 
     if (!filtered.length) {
-      grid.innerHTML = '<div class="ns-alt-desc">No assets match the current filter or search query.</div>';
+      grid.innerHTML = '<div class="ns-chat-empty" style="grid-column:1 / -1;">No assets match the current filter or search query.</div>';
       return;
     }
 
