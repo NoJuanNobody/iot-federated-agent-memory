@@ -795,7 +795,7 @@ def _node_studio_css() -> str:
     top: 10px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 50;
+    z-index: 60;
   }
   .ns-top-switcher {
     display: flex;
@@ -1745,30 +1745,34 @@ def _node_studio_css() -> str:
   .ns-alt-view {
     position: absolute;
     inset: 0;
-    z-index: 10;
+    z-index: 52;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 70px 24px 32px;
+    justify-content: flex-start;
+    padding: 62px 24px 20px;
     background-color: var(--ns-bg);
     background-image: radial-gradient(rgba(17, 17, 17, 0.24) 1px, transparent 1px);
     background-size: 24px 24px;
+    overflow: hidden;
   }
   .ns-alt-view.hidden { display: none; }
   .ns-alt-card {
     width: 100%;
-    max-width: 720px;
+    max-width: 920px;
+    height: 100%;
+    max-height: 100%;
     background: var(--ns-card);
     border: var(--ns-hair);
     border-radius: 14px;
-    padding: 20px;
+    padding: 18px 20px;
     box-shadow: var(--ns-shadow);
     display: flex;
     flex-direction: column;
     gap: 12px;
+    overflow: hidden;
   }
-  .ns-alt-title { margin: 0; font-size: 18px; font-weight: 600; }
+  .ns-alt-title { margin: 0; font-size: 18px; font-weight: 600; color: var(--ns-ink); }
   .ns-alt-desc { margin: 0; font-size: 13px; color: var(--ns-muted); line-height: 1.5; }
   .ns-hidden-input { display: none; }
 
@@ -2716,6 +2720,427 @@ def _node_studio_css() -> str:
   body.tc-dark .ns-slash-row.is-selected {
     border: 1.5px solid #ffffff !important;
   }
+
+  /* Async Status & Error Badges */
+  .ns-omni-status-badge.is-error {
+    border-color: var(--ns-danger);
+    color: var(--ns-danger);
+  }
+  .ns-spinner-pulse {
+    font-weight: 700;
+    animation: nsPulseCore 1.2s ease-in-out infinite;
+  }
+
+  /* Inline 3D Mesh (.GLB) Interactive Preview Stage & Inspector Modal */
+  .ns-omni-card {
+    height: 100%;
+  }
+  .ns-mesh-stage {
+    position: relative;
+    width: 100%;
+    height: 164px;
+    min-height: 164px;
+    border-radius: 8px;
+    border: var(--ns-hair);
+    background: #080808;
+    overflow: hidden;
+    user-select: none;
+  }
+  .ns-model-viewer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: transparent;
+    z-index: 2;
+  }
+  .ns-mesh-wire-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+    z-index: 1;
+  }
+  .ns-mesh-wire-canvas:active { cursor: grabbing; }
+  .ns-mesh-wire-canvas.is-hidden { display: none; }
+  .ns-mesh-stage-hud {
+    position: absolute;
+    left: 7px;
+    bottom: 6px;
+    z-index: 4;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: rgba(0, 0, 0, 0.78);
+    color: #f5f5f5;
+    font-family: var(--ns-mono);
+    font-size: 9px;
+    font-weight: 700;
+    pointer-events: none;
+  }
+  .ns-mesh-inspect-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 5;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    border: 1px solid #ffffff;
+    background: rgba(0, 0, 0, 0.84);
+    color: #ffffff;
+    font-family: var(--ns-mono);
+    font-size: 9px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .ns-mesh-inspect-btn:hover {
+    background: #ffffff;
+    color: #000000;
+  }
+  .ns-mesh-modal-viewport {
+    position: relative;
+    width: 100%;
+    height: min(460px, 62vh);
+    border-radius: 12px;
+    border: 1.5px solid #111111;
+    background: #080808;
+    overflow: hidden;
+  }
+  .ns-mesh-modal-viewport model-viewer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+  }
+
+  /* Synced Conversation (Chat) View */
+  .ns-chat-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-bottom: 10px;
+    border-bottom: var(--ns-hair-soft);
+  }
+  .ns-chat-meta {
+    font-family: var(--ns-mono);
+    font-size: 11px;
+    color: var(--ns-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .ns-chat-feed {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 4px 2px;
+    user-select: text;
+  }
+  .ns-chat-turn {
+    border: var(--ns-hair-soft);
+    border-radius: 10px;
+    background: var(--ns-paper);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ns-chat-turn.is-selected {
+    border: 1.5px solid var(--ns-ink);
+  }
+  .ns-chat-turn-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .ns-chat-turn-badges {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .ns-chat-model {
+    font-family: var(--ns-mono);
+    font-size: 10px;
+    color: var(--ns-muted);
+  }
+  .ns-chat-prompt {
+    font-family: var(--ns-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ns-ink);
+    padding: 6px 8px;
+    border-radius: 7px;
+    background: var(--ns-bg);
+    border: var(--ns-hair-soft);
+  }
+  .ns-chat-text {
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--ns-ink);
+    white-space: pre-wrap;
+    word-break: break-word;
+    user-select: text;
+  }
+  .ns-chat-thumb {
+    max-width: 240px;
+    max-height: 200px;
+    border-radius: 8px;
+    border: var(--ns-hair-soft);
+    object-fit: cover;
+    display: block;
+  }
+  .ns-chat-media-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-family: var(--ns-mono);
+    font-size: 11px;
+    color: var(--ns-ink);
+  }
+  .ns-chat-empty {
+    padding: 36px 16px;
+    text-align: center;
+    font-family: var(--ns-mono);
+    font-size: 12px;
+    color: var(--ns-faint);
+    border: 1px dashed rgba(17, 17, 17, 0.25);
+    border-radius: 10px;
+    background: var(--ns-paper);
+  }
+  .ns-chat-composer {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: var(--ns-hair-soft);
+  }
+  .ns-chat-input {
+    flex: 1 1 auto;
+    min-height: 40px;
+    max-height: 120px;
+    padding: 9px 12px;
+    border-radius: 9px;
+    border: var(--ns-hair);
+    background: var(--ns-paper);
+    color: var(--ns-ink);
+    font-family: var(--ns-font);
+    font-size: 13px;
+    resize: none;
+    outline: none;
+  }
+  .ns-chat-input::placeholder { color: var(--ns-faint); }
+  .ns-chat-send-btn {
+    height: 40px;
+    padding: 0 16px;
+    border-radius: 9px;
+    border: var(--ns-hair);
+    background: var(--ns-ink);
+    color: var(--ns-bg);
+    font-family: var(--ns-mono);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .ns-chat-send-btn:hover { opacity: 0.88; }
+
+  /* Synced Asset Library View */
+  .ns-lib-filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-bottom: 8px;
+    border-bottom: var(--ns-hair-soft);
+  }
+  .ns-lib-chips {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .ns-lib-chip {
+    border: var(--ns-hair-soft);
+    background: var(--ns-paper);
+    color: var(--ns-muted);
+    font-family: var(--ns-mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    cursor: pointer;
+  }
+  .ns-lib-chip:hover { color: var(--ns-ink); border-color: var(--ns-ink); }
+  .ns-lib-chip.is-active {
+    background: var(--ns-ink);
+    color: var(--ns-bg);
+    border-color: var(--ns-ink);
+  }
+  .ns-lib-search {
+    width: 220px;
+    max-width: 100%;
+    height: 30px;
+    padding: 0 10px;
+    border: var(--ns-hair-soft);
+    border-radius: 7px;
+    background: var(--ns-paper);
+    color: var(--ns-ink);
+    font-family: var(--ns-mono);
+    font-size: 11px;
+    outline: none;
+  }
+  .ns-lib-search:focus { border-color: var(--ns-ink); }
+  .ns-lib-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 10px;
+    align-content: start;
+    padding: 2px;
+  }
+  .ns-lib-asset-card {
+    border: var(--ns-hair-soft);
+    border-radius: 10px;
+    background: var(--ns-paper);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .ns-lib-asset-card:hover { border-color: var(--ns-ink); }
+  .ns-lib-preview {
+    height: 116px;
+    border-radius: 7px;
+    border: var(--ns-hair-soft);
+    background: var(--ns-bg);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    text-align: center;
+    font-family: var(--ns-mono);
+    font-size: 10px;
+    color: var(--ns-ink);
+    position: relative;
+  }
+  .ns-lib-preview img,
+  .ns-lib-preview video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 5px;
+    display: block;
+  }
+  .ns-lib-preview-text {
+    font-family: var(--ns-font);
+    font-size: 11px;
+    line-height: 1.38;
+    text-align: left;
+    overflow: hidden;
+    max-height: 100%;
+    width: 100%;
+  }
+  .ns-lib-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .ns-lib-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ns-ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ns-lib-sub {
+    font-family: var(--ns-mono);
+    font-size: 9px;
+    color: var(--ns-faint);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ns-lib-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    padding-top: 4px;
+    border-top: var(--ns-hair-soft);
+  }
+  .ns-lib-actions-left { display: inline-flex; align-items: center; gap: 4px; }
+
+  /* Monochrome Dark Mode Overrides for 3D Mesh, Chat & Library Views */
+  html[data-theme="dark"] .ns-alt-card,
+  body.tc-dark .ns-alt-card {
+    background: #0e0e0e !important;
+    border-color: #2e2e2e !important;
+    color: #f5f5f5 !important;
+  }
+  html[data-theme="dark"] .ns-mesh-stage,
+  body.tc-dark .ns-mesh-stage,
+  html[data-theme="dark"] .ns-mesh-modal-viewport,
+  body.tc-dark .ns-mesh-modal-viewport {
+    border-color: #ffffff !important;
+    background: #000000 !important;
+  }
+  html[data-theme="dark"] .ns-chat-turn,
+  body.tc-dark .ns-chat-turn,
+  html[data-theme="dark"] .ns-chat-empty,
+  body.tc-dark .ns-chat-empty,
+  html[data-theme="dark"] .ns-chat-input,
+  body.tc-dark .ns-chat-input,
+  html[data-theme="dark"] .ns-lib-chip,
+  body.tc-dark .ns-lib-chip,
+  html[data-theme="dark"] .ns-lib-search,
+  body.tc-dark .ns-lib-search,
+  html[data-theme="dark"] .ns-lib-asset-card,
+  body.tc-dark .ns-lib-asset-card {
+    background: #151515 !important;
+    border-color: #2e2e2e !important;
+    color: #f5f5f5 !important;
+  }
+  html[data-theme="dark"] .ns-chat-prompt,
+  body.tc-dark .ns-chat-prompt,
+  html[data-theme="dark"] .ns-lib-preview,
+  body.tc-dark .ns-lib-preview {
+    background: #080808 !important;
+    border-color: #2e2e2e !important;
+    color: #f5f5f5 !important;
+  }
+  html[data-theme="dark"] .ns-chat-turn.is-selected,
+  body.tc-dark .ns-chat-turn.is-selected,
+  html[data-theme="dark"] .ns-lib-asset-card:hover,
+  body.tc-dark .ns-lib-asset-card:hover {
+    border-color: #ffffff !important;
+  }
+  html[data-theme="dark"] .ns-chat-send-btn,
+  body.tc-dark .ns-chat-send-btn,
+  html[data-theme="dark"] .ns-lib-chip.is-active,
+  body.tc-dark .ns-lib-chip.is-active {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border-color: #ffffff !important;
+  }
 </style>"""
 
 
@@ -2803,7 +3228,9 @@ def _node_studio_js(initial_view: str) -> str:
     savedGraphs: [],
     _autoSaveTimer: null,
     _suppressAutoSave: false,
-    atlasRefine: false
+    atlasRefine: false,
+    libraryFilter: "all",
+    libraryQuery: ""
   };
 
   function $(id) { return document.getElementById(id); }
@@ -3083,6 +3510,9 @@ def _node_studio_js(initial_view: str) -> str:
         atlas: "Build 3D Splat →"
       };
       genBtn.textContent = lblMap[mod] || "Generate →";
+    }
+    if (state.view === "conversation") {
+      renderConversationView();
     }
   }
 
@@ -3389,6 +3819,119 @@ def _node_studio_js(initial_view: str) -> str:
     );
   }
 
+  let _modelViewerPromise = null;
+  const modalMeshState = {
+    activeNodeId: null,
+    autoRotate: true,
+    animPlaying: true,
+    yaw: 0.55,
+    pitch: 0.34,
+    zoom: 1.0,
+    rafId: null,
+    viewerEl: null,
+    loadedRealGlb: false
+  };
+
+  function ensureModelViewer() {
+    if (typeof window !== "undefined" && window.customElements &&
+        typeof window.customElements.get === "function" && window.customElements.get("model-viewer")) {
+      return Promise.resolve(true);
+    }
+    if (_modelViewerPromise) return _modelViewerPromise;
+    if (typeof document === "undefined" || !document.head || typeof document.head.appendChild !== "function") {
+      return Promise.reject(new Error("DOM head unavailable; using wireframe preview"));
+    }
+    _modelViewerPromise = new Promise((resolve, reject) => {
+      try {
+        const s = document.createElement("script");
+        s.type = "module";
+        s.src = "https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js";
+        s.onload = () => resolve(true);
+        s.onerror = () => {
+          _modelViewerPromise = null;
+          reject(new Error("Offline or CDN unreachable; showing isometric wireframe preview"));
+        };
+        document.head.appendChild(s);
+      } catch (err) {
+        _modelViewerPromise = null;
+        reject(err);
+      }
+    });
+    return _modelViewerPromise;
+  }
+
+  function _decodeBase64Bytes(b64) {
+    const clean = String(b64 || "").replace(/^data:[^;]+;base64,/, "").trim();
+    if (!clean) return new Uint8Array(0);
+    if (typeof atob === "function") {
+      const bin = atob(clean);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      return arr;
+    }
+    if (typeof Buffer !== "undefined") {
+      const buf = Buffer.from(clean, "base64");
+      return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+    }
+    return new Uint8Array(0);
+  }
+
+  function _revokeNodeGlbBlobUrl(node) {
+    if (!node) return;
+    if (node._glbBlobUrl && typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") {
+      try { URL.revokeObjectURL(node._glbBlobUrl); } catch (_e) {}
+    }
+    node._glbBlobUrl = "";
+    node._glbBlobSourceB64 = "";
+  }
+
+  function _cleanupNodeResources(node) {
+    if (!node) return;
+    if (node._pollTimer) {
+      clearInterval(node._pollTimer);
+      node._pollTimer = null;
+    }
+    _revokeNodeGlbBlobUrl(node);
+  }
+
+  function _getGlbSrcForNode(node) {
+    if (!node || !node.content) return "";
+    const c = node.content;
+    if (c.glbRawUrl && typeof c.glbRawUrl === "string") {
+      return c.glbRawUrl;
+    }
+    if (c.glbB64 && typeof c.glbB64 === "string") {
+      if (node._glbBlobUrl && node._glbBlobSourceB64 === c.glbB64) {
+        return node._glbBlobUrl;
+      }
+      _revokeNodeGlbBlobUrl(node);
+      try {
+        if (typeof Blob !== "undefined" && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
+          const bytes = _decodeBase64Bytes(c.glbB64);
+          if (bytes.byteLength > 0) {
+            const blob = new Blob([bytes], { type: "model/gltf-binary" });
+            node._glbBlobUrl = URL.createObjectURL(blob);
+            node._glbBlobSourceB64 = c.glbB64;
+            return node._glbBlobUrl;
+          }
+        }
+      } catch (_e) {}
+      return "data:model/gltf-binary;base64," + c.glbB64;
+    }
+    return "";
+  }
+
+  function _isPlayableVideoUrl(vidUrl) {
+    if (!vidUrl || typeof vidUrl !== "string") return false;
+    if (/media\.local/i.test(vidUrl)) return false;
+    return (
+      vidUrl.indexOf("data:video/") === 0 ||
+      vidUrl.indexOf("blob:") === 0 ||
+      vidUrl.indexOf("/") === 0 ||
+      /^https?:\/\//i.test(vidUrl)
+    );
+  }
+
   function renderVideoCardInner(node) {
     const nid = escapeHtml(node.id);
     const meta = node.metadata || {};
@@ -3396,15 +3939,45 @@ def _node_studio_js(initial_view: str) -> str:
     const promptTxt = escapeHtml(meta.prompt || node.label || "");
     const fps = c.fps || meta.fps || 60;
     const vidUrl = c.videoUrl || "";
-    const isPlayable = vidUrl && (vidUrl.indexOf("data:video/") === 0 || vidUrl.indexOf("blob:") === 0 || /^https?:\/\/(?!media\.local)/i.test(vidUrl));
-    const stageHtml = isPlayable
-      ? '<div class="ns-video-stage" onmousedown="event.stopPropagation()"><video class="ns-video-player" controls playsinline loop src="' + escapeHtml(vidUrl) + '"></video></div>'
-      : '<div class="ns-video-stage"><div class="ns-video-placeholder"><div>▶ ' + escapeHtml(getModelName(meta.model || "kling-4.0")) + '</div><div>' + escapeHtml(fps + "fps · " + (meta.resolution || "1080p") + " · " + (c.audioSync !== false ? "Audio Sync" : "Silent")) + '</div><div>' + escapeHtml(c.text || "Video staged") + "</div></div></div>";
+    const jobStatus = meta.jobStatus || "";
+    const isPlayable = _isPlayableVideoUrl(vidUrl);
+    const elapsed = meta.startedAt ? Math.max(1, Math.round((Date.now() - meta.startedAt) / 1000)) : 1;
+
+    let statusBadgeHtml = '<span class="ns-omni-status-badge">' + escapeHtml(getModelName(meta.model || "kling-4.0")) + "</span>";
+    if (jobStatus === "RUNNING") {
+      statusBadgeHtml = '<span class="ns-omni-status-badge">⟳ RENDERING VIDEO (' + elapsed + "s)</span>";
+    } else if (jobStatus === "ERROR") {
+      statusBadgeHtml = '<span class="ns-omni-status-badge is-error">✕ ERROR</span>';
+    }
+
+    let stageHtml = "";
+    if (jobStatus === "ERROR") {
+      stageHtml = '<div class="ns-omni-error-box">' + escapeHtml(meta.jobError || "Video generation failed") + "</div>";
+    } else if (jobStatus === "RUNNING" && !isPlayable) {
+      stageHtml =
+        '<div class="ns-video-stage"><div class="ns-video-placeholder">' +
+        '<div class="ns-spinner-pulse">⟳ RENDERING VIDEO (' + elapsed + "s)</div>" +
+        "<div>" + escapeHtml(getModelName(meta.model || "kling-4.0")) + " · " + escapeHtml(fps + "fps · " + (meta.resolution || "1080p")) + "</div>" +
+        "<div>Polling live status every 4s...</div>" +
+        "</div></div>";
+    } else if (isPlayable) {
+      stageHtml =
+        '<div class="ns-video-stage" onmousedown="event.stopPropagation()">' +
+        '<video class="ns-video-player" controls playsinline loop src="' + escapeHtml(vidUrl) + '"></video>' +
+        "</div>";
+    } else {
+      stageHtml =
+        '<div class="ns-video-stage"><div class="ns-video-placeholder"><div>▶ ' +
+        escapeHtml(getModelName(meta.model || "kling-4.0")) + "</div><div>" +
+        escapeHtml(fps + "fps · " + (meta.resolution || "1080p") + " · " + (c.audioSync !== false ? "Audio Sync" : "Silent")) +
+        "</div><div>" + escapeHtml(c.text || "Video staged") + "</div></div></div>";
+    }
+
     return (
       '<div class="ns-omni-card">' +
       '<div class="ns-omni-top-row">' +
       '<span class="ns-omni-pill">▶ VIDEO · ' + escapeHtml(fps) + "FPS</span>" +
-      '<span class="ns-omni-status-badge">' + escapeHtml(getModelName(meta.model || "kling-4.0")) + "</span>" +
+      statusBadgeHtml +
       "</div>" +
       stageHtml +
       '<div class="ns-omni-title">' + promptTxt + "</div>" +
@@ -3422,21 +3995,58 @@ def _node_studio_js(initial_view: str) -> str:
     const c = node.content || {};
     const promptTxt = escapeHtml(meta.prompt || node.label || "");
     const glbPath = c.glbPath || c.vfsPath || meta.vfsPath || "/models3d/mesh.glb";
-    const rigLabel = c.rigged ? ("✓ RIGGED (" + (c.animation || "walk") + ")") : "PBR .GLB READY";
+    const jobStatus = meta.jobStatus || "";
+    const elapsed = meta.startedAt ? Math.max(1, Math.round((Date.now() - meta.startedAt) / 1000)) : 1;
+    const glbSrc = (jobStatus !== "RUNNING" && jobStatus !== "ERROR") ? _getGlbSrcForNode(node) : "";
+
+    let statusText = "PBR .GLB READY";
+    let statusCls = "ns-omni-status-badge";
+    if (jobStatus === "RUNNING") {
+      statusText = "⟳ GENERATING .GLB (" + elapsed + "s)";
+    } else if (jobStatus === "ERROR") {
+      statusText = "✕ ERROR";
+      statusCls = "ns-omni-status-badge is-error";
+    } else if (c.rigged) {
+      statusText = "✓ RIGGED (" + (c.animation || "walk") + ")";
+    }
+
+    const animPlaying = node._meshAnimPlaying !== false;
+    const modelViewerHtml = glbSrc
+      ? ('<model-viewer class="ns-model-viewer" data-mesh-node-id="' + nid + '" src="' + escapeHtml(glbSrc) +
+         '" camera-controls auto-rotate interaction-prompt="none" shadow-intensity="0.6"' +
+         (c.rigged && animPlaying ? " autoplay" : "") + "></model-viewer>")
+      : "";
+    const stageHudText = jobStatus === "RUNNING"
+      ? ("⟳ GENERATING .GLB (" + elapsed + "s)")
+      : (glbSrc ? "3D .GLB · DRAG TO ORBIT" : "WIREFRAME PREVIEW");
+    const errBlock = jobStatus === "ERROR"
+      ? ('<div class="ns-omni-error-box">' + escapeHtml(meta.jobError || "3D mesh generation failed") + "</div>")
+      : "";
+    const rigAnimBtn = c.rigged
+      ? ('<button type="button" class="ns-card-action-btn" onclick="event.stopPropagation();window.TinCanNodeStudio.toggleNodeMeshAnim(\'' + nid + '\')">' +
+         (animPlaying ? "❚❚ Pause Anim" : "▶ Play Anim") + "</button>")
+      : "";
+
     return (
       '<div class="ns-omni-card">' +
       '<div class="ns-omni-top-row">' +
       '<span class="ns-omni-pill">◆ 3D MESH · .GLB</span>' +
-      '<span class="ns-omni-status-badge">' + escapeHtml(rigLabel) + "</span>" +
+      '<span class="' + statusCls + '">' + escapeHtml(statusText) + "</span>" +
       "</div>" +
-      '<div class="ns-omni-box">' +
-      "<div>[3D Asset · " + escapeHtml(getModelName(meta.model || "hyper3d/rodin-v2.5")) + "]</div>" +
-      "<div>• Format: " + escapeHtml(String(c.format || "glb").toUpperCase()) + " · Tier: " + escapeHtml(c.tier || meta.tier || "Regular") + "</div>" +
-      "<div>• Path: " + escapeHtml(glbPath) + "</div>" +
+      '<div class="ns-mesh-stage" data-mesh-node-id="' + nid + '" onmousedown="event.stopPropagation()">' +
+      modelViewerHtml +
+      '<canvas class="ns-mesh-wire-canvas" data-mesh-node-id="' + nid + '" width="300" height="164"></canvas>' +
+      '<span class="ns-mesh-stage-hud">' + escapeHtml(stageHudText) + "</span>" +
+      '<button type="button" class="ns-mesh-inspect-btn" onclick="event.stopPropagation();window.TinCanNodeStudio.openMeshViewer(\'' + nid + '\')">⤢ Inspect 3D</button>' +
       "</div>" +
+      errBlock +
       '<div class="ns-omni-title">' + promptTxt + "</div>" +
+      '<div class="ns-omni-sub">' + escapeHtml(getModelName(meta.model || "hyper3d/rodin-v2.5") + " · " + (c.tier || meta.tier || "Regular") + " · " + glbPath) + "</div>" +
       '<div class="ns-card-foot-bar" onmousedown="event.stopPropagation()">' +
+      '<div class="ns-card-foot-group">' +
       '<button type="button" class="ns-card-action-btn is-primary" onclick="event.stopPropagation();window.TinCanNodeStudio.runTerminalCommand(\'/rig --anim walk ' + escapeHtml(glbPath) + '\')">Auto-Rig Walk</button>' +
+      rigAnimBtn +
+      "</div>" +
       '<button type="button" class="ns-card-action-btn" onclick="event.stopPropagation();window.TinCanNodeStudio.downloadNode(\'' + nid + '\')">↓ .GLB</button>' +
       "</div>" +
       "</div>"
@@ -3552,7 +4162,7 @@ def _node_studio_js(initial_view: str) -> str:
       else if (mStatus === "text" || mStatus === "message") { w = node.width || 320; h = node.height || 220; }
       else if (mStatus === "audio") { w = node.width || 310; h = node.height || 218; }
       else if (mStatus === "video") { w = node.width || 320; h = node.height || 250; }
-      else if (mStatus === "mesh3d") { w = node.width || 310; h = node.height || 210; }
+      else if (mStatus === "mesh3d") { w = node.width || 320; h = node.height || 326; }
       else if (mStatus === "omni") { w = node.width || 320; h = node.height || 198; }
       node.width = w;
       node.height = h;
@@ -3627,8 +4237,10 @@ def _node_studio_js(initial_view: str) -> str:
     }).join("");
 
     renderEdges();
+    renderConversationView();
     renderLibraryViewGrid();
     mountAllSplatCanvases();
+    mountAllMeshPreviews();
     if (!state._suppressAutoSave && state.nodes.length > 0) {
       scheduleAutoSave();
     }
@@ -3884,8 +4496,8 @@ def _node_studio_js(initial_view: str) -> str:
     } else if (parsed.modality === "3d") {
       mStatus = "mesh3d";
       omniKind = "3d";
-      w = 310;
-      h = 210;
+      w = 320;
+      h = 326;
       vfsPath = "/models3d/mesh.glb";
     } else if (parsed.subcommand === "pose" || parsed.atlas_task === "images2PosedRGBD") {
       mStatus = "omni";
@@ -4093,7 +4705,13 @@ def _node_studio_js(initial_view: str) -> str:
               spawned.metadata.vfsPath = rObj.path;
             }
           } else if (parsed.modality === "3d") {
-            if (rObj.glb_bytes_b64) spawned.content.glbB64 = rObj.glb_bytes_b64;
+            const glbRaw = rObj.glb_raw_url || data.glb_raw_url || (rObj.download && rObj.download.glb_raw_url) || "";
+            if (glbRaw) spawned.content.glbRawUrl = glbRaw;
+            const glbB64 = rObj.glb_bytes_b64 || data.glb_bytes_b64 || "";
+            if (glbB64) {
+              _revokeNodeGlbBlobUrl(spawned);
+              spawned.content.glbB64 = glbB64;
+            }
             if (rObj.path) {
               spawned.content.glbPath = rObj.path;
               spawned.content.vfsPath = rObj.path;
@@ -4102,6 +4720,33 @@ def _node_studio_js(initial_view: str) -> str:
             if (rObj.rig_type || rObj.bones || parsed.command === "rig") {
               spawned.content.rigged = true;
               spawned.content.animation = (rObj.animations && rObj.animations[0]) || (parsed.flags && parsed.flags.anim) || "walk";
+            }
+            const meshJobId = data.job_id || rObj.job_id || rObj.jobId || (spawned.metadata && spawned.metadata.jobId) || "";
+            if ((data.async === true || data.done === false || rObj.jobStatus === "RUNNING") && meshJobId) {
+              spawned.metadata.jobId = meshJobId;
+              spawned.metadata.jobStatus = "RUNNING";
+              spawned.metadata.startedAt = Date.now();
+              spawned.metadata.vfsPath = "Generating .GLB (" + meshJobId + ")...";
+              showToast("3D .GLB job started (" + meshJobId + ") — polling live every 4s...", false);
+              appendTerminalLine("[⟳] Submitted 3D .GLB job " + meshJobId + " (polling live every 4s)");
+              renderNodes();
+              renderPromptIslandStatus();
+              pollMeshJobForNode(spawned);
+              return spawned;
+            }
+          } else if (parsed.modality === "video") {
+            const vidJobId = data.job_id || rObj.job_id || rObj.jobId || (spawned.metadata && spawned.metadata.jobId) || (spawned.content && spawned.content.jobId) || "";
+            if ((data.async === true || data.done === false || rObj.jobStatus === "RUNNING" || (spawned.metadata && spawned.metadata.jobStatus === "RUNNING")) && vidJobId) {
+              spawned.metadata.jobId = vidJobId;
+              spawned.metadata.modelSlug = data.model_slug || rObj.modelSlug || rObj.model_slug || parsed.model || state.model;
+              spawned.metadata.jobStatus = "RUNNING";
+              spawned.metadata.startedAt = Date.now();
+              showToast("Video job started (" + vidJobId + ") — polling live every 4s...", false);
+              appendTerminalLine("[⟳] Submitted Video job " + vidJobId + " (polling live every 4s)");
+              renderNodes();
+              renderPromptIslandStatus();
+              pollVideoJobForNode(spawned);
+              return spawned;
             }
           } else if (parsed.modality === "text") {
             if (rObj.text && !nestedNode) spawned.content.text = rObj.text;
@@ -4157,6 +4802,7 @@ def _node_studio_js(initial_view: str) -> str:
             }
             const glbKey = keys.find((k) => /\.glb$/i.test(k));
             if (glbKey && data.files_b64[glbKey]) {
+              _revokeNodeGlbBlobUrl(spawned);
               spawned.content.glbB64 = data.files_b64[glbKey];
               spawned.content.glbPath = glbKey;
               spawned.content.vfsPath = glbKey;
@@ -4241,6 +4887,133 @@ def _node_studio_js(initial_view: str) -> str:
           // Live timer tick on card
           renderNodes();
         }
+      } catch (_pollErr) {}
+    }, 4000);
+  }
+
+  function pollVideoJobForNode(node) {
+    if (!node || !node.metadata || !node.metadata.jobId || typeof fetch !== "function") return;
+    if (node._pollTimer) clearInterval(node._pollTimer);
+    if (!node.metadata.startedAt) node.metadata.startedAt = Date.now();
+    const jobId = node.metadata.jobId;
+    const modelSlug = node.metadata.modelSlug || node.metadata.model || state.model || "kling-4.0";
+    const tgt = _resolveSpaceTarget();
+    const promptStr = (node.metadata && node.metadata.prompt) || node.label || "";
+    const statusUrl =
+      "/api/nodes/video/status?job_id=" + encodeURIComponent(jobId) +
+      "&model=" + encodeURIComponent(modelSlug) +
+      "&scope=" + encodeURIComponent(tgt.scope) +
+      "&owner_id=" + encodeURIComponent(tgt.owner_id) +
+      "&prompt=" + encodeURIComponent(promptStr);
+
+    node._pollTimer = setInterval(async function () {
+      try {
+        const headers = {};
+        if (state.nanogptKey) headers["X-NanoGPT-Api-Key"] = state.nanogptKey;
+        const fetchOpts = Object.keys(headers).length ? { headers: headers } : {};
+        const res = await fetch(statusUrl, fetchOpts);
+        if (!res || typeof res.json !== "function") return;
+        const st = await res.json();
+        if (!st) return;
+
+        if (st.ok === false || st.status === "FAILED" || st.status === "ERROR" || st.error) {
+          clearInterval(node._pollTimer);
+          node._pollTimer = null;
+          const errMsg = (st.error && st.error.message) || String(st.error || st.message || "Video generation failed");
+          node.metadata.jobStatus = "ERROR";
+          node.metadata.jobError = errMsg;
+          showToast("Video error: " + errMsg, true);
+          appendTerminalLine("[!] Video job " + jobId + " failed: " + errMsg);
+          renderNodes();
+          return;
+        }
+
+        if (st.done && st.ok) {
+          clearInterval(node._pollTimer);
+          node._pollTimer = null;
+          node.metadata.jobStatus = "SUCCEEDED";
+          node.metadata.jobError = "";
+          if (!node.content) node.content = {};
+          node.content.videoUrl = st.video_url || st.remote_url || st.videoUrl || "";
+          node.content.vfsPath = st.vfs_path || st.vfsPath || "";
+          node.metadata.vfsPath = st.vfs_path || st.vfsPath || node.metadata.vfsPath || "";
+          showToast("Video ready!" + (node.content.vfsPath ? (" Saved to " + node.content.vfsPath) : ""), false);
+          appendTerminalLine("[✓] Video job " + jobId + " SUCCEEDED → " + (node.content.vfsPath || node.content.videoUrl || "ready"));
+          renderNodes();
+          return;
+        }
+
+        // Still running: refresh elapsed seconds on card
+        node.metadata.jobStatus = "RUNNING";
+        renderNodes();
+      } catch (_pollErr) {}
+    }, 4000);
+  }
+
+  function pollMeshJobForNode(node) {
+    if (!node || !node.metadata || !node.metadata.jobId || typeof fetch !== "function") return;
+    if (node._pollTimer) clearInterval(node._pollTimer);
+    if (!node.metadata.startedAt) node.metadata.startedAt = Date.now();
+    const jobId = node.metadata.jobId;
+    const tgt = _resolveSpaceTarget();
+    const promptStr = (node.metadata && node.metadata.prompt) || node.label || "";
+    const statusUrl =
+      "/api/nodes/mesh/status?job_id=" + encodeURIComponent(jobId) +
+      "&scope=" + encodeURIComponent(tgt.scope) +
+      "&owner_id=" + encodeURIComponent(tgt.owner_id) +
+      "&prompt=" + encodeURIComponent(promptStr);
+
+    node._pollTimer = setInterval(async function () {
+      try {
+        const headers = {};
+        if (state.nanogptKey) headers["X-NanoGPT-Api-Key"] = state.nanogptKey;
+        const fetchOpts = Object.keys(headers).length ? { headers: headers } : {};
+        const res = await fetch(statusUrl, fetchOpts);
+        if (!res || typeof res.json !== "function") return;
+        const st = await res.json();
+        if (!st) return;
+
+        if (st.ok === false || st.status === "FAILED" || st.status === "ERROR" || st.error) {
+          clearInterval(node._pollTimer);
+          node._pollTimer = null;
+          const errMsg = (st.error && st.error.message) || String(st.error || st.message || "3D mesh generation failed");
+          node.metadata.jobStatus = "ERROR";
+          node.metadata.jobError = errMsg;
+          showToast("3D mesh error: " + errMsg, true);
+          appendTerminalLine("[!] 3D mesh job " + jobId + " failed: " + errMsg);
+          renderNodes();
+          return;
+        }
+
+        if ((st.done && st.ok !== false) || st.status === "SUCCEEDED") {
+          clearInterval(node._pollTimer);
+          node._pollTimer = null;
+          node.metadata.jobStatus = "SUCCEEDED";
+          node.metadata.jobError = "";
+          if (!node.content) node.content = {};
+          _revokeNodeGlbBlobUrl(node);
+          node.content.glbRawUrl = st.glb_raw_url || st.glbRawUrl || "";
+          node.content.glbB64 = st.glb_bytes_b64 || st.glbB64 || "";
+          if (st.vfs_path || st.vfsPath) {
+            node.content.glbPath = st.vfs_path || st.vfsPath;
+            node.content.vfsPath = node.content.glbPath;
+            node.metadata.vfsPath = node.content.glbPath;
+          }
+          if (st.rig_type || st.bones || st.rigged) {
+            node.content.rigged = true;
+            node.content.animation = (st.animations && st.animations[0]) || st.animation || "walk";
+          }
+          showToast("3D .GLB mesh ready!" + (node.content.vfsPath ? (" Saved to " + node.content.vfsPath) : ""), false);
+          appendTerminalLine("[✓] 3D mesh job " + jobId + " SUCCEEDED → " + (node.content.vfsPath || "mesh.glb"));
+          renderNodes();
+          if (modalMeshState.activeNodeId === node.id) {
+            openMeshViewer(node.id);
+          }
+          return;
+        }
+
+        node.metadata.jobStatus = "RUNNING";
+        renderNodes();
       } catch (_pollErr) {}
     }, 4000);
   }
@@ -4981,19 +5754,636 @@ def _node_studio_js(initial_view: str) -> str:
     }, { passive: false });
   }
 
+  // =========================================================================
+  // Interactive 3D .GLB Mesh Preview, Wireframe Fallback & Inspector Modal
+  // =========================================================================
+  function _buildIcosahedronGeometry() {
+    const phi = (1 + Math.sqrt(5)) / 2;
+    const rawVerts = [
+      [-1, phi, 0], [1, phi, 0], [-1, -phi, 0], [1, -phi, 0],
+      [0, -1, phi], [0, 1, phi], [0, -1, -phi], [0, 1, -phi],
+      [phi, 0, -1], [phi, 0, 1], [-phi, 0, -1], [-phi, 0, 1]
+    ];
+    const verts = rawVerts.map((v) => {
+      const len = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) || 1;
+      return [v[0] / len, v[1] / len, v[2] / len];
+    });
+    const edges = [
+      [0, 11], [0, 5], [0, 1], [0, 7], [0, 10],
+      [1, 5], [5, 11], [11, 10], [10, 7], [7, 1],
+      [3, 9], [3, 4], [3, 2], [3, 6], [3, 8],
+      [4, 9], [2, 4], [6, 2], [8, 6], [9, 8],
+      [5, 9], [9, 1], [1, 8], [8, 7], [7, 6],
+      [6, 10], [10, 2], [2, 11], [11, 4], [4, 5]
+    ];
+    return { verts, edges };
+  }
+  const _WIRE_ICO = _buildIcosahedronGeometry();
+
+  function drawMeshWireframeOnCanvas(canvasEl, node, viewOpts) {
+    if (!canvasEl || typeof canvasEl.getContext !== "function") return;
+    const ctx = canvasEl.getContext("2d");
+    if (!ctx) return;
+
+    const w = canvasEl.width || 300;
+    const h = canvasEl.height || 164;
+    const yaw = (viewOpts && viewOpts.yaw !== undefined) ? viewOpts.yaw : 0.55;
+    const pitch = (viewOpts && viewOpts.pitch !== undefined) ? viewOpts.pitch : 0.34;
+    const zoom = (viewOpts && viewOpts.zoom !== undefined) ? viewOpts.zoom : 1.0;
+
+    ctx.fillStyle = "#080808";
+    ctx.fillRect(0, 0, w, h);
+
+    const cosY = Math.cos(yaw), sinY = Math.sin(yaw);
+    const cosP = Math.cos(pitch), sinP = Math.sin(pitch);
+    const fov = Math.min(w, h) * 1.1 * zoom;
+    const camDist = 3.2;
+
+    function proj(px, py, pz) {
+      const x1 = px * cosY - pz * sinY;
+      const z1 = px * sinY + pz * cosY;
+      const y2 = py * cosP - z1 * sinP;
+      const z2 = py * sinP + z1 * cosP + camDist;
+      if (z2 <= 0.25) return null;
+      const sc = fov / z2;
+      return { sx: w * 0.5 + x1 * sc, sy: h * 0.5 - y2 * sc, z: z2 };
+    }
+
+    // Isometric ground grid
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.14)";
+    ctx.lineWidth = 1;
+    for (let g = -2; g <= 2; g++) {
+      const a = proj(g * 0.65, -0.95, -1.3);
+      const b = proj(g * 0.65, -0.95, 1.3);
+      if (a && b) { ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); }
+      const c = proj(-1.3, -0.95, g * 0.65);
+      const d = proj(1.3, -0.95, g * 0.65);
+      if (c && d) { ctx.beginPath(); ctx.moveTo(c.sx, c.sy); ctx.lineTo(d.sx, d.sy); ctx.stroke(); }
+    }
+
+    // Faceted 3D geodesic mesh wireframe
+    const pts = _WIRE_ICO.verts.map((v) => proj(v[0] * 0.92, v[1] * 0.92, v[2] * 0.92));
+    for (let i = 0; i < _WIRE_ICO.edges.length; i++) {
+      const e = _WIRE_ICO.edges[i];
+      const p0 = pts[e[0]];
+      const p1 = pts[e[1]];
+      if (!p0 || !p1) continue;
+      const avgZ = (p0.z + p1.z) * 0.5;
+      const alpha = Math.max(0.25, Math.min(0.95, 1.45 - avgZ * 0.25));
+      ctx.strokeStyle = (node && node.content && node.content.rigged && i % 5 === 0)
+        ? ("rgba(16, 122, 71, " + alpha.toFixed(2) + ")")
+        : ("rgba(245, 245, 245, " + alpha.toFixed(2) + ")");
+      ctx.lineWidth = avgZ < camDist ? 1.5 : 0.9;
+      ctx.beginPath();
+      ctx.moveTo(p0.sx, p0.sy);
+      ctx.lineTo(p1.sx, p1.sy);
+      ctx.stroke();
+    }
+
+    // Vertex nodes
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      if (!p) continue;
+      ctx.fillStyle = i % 3 === 0 ? "#107a47" : "#ffffff";
+      ctx.beginPath();
+      ctx.arc(p.sx, p.sy, p.z < camDist ? 2.4 : 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function mountAllMeshPreviews() {
+    if (!document || typeof document.querySelectorAll !== "function") return;
+
+    const wireCanvases = document.querySelectorAll(".ns-mesh-wire-canvas");
+    if (wireCanvases && wireCanvases.forEach) {
+      wireCanvases.forEach((canvasEl) => {
+        const nid = canvasEl.dataset && canvasEl.dataset.meshNodeId;
+        const node = state.nodes.find((n) => n.id === nid);
+        if (!node) return;
+        if (!node._meshViewState) {
+          node._meshViewState = { yaw: 0.55, pitch: 0.34, zoom: 1.0 };
+        }
+        drawMeshWireframeOnCanvas(canvasEl, node, node._meshViewState);
+
+        if (!canvasEl._meshWireBound) {
+          canvasEl._meshWireBound = true;
+          let dragging = false;
+          let lastX = 0, lastY = 0;
+          canvasEl.addEventListener("mousedown", (ev) => {
+            ev.stopPropagation();
+            dragging = true;
+            lastX = ev.clientX;
+            lastY = ev.clientY;
+          });
+          window.addEventListener("mousemove", (ev) => {
+            if (!dragging) return;
+            const dx = ev.clientX - lastX;
+            const dy = ev.clientY - lastY;
+            lastX = ev.clientX;
+            lastY = ev.clientY;
+            node._meshViewState.yaw += dx * 0.014;
+            node._meshViewState.pitch = Math.max(-0.9, Math.min(1.1, node._meshViewState.pitch + dy * 0.012));
+            drawMeshWireframeOnCanvas(canvasEl, node, node._meshViewState);
+          });
+          window.addEventListener("mouseup", () => { dragging = false; });
+          canvasEl.addEventListener("dblclick", (ev) => {
+            ev.stopPropagation();
+            openMeshViewer(node.id);
+          });
+        }
+      });
+    }
+
+    const mvEls = document.querySelectorAll(".ns-model-viewer");
+    if (mvEls && mvEls.length > 0) {
+      ensureModelViewer().then(() => {
+        mvEls.forEach((mv) => {
+          if (mv._mvBound) return;
+          mv._mvBound = true;
+          mv.addEventListener("load", () => {
+            const stage = mv.parentElement;
+            if (stage && typeof stage.querySelector === "function") {
+              const wire = stage.querySelector(".ns-mesh-wire-canvas");
+              if (wire) wire.classList.add("is-hidden");
+            }
+          });
+        });
+      }).catch(() => {});
+    }
+  }
+
+  function renderModalMeshWireFrame() {
+    const modal = $("nsMeshViewerModal");
+    const canvasEl = $("nsMeshModalWireCanvas");
+    if (!modal || modal.classList.contains("hidden") || !canvasEl || modalMeshState.loadedRealGlb) return;
+    const node = state.nodes.find((n) => n.id === modalMeshState.activeNodeId);
+    if (modalMeshState.autoRotate) {
+      modalMeshState.yaw += 0.01;
+    }
+    drawMeshWireframeOnCanvas(canvasEl, node, modalMeshState);
+    if (modalMeshState.autoRotate && typeof window.requestAnimationFrame === "function") {
+      modalMeshState.rafId = window.requestAnimationFrame(renderModalMeshWireFrame);
+    }
+  }
+
+  function bindModalMeshWireCanvasEvents() {
+    const canvasEl = $("nsMeshModalWireCanvas");
+    if (!canvasEl || canvasEl._meshModalBound) return;
+    canvasEl._meshModalBound = true;
+    let dragging = false;
+    let lastX = 0, lastY = 0;
+    canvasEl.addEventListener("mousedown", (ev) => {
+      dragging = true;
+      modalMeshState.autoRotate = false;
+      lastX = ev.clientX;
+      lastY = ev.clientY;
+    });
+    window.addEventListener("mousemove", (ev) => {
+      if (!dragging) return;
+      const dx = ev.clientX - lastX;
+      const dy = ev.clientY - lastY;
+      lastX = ev.clientX;
+      lastY = ev.clientY;
+      modalMeshState.yaw += dx * 0.012;
+      modalMeshState.pitch = Math.max(-0.9, Math.min(1.1, modalMeshState.pitch + dy * 0.012));
+      renderModalMeshWireFrame();
+    });
+    window.addEventListener("mouseup", () => { dragging = false; });
+    canvasEl.addEventListener("wheel", (ev) => {
+      ev.preventDefault();
+      const factor = ev.deltaY < 0 ? 1.1 : 0.9;
+      modalMeshState.zoom = Math.max(0.45, Math.min(3.0, modalMeshState.zoom * factor));
+      renderModalMeshWireFrame();
+    }, { passive: false });
+  }
+
+  function openMeshViewer(nodeId) {
+    const node = state.nodes.find((n) => n.id === nodeId);
+    if (!node) return;
+    modalMeshState.activeNodeId = node.id;
+    modalMeshState.autoRotate = true;
+    modalMeshState.animPlaying = node._meshAnimPlaying !== false;
+    modalMeshState.loadedRealGlb = false;
+
+    const meta = node.metadata || {};
+    const c = node.content || {};
+    const glbPath = c.glbPath || c.vfsPath || meta.vfsPath || "/models3d/mesh.glb";
+    const glbSrc = _getGlbSrcForNode(node);
+
+    const modal = $("nsMeshViewerModal");
+    const titleEl = $("nsMeshModalTitle");
+    const metaEl = $("nsMeshModalMeta");
+    const viewport = $("nsMeshModalViewport");
+    const badge = $("nsMeshModalBadge");
+    const wireCanvas = $("nsMeshModalWireCanvas");
+    const animBtn = $("nsMeshModalAnimBtn");
+    const rotBtn = $("nsMeshModalAutoRotateBtn");
+
+    if (titleEl) {
+      titleEl.textContent = "3D MESH INSPECTOR (.GLB) · " + (meta.prompt || node.label || node.id);
+    }
+    if (metaEl) {
+      metaEl.textContent = glbPath + " · " + getModelName(meta.model || "hyper3d/rodin-v2.5") +
+        " · Tier: " + (c.tier || meta.tier || "Regular") +
+        (c.rigged ? (" · Rigged (" + (c.animation || "walk") + ")") : "") +
+        " · Drag to Orbit / Scroll to Zoom";
+    }
+    if (animBtn) {
+      animBtn.classList.toggle("hidden", !c.rigged);
+      animBtn.textContent = modalMeshState.animPlaying ? "❚❚ Pause Anim" : "▶ Play Anim";
+    }
+    if (rotBtn) {
+      rotBtn.classList.toggle("is-active", modalMeshState.autoRotate);
+    }
+    if (modal) modal.classList.remove("hidden");
+
+    if (modalMeshState.viewerEl && modalMeshState.viewerEl.parentNode) {
+      try { modalMeshState.viewerEl.parentNode.removeChild(modalMeshState.viewerEl); } catch (_e) {}
+      modalMeshState.viewerEl = null;
+    }
+    if (wireCanvas) wireCanvas.classList.remove("is-hidden");
+    if (badge) {
+      badge.classList.remove("is-live");
+      badge.textContent = glbSrc ? "⟳ LOADING INTERACTIVE .GLB..." : "◐ ISOMETRIC WIREFRAME PREVIEW";
+    }
+
+    bindModalMeshWireCanvasEvents();
+    if (modalMeshState.rafId && typeof window.cancelAnimationFrame === "function") {
+      window.cancelAnimationFrame(modalMeshState.rafId);
+      modalMeshState.rafId = null;
+    }
+    renderModalMeshWireFrame();
+
+    if (glbSrc && viewport) {
+      const mv = document.createElement("model-viewer");
+      mv.className = "ns-mesh-modal-model-viewer";
+      mv.setAttribute("src", glbSrc);
+      mv.setAttribute("camera-controls", "");
+      if (modalMeshState.autoRotate) mv.setAttribute("auto-rotate", "");
+      mv.setAttribute("interaction-prompt", "none");
+      mv.setAttribute("shadow-intensity", "0.7");
+      if (c.rigged && modalMeshState.animPlaying) mv.setAttribute("autoplay", "");
+      mv.addEventListener("load", () => {
+        if (modalMeshState.activeNodeId !== node.id) return;
+        modalMeshState.loadedRealGlb = true;
+        if (modalMeshState.rafId && typeof window.cancelAnimationFrame === "function") {
+          window.cancelAnimationFrame(modalMeshState.rafId);
+          modalMeshState.rafId = null;
+        }
+        if (wireCanvas) wireCanvas.classList.add("is-hidden");
+        if (badge) {
+          badge.classList.add("is-live");
+          badge.textContent = "● LIVE PBR .GLB · MODEL-VIEWER";
+        }
+      });
+      modalMeshState.viewerEl = mv;
+      if (typeof viewport.appendChild === "function") {
+        viewport.appendChild(mv);
+      }
+      ensureModelViewer().catch(() => {
+        if (badge) {
+          badge.classList.remove("is-live");
+          badge.textContent = "◐ ISOMETRIC WIREFRAME PREVIEW (OFFLINE)";
+        }
+      });
+    }
+  }
+
+  function closeMeshViewer() {
+    const modal = $("nsMeshViewerModal");
+    if (modal) modal.classList.add("hidden");
+    modalMeshState.activeNodeId = null;
+    modalMeshState.autoRotate = false;
+    modalMeshState.loadedRealGlb = false;
+    if (modalMeshState.rafId && typeof window.cancelAnimationFrame === "function") {
+      window.cancelAnimationFrame(modalMeshState.rafId);
+      modalMeshState.rafId = null;
+    }
+    if (modalMeshState.viewerEl && modalMeshState.viewerEl.parentNode) {
+      try { modalMeshState.viewerEl.parentNode.removeChild(modalMeshState.viewerEl); } catch (_e) {}
+    }
+    modalMeshState.viewerEl = null;
+  }
+
+  function toggleMeshModalAutoRotate() {
+    modalMeshState.autoRotate = !modalMeshState.autoRotate;
+    const rotBtn = $("nsMeshModalAutoRotateBtn");
+    if (rotBtn) rotBtn.classList.toggle("is-active", modalMeshState.autoRotate);
+    const mv = modalMeshState.viewerEl;
+    if (mv) {
+      if (modalMeshState.autoRotate) {
+        if (typeof mv.setAttribute === "function") mv.setAttribute("auto-rotate", "");
+      } else if (typeof mv.removeAttribute === "function") {
+        mv.removeAttribute("auto-rotate");
+      }
+    }
+    if (modalMeshState.autoRotate && !modalMeshState.loadedRealGlb) {
+      renderModalMeshWireFrame();
+    } else if (!modalMeshState.autoRotate && modalMeshState.rafId && typeof window.cancelAnimationFrame === "function") {
+      window.cancelAnimationFrame(modalMeshState.rafId);
+      modalMeshState.rafId = null;
+    }
+  }
+
+  function toggleMeshModalAnim() {
+    modalMeshState.animPlaying = !modalMeshState.animPlaying;
+    const animBtn = $("nsMeshModalAnimBtn");
+    if (animBtn) animBtn.textContent = modalMeshState.animPlaying ? "❚❚ Pause Anim" : "▶ Play Anim";
+    const node = state.nodes.find((n) => n.id === modalMeshState.activeNodeId);
+    if (node) node._meshAnimPlaying = modalMeshState.animPlaying;
+    const mv = modalMeshState.viewerEl;
+    if (mv) {
+      if (modalMeshState.animPlaying) {
+        if (typeof mv.play === "function") mv.play();
+        if (typeof mv.setAttribute === "function") mv.setAttribute("autoplay", "");
+      } else {
+        if (typeof mv.pause === "function") mv.pause();
+        if (typeof mv.removeAttribute === "function") mv.removeAttribute("autoplay");
+      }
+    }
+  }
+
+  function toggleNodeMeshAnim(nodeId) {
+    const node = state.nodes.find((n) => n.id === nodeId);
+    if (!node) return;
+    node._meshAnimPlaying = node._meshAnimPlaying === false;
+    renderNodes();
+  }
+
+  function downloadActiveMeshGlb() {
+    if (!modalMeshState.activeNodeId) return;
+    downloadNode(modalMeshState.activeNodeId);
+  }
+
+  // =========================================================================
+  // Synced Chat (Conversation) & Asset Library Views
+  // =========================================================================
+  function _getNodeModality(node) {
+    if (!node) return "image";
+    const ms = node.morphingStatus || "";
+    const mod = node.modality || "";
+    const ok = node.omniKind || "";
+    if (ms === "mesh3d" || mod === "3d" || ok === "3d") return "3d";
+    if (ms === "omni" || mod === "atlas" || ok === "omni_master" || ok === "pose" || ok === "splat" || ok === "flythrough") return "atlas";
+    if (ms === "video" || mod === "video" || ok === "video") return "video";
+    if (ms === "audio" || mod === "audio" || ok === "audio") return "audio";
+    if (ms === "text" || ms === "message" || mod === "text" || ok === "text") return "text";
+    return "image";
+  }
+
+  function _modalityDisplayLabel(mod) {
+    const map = {
+      image: "IMAGE",
+      text: "TEXT",
+      video: "VIDEO",
+      audio: "AUDIO",
+      "3d": "3D MESH",
+      atlas: "3D SPLAT"
+    };
+    return map[mod] || "ASSET";
+  }
+
+  function _resolveChatLineage() {
+    if (!state.nodes.length) return [];
+    if (!state.selectedIds.length) return state.nodes.slice();
+    const targetId = state.selectedIds[0];
+    const byId = new Map();
+    state.nodes.forEach((n) => byId.set(n.id, n));
+    if (!byId.has(targetId)) return state.nodes.slice();
+
+    const visited = new Set();
+    const ordered = [];
+    function walkAncestors(id) {
+      if (!id || visited.has(id) || !byId.has(id)) return;
+      visited.add(id);
+      const parents = state.edges.filter((e) => e.target === id).map((e) => e.source);
+      parents.forEach((pid) => walkAncestors(pid));
+      ordered.push(byId.get(id));
+    }
+    walkAncestors(targetId);
+    return ordered;
+  }
+
+  function renderConversationView() {
+    const feed = $("nsChatFeed");
+    const headerMeta = $("nsChatHeaderMeta");
+    const lineage = _resolveChatLineage();
+    const activeModLabel = _modalityDisplayLabel(state.modality || "image");
+    const activeModelName = getModelName(state.model);
+
+    if (headerMeta) {
+      if (state.selectedIds.length > 0 && lineage.length > 0) {
+        headerMeta.textContent = "Branch lineage · " + lineage.length + " turn" + (lineage.length === 1 ? "" : "s") +
+          " · Target: " + state.selectedIds[0] + " · Composer: " + activeModLabel + " (" + activeModelName + ")";
+      } else {
+        headerMeta.textContent = "Full session · " + lineage.length + " node" + (lineage.length === 1 ? "" : "s") +
+          " · Composer: " + activeModLabel + " (" + activeModelName + ")";
+      }
+    }
+
+    if (!feed) return;
+    if (!lineage.length) {
+      feed.innerHTML = '<div class="ns-chat-empty">No nodes in conversation yet. Type a prompt below or generate a node on the canvas.</div>';
+      return;
+    }
+
+    feed.innerHTML = lineage.map((node) => {
+      const nid = escapeHtml(node.id);
+      const mod = _getNodeModality(node);
+      const meta = node.metadata || {};
+      const c = node.content || {};
+      const isSel = state.selectedIds.indexOf(node.id) !== -1;
+      const modelName = getModelName(meta.model || state.model);
+      const promptTxt = (meta.prompt || node.label || "").trim();
+
+      let previewHtml = "";
+      if (mod === "image") {
+        previewHtml = c.imageUrl
+          ? '<img class="ns-chat-thumb" src="' + escapeHtml(c.imageUrl) + '" alt="' + escapeHtml(node.label || node.id) + '">'
+          : '<div class="ns-chat-text">' + escapeHtml(c.text || node.label || "Image node") + "</div>";
+      } else if (mod === "text") {
+        previewHtml = '<div class="ns-chat-text">' + escapeHtml(c.text || node.label || "") + "</div>";
+      } else if (mod === "audio") {
+        const audioSrc = c.audioUrl || (c.audioBytesB64 ? ("data:" + (c.mimeType || "audio/wav") + ";base64," + c.audioBytesB64) : "");
+        previewHtml =
+          (audioSrc ? '<audio class="ns-audio-player" controls src="' + escapeHtml(audioSrc) + '"></audio>' : "") +
+          '<div class="ns-chat-media-row"><span class="ns-omni-status-badge">♪ ' + escapeHtml(String(c.kind || meta.audioKind || "music").toUpperCase()) +
+          "</span><span>" + escapeHtml(c.vfsPath || meta.vfsPath || "/audio/output.wav") + "</span></div>";
+      } else if (mod === "video") {
+        const vidUrl = c.videoUrl || "";
+        if (_isPlayableVideoUrl(vidUrl)) {
+          previewHtml = '<div class="ns-video-stage" style="max-height:200px;"><video class="ns-video-player" controls playsinline loop src="' + escapeHtml(vidUrl) + '"></video></div>';
+        } else if (meta.jobStatus === "ERROR") {
+          previewHtml = '<div class="ns-omni-error-box">' + escapeHtml(meta.jobError || "Video generation failed") + "</div>";
+        } else {
+          previewHtml = '<div class="ns-chat-media-row"><span class="ns-omni-status-badge">' +
+            escapeHtml(meta.jobStatus === "RUNNING" ? "⟳ RENDERING VIDEO" : "▶ VIDEO STAGED") +
+            "</span><span>" + escapeHtml(c.vfsPath || meta.vfsPath || "MP4 Video") + "</span></div>";
+        }
+      } else if (mod === "3d") {
+        const glbPath = c.glbPath || c.vfsPath || meta.vfsPath || "/models3d/mesh.glb";
+        previewHtml =
+          '<div class="ns-chat-media-row">' +
+          '<span class="ns-omni-status-badge">◆ .GLB' + (c.rigged ? (" · RIGGED (" + escapeHtml(c.animation || "walk") + ")") : "") + "</span>" +
+          "<span>" + escapeHtml(glbPath) + "</span>" +
+          '<button type="button" class="ns-card-action-btn" onclick="window.TinCanNodeStudio.openMeshViewer(\'' + nid + '\')">⤢ Inspect 3D</button>' +
+          "</div>";
+      } else {
+        const spzPath = meta.vfsPath || "/worlds/world_splat.spz";
+        previewHtml =
+          '<div class="ns-chat-media-row">' +
+          '<span class="ns-omni-status-badge">❖ .SPZ GAUSSIAN SPLAT</span>' +
+          "<span>" + escapeHtml(spzPath) + "</span>" +
+          '<button type="button" class="ns-card-action-btn" onclick="window.TinCanNodeStudio.openSplatViewer(\'' + nid + '\')">⤢ View 3D Splat</button>' +
+          "</div>";
+      }
+
+      return (
+        '<article class="ns-chat-turn' + (isSel ? " is-selected" : "") + '" data-chat-node-id="' + nid + '">' +
+        '<div class="ns-chat-turn-head">' +
+        '<div class="ns-chat-turn-badges">' +
+        '<span class="ns-omni-pill">' + escapeHtml(_modalityDisplayLabel(mod)) + "</span>" +
+        '<span class="ns-chat-model">' + escapeHtml(modelName) + "</span>" +
+        "</div>" +
+        '<button type="button" class="ns-card-action-btn" onclick="window.TinCanNodeStudio.focusNodeOnCanvas(\'' + nid + '\')">Focus on Canvas</button>' +
+        "</div>" +
+        (promptTxt ? '<div class="ns-chat-prompt">' + escapeHtml(promptTxt) + "</div>" : "") +
+        previewHtml +
+        "</article>"
+      );
+    }).join("");
+  }
+
+  async function sendChatPrompt(rawText) {
+    const chatInp = $("nsChatInput");
+    const text = String(rawText !== undefined && rawText !== null ? rawText : ((chatInp && chatInp.value) || "")).trim();
+    if (!text) return;
+    const promptEl = $("nsPromptInput");
+    if (promptEl) promptEl.value = text;
+    if (chatInp) chatInp.value = "";
+    renderPromptIslandStatus();
+    await generate();
+    renderConversationView();
+  }
+
+  function focusNodeOnCanvas(nodeId) {
+    const node = state.nodes.find((n) => n.id === nodeId);
+    if (!node) return;
+    state.selectedIds = [node.id];
+    syncSelectionRefs();
+    switchView("nodes");
+    const canvas = $("nsDotCanvas");
+    const rect = canvas && typeof canvas.getBoundingClientRect === "function"
+      ? canvas.getBoundingClientRect()
+      : { width: 1200, height: 800 };
+    const cx = node.x + (node.width || 256) * 0.5;
+    const cy = node.y + (node.height || 256) * 0.5;
+    state.panX = Math.round(rect.width * 0.5 - cx * state.zoom);
+    state.panY = Math.round((rect.height - 140) * 0.5 - cy * state.zoom);
+    applyCanvasTransform();
+    renderNodes();
+  }
+
+  function setLibraryFilter(mod) {
+    state.libraryFilter = mod || "all";
+    document.querySelectorAll(".ns-lib-chip").forEach((chip) => {
+      const isAct = chip.dataset && chip.dataset.libFilter === state.libraryFilter;
+      chip.classList.toggle("is-active", !!isAct);
+      chip.setAttribute("aria-pressed", isAct ? "true" : "false");
+    });
+    renderLibraryViewGrid();
+  }
+
+  function setLibrarySearch(query) {
+    state.libraryQuery = String(query || "");
+    renderLibraryViewGrid();
+  }
+
   function renderLibraryViewGrid() {
     const grid = $("nsLibraryViewGrid");
     if (!grid) return;
+
+    document.querySelectorAll(".ns-lib-chip").forEach((chip) => {
+      const isAct = chip.dataset && chip.dataset.libFilter === (state.libraryFilter || "all");
+      chip.classList.toggle("is-active", !!isAct);
+      chip.setAttribute("aria-pressed", isAct ? "true" : "false");
+    });
+
     if (!state.nodes.length) {
       grid.innerHTML = '<div class="ns-alt-desc">No generated assets yet. Generate or drop images in Editor view to populate your Asset Library.</div>';
       return;
     }
-    grid.innerHTML = state.nodes.map((n) =>
-      '<div class="ns-asset-card" onclick="window.TinCanNodeStudio.switchView(\'nodes\')">' +
-      '<div class="ns-asset-thumb">' +
-      (n.content && n.content.imageUrl ? '<img src="' + escapeHtml(n.content.imageUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:5px;">' : '<span>TEXT</span>') +
-      '</div><div class="ns-asset-name">' + escapeHtml(n.label || n.id) + "</div></div>"
-    ).join("");
+
+    const activeFilter = state.libraryFilter || "all";
+    const q = (state.libraryQuery || "").trim().toLowerCase();
+
+    const filtered = state.nodes.filter((n) => {
+      const mod = _getNodeModality(n);
+      if (activeFilter !== "all" && mod !== activeFilter) return false;
+      if (q) {
+        const hay = [
+          n.id,
+          n.label,
+          mod,
+          n.metadata && n.metadata.prompt,
+          n.metadata && n.metadata.model,
+          n.metadata && n.metadata.vfsPath,
+          n.content && n.content.text
+        ].filter(Boolean).join(" ").toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+
+    if (!filtered.length) {
+      grid.innerHTML = '<div class="ns-alt-desc">No assets match the current filter or search query.</div>';
+      return;
+    }
+
+    grid.innerHTML = filtered.map((n) => {
+      const nid = escapeHtml(n.id);
+      const mod = _getNodeModality(n);
+      const c = n.content || {};
+      const meta = n.metadata || {};
+      let preview = "";
+      if (mod === "image" && c.imageUrl) {
+        preview = '<img src="' + escapeHtml(c.imageUrl) + '" alt="' + escapeHtml(n.label || n.id) + '">';
+      } else if (mod === "text") {
+        preview = '<div class="ns-lib-preview-text">' + escapeHtml(String(c.text || n.label || "").slice(0, 140)) + "</div>";
+      } else if (mod === "video") {
+        preview = _isPlayableVideoUrl(c.videoUrl)
+          ? '<video muted playsinline src="' + escapeHtml(c.videoUrl) + '"></video>'
+          : '<span>▶ VIDEO · ' + escapeHtml(meta.jobStatus || "MP4") + "</span>";
+      } else if (mod === "audio") {
+        preview = '<span>♪ AUDIO · ' + escapeHtml(String(c.kind || meta.audioKind || "WAV").toUpperCase()) + "</span>";
+      } else if (mod === "3d") {
+        preview = '<span>◆ 3D .GLB' + (c.rigged ? " · RIGGED" : "") + "</span>";
+      } else if (mod === "atlas") {
+        preview = '<span>❖ 3D SPLAT (.SPZ)</span>';
+      } else {
+        preview = '<span>' + escapeHtml(_modalityDisplayLabel(mod)) + "</span>";
+      }
+
+      return (
+        '<div class="ns-lib-asset-card" data-lib-node-id="' + nid + '" data-lib-modality="' + escapeHtml(mod) + '">' +
+        '<div class="ns-lib-preview">' + preview + "</div>" +
+        '<div class="ns-lib-meta">' +
+        '<div class="ns-lib-title" title="' + escapeHtml(n.label || n.id) + '">' + escapeHtml(n.label || n.id) + "</div>" +
+        '<div class="ns-lib-sub">' + escapeHtml(_modalityDisplayLabel(mod) + " · " + getModelName(meta.model || "")) + "</div>" +
+        "</div>" +
+        '<div class="ns-lib-actions">' +
+        '<div class="ns-lib-actions-left">' +
+        '<button type="button" class="ns-card-action-btn is-primary" onclick="window.TinCanNodeStudio.focusNodeOnCanvas(\'' + nid + '\')">Focus</button>' +
+        '<button type="button" class="ns-card-action-btn" onclick="window.TinCanNodeStudio.addNodeAsRef(\'' + nid + '\')">+ Ref</button>' +
+        "</div>" +
+        '<div class="ns-lib-actions-left">' +
+        '<button type="button" class="ns-card-action-btn" title="Download" onclick="window.TinCanNodeStudio.downloadNode(\'' + nid + '\')">↓</button>' +
+        '<button type="button" class="ns-card-action-btn" title="Delete" onclick="window.TinCanNodeStudio.deleteNode(\'' + nid + '\')">×</button>' +
+        "</div>" +
+        "</div>" +
+        "</div>"
+      );
+    }).join("");
   }
 
   function switchView(view) {
@@ -5010,6 +6400,8 @@ def _node_studio_js(initial_view: str) -> str:
     const libV = $("nsLibraryView");
     if (chatV) chatV.classList.toggle("hidden", view !== "conversation");
     if (libV) libV.classList.toggle("hidden", view !== "library");
+    if (view === "conversation") renderConversationView();
+    if (view === "library") renderLibraryViewGrid();
   }
 
   function autoLayout() {
@@ -5102,6 +6494,9 @@ def _node_studio_js(initial_view: str) -> str:
   }
 
   function deleteNode(id) {
+    const target = state.nodes.find((n) => n.id === id);
+    if (target) _cleanupNodeResources(target);
+    if (modalMeshState.activeNodeId === id) closeMeshViewer();
     state.edges = state.edges.filter((e) => e.source !== id && e.target !== id);
     state.nodes = state.nodes.filter((n) => n.id !== id);
     state.selectedIds = state.selectedIds.filter((s) => s !== id);
@@ -5117,6 +6512,11 @@ def _node_studio_js(initial_view: str) -> str:
     copy.id = id + "-copy-" + state.nodeSeq;
     copy.x = orig.x + 40;
     copy.y = orig.y + 40;
+    copy._pollTimer = null;
+    copy._glbBlobUrl = "";
+    copy._glbBlobSourceB64 = "";
+    copy._splatCloud = null;
+    copy._splatImgLoading = false;
     state.nodes.push(copy);
     state.selectedIds = [copy.id];
     syncSelectionRefs();
@@ -5173,8 +6573,8 @@ def _node_studio_js(initial_view: str) -> str:
     } else if (c.audioUrl || c.audioBytesB64) {
       href = c.audioUrl || ("data:" + (c.mimeType || "audio/wav") + ";base64," + c.audioBytesB64);
       filename = baseName + ".wav";
-    } else if (c.glbB64) {
-      href = "data:model/gltf-binary;base64," + c.glbB64;
+    } else if (c.glbRawUrl || c.glbB64) {
+      href = c.glbRawUrl || ("data:model/gltf-binary;base64," + c.glbB64);
       filename = baseName + ".glb";
     } else if (c.videoUrl) {
       href = c.videoUrl;
@@ -5557,7 +6957,38 @@ def _node_studio_js(initial_view: str) -> str:
         newNode.content.base64 = _extractDataUrlBase64(newNode.content.imageUrl);
       }
 
-      if (activeMod === "text") {
+      if (rData.metadata) newNode.metadata = Object.assign(newNode.metadata, rData.metadata);
+
+      const isAsyncVideo = activeMod === "video" && (
+        data.async === true ||
+        data.done === false ||
+        (rData.metadata && rData.metadata.jobStatus === "RUNNING") ||
+        (rContent && rContent.jobStatus === "RUNNING")
+      );
+
+      if (isAsyncVideo) {
+        newNode.morphingStatus = "video";
+        newNode.width = 320;
+        newNode.height = 250;
+        newNode.metadata.jobId =
+          data.job_id ||
+          (data.result && (data.result.jobId || data.result.job_id)) ||
+          (rData.metadata && (rData.metadata.jobId || rData.metadata.job_id)) ||
+          rContent.jobId ||
+          rContent.job_id ||
+          "";
+        newNode.metadata.modelSlug =
+          data.model_slug ||
+          (data.result && (data.result.modelSlug || data.result.model_slug)) ||
+          (rData.metadata && (rData.metadata.modelSlug || rData.metadata.model_slug)) ||
+          rContent.modelSlug ||
+          state.model;
+        newNode.metadata.jobStatus = "RUNNING";
+        newNode.metadata.startedAt = Date.now();
+        showToast("Video rendering started — polling live every 4s...", false);
+        appendTerminalLine("[⟳] Submitted Video job " + (newNode.metadata.jobId || newNode.id) + " (" + newNode.metadata.modelSlug + ") — polling live");
+        pollVideoJobForNode(newNode);
+      } else if (activeMod === "text") {
         newNode.morphingStatus = "text";
         newNode.width = 320;
         newNode.height = 220;
@@ -5575,15 +7006,22 @@ def _node_studio_js(initial_view: str) -> str:
         newNode.height = 220;
       }
 
-      if (rData.metadata) newNode.metadata = Object.assign(newNode.metadata, rData.metadata);
       if (activeMod === "image" && newNode.content.text) {
         showToast(newNode.content.text, false);
       }
     } catch (err) {
-      newNode.morphingStatus = "text";
-      newNode.width = 320;
-      newNode.height = 200;
-      newNode.content = { text: prompt + " (staged locally)" };
+      if (activeMod === "video" && err && err.message && err.message.indexOf("Failed to fetch") === -1) {
+        newNode.morphingStatus = "video";
+        newNode.width = 320;
+        newNode.height = 250;
+        newNode.metadata.jobStatus = "ERROR";
+        newNode.metadata.jobError = err.message;
+      } else {
+        newNode.morphingStatus = "text";
+        newNode.width = 320;
+        newNode.height = 200;
+        newNode.content = { text: prompt + " (staged locally)" };
+      }
       if (err && err.message && err.message.indexOf("Failed to fetch") === -1) {
         showToast(err.message, true);
       }
@@ -5622,6 +7060,9 @@ def _node_studio_js(initial_view: str) -> str:
     applyCanvasTransform();
     updateApiBadges();
     mountAllSplatCanvases();
+    mountAllMeshPreviews();
+    renderConversationView();
+    renderLibraryViewGrid();
 
     const qGraph = params ? (params.get("graph") || params.get("file")) : null;
     if (qGraph) {
@@ -5848,6 +7289,16 @@ def _node_studio_js(initial_view: str) -> str:
       });
     }
 
+    const chatInputEl = $("nsChatInput");
+    if (chatInputEl) {
+      chatInputEl.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" && !ev.shiftKey) {
+          ev.preventDefault();
+          sendChatPrompt();
+        }
+      });
+    }
+
     document.addEventListener("keydown", (ev) => {
       if (ev.metaKey || ev.ctrlKey) {
         state.metaHeld = true;
@@ -5863,9 +7314,14 @@ def _node_studio_js(initial_view: str) -> str:
       if (tag === "input" || tag === "textarea" || tag === "select") {
         if ((ev.metaKey || ev.ctrlKey) && ev.key === "Enter") {
           ev.preventDefault();
-          generate();
+          if (ev.target && ev.target.id === "nsChatInput") sendChatPrompt();
+          else generate();
         }
         return;
+      }
+      const meshModal = $("nsMeshViewerModal");
+      if (meshModal && !meshModal.classList.contains("hidden")) {
+        if (ev.key === "Escape") { ev.preventDefault(); closeMeshViewer(); return; }
       }
       const splatModal = $("nsSplatViewerModal");
       if (splatModal && !splatModal.classList.contains("hidden")) {
@@ -6025,9 +7481,11 @@ def _node_studio_js(initial_view: str) -> str:
 
     state._suppressAutoSave = true;
     try {
+      state.nodes.forEach(_cleanupNodeResources);
+      closeMeshViewer();
       state.graphName = _cleanGraphName((meta && meta.name) || graphObj.name || state.graphName);
       state.graphPath = (meta && meta.path) || graphObj.path || ("/nodes/" + state.graphName + ".nodes.json");
-      state.nodes = nodes.map((n) => Object.assign({}, n, { _splatCloud: null, _splatImgLoading: false }));
+      state.nodes = nodes.map((n) => Object.assign({}, n, { _splatCloud: null, _splatImgLoading: false, _glbBlobUrl: "", _glbBlobSourceB64: "" }));
       state.edges = edges.slice();
       state.references = refs.slice();
       state.selectedIds = Array.isArray(graphObj.selectedIds) ? graphObj.selectedIds.slice() : [];
@@ -6057,6 +7515,19 @@ def _node_studio_js(initial_view: str) -> str:
       renderNodes();
       renderPromptIslandStatus();
       _updateSaveGraphHud("✓");
+
+      // Automatically resume live polling for any restored RUNNING video/mesh/atlas jobs
+      state.nodes.forEach((n) => {
+        if (!n || !n.metadata || n.metadata.jobStatus !== "RUNNING") return;
+        const mod = _getNodeModality(n);
+        if (mod === "video" && n.metadata.jobId) {
+          pollVideoJobForNode(n);
+        } else if (mod === "3d" && n.metadata.jobId) {
+          pollMeshJobForNode(n);
+        } else if (mod === "atlas" && n.metadata.operationId) {
+          pollAtlasOperationForNode(n);
+        }
+      });
     } finally {
       state._suppressAutoSave = false;
     }
@@ -6215,6 +7686,8 @@ def _node_studio_js(initial_view: str) -> str:
   function newBlankGraph() {
     state._suppressAutoSave = true;
     try {
+      state.nodes.forEach(_cleanupNodeResources);
+      closeMeshViewer();
       state.graphName = "graph_" + String(Date.now()).slice(-4);
       state.graphPath = "/nodes/" + state.graphName + ".nodes.json";
       state.nodes = [];
@@ -6314,6 +7787,22 @@ def _node_studio_js(initial_view: str) -> str:
     resetModalCamera: resetModalCamera,
     downloadActiveSplatSpz: downloadActiveSplatSpz,
     mountAllSplatCanvases: mountAllSplatCanvases,
+    pollVideoJobForNode: pollVideoJobForNode,
+    pollMeshJobForNode: pollMeshJobForNode,
+    ensureModelViewer: ensureModelViewer,
+    mountAllMeshPreviews: mountAllMeshPreviews,
+    openMeshViewer: openMeshViewer,
+    closeMeshViewer: closeMeshViewer,
+    toggleMeshModalAutoRotate: toggleMeshModalAutoRotate,
+    toggleMeshModalAnim: toggleMeshModalAnim,
+    toggleNodeMeshAnim: toggleNodeMeshAnim,
+    downloadActiveMeshGlb: downloadActiveMeshGlb,
+    sendChatPrompt: sendChatPrompt,
+    focusNodeOnCanvas: focusNodeOnCanvas,
+    setLibraryFilter: setLibraryFilter,
+    setLibrarySearch: setLibrarySearch,
+    renderConversationView: renderConversationView,
+    renderLibraryViewGrid: renderLibraryViewGrid,
     selectModel: function (mid) {
       state.model = mid;
       const caps = CAPS[mid];
@@ -6499,17 +7988,41 @@ def _render_studio_stage_markup(active_view: str) -> str:
   <!-- Chat View (ConversationView) -->
   <section id="nsConversationView" class="ns-alt-view{" hidden" if active_view != "conversation" else ""}" aria-label="Conversation Editor">
     <div class="ns-alt-card">
-      <h2 class="ns-alt-title">Conversation Editor</h2>
-      <p class="ns-alt-desc">Interact with Gemini and NanoGPT using the tree-based conversation context synced directly with your canvas nodes.</p>
+      <div class="ns-chat-head">
+        <div>
+          <h2 class="ns-alt-title">Conversation Editor</h2>
+          <p class="ns-alt-desc">Interact with Gemini and NanoGPT using the tree-based conversation context synced directly with your canvas nodes.</p>
+        </div>
+        <div id="nsChatHeaderMeta" class="ns-chat-meta">Full session · 0 nodes</div>
+      </div>
+      <div id="nsChatFeed" class="ns-chat-feed" role="log" aria-live="polite"></div>
+      <div id="nsChatComposer" class="ns-chat-composer">
+        <textarea id="nsChatInput" class="ns-chat-input" rows="1" placeholder="Send a follow-up prompt using the active modality and model..."></textarea>
+        <button id="nsChatSendBtn" type="button" class="ns-chat-send-btn" onclick="window.TinCanNodeStudio.sendChatPrompt()">Send →</button>
+      </div>
     </div>
   </section>
 
   <!-- Library View (LibraryView) -->
   <section id="nsLibraryView" class="ns-alt-view{" hidden" if active_view != "library" else ""}" aria-label="Asset Library">
     <div class="ns-alt-card">
-      <h2 class="ns-alt-title">Asset Library</h2>
-      <p class="ns-alt-desc">Browse generated assets and conversation history from your Node Studio session.</p>
-      <div id="nsLibraryViewGrid" class="ns-asset-grid"></div>
+      <div>
+        <h2 class="ns-alt-title">Asset Library</h2>
+        <p class="ns-alt-desc">Browse generated assets and conversation history from your Node Studio session.</p>
+      </div>
+      <div id="nsLibFilterBar" class="ns-lib-filter-bar">
+        <div class="ns-lib-chips" role="tablist" aria-label="Filter assets by modality">
+          <button id="nsLibChip-all" type="button" class="ns-lib-chip is-active" data-lib-filter="all" aria-pressed="true" onclick="window.TinCanNodeStudio.setLibraryFilter('all')">All</button>
+          <button id="nsLibChip-image" type="button" class="ns-lib-chip" data-lib-filter="image" aria-pressed="false" onclick="window.TinCanNodeStudio.setLibraryFilter('image')">Image</button>
+          <button id="nsLibChip-text" type="button" class="ns-lib-chip" data-lib-filter="text" aria-pressed="false" onclick="window.TinCanNodeStudio.setLibraryFilter('text')">Text</button>
+          <button id="nsLibChip-video" type="button" class="ns-lib-chip" data-lib-filter="video" aria-pressed="false" onclick="window.TinCanNodeStudio.setLibraryFilter('video')">Video</button>
+          <button id="nsLibChip-audio" type="button" class="ns-lib-chip" data-lib-filter="audio" aria-pressed="false" onclick="window.TinCanNodeStudio.setLibraryFilter('audio')">Audio</button>
+          <button id="nsLibChip-3d" type="button" class="ns-lib-chip" data-lib-filter="3d" aria-pressed="false" onclick="window.TinCanNodeStudio.setLibraryFilter('3d')">3D Mesh</button>
+          <button id="nsLibChip-atlas" type="button" class="ns-lib-chip" data-lib-filter="atlas" aria-pressed="false" onclick="window.TinCanNodeStudio.setLibraryFilter('atlas')">3D Splat</button>
+        </div>
+        <input id="nsLibSearchInput" type="text" class="ns-lib-search" placeholder="Search session assets..." oninput="window.TinCanNodeStudio.setLibrarySearch(this.value)">
+      </div>
+      <div id="nsLibraryViewGrid" class="ns-lib-grid"></div>
     </div>
   </section>
 
@@ -6855,6 +8368,32 @@ def _render_studio_stage_markup(active_view: str) -> str:
       <div class="ns-splat-modal-foot">
         <span>RUB Coordinates (+X Right, +Y Up, +Z Back) · Centroid [-1.99, 0.00, -36.35] · 14 Posed Frustums</span>
         <span>Controls: Left-Drag Orbit · Shift+Drag Pan · Wheel/W/S Zoom · A/D/Q/E Flythrough</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen 3D Mesh (.GLB) Interactive Inspector Modal -->
+  <div id="nsMeshViewerModal" class="ns-splat-modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="3D Mesh Inspector">
+    <div class="ns-splat-modal">
+      <div class="ns-splat-modal-head">
+        <div>
+          <div id="nsMeshModalTitle" class="ns-splat-modal-title">3D MESH INSPECTOR (.GLB)</div>
+          <div id="nsMeshModalMeta" class="ns-splat-modal-sub">/models3d/mesh.glb · PBR Textured 3D Mesh · Drag to Orbit / Scroll to Zoom</div>
+        </div>
+        <div class="ns-splat-modal-actions">
+          <button id="nsMeshModalAutoRotateBtn" type="button" class="ns-splat-btn is-active" onclick="window.TinCanNodeStudio.toggleMeshModalAutoRotate()">⟳ Auto-Rotate</button>
+          <button id="nsMeshModalAnimBtn" type="button" class="ns-splat-btn hidden" onclick="window.TinCanNodeStudio.toggleMeshModalAnim()">❚❚ Pause Anim</button>
+          <button id="nsMeshModalDownloadBtn" type="button" class="ns-splat-btn" onclick="window.TinCanNodeStudio.downloadActiveMeshGlb()">↓ .GLB</button>
+          <button id="nsMeshModalCloseBtn" type="button" class="ns-splat-btn ns-splat-btn--expand" onclick="window.TinCanNodeStudio.closeMeshViewer()">✕ Close [Esc]</button>
+        </div>
+      </div>
+      <div id="nsMeshModalViewport" class="ns-mesh-modal-viewport">
+        <div id="nsMeshModalBadge" class="ns-splat-modal-badge">◐ ISOMETRIC WIREFRAME PREVIEW</div>
+        <canvas id="nsMeshModalWireCanvas" class="ns-mesh-wire-canvas" width="940" height="460"></canvas>
+      </div>
+      <div class="ns-splat-modal-foot">
+        <span>Hyper3D Rodin v2.5 · PBR .GLB Interactive Inspector (@google/model-viewer + Wireframe Fallback)</span>
+        <span>Controls: Left-Drag Orbit · Scroll Zoom · Esc Close</span>
       </div>
     </div>
   </div>
