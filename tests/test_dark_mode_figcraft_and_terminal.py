@@ -148,6 +148,9 @@ def test_window_chrome_and_zen_shell_dark_mode_and_theme_controller() -> None:
     assert "body.tc-dark" in INSTALL_CARD_CSS
     assert "window.TinCanTheme" in CELADON_BODY_JS
     assert "tincan:theme-changed" in CELADON_BODY_JS
+    assert "if (btn.textContent !== nextLabel)" in CELADON_BODY_JS
+    assert "if (n && n.nodeType === 1)" in CELADON_BODY_JS
+    assert "if (sawThemeToggle)" in CELADON_BODY_JS
 
     assert "window.TinCanTheme" in MESH_OS_HTML_UI
     assert 'id="zenThemeToggleBtn"' in MESH_OS_HTML_UI

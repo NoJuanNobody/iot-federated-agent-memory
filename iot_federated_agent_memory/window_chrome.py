@@ -661,10 +661,21 @@ CELADON_BODY_JS = r"""
       }
       function syncThemeButtons(mode) {
         const isDark = mode === 'dark';
+        const nextPressed = isDark ? 'true' : 'false';
+        const nextLabel = isDark ? '\u263E Dark' : '\u2600 Light';
+        const nextTitle = isDark
+          ? 'Dark Mode Active (click for Celadon Light; Terminal stays dark)'
+          : 'Celadon Light Mode (click for Monochrome B&W Dark Mode)';
         document.querySelectorAll('[data-tc-theme-toggle]').forEach((btn) => {
-          btn.setAttribute('aria-pressed', isDark ? 'true' : 'false');
-          btn.textContent = isDark ? '\u263E Dark' : '\u2600 Light';
-          btn.title = isDark ? 'Dark Mode Active (click for Celadon Light; Terminal stays dark)' : 'Celadon Light Mode (click for Monochrome B&W Dark Mode)';
+          if (btn.getAttribute('aria-pressed') !== nextPressed) {
+            btn.setAttribute('aria-pressed', nextPressed);
+          }
+          if (btn.textContent !== nextLabel) {
+            btn.textContent = nextLabel;
+          }
+          if (btn.title !== nextTitle) {
+            btn.title = nextTitle;
+          }
         });
       }
       function applyTheme(mode, persist) {
@@ -719,11 +730,23 @@ CELADON_BODY_JS = r"""
         });
       }
       const mo = new MutationObserver((muts) => {
+        let sawThemeToggle = false;
         for (const m of muts) {
-          if (m.addedNodes.length) {
-            titleTruncated(m.target);
-            syncThemeButtons(window.TinCanTheme.get());
+          for (let i = 0; i < m.addedNodes.length; i++) {
+            const n = m.addedNodes[i];
+            if (n && n.nodeType === 1) {
+              titleTruncated(n);
+              if (
+                (n.hasAttribute && n.hasAttribute('data-tc-theme-toggle')) ||
+                (n.querySelector && n.querySelector('[data-tc-theme-toggle]'))
+              ) {
+                sawThemeToggle = true;
+              }
+            }
           }
+        }
+        if (sawThemeToggle) {
+          syncThemeButtons(window.TinCanTheme.get());
         }
       });
       window.addEventListener('load', () => { titleTruncated(document); mo.observe(document.body, { childList: true, subtree: true }); });
