@@ -1,5 +1,6 @@
 """Tests for Nano Banana Gemini Node Studio routes, Home Screen mounting, #win-nodes, and Design Gallery."""
 
+import base64
 import json
 import os
 import sys
@@ -7,7 +8,7 @@ import threading
 import types
 import urllib.error
 import urllib.request
-from http.server import ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
@@ -21,6 +22,7 @@ for _mod in list(sys.modules.keys()):
         del sys.modules[_mod]
 
 import server
+from iot_federated_agent_memory.agent_space import AgentSpaceManager, generate_minimal_glb_bytes
 from iot_federated_agent_memory.ai_home_shell import render_ai_home_hub_html
 from iot_federated_agent_memory.designs_gallery import (
     AEONIK_MOCKUPS,
@@ -311,6 +313,8 @@ def test_fastapi_routes_registered_for_node_studio():
         "/api/nodes/health",
         "/api/health",
         "/api/nodes/state",
+        "/api/nodes/video/status",
+        "/api/nodes/mesh/status",
     )
     expected_post = ("/api/nodes/generate", "/api/generate", "/api/nodes/filter")
     if hasattr(server.app, "routes") and isinstance(server.app.routes, dict):
@@ -322,3 +326,286 @@ def test_fastapi_routes_registered_for_node_studio():
         paths = {getattr(r, "path", None) for r in getattr(server.app, "routes", [])}
         for route in expected_get + expected_post:
             assert route in paths
+
+
+def _http_req_bytes(url: str, headers=None):
+    req = urllib.request.Request(url, headers=headers or {}, method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=10.0) as resp:
+            return resp.status, resp.read(), {k.lower(): v for k, v in resp.headers.items()}
+    except urllib.error.HTTPError as err:
+        return err.code, err.read(), {k.lower(): v for k, v in err.headers.items()}
+
+
+def _start_fixture_media_server(routes: dict):
+    class _FixtureHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            item = routes.get(self.path)
+            if item is None:
+                self.send_response(404)
+                self.end_headers()
+                return
+            ctype, body = item
+            self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format, *args):
+            return
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), _FixtureHandler)
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    return srv, f"http://127.0.0.1:{srv.server_address[1]}"
+
+
+def test_space_file_raw_http_range_206_and_416(live_node_server, tmp_path, monkeypatch):
+    temp_mgr = AgentSpaceManager(base_dir=str(tmp_path / "spaces"), ai_router=server.router)
+    monkeypatch.setattr(server, "_space_manager", temp_mgr)
+    monkeypatch.setattr(server, "_get_space_manager", lambda: temp_mgr)
+
+    payload_bytes = bytes(range(100))
+    sp = temp_mgr.get_or_create_space("user", "range_peer")
+    sp.write_file("/videos/sample.mp4", payload_bytes, mime_type="video/mp4", updated_by="range_peer")
+
+    raw_url = f"{live_node_server}/api/space/file?raw=1&scope=user&owner_id=range_peer&path=/videos/sample.mp4"
+
+    # Full GET includes Accept-Ranges: bytes
+    st_full, body_full, hdrs_full = _http_req_bytes(raw_url)
+    assert st_full == 200
+    assert hdrs_full.get("accept-ranges") == "bytes"
+    assert body_full == payload_bytes
+
+    # Explicit byte slice Range: bytes=0-9 -> 206 Partial Content
+    st_206, body_206, hdrs_206 = _http_req_bytes(raw_url, headers={"Range": "bytes=0-9"})
+    assert st_206 == 206
+    assert hdrs_206.get("accept-ranges") == "bytes"
+    assert hdrs_206.get("content-range") == "bytes 0-9/100"
+    assert hdrs_206.get("content-length") == "10"
+    assert body_206 == payload_bytes[0:10]
+
+    # Open-ended Range: bytes=90-
+    st_open, body_open, hdrs_open = _http_req_bytes(raw_url, headers={"Range": "bytes=90-"})
+    assert st_open == 206
+    assert hdrs_open.get("content-range") == "bytes 90-99/100"
+    assert body_open == payload_bytes[90:100]
+
+    # Suffix Range: bytes=-5
+    st_suf, body_suf, hdrs_suf = _http_req_bytes(raw_url, headers={"Range": "bytes=-5"})
+    assert st_suf == 206
+    assert hdrs_suf.get("content-range") == "bytes 95-99/100"
+    assert body_suf == payload_bytes[95:100]
+
+    # Out-of-bounds Range -> 416
+    st_416, _, hdrs_416 = _http_req_bytes(raw_url, headers={"Range": "bytes=200-300"})
+    assert st_416 == 416
+    assert hdrs_416.get("content-range") == "bytes */100"
+
+
+def test_nodes_video_status_and_sync_mirroring_to_space(live_node_server, tmp_path, monkeypatch):
+    temp_mgr = AgentSpaceManager(base_dir=str(tmp_path / "spaces"), ai_router=server.router)
+    monkeypatch.setattr(server, "_space_manager", temp_mgr)
+    monkeypatch.setattr(server, "_get_space_manager", lambda: temp_mgr)
+
+    fake_mp4 = b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom" + b"VIDEOBYTES" * 8
+    media_srv, media_base = _start_fixture_media_server({"/clip.mp4": ("video/mp4", fake_mp4)})
+    try:
+        remote_mp4_url = f"{media_base}/clip.mp4"
+        eng = server._get_node_studio_engine()
+        assert eng is not None
+
+        # 1. Poll status -> SUCCEEDED -> mirrors into .space/videos/ and returns durable raw URL
+        monkeypatch.setattr(
+            eng,
+            "poll_nanogpt_video_status",
+            lambda job_id, *, model_slug=None, api_key="", http_get_json=None: {
+                "ok": True,
+                "done": True,
+                "status": "SUCCEEDED",
+                "job_id": job_id,
+                "model_slug": model_slug,
+                "remote_url": remote_mp4_url,
+                "urls": [remote_mp4_url],
+            },
+        )
+        st, raw, _ = _http_req(
+            f"{live_node_server}/api/nodes/video/status?job_id=vid_done_1&model=ltx-video&scope=user&owner_id=vid_peer&prompt=Neon+Alley",
+            headers={"X-NanoGPT-Api-Key": "ngpt-key"},
+        )
+        assert st == 200
+        data = json.loads(raw)
+        assert data["ok"] is True
+        assert data["done"] is True
+        assert data["status"] == "SUCCEEDED"
+        assert data["job_id"] == "vid_done_1"
+        assert data["remote_url"] == remote_mp4_url
+        assert data["vfs_path"].startswith("/videos/") and data["vfs_path"].endswith(".mp4")
+        assert data["video_url"].startswith("/api/space/file?raw=1&")
+        assert data["size_bytes"] == len(fake_mp4)
+
+        # Verify durable raw URL serves 206 byte ranges with exact MP4 bytes
+        st_r, chunk, hdrs_r = _http_req_bytes(
+            f"{live_node_server}{data['video_url']}",
+            headers={"Range": "bytes=0-11"},
+        )
+        assert st_r == 206
+        assert hdrs_r.get("accept-ranges") == "bytes"
+        assert chunk == fake_mp4[:12]
+
+        # 2. Synchronous video response in /api/nodes/generate also mirrors into .space/videos/
+        monkeypatch.setattr(
+            eng,
+            "handle_node_studio_generate",
+            lambda payload, headers=None, env=None: {
+                "ok": True,
+                "statusCode": 200,
+                "mode": "GENERATE",
+                "modality": "video",
+                "node": {
+                    "id": "node-v1",
+                    "data": {
+                        "modality": "video",
+                        "content": {"text": "Synced", "videoUrl": remote_mp4_url, "mimeType": "video/mp4"},
+                    },
+                },
+                "edges": [],
+                "timeline": {},
+                "result": {"video": {"url": remote_mp4_url, "mimeType": "video/mp4"}},
+            },
+        )
+        st_g, raw_g, _ = _http_req(
+            f"{live_node_server}/api/nodes/generate",
+            method="POST",
+            payload={"prompt": "Sync dolly shot", "modality": "video", "scope": "user", "owner_id": "vid_peer"},
+        )
+        assert st_g == 200
+        gen = json.loads(raw_g)
+        content = gen["node"]["data"]["content"]
+        assert content["videoUrl"].startswith("/api/space/file?raw=1&")
+        assert content["remoteUrl"] == remote_mp4_url
+        assert content["vfsPath"].startswith("/videos/")
+    finally:
+        media_srv.shutdown()
+        media_srv.server_close()
+
+
+def test_nodes_mesh_status_and_omni_route_3d_async_vs_completed(live_node_server, tmp_path, monkeypatch):
+    temp_mgr = AgentSpaceManager(base_dir=str(tmp_path / "spaces"), ai_router=server.router)
+    monkeypatch.setattr(server, "_space_manager", temp_mgr)
+    monkeypatch.setattr(server, "_get_space_manager", lambda: temp_mgr)
+
+    real_glb = generate_minimal_glb_bytes("guardian_mech")
+    media_srv, media_base = _start_fixture_media_server({"/mesh.glb": ("model/gltf-binary", real_glb)})
+    try:
+        remote_glb_url = f"{media_base}/mesh.glb"
+
+        # 1. GET /api/nodes/mesh/status -> RUNNING, FAILED, then Done -> persists .glb into .space/models3d/
+        monkeypatch.setattr(
+            server.router,
+            "check_rodin_status",
+            lambda job_id, **kw: {"subscription_key": job_id, "uuid": job_id, "status": "Processing"},
+        )
+        st_run, raw_run, _ = _http_req(
+            f"{live_node_server}/api/nodes/mesh/status?job_id=rodin_live_1&scope=user&owner_id=mesh_peer"
+        )
+        assert st_run == 200
+        d_run = json.loads(raw_run)
+        assert d_run == {"ok": True, "done": False, "status": "RUNNING", "job_id": "rodin_live_1"}
+
+        monkeypatch.setattr(
+            server.router,
+            "check_rodin_status",
+            lambda job_id, **kw: {"subscription_key": job_id, "uuid": job_id, "status": "Failed", "error": "Mesh error"},
+        )
+        st_fail, raw_fail, _ = _http_req(
+            f"{live_node_server}/api/nodes/mesh/status?job_id=rodin_live_1&scope=user&owner_id=mesh_peer"
+        )
+        assert st_fail == 200
+        d_fail = json.loads(raw_fail)
+        assert d_fail["ok"] is False
+        assert d_fail["done"] is True
+        assert d_fail["status"] == "FAILED"
+        assert "Mesh error" in d_fail["error"]
+
+        monkeypatch.setattr(
+            server.router,
+            "check_rodin_status",
+            lambda job_id, **kw: {
+                "subscription_key": job_id,
+                "uuid": job_id,
+                "status": "Done",
+                "urls": [remote_glb_url],
+            },
+        )
+        st_done, raw_done, _ = _http_req(
+            f"{live_node_server}/api/nodes/mesh/status?job_id=rodin_live_1&scope=user&owner_id=mesh_peer&prompt=Bronze+Sentinel"
+        )
+        assert st_done == 200
+        d_done = json.loads(raw_done)
+        assert d_done["ok"] is True
+        assert d_done["done"] is True
+        assert d_done["status"] == "SUCCEEDED"
+        assert d_done["vfs_path"].startswith("/models3d/") and d_done["vfs_path"].endswith(".glb")
+        assert d_done["glb_raw_url"].startswith("/api/space/file?raw=1&")
+        assert d_done["size_bytes"] == len(real_glb)
+        assert base64.b64decode(d_done["glb_bytes_b64"]) == real_glb
+
+        st_glb, glb_body, _ = _http_req_bytes(f"{live_node_server}{d_done['glb_raw_url']}")
+        assert st_glb == 200
+        assert glb_body == real_glb
+
+        # 2. POST /api/omni/route /3d -> live async Rodin returns async: True, done: False, job_id
+        monkeypatch.setattr(
+            server,
+            "_dispatch_rodin",
+            lambda rtr, **kw: {
+                "uuid": "rodin_async_777",
+                "subscription_key": "sub_async_777",
+                "status": "Waiting",
+                "simulated": False,
+                "glb_bytes_b64": "",
+            },
+        )
+        st_async, raw_async, _ = _http_req(
+            f"{live_node_server}/api/omni/route",
+            method="POST",
+            payload={"command": "/3d brutalist sentinel mech", "scope": "user", "owner_id": "mesh_peer"},
+        )
+        assert st_async == 200
+        d_async = json.loads(raw_async)
+        assert d_async["ok"] is True
+        assert d_async["async"] is True
+        assert d_async["done"] is False
+        assert d_async["status"] == "RUNNING"
+        assert d_async["job_id"] == "sub_async_777"
+
+        # 3. POST /api/omni/route /3d -> completed/simulated includes glb_raw_url in result & top-level
+        monkeypatch.setattr(
+            server,
+            "_dispatch_rodin",
+            lambda rtr, **kw: {
+                "uuid": "rodin_sim_888",
+                "subscription_key": "sub_sim_888",
+                "status": "Done",
+                "simulated": True,
+                "glb_bytes_b64": base64.b64encode(real_glb).decode("ascii"),
+            },
+        )
+        st_sim, raw_sim, _ = _http_req(
+            f"{live_node_server}/api/omni/route",
+            method="POST",
+            payload={"command": "/3d celadon bonsai statue", "scope": "user", "owner_id": "mesh_peer"},
+        )
+        assert st_sim == 200
+        d_sim = json.loads(raw_sim)
+        assert d_sim["ok"] is True
+        assert d_sim["glb_raw_url"].startswith("/api/space/file?raw=1&")
+        assert d_sim["result"]["glb_raw_url"] == d_sim["glb_raw_url"]
+        st_sim_glb, sim_body, _ = _http_req_bytes(f"{live_node_server}{d_sim['glb_raw_url']}")
+        assert st_sim_glb == 200
+        assert sim_body == real_glb
+    finally:
+        media_srv.shutdown()
+        media_srv.server_close()

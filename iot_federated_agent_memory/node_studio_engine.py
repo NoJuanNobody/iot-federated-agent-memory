@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
@@ -23,6 +24,7 @@ MAX_REFERENCES = 14
 NANOGPT_IMAGES_URL = "https://api.nano-gpt.com/api/v1/images"
 NANOGPT_CHAT_URL = "https://api.nano-gpt.com/api/v1/chat/completions"
 NANOGPT_VIDEO_URL = "https://api.nano-gpt.com/api/generate-video"
+NANOGPT_VIDEO_STATUS_URL = "https://api.nano-gpt.com/api/video/status"
 GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
 STANDARD_ASPECT_RATIOS: Tuple[str, ...] = (
@@ -2060,6 +2062,225 @@ def _default_http_get(url: str, timeout: int = 30) -> Tuple[int, bytes, Dict[str
         return resp.status, resp.read(), hdrs
 
 
+def _default_http_get_json(url: str, headers: Dict[str, str], timeout: int = 20) -> Tuple[int, Dict[str, Any]]:
+    req = urllib.request.Request(url, headers=headers, method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8")
+            return resp.status, (json.loads(raw) if raw else {})
+    except urllib.error.HTTPError as exc:
+        body_raw = exc.read().decode("utf-8", errors="replace")
+        try:
+            parsed = json.loads(body_raw)
+        except Exception:
+            parsed = {"error": body_raw or str(exc)}
+        return exc.code, parsed
+
+
+def _extract_video_urls(data: Any) -> List[str]:
+    """Recursively extract playable video URLs from a NanoGPT payload, preferring .mp4/.webm."""
+    urls: List[str] = []
+    base_url = "https://api.nano-gpt.com"
+
+    def _add_str(raw: Any) -> None:
+        if not isinstance(raw, str):
+            return
+        u = raw.strip()
+        if not u:
+            return
+        if u.startswith("/api/"):
+            u = base_url + u
+        if u.startswith(("http://", "https://")) and u not in urls:
+            urls.append(u)
+
+    def _add_value(val: Any) -> None:
+        if isinstance(val, str):
+            _add_str(val)
+        elif isinstance(val, Mapping):
+            for k in ("videoUrl", "video_url", "outputUrl", "output_url", "url"):
+                if k in val:
+                    _add_str(val[k])
+        elif isinstance(val, (list, tuple)):
+            for item in val:
+                _add_value(item)
+
+    def _walk(node: Any) -> None:
+        if isinstance(node, Mapping):
+            for k in ("videoUrl", "video_url", "outputUrl", "output_url", "url", "video"):
+                if k in node:
+                    _add_value(node[k])
+            for k in ("videoUrls", "outputs", "files", "data"):
+                if k in node:
+                    val = node[k]
+                    if isinstance(val, (list, tuple)):
+                        for item in val:
+                            _add_value(item)
+                    elif isinstance(val, (str, Mapping)):
+                        _add_value(val)
+            for v in node.values():
+                if isinstance(v, (Mapping, list, tuple)):
+                    _walk(v)
+        elif isinstance(node, (list, tuple)):
+            for item in node:
+                _walk(item)
+
+    _walk(data)
+    mp4_urls = [u for u in urls if ".mp4" in u.lower()]
+    webm_urls = [u for u in urls if ".webm" in u.lower() and u not in mp4_urls]
+    other_urls = [u for u in urls if u not in mp4_urls and u not in webm_urls]
+    return mp4_urls + webm_urls + other_urls
+
+
+def poll_nanogpt_video_status(
+    job_id: str,
+    *,
+    model_slug: Optional[str] = None,
+    api_key: str = "",
+    http_get_json: Optional[Callable[..., Tuple[int, Dict[str, Any]]]] = None,
+) -> Dict[str, Any]:
+    """Poll NanoGPT async video status and normalize into RUNNING / SUCCEEDED / FAILED."""
+    clean_job_id = str(job_id or "").strip()
+    if not clean_job_id:
+        return {
+            "ok": False,
+            "done": True,
+            "status": "FAILED",
+            "job_id": "",
+            "error": "job_id is required.",
+        }
+
+    clean_slug = str(model_slug).strip() if model_slug else None
+    effective_key = str(api_key or os.environ.get("NANOGPT_API_KEY") or "").strip()
+    if not effective_key and http_get_json is None:
+        return {
+            "ok": False,
+            "done": True,
+            "status": "FAILED",
+            "job_id": clean_job_id,
+            "error": "NanoGPT API Key is missing.",
+        }
+
+    params: Dict[str, str] = {"requestId": clean_job_id, "runId": clean_job_id}
+    if clean_slug:
+        params["modelSlug"] = clean_slug
+    url = f"{NANOGPT_VIDEO_STATUS_URL}?{urllib.parse.urlencode(params)}"
+    headers = {
+        "Authorization": f"Bearer {effective_key}",
+        "x-api-key": effective_key,
+        "Accept": "application/json",
+    }
+
+    get_json_fn = http_get_json or _default_http_get_json
+    try:
+        status_code, raw = get_json_fn(url, headers)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return {
+                "ok": True,
+                "done": False,
+                "status": "RUNNING",
+                "job_id": clean_job_id,
+                "model_slug": clean_slug,
+            }
+        try:
+            err_body = exc.read().decode("utf-8", errors="replace")
+            err_parsed = json.loads(err_body)
+        except Exception:
+            err_parsed = {"error": str(exc)}
+        return {
+            "ok": False,
+            "done": True,
+            "status": "FAILED",
+            "job_id": clean_job_id,
+            "error": _extract_error_message(err_parsed, exc.code),
+        }
+    except Exception as exc:
+        return {
+            "ok": False,
+            "done": True,
+            "status": "FAILED",
+            "job_id": clean_job_id,
+            "error": str(exc),
+        }
+
+    if status_code == 404:
+        return {
+            "ok": True,
+            "done": False,
+            "status": "RUNNING",
+            "job_id": clean_job_id,
+            "model_slug": clean_slug,
+        }
+    if status_code >= 400:
+        return {
+            "ok": False,
+            "done": True,
+            "status": "FAILED",
+            "job_id": clean_job_id,
+            "error": _extract_error_message(raw, status_code),
+        }
+
+    raw_dict = raw if isinstance(raw, Mapping) else {}
+    job = raw_dict.get("data") if isinstance(raw_dict.get("data"), Mapping) else raw_dict
+    raw_status = str(
+        job.get("status")
+        or job.get("state")
+        or raw_dict.get("status")
+        or raw_dict.get("state")
+        or "running"
+    ).strip().lower()
+    urls = _extract_video_urls(raw_dict)
+
+    failed_states = {"failed", "error", "canceled", "cancelled", "timed_out"}
+    succeeded_states = {"succeeded", "success", "completed", "complete", "done"}
+
+    if raw_status in failed_states:
+        err_obj = (
+            job.get("error")
+            or raw_dict.get("error")
+            or job.get("message")
+            or raw_dict.get("message")
+        )
+        if isinstance(err_obj, Mapping):
+            err_msg = err_obj.get("message") or json.dumps(err_obj)
+        else:
+            err_msg = err_obj or f"Video generation {raw_status}"
+        return {
+            "ok": False,
+            "done": True,
+            "status": "FAILED",
+            "job_id": clean_job_id,
+            "error": str(err_msg),
+        }
+
+    if raw_status in succeeded_states or urls:
+        if urls:
+            return {
+                "ok": True,
+                "done": True,
+                "status": "SUCCEEDED",
+                "job_id": clean_job_id,
+                "model_slug": clean_slug,
+                "remote_url": urls[0],
+                "urls": urls,
+            }
+        return {
+            "ok": True,
+            "done": False,
+            "status": "RUNNING",
+            "job_id": clean_job_id,
+            "model_slug": clean_slug,
+        }
+
+    return {
+        "ok": True,
+        "done": False,
+        "status": "RUNNING",
+        "job_id": clean_job_id,
+        "model_slug": clean_slug,
+    }
+
+
 def _extract_error_message(data: Any, status_code: int) -> str:
     if isinstance(data, Mapping):
         err = data.get("error")
@@ -2098,7 +2319,9 @@ def _generate_with_gemini(
 
     max_refs = int(spec.get("maxReferences", MAX_REFERENCES))
     for ref in list(references)[:max_refs]:
-        if isinstance(ref, Mapping) and ref.get("base64"):
+        if not isinstance(ref, Mapping):
+            continue
+        if ref.get("base64"):
             parts.append(
                 {
                     "inlineData": {
@@ -2107,6 +2330,9 @@ def _generate_with_gemini(
                     }
                 }
             )
+        elif ref.get("type") == "text" and ref.get("text"):
+            ref_name = str(ref.get("name") or "Text Reference").strip()
+            parts.append({"text": f"[Reference {ref_name}]:\n{str(ref['text']).strip()}"})
     parts.append({"text": prompt})
 
     generation_config: Dict[str, Any] = {}
@@ -2233,7 +2459,7 @@ def _generate_with_nanogpt(
     }
 
     if modality == "text":
-        messages: List[Dict[str, str]] = []
+        messages: List[Dict[str, Any]] = []
         for entry in conversation_history:
             if not isinstance(entry, str):
                 continue
@@ -2241,7 +2467,32 @@ def _generate_with_nanogpt(
                 messages.append({"role": "user", "content": entry[len("User: ") :]})
             elif entry.startswith("Assistant: "):
                 messages.append({"role": "assistant", "content": entry[len("Assistant: ") :]})
-        messages.append({"role": "user", "content": prompt})
+
+        text_ref_blocks: List[str] = []
+        image_ref_urls: List[str] = []
+        for ref in list(references)[: int(spec.get("nanogptMaxReferences", MAX_REFERENCES))]:
+            if not isinstance(ref, Mapping):
+                continue
+            if ref.get("type") == "text" and ref.get("text"):
+                ref_name = str(ref.get("name") or "Text Reference").strip()
+                text_ref_blocks.append(f"[Reference {ref_name}]:\n{str(ref['text']).strip()}")
+            elif ref.get("base64"):
+                mime = str(ref.get("mimeType") or "image/jpeg")
+                if mime.startswith("image/"):
+                    image_ref_urls.append(f"data:{mime};base64,{ref['base64']}")
+
+        effective_prompt = (
+            ("\n\n".join(text_ref_blocks) + "\n\n" + prompt)
+            if text_ref_blocks
+            else prompt
+        )
+        if image_ref_urls:
+            user_content: Any = [{"type": "text", "text": effective_prompt}]
+            for img_url in image_ref_urls:
+                user_content.append({"type": "image_url", "image_url": {"url": img_url}})
+            messages.append({"role": "user", "content": user_content})
+        else:
+            messages.append({"role": "user", "content": effective_prompt})
 
         payload: Dict[str, Any] = {
             "model": nanogpt_model,
@@ -2279,14 +2530,71 @@ def _generate_with_nanogpt(
             ]
             if image_refs:
                 payload["input_references"] = image_refs
-        status_code, data = http_post(NANOGPT_VIDEO_URL, headers, payload)
+        video_headers = {
+            **headers,
+            "x-api-key": api_key,
+        }
+        status_code, data = http_post(NANOGPT_VIDEO_URL, video_headers, payload)
         if status_code >= 400:
             raise ProviderHttpError(_extract_error_message(data, status_code), status_code=status_code)
-        video_url = data.get("videoUrl") or data.get("url") or (data.get("data") or [{}])[0].get("url")
+        urls = _extract_video_urls(data)
+        if urls:
+            return {
+                "text": f"Generated video via NanoGPT ({nanogpt_model})",
+                "async": False,
+                "done": True,
+                "video": {
+                    "url": urls[0],
+                    "mimeType": "video/mp4",
+                    "fps": fps,
+                    "audioSync": bool(payload["audio_sync"]),
+                },
+                "providerUsed": "nanogpt",
+                "modelUsed": nanogpt_model,
+            }
+        inner_data = data.get("data") if isinstance(data, Mapping) and isinstance(data.get("data"), Mapping) else {}
+        data_map = data if isinstance(data, Mapping) else {}
+        run_id = (
+            data_map.get("runId")
+            or data_map.get("requestId")
+            or data_map.get("jobId")
+            or data_map.get("id")
+            or inner_data.get("runId")
+            or inner_data.get("requestId")
+            or inner_data.get("jobId")
+            or inner_data.get("id")
+        )
+        if run_id:
+            resolved_slug = str(
+                data_map.get("modelSlug")
+                or inner_data.get("modelSlug")
+                or nanogpt_model
+            )
+            return {
+                "text": f"Rendering video via NanoGPT ({resolved_slug})...",
+                "async": True,
+                "done": False,
+                "status": "RUNNING",
+                "jobId": str(run_id),
+                "modelSlug": resolved_slug,
+                "video": {
+                    "url": "",
+                    "mimeType": "video/mp4",
+                    "fps": fps,
+                    "audioSync": bool(payload["audio_sync"]),
+                    "jobId": str(run_id),
+                    "jobStatus": "RUNNING",
+                    "modelSlug": resolved_slug,
+                },
+                "providerUsed": "nanogpt",
+                "modelUsed": nanogpt_model,
+            }
         return {
             "text": f"Generated video via NanoGPT ({nanogpt_model})",
+            "async": False,
+            "done": True,
             "video": {
-                "url": video_url or f"https://media.local/nanogpt/{nanogpt_model}.mp4",
+                "url": f"https://media.local/nanogpt/{nanogpt_model}.mp4",
                 "mimeType": "video/mp4",
                 "fps": fps,
                 "audioSync": bool(payload["audio_sync"]),
@@ -2312,9 +2620,19 @@ def _generate_with_nanogpt(
 
     aspect_set = ALL_ASPECT_RATIOS if spec.get("panoramicAspects") else STANDARD_ASPECT_RATIOS
     aspect_ratio = config.get("aspectRatio") if config.get("aspectRatio") in aspect_set else "1:1"
+    text_ref_snippets = [
+        f"[Reference {str(ref.get('name') or 'Text').strip()}]: {str(ref['text']).strip()}"
+        for ref in list(references)[: int(spec.get("nanogptMaxReferences", MAX_REFERENCES))]
+        if isinstance(ref, Mapping) and ref.get("type") == "text" and ref.get("text")
+    ]
+    effective_img_prompt = (
+        "\n".join(text_ref_snippets) + "\n\n" + prompt
+        if text_ref_snippets
+        else prompt
+    )
     payload = {
         "model": nanogpt_model,
-        "prompt": build_text_context_prompt(prompt, conversation_history),
+        "prompt": build_text_context_prompt(effective_img_prompt, conversation_history),
         "n": 1,
         "output_format": "png",
         "aspect_ratio": aspect_ratio,
@@ -2611,6 +2929,17 @@ def _generate_offline_synthetic(
     }
 
 
+def _extract_data_url_parts(url: Any) -> Tuple[Optional[str], Optional[str]]:
+    if not isinstance(url, str):
+        return None, None
+    s = url.strip()
+    if s.startswith("data:") and ";base64," in s:
+        head, b64 = s.split(";base64,", 1)
+        mime = head[len("data:") :].strip() or None
+        return (b64.strip() or None), mime
+    return None, None
+
+
 def _normalize_references(
     raw_refs: Any,
     parent_nodes: Sequence[Dict[str, Any]],
@@ -2619,11 +2948,24 @@ def _normalize_references(
     if isinstance(raw_refs, (list, tuple)):
         for idx, item in enumerate(raw_refs):
             if isinstance(item, Mapping):
-                refs.append(dict(item))
+                entry = dict(item)
+                if not entry.get("base64") and entry.get("url"):
+                    b64, parsed_mime = _extract_data_url_parts(entry.get("url"))
+                    if b64:
+                        entry["base64"] = b64
+                    if parsed_mime and not entry.get("mimeType"):
+                        entry["mimeType"] = parsed_mime
+                refs.append(entry)
             elif isinstance(item, str) and item.strip():
-                refs.append({"id": f"ref-{idx + 1}", "name": item.strip(), "type": "image", "url": item.strip()})
+                b64, parsed_mime = _extract_data_url_parts(item)
+                entry = {"id": f"ref-{idx + 1}", "name": item.strip(), "type": "image", "url": item.strip()}
+                if b64:
+                    entry["base64"] = b64
+                if parsed_mime:
+                    entry["mimeType"] = parsed_mime
+                refs.append(entry)
 
-    # In MERGE/EDIT mode, supplement with parent visual outputs if caller didn't already supply them.
+    # In MERGE/EDIT mode, supplement with parent visual or text outputs if caller didn't already supply them.
     seen_ids = {str(r.get("id") or r.get("nodeId") or "") for r in refs if r.get("id") or r.get("nodeId")}
     for pnode in parent_nodes:
         pid = str(pnode.get("id") or "")
@@ -2632,6 +2974,10 @@ def _normalize_references(
         pdata = pnode.get("data") or {}
         pcontent = pdata.get("content") or {}
         if pcontent.get("base64") or pcontent.get("imageUrl"):
+            b64 = pcontent.get("base64")
+            parsed_mime = None
+            if not b64 and pcontent.get("imageUrl"):
+                b64, parsed_mime = _extract_data_url_parts(pcontent.get("imageUrl"))
             refs.append(
                 {
                     "id": pid,
@@ -2639,8 +2985,20 @@ def _normalize_references(
                     "name": pdata.get("label") or f"Node {pid}",
                     "type": "image",
                     "url": pcontent.get("imageUrl") or "",
-                    "base64": pcontent.get("base64"),
-                    "mimeType": pcontent.get("mimeType") or "image/png",
+                    "base64": b64,
+                    "mimeType": pcontent.get("mimeType") or parsed_mime or "image/png",
+                }
+            )
+            seen_ids.add(pid)
+        elif pcontent.get("text"):
+            refs.append(
+                {
+                    "id": pid,
+                    "nodeId": pid,
+                    "name": pdata.get("label") or f"Text {pid}",
+                    "type": "text",
+                    "text": str(pcontent.get("text")),
+                    "mimeType": "text/plain",
                 }
             )
             seen_ids.add(pid)
@@ -2731,7 +3089,7 @@ def handle_node_studio_generate(
     mode = derive_generation_mode(selected_ids)
     parent_nodes = _index_parent_nodes(selected_ids, body)
 
-    # Inherit conversationHistory, thoughtSignature, and upstream filters in EDIT (or primary parent in MERGE).
+    # Inherit conversationHistory, thoughtSignature, and upstream filters in EDIT mode (explicit history works in any mode).
     inherited_history: List[str] = []
     inherited_thought_sig: Optional[str] = None
     inherited_filters: Dict[str, Dict[str, Any]] = default_filter_state(modality)
@@ -2739,7 +3097,7 @@ def handle_node_studio_generate(
     explicit_history = body.get("conversationHistory") or body.get("conversation_history")
     if isinstance(explicit_history, (list, tuple)):
         inherited_history = [str(x) for x in explicit_history]
-    elif parent_nodes:
+    elif mode == "EDIT" and parent_nodes:
         primary_parent_data = parent_nodes[0].get("data") or {}
         primary_meta = primary_parent_data.get("metadata") or {}
         parent_hist = primary_meta.get("conversationHistory") or primary_meta.get("conversation_history") or []
@@ -2964,6 +3322,12 @@ def handle_node_studio_generate(
         if vid.get("mp4Path"):
             content["mp4Path"] = vid["mp4Path"]
             content["vfsPath"] = vid["mp4Path"]
+        if gen_result.get("async"):
+            job_id = str(gen_result.get("jobId") or vid.get("jobId") or "")
+            model_slug = str(gen_result.get("modelSlug") or vid.get("modelSlug") or gen_result.get("modelUsed") or "")
+            content["jobId"] = job_id
+            content["jobStatus"] = "RUNNING"
+            content["modelSlug"] = model_slug
     elif modality == "audio" and isinstance(gen_result.get("audio"), Mapping):
         aud = gen_result["audio"]
         content["audioUrl"] = aud.get("url", "")
@@ -3070,6 +3434,13 @@ def handle_node_studio_generate(
         node_metadata["atlasTask"] = gen_result.get("atlasTask")
     if gen_result.get("vfsPaths"):
         node_metadata["vfsPaths"] = gen_result["vfsPaths"]
+    if modality == "video" and gen_result.get("async"):
+        vid = gen_result.get("video") if isinstance(gen_result.get("video"), Mapping) else {}
+        node_metadata["jobId"] = str(gen_result.get("jobId") or vid.get("jobId") or "")
+        node_metadata["jobStatus"] = "RUNNING"
+        node_metadata["modelSlug"] = str(
+            gen_result.get("modelSlug") or vid.get("modelSlug") or gen_result.get("modelUsed") or ""
+        )
 
     raw_node: Dict[str, Any] = {
         "id": new_node_id,
@@ -3130,6 +3501,15 @@ def handle_node_studio_generate(
         "result": gen_result,
         "generationResult": gen_result,
     }
+    if modality == "video" and gen_result.get("async"):
+        vid = gen_result.get("video") if isinstance(gen_result.get("video"), Mapping) else {}
+        response["async"] = True
+        response["done"] = False
+        response["status"] = "RUNNING"
+        response["job_id"] = str(gen_result.get("jobId") or vid.get("jobId") or "")
+        response["model_slug"] = str(
+            gen_result.get("modelSlug") or vid.get("modelSlug") or gen_result.get("modelUsed") or ""
+        )
     if slash_route is not None:
         response["slashRoute"] = slash_route
     return response
@@ -3462,6 +3842,7 @@ __all__ = [
     "MODEL_SPECS",
     "NANOGPT_CHAT_URL",
     "NANOGPT_IMAGES_URL",
+    "NANOGPT_VIDEO_STATUS_URL",
     "NANOGPT_VIDEO_URL",
     "PANORAMIC_ASPECT_RATIOS",
     "ProviderHttpError",
@@ -3480,4 +3861,5 @@ __all__ = [
     "infer_modality",
     "make_branch_node_id",
     "parse_omni_slash_command",
+    "poll_nanogpt_video_status",
 ]

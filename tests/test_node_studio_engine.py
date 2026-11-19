@@ -15,7 +15,9 @@ from iot_federated_agent_memory.node_studio_engine import (
     MODEL_SPECS,
     NANOGPT_CHAT_URL,
     NANOGPT_IMAGES_URL,
+    NANOGPT_VIDEO_STATUS_URL,
     NANOGPT_VIDEO_URL,
+    _extract_video_urls,
     apply_node_filters,
     build_contents,
     build_text_context_prompt,
@@ -26,6 +28,7 @@ from iot_federated_agent_memory.node_studio_engine import (
     get_node_studio_health,
     handle_node_studio_filter,
     handle_node_studio_generate,
+    poll_nanogpt_video_status,
 )
 
 
@@ -419,3 +422,233 @@ def test_conversation_history_builders_preserve_thought_signatures():
     )
     assert "Context from previous turns:" in briefing
     assert "Current instruction: new prompt" in briefing
+
+
+def test_merge_two_data_url_images_with_nano_banana_2_extracts_both_refs():
+    captured = {}
+
+    def fake_post(url, headers, payload):
+        captured["url"] = url
+        captured["payload"] = payload
+        return 200, {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"text": "Dog floating in space"},
+                            {"inlineData": {"data": "TUVSR0VE", "mimeType": "image/png"}},
+                        ]
+                    }
+                }
+            ]
+        }
+
+    resp = handle_node_studio_generate(
+        {
+            "prompt": "Put this dog in space",
+            "modality": "image",
+            "selectedNodeIds": ["img-dog", "img-space"],
+            "references": [
+                {"id": "img-dog", "name": "dog.png", "type": "image", "url": "data:image/png;base64,RE9H"},
+                {"id": "img-space", "name": "space.jpg", "type": "image", "url": "data:image/jpeg;base64,U1BBQ0U="},
+            ],
+            "config": {"model": "gemini-3.1-flash-image", "provider": "gemini"},
+        },
+        env={"GEMINI_API_KEY": "gem-key"},
+        http_post=fake_post,
+    )
+    assert resp["ok"] is True
+    assert resp["mode"] == "MERGE"
+    assert resp["modality"] == "image"
+    assert "gemini-3.1-flash-image:generateContent" in captured["url"]
+    parts = captured["payload"]["contents"][-1]["parts"]
+    inline_parts = [p["inlineData"] for p in parts if "inlineData" in p]
+    assert len(inline_parts) == 2
+    assert inline_parts[0]["data"] == "RE9H"
+    assert inline_parts[1]["data"] == "U1BBQ0U="
+    assert inline_parts[1]["mimeType"] == "image/jpeg"
+    assert resp["node"]["data"]["content"]["imageUrl"] == "data:image/png;base64,TUVSR0VE"
+
+
+def test_text_modality_with_text_and_image_references_nanogpt():
+    captured = {}
+
+    def fake_post(url, headers, payload):
+        captured["url"] = url
+        captured["payload"] = payload
+        return 200, {"choices": [{"message": {"content": "Refined scene prompt with dog astronaut."}}]}
+
+    resp = handle_node_studio_generate(
+        {
+            "prompt": "Combine these into a movie logline",
+            "modality": "text",
+            "selectedNodeIds": ["txt-1", "img-1"],
+            "references": [
+                {"id": "txt-1", "name": "Notes", "type": "text", "text": "A brave golden retriever."},
+                {"id": "img-1", "name": "Nebula", "type": "image", "url": "data:image/png;base64,TkVCVUxB"},
+            ],
+            "config": {"model": "nanogpt/TEE/deepseek-v4.1-flash", "provider": "nanogpt"},
+        },
+        env={"NANOGPT_API_KEY": "ngpt-key"},
+        http_post=fake_post,
+    )
+    assert resp["ok"] is True
+    assert resp["modality"] == "text"
+    assert captured["url"] == NANOGPT_CHAT_URL
+    last_msg = captured["payload"]["messages"][-1]
+    assert isinstance(last_msg["content"], list)
+    assert "A brave golden retriever." in last_msg["content"][0]["text"]
+    assert last_msg["content"][1]["image_url"]["url"] == "data:image/png;base64,TkVCVUxB"
+
+
+def test_extract_video_urls_recursive_resolution_and_preference():
+    payload = {
+        "data": {
+            "files": [
+                {"url": "https://cdn.example.com/preview_info"},
+                {"output_url": "/api/video/download/clip.webm"},
+                {"videoUrl": "/api/video/download/master.mp4?sig=abc"},
+            ]
+        }
+    }
+    urls = _extract_video_urls(payload)
+    assert urls[0] == "https://api.nano-gpt.com/api/video/download/master.mp4?sig=abc"
+    assert urls[1] == "https://api.nano-gpt.com/api/video/download/clip.webm"
+    assert urls[2] == "https://cdn.example.com/preview_info"
+    assert _extract_video_urls({}) == []
+
+
+def test_async_nanogpt_video_submit_and_minimal_fallback():
+    captured = {}
+
+    def fake_post_async(url, headers, payload):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["payload"] = payload
+        return 200, {"runId": "vid_run_987", "status": "queued"}
+
+    resp = handle_node_studio_generate(
+        {
+            "prompt": "Slow dolly across rainy Kyoto alley",
+            "modality": "video",
+            "config": {"provider": "nanogpt", "model": "ltx-video", "fps": 24, "audioSync": True},
+        },
+        env={"NANOGPT_API_KEY": "ngpt-vid-key"},
+        http_post=fake_post_async,
+    )
+    assert resp["ok"] is True
+    assert captured["url"] == NANOGPT_VIDEO_URL
+    assert captured["headers"]["Authorization"] == "Bearer ngpt-vid-key"
+    assert captured["headers"]["x-api-key"] == "ngpt-vid-key"
+    assert resp["async"] is True
+    assert resp["done"] is False
+    assert resp["status"] == "RUNNING"
+    assert resp["job_id"] == "vid_run_987"
+    assert resp["model_slug"] == "ltx-video"
+
+    node_content = resp["node"]["data"]["content"]
+    node_meta = resp["node"]["data"]["metadata"]
+    assert node_content["videoUrl"] == ""
+    assert node_content["jobId"] == "vid_run_987"
+    assert node_content["jobStatus"] == "RUNNING"
+    assert node_content["modelSlug"] == "ltx-video"
+    assert node_meta["jobId"] == "vid_run_987"
+    assert node_meta["jobStatus"] == "RUNNING"
+    assert node_meta["modelSlug"] == "ltx-video"
+
+    # Minimal mock payload returning neither URL nor runId preserves media.local fallback
+    def fake_post_empty(url, headers, payload):
+        return 200, {}
+
+    fallback_resp = handle_node_studio_generate(
+        {
+            "prompt": "Minimal mock video",
+            "modality": "video",
+            "config": {"provider": "nanogpt", "model": "ltx-video"},
+        },
+        env={"NANOGPT_API_KEY": "ngpt-vid-key"},
+        http_post=fake_post_empty,
+    )
+    assert fallback_resp["ok"] is True
+    assert fallback_resp.get("async") is None
+    assert fallback_resp["result"]["done"] is True
+    assert fallback_resp["node"]["data"]["content"]["videoUrl"] == "https://media.local/nanogpt/ltx-video.mp4"
+
+
+def test_poll_nanogpt_video_status_states_and_404_retry():
+    seen_calls = []
+
+    def fake_running(url, headers):
+        seen_calls.append((url, headers))
+        return 200, {"data": {"status": "processing"}}
+
+    st_run = poll_nanogpt_video_status(
+        "vid_job_42",
+        model_slug="ltx-video",
+        api_key="ngpt-poll-key",
+        http_get_json=fake_running,
+    )
+    assert st_run == {
+        "ok": True,
+        "done": False,
+        "status": "RUNNING",
+        "job_id": "vid_job_42",
+        "model_slug": "ltx-video",
+    }
+    sent_url, sent_hdrs = seen_calls[0]
+    assert sent_url.startswith(NANOGPT_VIDEO_STATUS_URL + "?")
+    assert "requestId=vid_job_42" in sent_url
+    assert "runId=vid_job_42" in sent_url
+    assert "modelSlug=ltx-video" in sent_url
+    assert sent_hdrs["Authorization"] == "Bearer ngpt-poll-key"
+    assert sent_hdrs["x-api-key"] == "ngpt-poll-key"
+
+    # HTTP 404 -> retry as RUNNING
+    st_404 = poll_nanogpt_video_status(
+        "vid_job_42",
+        model_slug="ltx-video",
+        api_key="ngpt-poll-key",
+        http_get_json=lambda u, h: (404, {"error": "not indexed yet"}),
+    )
+    assert st_404["ok"] is True
+    assert st_404["done"] is False
+    assert st_404["status"] == "RUNNING"
+
+    # SUCCEEDED with nested relative /api/... .mp4 URL
+    st_ok = poll_nanogpt_video_status(
+        "vid_job_42",
+        model_slug="ltx-video",
+        api_key="ngpt-poll-key",
+        http_get_json=lambda u, h: (
+            200,
+            {
+                "data": {
+                    "status": "completed",
+                    "outputs": [
+                        {"url": "https://cdn.example.com/meta"},
+                        {"video_url": "/api/video/files/vid_job_42.mp4"},
+                    ],
+                }
+            },
+        ),
+    )
+    assert st_ok["ok"] is True
+    assert st_ok["done"] is True
+    assert st_ok["status"] == "SUCCEEDED"
+    assert st_ok["remote_url"] == "https://api.nano-gpt.com/api/video/files/vid_job_42.mp4"
+    assert st_ok["urls"][0] == "https://api.nano-gpt.com/api/video/files/vid_job_42.mp4"
+
+    # FAILED status
+    st_fail = poll_nanogpt_video_status(
+        "vid_job_42",
+        model_slug="ltx-video",
+        api_key="ngpt-poll-key",
+        http_get_json=lambda u, h: (200, {"status": "failed", "error": "GPU OOM during decode"}),
+    )
+    assert st_fail == {
+        "ok": False,
+        "done": True,
+        "status": "FAILED",
+        "job_id": "vid_job_42",
+        "error": "GPU OOM during decode",
+    }

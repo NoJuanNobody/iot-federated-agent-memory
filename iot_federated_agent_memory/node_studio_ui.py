@@ -56,54 +56,114 @@ class _AvailableModelsTuple(tuple):
         return super().__len__()
 
 
+MODALITY_TABS: Tuple[Dict[str, str], ...] = (
+    {"id": "image", "label": "Image", "defaultModel": "gemini-nano-banana-2.1", "hint": "Generate, edit, or merge 2D images"},
+    {"id": "text", "label": "Text", "defaultModel": "gemini-3.1-pro", "hint": "Write scripts, brainstorm prompts, or analyze selected images"},
+    {"id": "video", "label": "Video", "defaultModel": "kling-4.0", "hint": "Generate 24/60fps video clips from text or reference images"},
+    {"id": "audio", "label": "Audio", "defaultModel": "google/lyria-3.5", "hint": "Generate music scores, voice narration (TTS), or sound effects"},
+    {"id": "3d", "label": "3D Mesh", "defaultModel": "hyper3d/rodin-v2.5", "hint": "Generate textured PBR .GLB 3D meshes with optional rigging"},
+    {"id": "atlas", "label": "3D Splat", "defaultModel": "worldlabs/atlas-v2", "hint": "Reconstruct a 3D Gaussian Splat (.SPZ) world from scene photos"},
+)
+
+
 AVAILABLE_MODELS: Tuple[Dict[str, str], ...] = _AvailableModelsTuple((
     {
         "id": "gemini-nano-banana-2.1",
         "name": "Nano Banana 2.1",
-        "badge": "Default",
+        "modality": "image",
+        "badge": "Image · Default",
         "description": "Text/Img/Vid/PDF • 1K-4K • 14 refs (4 chars, 10 objs) • Panoramic • Web+Img Search • Think",
     },
     {
         "id": "gemini-3-pro-image",
         "name": "Nano Banana Pro",
-        "badge": "Pro",
+        "modality": "image",
+        "badge": "Image · Pro",
         "description": "Text/Img • Studio 4K • Advanced Reasoning • Web Search Grounding",
     },
     {
         "id": "gemini-3.1-flash-image",
         "name": "Nano Banana 2",
-        "badge": "Flash",
-        "description": "Text/Img/Vid/PDF • 512-4K • 14 refs • Panoramic • Web+Img Search",
+        "modality": "image",
+        "badge": "Image · Flash",
+        "description": "Text/Img/Vid/PDF • 512-4K • 14 refs • Merge & Edit Images • Panoramic • Web+Img Search",
     },
     {
         "id": "gemini-3.1-flash-lite-image",
         "name": "Nano Banana 2 Lite",
-        "badge": "Lite",
+        "modality": "image",
+        "badge": "Image · Lite",
         "description": "Text/Img/Vid/PDF • Ultra-low latency 1K • Thinking minimal/high",
     },
     {
-        "id": "worldlabs/atlas-v2",
-        "name": "World Labs Atlas v2",
-        "badge": "Spatial",
-        "description": "images2PosedRGBD (.exr) • posedImages2Splats (2.0M .spz) • atlasGenerate (24fps) • splats2Mesh (.glb)",
+        "id": "gemini-3.1-pro",
+        "name": "Gemini 3.1 Pro",
+        "modality": "text",
+        "badge": "Text",
+        "description": "1M context • Vision + Text reasoning • Prompt writing, scripts & image analysis",
     },
     {
-        "id": "google/lyria-3.5",
-        "name": "Lyria 3.5 + ElevenLabs v4",
-        "badge": "Audio",
-        "description": "Multi-Track Audio (-14.0 LUFS) • Lyria 3.5 Score • ElevenLabs v4 + Kokoro TTS • SFX v3 Waves (.wav)",
+        "id": "nanogpt/TEE/deepseek-v4.1-flash",
+        "name": "DeepSeek v4.1 Flash (TEE)",
+        "modality": "text",
+        "badge": "Text · TEE",
+        "description": "Hardware-enclave private reasoning • Fast scripts, storyboards & prompt expansion",
+    },
+    {
+        "id": "nanogpt/Gemma-4-31B-Gembrain-uncensored-heretic",
+        "name": "Gemma 4 31B Gembrain",
+        "modality": "text",
+        "badge": "Text · Open",
+        "description": "262K context • Creative writing, brainstorming & unfiltered scene concepts",
     },
     {
         "id": "kling-4.0",
         "name": "Kling 4.0 + LTX-2.5",
+        "modality": "video",
         "badge": "Video",
-        "description": "1440p Text/Image-to-Video • Native synchronized audio • 24/60fps camera path & audio mux (.mp4)",
+        "description": "1440p Text/Image-to-Video • Native synchronized audio • 24/60fps camera motion (.mp4)",
+    },
+    {
+        "id": "ltx-video",
+        "name": "LTX-Video 24/60fps",
+        "modality": "video",
+        "badge": "Video · Fast",
+        "description": "Fast 24/60fps Text/Image-to-Video • Reference-guided motion & audio sync (.mp4)",
+    },
+    {
+        "id": "google/lyria-3.5",
+        "name": "Lyria 3.5 + ElevenLabs v4",
+        "modality": "audio",
+        "badge": "Audio · Music",
+        "description": "Instrumental score & multi-track audio (-14.0 LUFS · .wav) via Lyria 3.5",
+    },
+    {
+        "id": "elevenlabs/eleven-v4",
+        "name": "ElevenLabs v4 Voice TTS",
+        "modality": "audio",
+        "badge": "Audio · Voice",
+        "description": "Expressive narration & character dialogue text-to-speech (.wav)",
+    },
+    {
+        "id": "elevenlabs/sound-effects/v3",
+        "name": "ElevenLabs SFX v3",
+        "modality": "audio",
+        "badge": "Audio · SFX",
+        "description": "Cinematic foley, ambience & sound effects generation (.wav)",
     },
     {
         "id": "hyper3d/rodin-v2.5",
         "name": "Hyper3D Rodin v2.5 + Rig",
+        "modality": "3d",
         "badge": "3D",
-        "description": "Textured PBR .GLB synthesis • splats2Mesh colliders • Automatic biped/quadruped walk/run/idle rigging",
+        "description": "Textured PBR .GLB 3D mesh synthesis • Automatic biped/quadruped walk/run/idle rigging",
+    },
+    {
+        "id": "worldlabs/atlas-v2",
+        "name": "World Labs Atlas v2",
+        "modality": "atlas",
+        "badge": "Spatial",
+        "description": "3D Gaussian Splat (.spz) world reconstruction from 2–14 overlapping scene photos",
     },
 ))
 
@@ -147,53 +207,106 @@ MODEL_CAPABILITIES: Dict[str, Dict[str, Any]] = {
         "supportsVideoAndPdf": True,
         "maxReferences": 14,
     },
-    "worldlabs/atlas-v2": {
-        "modality": "atlas",
-        "resolutions": ["1280x720", "1K", "2K", "4K"],
-        "groundingModes": ["Off", "Web", "Image", "Web+Img"],
-        "panoramicAspects": True,
+    "gemini-3.1-pro": {
+        "modality": "text",
+        "resolutions": ["1K"],
+        "groundingModes": ["Off", "Web"],
+        "panoramicAspects": False,
         "thinkingLevels": ["minimal", "medium", "high"],
         "defaultThinkingLevel": "medium",
         "supportsVideoAndPdf": True,
         "maxReferences": 14,
-        "atlasTasks": [
-            "images2PosedRGBD",
-            "posedImages2Splats",
-            "atlasGenerate",
-            "splats2Mesh",
-            "atlasChisel",
-            "atlasTextToImage",
-        ],
     },
-    "google/lyria-3.5": {
-        "modality": "audio",
-        "resolutions": ["48kHz", "1K"],
-        "groundingModes": ["Off", "Web"],
+    "nanogpt/TEE/deepseek-v4.1-flash": {
+        "modality": "text",
+        "resolutions": ["1K"],
+        "groundingModes": ["Off"],
         "panoramicAspects": False,
-        "thinkingLevels": ["minimal", "medium"],
-        "defaultThinkingLevel": "minimal",
-        "supportsVideoAndPdf": True,
+        "thinkingLevels": ["minimal", "medium", "high"],
+        "defaultThinkingLevel": "medium",
+        "supportsVideoAndPdf": False,
+        "maxReferences": 14,
+    },
+    "nanogpt/Gemma-4-31B-Gembrain-uncensored-heretic": {
+        "modality": "text",
+        "resolutions": ["1K"],
+        "groundingModes": ["Off"],
+        "panoramicAspects": False,
+        "thinkingLevels": None,
+        "supportsVideoAndPdf": False,
         "maxReferences": 14,
     },
     "kling-4.0": {
         "modality": "video",
         "resolutions": ["1280x720", "1080p", "1440p", "4K"],
-        "groundingModes": ["Off", "Image", "Web+Img"],
+        "groundingModes": ["Off"],
         "panoramicAspects": True,
-        "thinkingLevels": ["minimal", "medium", "high"],
-        "defaultThinkingLevel": "medium",
+        "thinkingLevels": None,
         "supportsVideoAndPdf": True,
+        "maxReferences": 14,
+    },
+    "ltx-video": {
+        "modality": "video",
+        "resolutions": ["1280x720", "1080p"],
+        "groundingModes": ["Off"],
+        "panoramicAspects": False,
+        "thinkingLevels": None,
+        "supportsVideoAndPdf": True,
+        "maxReferences": 14,
+    },
+    "google/lyria-3.5": {
+        "modality": "audio",
+        "audioKind": "music",
+        "resolutions": ["48kHz"],
+        "groundingModes": ["Off"],
+        "panoramicAspects": False,
+        "thinkingLevels": None,
+        "supportsVideoAndPdf": False,
+        "maxReferences": 14,
+    },
+    "elevenlabs/eleven-v4": {
+        "modality": "audio",
+        "audioKind": "tts",
+        "resolutions": ["48kHz"],
+        "groundingModes": ["Off"],
+        "panoramicAspects": False,
+        "thinkingLevels": None,
+        "supportsVideoAndPdf": False,
+        "maxReferences": 14,
+    },
+    "elevenlabs/sound-effects/v3": {
+        "modality": "audio",
+        "audioKind": "sfx",
+        "resolutions": ["48kHz"],
+        "groundingModes": ["Off"],
+        "panoramicAspects": False,
+        "thinkingLevels": None,
+        "supportsVideoAndPdf": False,
         "maxReferences": 14,
     },
     "hyper3d/rodin-v2.5": {
         "modality": "3d",
         "resolutions": ["1K", "2K", "4K"],
-        "groundingModes": ["Off", "Image"],
+        "groundingModes": ["Off"],
         "panoramicAspects": False,
-        "thinkingLevels": ["minimal", "high"],
-        "defaultThinkingLevel": "minimal",
+        "thinkingLevels": None,
+        "supportsVideoAndPdf": False,
+        "maxReferences": 14,
+    },
+    "worldlabs/atlas-v2": {
+        "modality": "atlas",
+        "resolutions": ["1280x720", "1K", "2K", "4K"],
+        "groundingModes": ["Off"],
+        "panoramicAspects": True,
+        "thinkingLevels": None,
         "supportsVideoAndPdf": True,
         "maxReferences": 14,
+        "atlasTasks": [
+            "posedImages2Splats",
+            "images2PosedRGBD",
+            "atlasGenerate",
+            "splats2Mesh",
+        ],
     },
     "default": {
         "modality": "image",
@@ -318,14 +431,14 @@ SLASH_ROUTER_COMMANDS: Tuple[Dict[str, str], ...] = (
     {
         "command": "/text",
         "modality": "text",
-        "provider": "nanogpt",
-        "model": "gemini-nano-banana-2.1",
+        "provider": "auto",
+        "model": "gemini-3.1-pro",
         "atlas_task": "",
         "badge": "Text / Script",
         "pill": "● /text",
-        "title": "/text deepseek-v4.1-flash (TEE) | claude-sonnet-5.5 | gemini-4-argon",
-        "description": "Hardware enclave scene breakdown, RUB camera blockout scripting & prompt expansion",
-        "template": '/text deepseek-v4.1-flash "Hardware enclave scene breakdown for Lake Ashi Torii Gate"',
+        "title": "/text gemini-3.1-pro | deepseek-v4.1-flash (TEE) | gemma-4-31b",
+        "description": "Write scripts, refine prompts, analyze images, or brainstorm scene concepts",
+        "template": '/text "Write a vivid visual prompt for a dog floating in deep space"',
     },
 )
 
@@ -460,7 +573,7 @@ def _render_slash_router_popover_html() -> str:
 
 def _render_floating_terminal_html() -> str:
     return (
-        '<section id="nsFloatingTerminal" class="ns-floating-terminal ns-terminal-drawer" '
+        '<section id="nsFloatingTerminal" class="ns-floating-terminal ns-terminal-drawer hidden" '
         'aria-label="Node Studio Dark Terminal">'
         '<div class="ns-term-head">'
         '<div class="ns-term-title">'
@@ -474,18 +587,13 @@ def _render_floating_terminal_html() -> str:
         "</div>"
         "</div>"
         '<div id="nsTerminalLog" class="ns-term-log" role="log" aria-live="polite">'
-        '<div class="ns-term-line">you@tincan:~/space$ /atlas splat /images/torii_gate.jpg --views 14 --mesh --rig walk</div>'
-        '<div class="ns-term-line">[+] images2PosedRGBD (op_3e78434c) → SUCCEEDED (4.1s · fx=893.4, depth_0.exr)</div>'
-        '<div class="ns-term-line">[+] atlasGenerate (14 views) → posedImages2Splats → refinedSplats_2000000.spz</div>'
-        '<div class="ns-term-line">[+] splats2Mesh → /models3d/torii.glb → hyper3d/rigging (walk clip attached)</div>'
-        '<div class="ns-term-line">you@tincan:~/space$ /audio music "Ambient dusk koto + lake waves" --tts "Beyond the gate..."</div>'
-        '<div class="ns-term-line">[+] Saved /audio/torii_master.wav → Muxed with 24fps flythrough (/videos/torii_master.mp4)</div>'
+        '<div class="ns-term-line">you@tincan:~/space$ ready — type /image, /text, /video, /audio, /3d, /rig, or /atlas</div>'
         "</div>"
         '<div class="ns-term-input-bar">'
         '<span class="ns-term-ps">you@tincan:~/space$</span>'
         '<input id="nsTerminalInput" type="text" class="ns-term-input" '
-        'value="/video kling-4.0 --ref #2 --audio #3" '
-        'placeholder="Type /atlas, /audio, /video, /3d, /rig, /image, /text..." '
+        'value="" '
+        'placeholder="Type /image, /text, /video, /audio, /3d, /rig, /atlas..." '
         'onkeydown="if(event.key===\'Enter\'){event.preventDefault();window.TinCanNodeStudio.runTerminalCommand(this.value);}">'
         '<button id="nsTerminalRunBtn" type="button" class="ns-term-run-btn" '
         'onclick="window.TinCanNodeStudio.runTerminalCommand()">RUN ↵</button>'
@@ -494,105 +602,55 @@ def _render_floating_terminal_html() -> str:
     )
 
 
-def _render_omni_modal_showcase_nodes_html() -> str:
-    return (
-        '<div class="ns-canvas-node ns-omni-showcase-node" data-node-id="showcase-1" '
-        'style="left:210px;top:64px;width:246px;height:186px;">'
-        '<div class="ns-morph-card ns-omni-card">'
-        '<div class="ns-omni-pill">● #1 TEXT → 4K KEYFRAME</div>'
-        '<div class="ns-omni-box">'
-        "<div>[1280×720 · Lake Ashi Torii Gate]</div>"
-        "<div>/text deepseek-v4.1-flash (TEE Script) → /image nano-banana-2.1 · Sig ✓</div>"
-        "</div>"
-        '<div class="ns-omni-title">"Crimson Torii gate at Lake Ashi"</div>'
-        '<div class="ns-omni-sub">frames_0_image.jpg (162 KB) · asset_4da75cf7</div>'
-        "</div></div>"
-        '<div class="ns-canvas-node ns-omni-showcase-node" data-node-id="showcase-2" '
-        'style="left:210px;top:264px;width:246px;height:212px;">'
-        '<div class="ns-morph-card ns-omni-card">'
-        '<div class="ns-omni-top-row">'
-        '<span class="ns-omni-pill">● #2 ATLAS · images2PosedRGBD</span>'
-        '<button type="button" class="ns-splat-btn ns-splat-btn--expand" onclick="event.stopPropagation();window.TinCanNodeStudio.openSplatViewer(\'showcase-2\')">⤢ 3D</button>'
-        "</div>"
-        '<div class="ns-omni-box">'
-        "<div>[Linear Depth .EXR 267KB · Conf 98.4%]</div>"
-        "<div>RUB Cam: fx=893.4 fy=893.9 · Pos [0, 4.04, 0]</div>"
-        "<div>Centroid: [-1.99, 0, -36.35] · op_3e78434c ✓</div>"
-        "</div>"
-        '<div class="ns-omni-title">"/atlas pose · Posed RGBD + Frustum"</div>'
-        '<div class="ns-omni-sub ns-omni-green">Synced to /worlds/torii_3e78434c/ ✓</div>'
-        "</div></div>"
-        '<div class="ns-canvas-node ns-omni-showcase-node" data-node-id="showcase-3" '
-        'style="left:474px;top:264px;width:246px;height:212px;">'
-        '<div class="ns-morph-card ns-omni-card">'
-        '<div class="ns-omni-pill ns-omni-pill--outline">♪ #3 AUDIO · TTS + SCORE + SFX</div>'
-        '<div class="ns-omni-box">'
-        "<div>[Multi-Track Audio · -14.0 LUFS]</div>"
-        "<div>│┃│┃┃│┃┃ ElevenLabs v4 + Kokoro TTS</div>"
-        "<div>│┃│┃┃│┃┃ Lyria 3.5 Koto + SFX v3 Waves</div>"
-        "</div>"
-        '<div class="ns-omni-title">"/audio music + tts · Scene 01 Score"</div>'
-        '<div class="ns-omni-sub">/audio/torii_master.wav · 48kHz 24-bit</div>'
-        "</div></div>"
-        '<div class="ns-canvas-node ns-omni-showcase-node is-selected" data-node-id="showcase-4" '
-        'style="left:210px;top:490px;width:510px;height:348px;">'
-        '<div class="ns-morph-card ns-omni-card is-active">'
-        '<div class="ns-omni-top-row">'
-        '<span class="ns-omni-pill">❖ #4 OMNI-WORLD MASTER · SPLAT + GLB + MP4</span>'
-        '<span class="ns-omni-status-badge">✓ RIGGED + AUDIO MUXED</span>'
-        "</div>"
-        '<div class="ns-splat-stage" data-splat-stage="showcase-4">'
-        '<canvas id="nsSplatCanvas-showcase-4" class="ns-splat-canvas" data-splat-node-id="showcase-4" width="440" height="164"></canvas>'
-        '<div class="ns-splat-hud-top">'
-        '<span class="ns-splat-chip">● 2.0M SPLATS (.SPZ) · 14 RUB VIEWS</span>'
-        '<span class="ns-splat-chip">fx=893.4 · DRAG TO ORBIT</span>'
-        "</div>"
-        '<div class="ns-splat-toolbar">'
-        '<div class="ns-splat-btn-row">'
-        '<button type="button" class="ns-splat-btn is-active" onclick="event.stopPropagation();window.TinCanNodeStudio.setNodeSplatMode(\'showcase-4\',\'rgb\')">3D Splats</button>'
-        '<button type="button" class="ns-splat-btn" onclick="event.stopPropagation();window.TinCanNodeStudio.setNodeSplatMode(\'showcase-4\',\'depth\')">Depth .EXR</button>'
-        '<button type="button" class="ns-splat-btn is-active" onclick="event.stopPropagation();window.TinCanNodeStudio.toggleNodeFrustums(\'showcase-4\')">14 Frustums</button>'
-        "</div>"
-        '<button type="button" class="ns-splat-btn ns-splat-btn--expand" onclick="event.stopPropagation();window.TinCanNodeStudio.openSplatViewer(\'showcase-4\')">⤢ View 3D Splat</button>'
-        "</div>"
-        "</div>"
-        '<div class="ns-omni-grid-2">'
-        '<div class="ns-omni-box">'
-        "<div>[3D Gaussian Splat → GLB + Walk Rig]</div>"
-        "<div>• refinedSplats_2000000.spz (14 views)</div>"
-        "<div>• splats2Mesh → /models3d/torii.glb</div>"
-        "<div>• hyper3d/rigging → walk / idle clips ✓</div>"
-        "</div>"
-        '<div class="ns-omni-box">'
-        "<div>[24fps Flythrough + Audio Mux (.MP4)]</div>"
-        "<div>• atlasGenerate (120 Target Cams @ 24fps)</div>"
-        "<div>• Alternative: /video kling-4.0 | ltx-2.5</div>"
-        "<div>• Synced with Node #3 Lyria + TTS WAV ✓</div>"
-        "</div>"
-        "</div>"
-        '<div class="ns-omni-title">"360° Lake Ashi Shrine World (.spz + .glb) &amp; 24fps Narrated Flythrough (.mp4)"</div>'
-        '<div class="ns-omni-sub">Parents: [#2 Atlas RGBD + #3 Audio] · Via: World Labs Atlas v2 + NanoGPT · Selected for Timeline</div>'
-        "</div></div>"
-    )
+def _render_modality_bar_html() -> str:
+    btns: List[str] = []
+    for idx, tab in enumerate(MODALITY_TABS):
+        mid = _html.escape(tab["id"], quote=True)
+        lbl = _html.escape(tab["label"])
+        hint = _html.escape(tab["hint"], quote=True)
+        active_cls = " is-active" if idx == 0 else ""
+        pressed = "true" if idx == 0 else "false"
+        btns.append(
+            f'<button id="nsModTab-{mid}" type="button" class="ns-mod-tab{active_cls}" '
+            f'data-modality="{mid}" aria-pressed="{pressed}" title="{hint}" '
+            f'onclick="window.TinCanNodeStudio.selectModality(\'{mid}\')">{lbl}</button>'
+        )
+    return '<div id="nsModalityBar" class="ns-modality-bar" role="tablist" aria-label="Generation Modality">' + "".join(btns) + "</div>"
 
 
 def _render_model_menu_items_html() -> str:
+    group_labels = (
+        ("image", "Image"),
+        ("text", "Text"),
+        ("video", "Video"),
+        ("audio", "Audio"),
+        ("3d", "3D Mesh"),
+        ("atlas", "3D Splat"),
+    )
     items: List[str] = []
-    for idx, m in enumerate(AVAILABLE_MODELS):
-        mid = _html.escape(m["id"], quote=True)
-        active_cls = " is-selected" if idx == 0 else ""
+    for g_mod, g_title in group_labels:
+        group_models = [m for m in AVAILABLE_MODELS if m.get("modality", "image") == g_mod]
+        if not group_models:
+            continue
         items.append(
-            f'<button type="button" class="ns-model-opt{active_cls}" data-model-id="{mid}" '
-            f'onclick="window.TinCanNodeStudio.selectModel(\'{mid}\')">'
-            '<div class="ns-model-opt-top">'
-            f'<span class="ns-model-opt-name">{_html.escape(m["name"])}</span>'
-            '<span class="ns-model-opt-right">'
-            f'<span class="ns-model-badge">{_html.escape(m["badge"])}</span>'
-            '<span class="ns-model-check" aria-hidden="true">✓</span>'
-            "</span></div>"
-            f'<div class="ns-model-opt-desc">{_html.escape(m["description"])}</div>'
-            "</button>"
+            f'<div class="ns-model-group-hdr" data-model-group="{_html.escape(g_mod, quote=True)}">{_html.escape(g_title)}</div>'
         )
+        for m in group_models:
+            mid = _html.escape(m["id"], quote=True)
+            active_cls = " is-selected" if m["id"] == "gemini-nano-banana-2.1" else ""
+            items.append(
+                f'<button type="button" class="ns-model-opt{active_cls}" data-model-id="{mid}" '
+                f'data-model-modality="{_html.escape(g_mod, quote=True)}" '
+                f'onclick="window.TinCanNodeStudio.selectModel(\'{mid}\')">'
+                '<div class="ns-model-opt-top">'
+                f'<span class="ns-model-opt-name">{_html.escape(m["name"])}</span>'
+                '<span class="ns-model-opt-right">'
+                f'<span class="ns-model-badge">{_html.escape(m["badge"])}</span>'
+                '<span class="ns-model-check" aria-hidden="true">✓</span>'
+                "</span></div>"
+                f'<div class="ns-model-opt-desc">{_html.escape(m["description"])}</div>'
+                "</button>"
+            )
     return "".join(items)
 
 
@@ -737,7 +795,7 @@ def _node_studio_css() -> str:
     top: 10px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 50;
+    z-index: 60;
   }
   .ns-top-switcher {
     display: flex;
@@ -1451,7 +1509,19 @@ def _node_studio_css() -> str:
   .ns-api-foot { display: flex; align-items: center; justify-content: space-between; font-family: var(--ns-mono); font-size: 9px; color: var(--ns-faint); }
   .ns-api-clear { border: 0; background: transparent; color: var(--ns-danger); font-family: var(--ns-mono); font-size: 10px; font-weight: 600; cursor: pointer; }
 
-  .ns-model-menu { width: 360px; padding: 5px; gap: 2px; }
+  .ns-model-menu { width: 380px; max-height: 410px; overflow-y: auto; padding: 6px; gap: 2px; }
+  .ns-model-group-hdr {
+    font-family: var(--ns-mono);
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--ns-faint);
+    padding: 6px 8px 3px;
+    margin-top: 2px;
+    border-top: var(--ns-hair-soft);
+  }
+  .ns-model-group-hdr:first-of-type { border-top: 0; margin-top: 0; }
   .ns-model-opt {
     width: 100%;
     text-align: left;
@@ -1675,30 +1745,34 @@ def _node_studio_css() -> str:
   .ns-alt-view {
     position: absolute;
     inset: 0;
-    z-index: 10;
+    z-index: 52;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 70px 24px 32px;
+    justify-content: flex-start;
+    padding: 62px 24px 20px;
     background-color: var(--ns-bg);
     background-image: radial-gradient(rgba(17, 17, 17, 0.24) 1px, transparent 1px);
     background-size: 24px 24px;
+    overflow: hidden;
   }
   .ns-alt-view.hidden { display: none; }
   .ns-alt-card {
     width: 100%;
-    max-width: 720px;
+    max-width: 920px;
+    height: 100%;
+    max-height: 100%;
     background: var(--ns-card);
     border: var(--ns-hair);
     border-radius: 14px;
-    padding: 20px;
+    padding: 18px 20px;
     box-shadow: var(--ns-shadow);
     display: flex;
     flex-direction: column;
     gap: 12px;
+    overflow: hidden;
   }
-  .ns-alt-title { margin: 0; font-size: 18px; font-weight: 600; }
+  .ns-alt-title { margin: 0; font-size: 18px; font-weight: 600; color: var(--ns-ink); }
   .ns-alt-desc { margin: 0; font-size: 13px; color: var(--ns-muted); line-height: 1.5; }
   .ns-hidden-input { display: none; }
 
@@ -2052,39 +2126,36 @@ def _node_studio_css() -> str:
     background: #1f1f1f;
   }
 
-  /* Dedicated World Labs Atlas v2 Step-by-Step Workflow Bar */
-  .ns-atlas-bar {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    padding: 7px 12px;
-    border-top: var(--ns-hair-soft);
-    border-bottom: var(--ns-hair-soft);
+  /* 1-Click Modality Switcher Bar (Image | Text | Video | Audio | 3D Mesh | 3D Splat) */
+  .ns-modality-bar {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 9999px;
+    border: var(--ns-hair-soft);
     background: var(--ns-bg);
+  }
+  .ns-mod-tab {
+    border: 0;
+    background: transparent;
+    color: var(--ns-muted);
     font-family: var(--ns-mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: background 120ms, color 120ms;
+    white-space: nowrap;
   }
-  .ns-atlas-bar.hidden { display: none; }
-  .ns-atlas-bar-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-  .ns-atlas-steps {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    flex-wrap: wrap;
-  }
-  .ns-atlas-brand {
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    color: var(--ns-green);
-    text-transform: uppercase;
-    margin-right: 4px;
-  }
+  .ns-mod-tab:hover { color: var(--ns-ink); background: var(--ns-paper); }
+  .ns-mod-tab.is-active { background: var(--ns-ink); color: var(--ns-bg); }
+  .ns-setting-wrap.hidden { display: none; }
+  .ns-vdiv.hidden { display: none; }
+
+  /* Card Inline Action Buttons (Text / Audio / Video / 3D Mesh / Splat) */
+  .ns-card-action-btn,
   .ns-atlas-step-btn {
     border: var(--ns-hair-soft);
     background: var(--ns-paper);
@@ -2097,37 +2168,86 @@ def _node_studio_css() -> str:
     cursor: pointer;
     transition: background 120ms, border-color 120ms, color 120ms;
   }
+  .ns-card-action-btn:hover,
   .ns-atlas-step-btn:hover {
     border-color: var(--ns-ink);
     background: var(--ns-ink);
     color: var(--ns-bg);
   }
+  .ns-card-action-btn.is-primary,
   .ns-atlas-step-btn.is-primary {
     background: var(--ns-ink);
     color: var(--ns-bg);
     border-color: var(--ns-ink);
   }
+  .ns-card-action-btn.is-primary:hover,
   .ns-atlas-step-btn.is-primary:hover { opacity: 0.88; }
-  .ns-atlas-quality-btn {
-    border: 1px solid var(--ns-green);
-    background: rgba(16, 122, 71, 0.1);
-    color: var(--ns-green);
+
+  /* Upgraded Text, Audio, Video & 3D Mesh Node Cards */
+  .ns-msg-head { justify-content: space-between; }
+  .ns-msg-prompt-sub {
     font-family: var(--ns-mono);
     font-size: 10px;
-    font-weight: 700;
-    padding: 3px 9px;
-    border-radius: 9999px;
-    cursor: pointer;
-  }
-  .ns-atlas-quality-btn.is-refined {
-    border-color: var(--ns-ink);
-    background: var(--ns-ink);
-    color: var(--ns-bg);
-  }
-  .ns-atlas-tip {
-    font-size: 9px;
     color: var(--ns-faint);
-    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ns-msg-body {
+    user-select: text;
+    cursor: text;
+    padding: 6px 8px;
+    border-radius: 7px;
+    border: var(--ns-hair-soft);
+    background: var(--ns-paper);
+  }
+  .ns-card-foot-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 5px;
+    flex-wrap: wrap;
+    padding-top: 4px;
+    border-top: var(--ns-hair-soft);
+  }
+  .ns-card-foot-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+  .ns-audio-player {
+    width: 100%;
+    height: 32px;
+    display: block;
+    border-radius: 6px;
+  }
+  .ns-video-stage {
+    position: relative;
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 120px;
+    border-radius: 7px;
+    overflow: hidden;
+    border: var(--ns-hair-soft);
+    background: #080808;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ns-video-player {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .ns-video-placeholder {
+    padding: 10px;
+    text-align: center;
+    font-family: var(--ns-mono);
+    font-size: 10px;
+    color: #f5f5f5;
+    line-height: 1.45;
   }
   .ns-omni-error-box {
     border: 1px solid var(--ns-danger);
@@ -2176,17 +2296,65 @@ def _node_studio_css() -> str:
     background: rgba(16, 122, 71, 0.9);
     color: #ffffff;
   }
-  html[data-theme="dark"] .ns-atlas-bar,
-  body.tc-dark .ns-atlas-bar {
+  html[data-theme="dark"] .ns-modality-bar,
+  body.tc-dark .ns-modality-bar {
     background: #0c0c0c;
     border-color: #2e2e2e;
   }
+  html[data-theme="dark"] .ns-mod-tab,
+  body.tc-dark .ns-mod-tab {
+    color: #a3a3a3;
+  }
+  html[data-theme="dark"] .ns-mod-tab:hover,
+  body.tc-dark .ns-mod-tab:hover {
+    color: #f5f5f5;
+    background: #1a1a1a;
+  }
+  html[data-theme="dark"] .ns-mod-tab.is-active,
+  body.tc-dark .ns-mod-tab.is-active {
+    background: #ffffff;
+    color: #000000;
+  }
+  html[data-theme="dark"] .ns-model-group-hdr,
+  body.tc-dark .ns-model-group-hdr {
+    color: #a3a3a3;
+    border-color: #2e2e2e;
+  }
+  html[data-theme="dark"] .ns-model-opt,
+  body.tc-dark .ns-model-opt {
+    color: #f5f5f5;
+  }
+  html[data-theme="dark"] .ns-model-opt:hover,
+  body.tc-dark .ns-model-opt:hover,
+  html[data-theme="dark"] .ns-model-opt.is-selected,
+  body.tc-dark .ns-model-opt.is-selected {
+    background: #1a1a1a;
+    border-color: #ffffff;
+  }
+  html[data-theme="dark"] .ns-model-badge,
+  body.tc-dark .ns-model-badge {
+    background: #0e0e0e;
+    border-color: #2e2e2e;
+    color: #f5f5f5;
+  }
+  html[data-theme="dark"] .ns-msg-body,
+  body.tc-dark .ns-msg-body {
+    background: #0e0e0e;
+    border-color: #2e2e2e;
+    color: #f5f5f5;
+  }
+  html[data-theme="dark"] .ns-card-action-btn,
+  body.tc-dark .ns-card-action-btn,
   html[data-theme="dark"] .ns-atlas-step-btn,
   body.tc-dark .ns-atlas-step-btn {
     background: #151515;
     border-color: #2e2e2e;
     color: #f5f5f5;
   }
+  html[data-theme="dark"] .ns-card-action-btn:hover,
+  body.tc-dark .ns-card-action-btn:hover,
+  html[data-theme="dark"] .ns-card-action-btn.is-primary,
+  body.tc-dark .ns-card-action-btn.is-primary,
   html[data-theme="dark"] .ns-atlas-step-btn:hover,
   body.tc-dark .ns-atlas-step-btn:hover,
   html[data-theme="dark"] .ns-atlas-step-btn.is-primary,
@@ -2552,6 +2720,427 @@ def _node_studio_css() -> str:
   body.tc-dark .ns-slash-row.is-selected {
     border: 1.5px solid #ffffff !important;
   }
+
+  /* Async Status & Error Badges */
+  .ns-omni-status-badge.is-error {
+    border-color: var(--ns-danger);
+    color: var(--ns-danger);
+  }
+  .ns-spinner-pulse {
+    font-weight: 700;
+    animation: nsPulseCore 1.2s ease-in-out infinite;
+  }
+
+  /* Inline 3D Mesh (.GLB) Interactive Preview Stage & Inspector Modal */
+  .ns-omni-card {
+    height: 100%;
+  }
+  .ns-mesh-stage {
+    position: relative;
+    width: 100%;
+    height: 164px;
+    min-height: 164px;
+    border-radius: 8px;
+    border: var(--ns-hair);
+    background: #080808;
+    overflow: hidden;
+    user-select: none;
+  }
+  .ns-model-viewer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: transparent;
+    z-index: 2;
+  }
+  .ns-mesh-wire-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+    z-index: 1;
+  }
+  .ns-mesh-wire-canvas:active { cursor: grabbing; }
+  .ns-mesh-wire-canvas.is-hidden { display: none; }
+  .ns-mesh-stage-hud {
+    position: absolute;
+    left: 7px;
+    bottom: 6px;
+    z-index: 4;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: rgba(0, 0, 0, 0.78);
+    color: #f5f5f5;
+    font-family: var(--ns-mono);
+    font-size: 9px;
+    font-weight: 700;
+    pointer-events: none;
+  }
+  .ns-mesh-inspect-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 5;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    border: 1px solid #ffffff;
+    background: rgba(0, 0, 0, 0.84);
+    color: #ffffff;
+    font-family: var(--ns-mono);
+    font-size: 9px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .ns-mesh-inspect-btn:hover {
+    background: #ffffff;
+    color: #000000;
+  }
+  .ns-mesh-modal-viewport {
+    position: relative;
+    width: 100%;
+    height: min(460px, 62vh);
+    border-radius: 12px;
+    border: 1.5px solid #111111;
+    background: #080808;
+    overflow: hidden;
+  }
+  .ns-mesh-modal-viewport model-viewer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+  }
+
+  /* Synced Conversation (Chat) View */
+  .ns-chat-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-bottom: 10px;
+    border-bottom: var(--ns-hair-soft);
+  }
+  .ns-chat-meta {
+    font-family: var(--ns-mono);
+    font-size: 11px;
+    color: var(--ns-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .ns-chat-feed {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 4px 2px;
+    user-select: text;
+  }
+  .ns-chat-turn {
+    border: var(--ns-hair-soft);
+    border-radius: 10px;
+    background: var(--ns-paper);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ns-chat-turn.is-selected {
+    border: 1.5px solid var(--ns-ink);
+  }
+  .ns-chat-turn-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .ns-chat-turn-badges {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .ns-chat-model {
+    font-family: var(--ns-mono);
+    font-size: 10px;
+    color: var(--ns-muted);
+  }
+  .ns-chat-prompt {
+    font-family: var(--ns-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ns-ink);
+    padding: 6px 8px;
+    border-radius: 7px;
+    background: var(--ns-bg);
+    border: var(--ns-hair-soft);
+  }
+  .ns-chat-text {
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--ns-ink);
+    white-space: pre-wrap;
+    word-break: break-word;
+    user-select: text;
+  }
+  .ns-chat-thumb {
+    max-width: 240px;
+    max-height: 200px;
+    border-radius: 8px;
+    border: var(--ns-hair-soft);
+    object-fit: cover;
+    display: block;
+  }
+  .ns-chat-media-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-family: var(--ns-mono);
+    font-size: 11px;
+    color: var(--ns-ink);
+  }
+  .ns-chat-empty {
+    padding: 36px 16px;
+    text-align: center;
+    font-family: var(--ns-mono);
+    font-size: 12px;
+    color: var(--ns-faint);
+    border: 1px dashed rgba(17, 17, 17, 0.25);
+    border-radius: 10px;
+    background: var(--ns-paper);
+  }
+  .ns-chat-composer {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: var(--ns-hair-soft);
+  }
+  .ns-chat-input {
+    flex: 1 1 auto;
+    min-height: 40px;
+    max-height: 120px;
+    padding: 9px 12px;
+    border-radius: 9px;
+    border: var(--ns-hair);
+    background: var(--ns-paper);
+    color: var(--ns-ink);
+    font-family: var(--ns-font);
+    font-size: 13px;
+    resize: none;
+    outline: none;
+  }
+  .ns-chat-input::placeholder { color: var(--ns-faint); }
+  .ns-chat-send-btn {
+    height: 40px;
+    padding: 0 16px;
+    border-radius: 9px;
+    border: var(--ns-hair);
+    background: var(--ns-ink);
+    color: var(--ns-bg);
+    font-family: var(--ns-mono);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .ns-chat-send-btn:hover { opacity: 0.88; }
+
+  /* Synced Asset Library View */
+  .ns-lib-filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-bottom: 8px;
+    border-bottom: var(--ns-hair-soft);
+  }
+  .ns-lib-chips {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .ns-lib-chip {
+    border: var(--ns-hair-soft);
+    background: var(--ns-paper);
+    color: var(--ns-muted);
+    font-family: var(--ns-mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    cursor: pointer;
+  }
+  .ns-lib-chip:hover { color: var(--ns-ink); border-color: var(--ns-ink); }
+  .ns-lib-chip.is-active {
+    background: var(--ns-ink);
+    color: var(--ns-bg);
+    border-color: var(--ns-ink);
+  }
+  .ns-lib-search {
+    width: 220px;
+    max-width: 100%;
+    height: 30px;
+    padding: 0 10px;
+    border: var(--ns-hair-soft);
+    border-radius: 7px;
+    background: var(--ns-paper);
+    color: var(--ns-ink);
+    font-family: var(--ns-mono);
+    font-size: 11px;
+    outline: none;
+  }
+  .ns-lib-search:focus { border-color: var(--ns-ink); }
+  .ns-lib-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 10px;
+    align-content: start;
+    padding: 2px;
+  }
+  .ns-lib-asset-card {
+    border: var(--ns-hair-soft);
+    border-radius: 10px;
+    background: var(--ns-paper);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .ns-lib-asset-card:hover { border-color: var(--ns-ink); }
+  .ns-lib-preview {
+    height: 116px;
+    border-radius: 7px;
+    border: var(--ns-hair-soft);
+    background: var(--ns-bg);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    text-align: center;
+    font-family: var(--ns-mono);
+    font-size: 10px;
+    color: var(--ns-ink);
+    position: relative;
+  }
+  .ns-lib-preview img,
+  .ns-lib-preview video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 5px;
+    display: block;
+  }
+  .ns-lib-preview-text {
+    font-family: var(--ns-font);
+    font-size: 11px;
+    line-height: 1.38;
+    text-align: left;
+    overflow: hidden;
+    max-height: 100%;
+    width: 100%;
+  }
+  .ns-lib-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .ns-lib-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ns-ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ns-lib-sub {
+    font-family: var(--ns-mono);
+    font-size: 9px;
+    color: var(--ns-faint);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ns-lib-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    padding-top: 4px;
+    border-top: var(--ns-hair-soft);
+  }
+  .ns-lib-actions-left { display: inline-flex; align-items: center; gap: 4px; }
+
+  /* Monochrome Dark Mode Overrides for 3D Mesh, Chat & Library Views */
+  html[data-theme="dark"] .ns-alt-card,
+  body.tc-dark .ns-alt-card {
+    background: #0e0e0e !important;
+    border-color: #2e2e2e !important;
+    color: #f5f5f5 !important;
+  }
+  html[data-theme="dark"] .ns-mesh-stage,
+  body.tc-dark .ns-mesh-stage,
+  html[data-theme="dark"] .ns-mesh-modal-viewport,
+  body.tc-dark .ns-mesh-modal-viewport {
+    border-color: #ffffff !important;
+    background: #000000 !important;
+  }
+  html[data-theme="dark"] .ns-chat-turn,
+  body.tc-dark .ns-chat-turn,
+  html[data-theme="dark"] .ns-chat-empty,
+  body.tc-dark .ns-chat-empty,
+  html[data-theme="dark"] .ns-chat-input,
+  body.tc-dark .ns-chat-input,
+  html[data-theme="dark"] .ns-lib-chip,
+  body.tc-dark .ns-lib-chip,
+  html[data-theme="dark"] .ns-lib-search,
+  body.tc-dark .ns-lib-search,
+  html[data-theme="dark"] .ns-lib-asset-card,
+  body.tc-dark .ns-lib-asset-card {
+    background: #151515 !important;
+    border-color: #2e2e2e !important;
+    color: #f5f5f5 !important;
+  }
+  html[data-theme="dark"] .ns-chat-prompt,
+  body.tc-dark .ns-chat-prompt,
+  html[data-theme="dark"] .ns-lib-preview,
+  body.tc-dark .ns-lib-preview {
+    background: #080808 !important;
+    border-color: #2e2e2e !important;
+    color: #f5f5f5 !important;
+  }
+  html[data-theme="dark"] .ns-chat-turn.is-selected,
+  body.tc-dark .ns-chat-turn.is-selected,
+  html[data-theme="dark"] .ns-lib-asset-card:hover,
+  body.tc-dark .ns-lib-asset-card:hover {
+    border-color: #ffffff !important;
+  }
+  html[data-theme="dark"] .ns-chat-send-btn,
+  body.tc-dark .ns-chat-send-btn,
+  html[data-theme="dark"] .ns-lib-chip.is-active,
+  body.tc-dark .ns-lib-chip.is-active {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border-color: #ffffff !important;
+  }
 </style>"""
 
 
@@ -2577,6 +3166,15 @@ def _node_studio_js(initial_view: str) -> str:
   const SLASH_COMMANDS = __SLASH_CMDS_JSON__;
   const MAX_CONCURRENT_RUNS = 2;
 
+  const MODALITY_DEFAULTS = {
+    image: "gemini-nano-banana-2.1",
+    text: "gemini-3.1-pro",
+    video: "kling-4.0",
+    audio: "google/lyria-3.5",
+    "3d": "hyper3d/rodin-v2.5",
+    atlas: "worldlabs/atlas-v2"
+  };
+
   const state = {
     view: __INIT_VIEW__,
     nodes: [],
@@ -2584,14 +3182,19 @@ def _node_studio_js(initial_view: str) -> str:
     selectedIds: [],
     references: [],
     modality: "image",
-    activeSlashCommand: "/atlas splat",
+    activeSlashCommand: "",
     model: "gemini-nano-banana-2.1",
+    lastModelByModality: Object.assign({}, MODALITY_DEFAULTS),
     aspectRatio: "1:1",
     resolution: "1K",
     thinkingLevel: "medium",
     includeThoughts: false,
     groundingMode: "Off",
     provider: "auto",
+    videoFps: "60",
+    audioKind: "music",
+    meshTier: "Regular",
+    atlasTask: "posedImages2Splats",
     activeRuns: 0,
     activeConversationNodeId: null,
     apiKey: "",
@@ -2610,6 +3213,7 @@ def _node_studio_js(initial_view: str) -> str:
     metaHeld: false,
     isShortcutsPinned: false,
     isLeftCollapsed: true,
+    isTerminalOpen: false,
     pillPos: { x: 10, y: 240 },
     isDraggingPill: false,
     pillOffset: { x: 0, y: 0 },
@@ -2625,7 +3229,8 @@ def _node_studio_js(initial_view: str) -> str:
     _autoSaveTimer: null,
     _suppressAutoSave: false,
     atlasRefine: false,
-    isAtlasBarOpen: true
+    libraryFilter: "all",
+    libraryQuery: ""
   };
 
   function $(id) { return document.getElementById(id); }
@@ -2642,14 +3247,45 @@ def _node_studio_js(initial_view: str) -> str:
     return CAPS[state.model] || CAPS.default;
   }
 
+  function getModelName(mid) {
+    const found = MODELS.find((m) => m.id === mid);
+    return found ? found.name : (mid || "Model");
+  }
+
   function deriveMode() {
     if (state.references.length > 1 || state.selectedIds.length > 1) return "MERGE";
     if (state.references.length === 1 || state.selectedIds.length === 1) return "EDIT";
     return "GENERATE";
   }
 
+  function selectModality(mod) {
+    const valid = MODALITY_DEFAULTS[mod] ? mod : "image";
+    state.modality = valid;
+    const preferred = (state.lastModelByModality && state.lastModelByModality[valid]) || MODALITY_DEFAULTS[valid];
+    if (CAPS[preferred]) {
+      state.model = preferred;
+    }
+    const caps = getCaps();
+    if (caps && caps.audioKind) {
+      state.audioKind = caps.audioKind;
+    }
+    state.activeSlashCommand = "";
+    const pill = $("nsActiveSlashPill");
+    if (pill) pill.classList.add("hidden");
+    if (valid === "atlas") {
+      state.provider = "worldlabs";
+    } else if (valid === "3d") {
+      state.provider = "hyper3d";
+    } else {
+      state.provider = "auto";
+    }
+    syncCapabilitiesAndControls();
+    renderPromptIslandStatus();
+  }
+
   function syncCapabilitiesAndControls() {
     const caps = getCaps();
+    const mod = state.modality || (caps && caps.modality) || "image";
     const aspects = caps.panoramicAspects ? STD_ASPECTS.concat(PANO_ASPECTS) : STD_ASPECTS;
     if (aspects.indexOf(state.aspectRatio) === -1) state.aspectRatio = "1:1";
     if (caps.resolutions.indexOf(state.resolution) === -1) {
@@ -2664,6 +3300,24 @@ def _node_studio_js(initial_view: str) -> str:
       state.includeThoughts = false;
     }
 
+    // Highlight active 1-click Modality Tab
+    document.querySelectorAll(".ns-mod-tab").forEach((btn) => {
+      const isAct = btn.dataset && btn.dataset.modality === mod;
+      btn.classList.toggle("is-active", !!isAct);
+      btn.setAttribute("aria-pressed", isAct ? "true" : "false");
+    });
+
+    const showAspect = mod === "image" || mod === "video";
+    const showRes = mod === "image" || mod === "video";
+    const showThink = (mod === "image" || mod === "text") && !!caps.thinkingLevels;
+    const showSearch = (mod === "image" || mod === "text") && caps.groundingModes.length > 1;
+    const showFps = mod === "video";
+    const showAudioKind = mod === "audio";
+    const showMeshTier = mod === "3d";
+    const showAtlasControls = mod === "atlas";
+
+    const aspectWrap = $("nsAspectWrap");
+    if (aspectWrap) aspectWrap.classList.toggle("hidden", !showAspect);
     const aspectSel = $("nsAspectSelect");
     if (aspectSel) {
       aspectSel.innerHTML = aspects.map((a) => '<option value="' + a + '">' + a + "</option>").join("");
@@ -2672,6 +3326,11 @@ def _node_studio_js(initial_view: str) -> str:
     const aspectVal = $("nsAspectVal");
     if (aspectVal) aspectVal.textContent = state.aspectRatio;
 
+    const resWrap = $("nsResWrap");
+    if (resWrap) {
+      resWrap.classList.toggle("hidden", !showRes);
+      resWrap.classList.toggle("is-disabled", caps.resolutions.length <= 1);
+    }
     const resSel = $("nsResSelect");
     if (resSel) {
       resSel.innerHTML = caps.resolutions.map((r) => '<option value="' + r + '">' + r + "</option>").join("");
@@ -2679,14 +3338,15 @@ def _node_studio_js(initial_view: str) -> str:
     }
     const resVal = $("nsResVal");
     if (resVal) resVal.textContent = state.resolution;
-    const resWrap = $("nsResWrap");
-    if (resWrap) resWrap.classList.toggle("is-disabled", caps.resolutions.length <= 1);
 
     const thinkWrap = $("nsThinkWrap");
     const thoughtsBtn = $("nsThoughtsBtn");
-    if (thinkWrap) thinkWrap.classList.toggle("is-disabled", !caps.thinkingLevels);
+    if (thinkWrap) {
+      thinkWrap.classList.toggle("hidden", !showThink);
+      thinkWrap.classList.toggle("is-disabled", !caps.thinkingLevels);
+    }
     if (thoughtsBtn) {
-      thoughtsBtn.classList.toggle("hidden", !caps.thinkingLevels);
+      thoughtsBtn.classList.toggle("hidden", !showThink);
       thoughtsBtn.classList.toggle("is-active", !!state.includeThoughts);
     }
     const thinkSel = $("nsThinkSelect");
@@ -2698,7 +3358,10 @@ def _node_studio_js(initial_view: str) -> str:
     if (thinkVal) thinkVal.textContent = caps.thinkingLevels ? state.thinkingLevel : "off";
 
     const searchWrap = $("nsSearchWrap");
-    if (searchWrap) searchWrap.classList.toggle("is-disabled", caps.groundingModes.length <= 1);
+    if (searchWrap) {
+      searchWrap.classList.toggle("hidden", !showSearch);
+      searchWrap.classList.toggle("is-disabled", caps.groundingModes.length <= 1);
+    }
     const searchSel = $("nsSearchSelect");
     if (searchSel) {
       searchSel.innerHTML = caps.groundingModes.map((g) => '<option value="' + g + '">' + g + "</option>").join("");
@@ -2707,15 +3370,62 @@ def _node_studio_js(initial_view: str) -> str:
     const searchVal = $("nsSearchVal");
     if (searchVal) searchVal.textContent = state.groundingMode;
 
+    const fpsWrap = $("nsFpsWrap");
+    if (fpsWrap) fpsWrap.classList.toggle("hidden", !showFps);
+    const fpsVal = $("nsFpsVal");
+    if (fpsVal) fpsVal.textContent = state.videoFps + "fps";
+    const fpsSel = $("nsFpsSelect");
+    if (fpsSel) fpsSel.value = state.videoFps;
+
+    const audioKindWrap = $("nsAudioKindWrap");
+    if (audioKindWrap) audioKindWrap.classList.toggle("hidden", !showAudioKind);
+    const audioKindVal = $("nsAudioKindVal");
+    if (audioKindVal) {
+      audioKindVal.textContent = state.audioKind === "tts" ? "Voice TTS" : (state.audioKind === "sfx" ? "SFX" : "Music");
+    }
+    const audioKindSel = $("nsAudioKindSelect");
+    if (audioKindSel) audioKindSel.value = state.audioKind;
+
+    const meshTierWrap = $("nsMeshTierWrap");
+    if (meshTierWrap) meshTierWrap.classList.toggle("hidden", !showMeshTier);
+    const meshTierVal = $("nsMeshTierVal");
+    if (meshTierVal) meshTierVal.textContent = state.meshTier;
+    const meshTierSel = $("nsMeshTierSelect");
+    if (meshTierSel) meshTierSel.value = state.meshTier;
+
+    const atlasTaskWrap = $("nsAtlasTaskWrap");
+    if (atlasTaskWrap) atlasTaskWrap.classList.toggle("hidden", !showAtlasControls);
+    const atlasTaskVal = $("nsAtlasTaskVal");
+    if (atlasTaskVal) {
+      const taskLabels = {
+        posedImages2Splats: "Build Splat",
+        images2PosedRGBD: "Pose RGBD",
+        atlasGenerate: "6 Views",
+        splats2Mesh: "Export GLB"
+      };
+      atlasTaskVal.textContent = taskLabels[state.atlasTask] || "Build Splat";
+    }
+    const atlasTaskSel = $("nsAtlasTaskSelect");
+    if (atlasTaskSel) atlasTaskSel.value = state.atlasTask;
+
+    const atlasQualWrap = $("nsAtlasQualWrap");
+    if (atlasQualWrap) atlasQualWrap.classList.toggle("hidden", !showAtlasControls);
+    const atlasQualVal = $("nsAtlasQualVal");
+    if (atlasQualVal) atlasQualVal.textContent = state.atlasRefine ? "Refined (18m)" : "Draft (~30s)";
+    const atlasQualSel = $("nsAtlasQualSelect");
+    if (atlasQualSel) atlasQualSel.value = state.atlasRefine ? "refined" : "draft";
+
     const viaVal = $("nsViaVal");
     if (viaVal) viaVal.textContent = state.provider;
+    const viaSel = $("nsViaSelect");
+    if (viaSel) viaSel.value = state.provider;
 
     const refCounter = $("nsRefCounter");
     const imgRefCount = state.references.filter((r) => r.type === "image").length;
     if (refCounter) {
-      if (state.modality === "atlas" || state.model === "worldlabs/atlas-v2") {
+      if (mod === "atlas" || state.model === "worldlabs/atlas-v2") {
         refCounter.textContent = imgRefCount + "/" + caps.maxReferences +
-          (imgRefCount >= 3 ? " views · Multi-view Splat ready ✓" : " views (select 3–14 photos for Splat)");
+          (imgRefCount >= 2 ? " views · Multi-view Splat ready ✓" : " views (select 2–14 scene photos)");
       } else {
         refCounter.textContent = state.references.length + "/" + caps.maxReferences +
           (caps.supportsVideoAndPdf ? " refs (Img/Vid/PDF)" : " refs");
@@ -2726,9 +3436,28 @@ def _node_studio_js(initial_view: str) -> str:
 
     const promptInput = $("nsPromptInput");
     if (promptInput) {
-      promptInput.placeholder = state.references.length > 0
-        ? "Describe how to change or combine these references..."
-        : "Describe what you want to generate...";
+      const refCount = state.references.length;
+      if (mod === "text") {
+        promptInput.placeholder = refCount > 0
+          ? "Ask about or transform the selected node(s)..."
+          : "Ask a question, write a script, or brainstorm a prompt...";
+      } else if (mod === "video") {
+        promptInput.placeholder = refCount > 0
+          ? "Describe camera motion or animate the selected image(s)..."
+          : "Describe a video scene and camera motion...";
+      } else if (mod === "audio") {
+        promptInput.placeholder = state.audioKind === "tts"
+          ? "Enter narration or dialogue text to speak aloud..."
+          : (state.audioKind === "sfx" ? "Describe the sound effect or ambience..." : "Describe the music score or mood...");
+      } else if (mod === "3d") {
+        promptInput.placeholder = "Describe a 3D object or character to generate as a .GLB mesh...";
+      } else if (mod === "atlas") {
+        promptInput.placeholder = "Select 2–14 overlapping scene photos and describe the 3D Splat world...";
+      } else {
+        promptInput.placeholder = refCount > 1
+          ? "Describe how to merge or combine these " + refCount + " references (e.g. 'Put this dog in space')..."
+          : (refCount === 1 ? "Describe how to edit this reference..." : "Describe what you want to generate...");
+      }
     }
 
     const modelObj = MODELS.find((m) => m.id === state.model);
@@ -2741,6 +3470,7 @@ def _node_studio_js(initial_view: str) -> str:
 
   function renderPromptIslandStatus() {
     const mode = deriveMode();
+    const mod = state.modality || "image";
     const pill = $("nsModePill");
     if (pill) {
       pill.textContent = mode + " MODE";
@@ -2768,7 +3498,22 @@ def _node_studio_js(initial_view: str) -> str:
     const hasPrompt = promptEl ? promptEl.value.trim().length > 0 : false;
     const hasPhotos = state.references.filter((r) => r.type === "image").length > 0;
     const genBtn = $("nsGenerateBtn");
-    if (genBtn) genBtn.disabled = (!hasPrompt && !hasPhotos) || state.activeRuns >= MAX_CONCURRENT_RUNS;
+    if (genBtn) {
+      const canRunWithoutPrompt = mod === "atlas" && hasPhotos;
+      genBtn.disabled = (!hasPrompt && !canRunWithoutPrompt) || state.activeRuns >= MAX_CONCURRENT_RUNS;
+      const lblMap = {
+        image: mode === "MERGE" ? "Merge Images →" : (mode === "EDIT" ? "Edit Image →" : "Generate →"),
+        text: mode === "GENERATE" ? "Generate Text →" : "Reply / Transform →",
+        video: "Generate Video →",
+        audio: "Generate Audio →",
+        "3d": "Generate 3D →",
+        atlas: "Build 3D Splat →"
+      };
+      genBtn.textContent = lblMap[mod] || "Generate →";
+    }
+    if (state.view === "conversation") {
+      renderConversationView();
+    }
   }
 
   function renderReferencesStrip() {
@@ -2832,15 +3577,17 @@ def _node_studio_js(initial_view: str) -> str:
         id: r.id || ("ref-" + out.length),
         name: r.name || ("view_" + out.length + ".jpg"),
         type: r.type || "image",
-        mimeType: r.mimeType || "image/jpeg",
+        mimeType: r.mimeType || (r.type === "text" ? "text/plain" : "image/jpeg"),
         url: r.url || "",
-        base64: b64
+        base64: b64,
+        text: r.text || ""
       });
     }
     state.references.forEach(pushRef);
     state.selectedIds.forEach((pid) => {
       const n = state.nodes.find((x) => x.id === pid);
-      if (n && n.content && (n.content.imageUrl || n.content.base64)) {
+      if (!n || !n.content) return;
+      if (n.content.imageUrl || n.content.base64) {
         pushRef({
           id: n.id,
           name: n.label || (n.id + ".png"),
@@ -2848,6 +3595,14 @@ def _node_studio_js(initial_view: str) -> str:
           mimeType: n.content.mimeType || "image/png",
           url: n.content.imageUrl || "",
           base64: n.content.base64 || _extractDataUrlBase64(n.content.imageUrl)
+        });
+      } else if (n.content.text && (n.morphingStatus === "text" || n.morphingStatus === "message" || n.modality === "text")) {
+        pushRef({
+          id: n.id,
+          name: (n.label || n.id).slice(0, 32),
+          type: "text",
+          mimeType: "text/plain",
+          text: String(n.content.text)
         });
       }
     });
@@ -2909,6 +3664,18 @@ def _node_studio_js(initial_view: str) -> str:
           mimeType: n.content.mimeType || "image/png",
           name: n.label || n.id,
           type: "image"
+        });
+      } else if (!seenIds.has(n.id) && n.content && n.content.text && (n.morphingStatus === "text" || n.morphingStatus === "message" || n.modality === "text")) {
+        seenIds.add(n.id);
+        nextRefs.push({
+          id: n.id,
+          source: "node",
+          url: "",
+          base64: "",
+          text: String(n.content.text),
+          mimeType: "text/plain",
+          name: (n.label || n.id).slice(0, 28),
+          type: "text"
         });
       }
     });
@@ -2997,26 +3764,313 @@ def _node_studio_js(initial_view: str) -> str:
     );
   }
 
+  function renderTextCardInner(node) {
+    const nid = escapeHtml(node.id);
+    const meta = node.metadata || {};
+    const modelLbl = escapeHtml(getModelName(meta.model || state.model));
+    const promptTxt = escapeHtml(meta.prompt || node.label || "");
+    const bodyTxt = escapeHtml((node.content && node.content.text) || node.label || "");
+    return (
+      '<div class="ns-msg-card">' +
+      '<div class="ns-msg-head">' +
+      '<span class="ns-omni-pill">TEXT · ' + modelLbl + "</span>" +
+      '<button type="button" class="ns-card-action-btn" title="Copy text" onclick="event.stopPropagation();window.TinCanNodeStudio.copyNodeText(\'' + nid + '\')">Copy</button>' +
+      "</div>" +
+      (promptTxt ? '<div class="ns-msg-prompt-sub" title="' + promptTxt + '">Prompt: ' + promptTxt + "</div>" : "") +
+      '<div class="ns-msg-body" onmousedown="event.stopPropagation()">' + bodyTxt + "</div>" +
+      '<div class="ns-card-foot-bar" onmousedown="event.stopPropagation()">' +
+      '<div class="ns-card-foot-group">' +
+      '<button type="button" class="ns-card-action-btn is-primary" title="Use this text to generate an Image" onclick="event.stopPropagation();window.TinCanNodeStudio.sendTextToImage(\'' + nid + '\')">→ To Image</button>' +
+      '<button type="button" class="ns-card-action-btn" title="Continue or refine this text node" onclick="event.stopPropagation();window.TinCanNodeStudio.replyToTextNode(\'' + nid + '\')">Reply</button>' +
+      "</div>" +
+      '<button type="button" class="ns-card-action-btn" title="Attach as reference" onclick="event.stopPropagation();window.TinCanNodeStudio.addNodeAsRef(\'' + nid + '\')">+ Ref</button>' +
+      "</div>" +
+      "</div>"
+    );
+  }
+
+  function renderAudioCardInner(node) {
+    const nid = escapeHtml(node.id);
+    const meta = node.metadata || {};
+    const c = node.content || {};
+    const promptTxt = escapeHtml(meta.prompt || node.label || "");
+    const audioKindLbl = String(c.kind || meta.audioKind || "music").toUpperCase();
+    const audioSrc = c.audioUrl || (c.audioBytesB64 ? ("data:" + (c.mimeType || "audio/wav") + ";base64," + c.audioBytesB64) : "");
+    const playerHtml = audioSrc
+      ? '<audio class="ns-audio-player" controls src="' + escapeHtml(audioSrc) + '" onmousedown="event.stopPropagation()"></audio>'
+      : "";
+    return (
+      '<div class="ns-omni-card">' +
+      '<div class="ns-omni-top-row">' +
+      '<span class="ns-omni-pill ns-omni-pill--outline">♪ AUDIO · TTS + SCORE + SFX</span>' +
+      '<span class="ns-omni-status-badge">' + escapeHtml(audioKindLbl) + " · -14 LUFS</span>" +
+      "</div>" +
+      '<div class="ns-omni-box">' +
+      "<div>│┃│┃┃│┃┃ " + escapeHtml(getModelName(meta.model || "google/lyria-3.5")) + "</div>" +
+      "<div>" + escapeHtml(c.vfsPath || meta.vfsPath || "/audio/output.wav · 48kHz 24-bit") + "</div>" +
+      "</div>" +
+      playerHtml +
+      '<div class="ns-omni-title">' + promptTxt + "</div>" +
+      '<div class="ns-card-foot-bar" onmousedown="event.stopPropagation()">' +
+      '<span class="ns-omni-sub">' + escapeHtml(c.vfsPath || meta.vfsPath || "48kHz WAV") + "</span>" +
+      '<button type="button" class="ns-card-action-btn" onclick="event.stopPropagation();window.TinCanNodeStudio.downloadNode(\'' + nid + '\')">↓ .WAV</button>' +
+      "</div>" +
+      "</div>"
+    );
+  }
+
+  let _modelViewerPromise = null;
+  const modalMeshState = {
+    activeNodeId: null,
+    autoRotate: true,
+    animPlaying: true,
+    yaw: 0.55,
+    pitch: 0.34,
+    zoom: 1.0,
+    rafId: null,
+    viewerEl: null,
+    loadedRealGlb: false
+  };
+
+  function ensureModelViewer() {
+    if (typeof window !== "undefined" && window.customElements &&
+        typeof window.customElements.get === "function" && window.customElements.get("model-viewer")) {
+      return Promise.resolve(true);
+    }
+    if (_modelViewerPromise) return _modelViewerPromise;
+    if (typeof document === "undefined" || !document.head || typeof document.head.appendChild !== "function") {
+      return Promise.reject(new Error("DOM head unavailable; using wireframe preview"));
+    }
+    _modelViewerPromise = new Promise((resolve, reject) => {
+      try {
+        const s = document.createElement("script");
+        s.type = "module";
+        s.src = "https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js";
+        s.onload = () => resolve(true);
+        s.onerror = () => {
+          _modelViewerPromise = null;
+          reject(new Error("Offline or CDN unreachable; showing isometric wireframe preview"));
+        };
+        document.head.appendChild(s);
+      } catch (err) {
+        _modelViewerPromise = null;
+        reject(err);
+      }
+    });
+    return _modelViewerPromise;
+  }
+
+  function _decodeBase64Bytes(b64) {
+    const clean = String(b64 || "").replace(/^data:[^;]+;base64,/, "").trim();
+    if (!clean) return new Uint8Array(0);
+    if (typeof atob === "function") {
+      const bin = atob(clean);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      return arr;
+    }
+    if (typeof Buffer !== "undefined") {
+      const buf = Buffer.from(clean, "base64");
+      return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+    }
+    return new Uint8Array(0);
+  }
+
+  function _revokeNodeGlbBlobUrl(node) {
+    if (!node) return;
+    if (node._glbBlobUrl && typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") {
+      try { URL.revokeObjectURL(node._glbBlobUrl); } catch (_e) {}
+    }
+    node._glbBlobUrl = "";
+    node._glbBlobSourceB64 = "";
+  }
+
+  function _cleanupNodeResources(node) {
+    if (!node) return;
+    if (node._pollTimer) {
+      clearInterval(node._pollTimer);
+      node._pollTimer = null;
+    }
+    _revokeNodeGlbBlobUrl(node);
+  }
+
+  function _getGlbSrcForNode(node) {
+    if (!node || !node.content) return "";
+    const c = node.content;
+    if (c.glbRawUrl && typeof c.glbRawUrl === "string") {
+      return c.glbRawUrl;
+    }
+    if (c.glbB64 && typeof c.glbB64 === "string") {
+      if (node._glbBlobUrl && node._glbBlobSourceB64 === c.glbB64) {
+        return node._glbBlobUrl;
+      }
+      _revokeNodeGlbBlobUrl(node);
+      try {
+        if (typeof Blob !== "undefined" && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
+          const bytes = _decodeBase64Bytes(c.glbB64);
+          if (bytes.byteLength > 0) {
+            const blob = new Blob([bytes], { type: "model/gltf-binary" });
+            node._glbBlobUrl = URL.createObjectURL(blob);
+            node._glbBlobSourceB64 = c.glbB64;
+            return node._glbBlobUrl;
+          }
+        }
+      } catch (_e) {}
+      return "data:model/gltf-binary;base64," + c.glbB64;
+    }
+    return "";
+  }
+
+  function _isPlayableVideoUrl(vidUrl) {
+    if (!vidUrl || typeof vidUrl !== "string") return false;
+    if (/media\.local/i.test(vidUrl)) return false;
+    return (
+      vidUrl.indexOf("data:video/") === 0 ||
+      vidUrl.indexOf("blob:") === 0 ||
+      vidUrl.indexOf("/") === 0 ||
+      /^https?:\/\//i.test(vidUrl)
+    );
+  }
+
+  function renderVideoCardInner(node) {
+    const nid = escapeHtml(node.id);
+    const meta = node.metadata || {};
+    const c = node.content || {};
+    const promptTxt = escapeHtml(meta.prompt || node.label || "");
+    const fps = c.fps || meta.fps || 60;
+    const vidUrl = c.videoUrl || "";
+    const jobStatus = meta.jobStatus || "";
+    const isPlayable = _isPlayableVideoUrl(vidUrl);
+    const elapsed = meta.startedAt ? Math.max(1, Math.round((Date.now() - meta.startedAt) / 1000)) : 1;
+
+    let statusBadgeHtml = '<span class="ns-omni-status-badge">' + escapeHtml(getModelName(meta.model || "kling-4.0")) + "</span>";
+    if (jobStatus === "RUNNING") {
+      statusBadgeHtml = '<span class="ns-omni-status-badge">⟳ RENDERING VIDEO (' + elapsed + "s)</span>";
+    } else if (jobStatus === "ERROR") {
+      statusBadgeHtml = '<span class="ns-omni-status-badge is-error">✕ ERROR</span>';
+    }
+
+    let stageHtml = "";
+    if (jobStatus === "ERROR") {
+      stageHtml = '<div class="ns-omni-error-box">' + escapeHtml(meta.jobError || "Video generation failed") + "</div>";
+    } else if (jobStatus === "RUNNING" && !isPlayable) {
+      stageHtml =
+        '<div class="ns-video-stage"><div class="ns-video-placeholder">' +
+        '<div class="ns-spinner-pulse">⟳ RENDERING VIDEO (' + elapsed + "s)</div>" +
+        "<div>" + escapeHtml(getModelName(meta.model || "kling-4.0")) + " · " + escapeHtml(fps + "fps · " + (meta.resolution || "1080p")) + "</div>" +
+        "<div>Polling live status every 4s...</div>" +
+        "</div></div>";
+    } else if (isPlayable) {
+      stageHtml =
+        '<div class="ns-video-stage" onmousedown="event.stopPropagation()">' +
+        '<video class="ns-video-player" controls playsinline loop src="' + escapeHtml(vidUrl) + '"></video>' +
+        "</div>";
+    } else {
+      stageHtml =
+        '<div class="ns-video-stage"><div class="ns-video-placeholder"><div>▶ ' +
+        escapeHtml(getModelName(meta.model || "kling-4.0")) + "</div><div>" +
+        escapeHtml(fps + "fps · " + (meta.resolution || "1080p") + " · " + (c.audioSync !== false ? "Audio Sync" : "Silent")) +
+        "</div><div>" + escapeHtml(c.text || "Video staged") + "</div></div></div>";
+    }
+
+    return (
+      '<div class="ns-omni-card">' +
+      '<div class="ns-omni-top-row">' +
+      '<span class="ns-omni-pill">▶ VIDEO · ' + escapeHtml(fps) + "FPS</span>" +
+      statusBadgeHtml +
+      "</div>" +
+      stageHtml +
+      '<div class="ns-omni-title">' + promptTxt + "</div>" +
+      '<div class="ns-card-foot-bar" onmousedown="event.stopPropagation()">' +
+      '<span class="ns-omni-sub">' + escapeHtml(c.vfsPath || meta.vfsPath || "MP4 Video") + "</span>" +
+      '<button type="button" class="ns-card-action-btn" onclick="event.stopPropagation();window.TinCanNodeStudio.downloadNode(\'' + nid + '\')">↓ .MP4</button>' +
+      "</div>" +
+      "</div>"
+    );
+  }
+
+  function renderMesh3dCardInner(node) {
+    const nid = escapeHtml(node.id);
+    const meta = node.metadata || {};
+    const c = node.content || {};
+    const promptTxt = escapeHtml(meta.prompt || node.label || "");
+    const glbPath = c.glbPath || c.vfsPath || meta.vfsPath || "/models3d/mesh.glb";
+    const jobStatus = meta.jobStatus || "";
+    const elapsed = meta.startedAt ? Math.max(1, Math.round((Date.now() - meta.startedAt) / 1000)) : 1;
+    const glbSrc = (jobStatus !== "RUNNING" && jobStatus !== "ERROR") ? _getGlbSrcForNode(node) : "";
+
+    let statusText = "PBR .GLB READY";
+    let statusCls = "ns-omni-status-badge";
+    if (jobStatus === "RUNNING") {
+      statusText = "⟳ GENERATING .GLB (" + elapsed + "s)";
+    } else if (jobStatus === "ERROR") {
+      statusText = "✕ ERROR";
+      statusCls = "ns-omni-status-badge is-error";
+    } else if (c.rigged) {
+      statusText = "✓ RIGGED (" + (c.animation || "walk") + ")";
+    }
+
+    const animPlaying = node._meshAnimPlaying !== false;
+    const modelViewerHtml = glbSrc
+      ? ('<model-viewer class="ns-model-viewer" data-mesh-node-id="' + nid + '" src="' + escapeHtml(glbSrc) +
+         '" camera-controls auto-rotate interaction-prompt="none" shadow-intensity="0.6"' +
+         (c.rigged && animPlaying ? " autoplay" : "") + "></model-viewer>")
+      : "";
+    const stageHudText = jobStatus === "RUNNING"
+      ? ("⟳ GENERATING .GLB (" + elapsed + "s)")
+      : (glbSrc ? "3D .GLB · DRAG TO ORBIT" : "WIREFRAME PREVIEW");
+    const errBlock = jobStatus === "ERROR"
+      ? ('<div class="ns-omni-error-box">' + escapeHtml(meta.jobError || "3D mesh generation failed") + "</div>")
+      : "";
+    const rigAnimBtn = c.rigged
+      ? ('<button type="button" class="ns-card-action-btn" onclick="event.stopPropagation();window.TinCanNodeStudio.toggleNodeMeshAnim(\'' + nid + '\')">' +
+         (animPlaying ? "❚❚ Pause Anim" : "▶ Play Anim") + "</button>")
+      : "";
+
+    return (
+      '<div class="ns-omni-card">' +
+      '<div class="ns-omni-top-row">' +
+      '<span class="ns-omni-pill">◆ 3D MESH · .GLB</span>' +
+      '<span class="' + statusCls + '">' + escapeHtml(statusText) + "</span>" +
+      "</div>" +
+      '<div class="ns-mesh-stage" data-mesh-node-id="' + nid + '" onmousedown="event.stopPropagation()">' +
+      modelViewerHtml +
+      '<canvas class="ns-mesh-wire-canvas" data-mesh-node-id="' + nid + '" width="300" height="164"></canvas>' +
+      '<span class="ns-mesh-stage-hud">' + escapeHtml(stageHudText) + "</span>" +
+      '<button type="button" class="ns-mesh-inspect-btn" onclick="event.stopPropagation();window.TinCanNodeStudio.openMeshViewer(\'' + nid + '\')">⤢ Inspect 3D</button>' +
+      "</div>" +
+      errBlock +
+      '<div class="ns-omni-title">' + promptTxt + "</div>" +
+      '<div class="ns-omni-sub">' + escapeHtml(getModelName(meta.model || "hyper3d/rodin-v2.5") + " · " + (c.tier || meta.tier || "Regular") + " · " + glbPath) + "</div>" +
+      '<div class="ns-card-foot-bar" onmousedown="event.stopPropagation()">' +
+      '<div class="ns-card-foot-group">' +
+      '<button type="button" class="ns-card-action-btn is-primary" onclick="event.stopPropagation();window.TinCanNodeStudio.runTerminalCommand(\'/rig --anim walk ' + escapeHtml(glbPath) + '\')">Auto-Rig Walk</button>' +
+      rigAnimBtn +
+      "</div>" +
+      '<button type="button" class="ns-card-action-btn" onclick="event.stopPropagation();window.TinCanNodeStudio.downloadNode(\'' + nid + '\')">↓ .GLB</button>' +
+      "</div>" +
+      "</div>"
+    );
+  }
+
   function renderOmniCardInner(node) {
     const nid = escapeHtml(node.id);
     const kind = node.omniKind || node.modality || "atlas";
     const meta = node.metadata || {};
     const promptTxt = escapeHtml(meta.prompt || node.label || "");
     if (kind === "audio") {
-      return (
-        '<div class="ns-omni-card">' +
-        '<div class="ns-omni-pill ns-omni-pill--outline">♪ AUDIO · TTS + SCORE + SFX</div>' +
-        '<div class="ns-omni-box">' +
-        "<div>[Multi-Track Audio · -14.0 LUFS]</div>" +
-        "<div>│┃│┃┃│┃┃ ElevenLabs v4 + Kokoro TTS</div>" +
-        "<div>│┃│┃┃│┃┃ Lyria 3.5 Koto + SFX v3 Waves</div>" +
-        "</div>" +
-        '<div class="ns-omni-title">' + promptTxt + "</div>" +
-        '<div class="ns-omni-sub">' + escapeHtml(meta.vfsPath || "/audio/torii_master.wav · 48kHz 24-bit") + "</div>" +
-        "</div>"
-      );
+      return renderAudioCardInner(node);
     }
-    if (kind === "omni_master" || kind === "splat" || kind === "flythrough" || kind === "video" || kind === "3d") {
+    if (kind === "video") {
+      return renderVideoCardInner(node);
+    }
+    if (kind === "3d" || kind === "mesh3d") {
+      return renderMesh3dCardInner(node);
+    }
+    if (kind === "text") {
+      return renderTextCardInner(node);
+    }
+    if (kind === "omni_master" || kind === "splat" || kind === "flythrough") {
       const statusBadge = meta.jobStatus === "ERROR"
         ? "✕ WORLD LABS ERROR"
         : (meta.jobStatus === "RUNNING"
@@ -3102,8 +4156,14 @@ def _node_studio_js(initial_view: str) -> str:
     layer.innerHTML = state.nodes.map((node) => {
       const isSel = state.selectedIds.indexOf(node.id) !== -1;
       const mStatus = node.morphingStatus || "image";
-      const w = mStatus === "generating" ? 96 : (mStatus === "omni" ? (node.width || 320) : (mStatus === "message" ? 280 : (node.width || 256)));
-      const h = mStatus === "generating" ? 96 : (mStatus === "omni" ? (node.height || 198) : (mStatus === "message" ? 160 : (node.height || 256)));
+      let w = node.width || 256;
+      let h = node.height || 256;
+      if (mStatus === "generating") { w = 96; h = 96; }
+      else if (mStatus === "text" || mStatus === "message") { w = node.width || 320; h = node.height || 220; }
+      else if (mStatus === "audio") { w = node.width || 310; h = node.height || 218; }
+      else if (mStatus === "video") { w = node.width || 320; h = node.height || 250; }
+      else if (mStatus === "mesh3d") { w = node.width || 320; h = node.height || 326; }
+      else if (mStatus === "omni") { w = node.width || 320; h = node.height || 198; }
       node.width = w;
       node.height = h;
 
@@ -3115,12 +4175,14 @@ def _node_studio_js(initial_view: str) -> str:
           '<div class="ns-living-label">Generating...</div></div>';
       } else if (mStatus === "omni") {
         inner = renderOmniCardInner(node);
-      } else if (mStatus === "message") {
-        inner =
-          '<div class="ns-msg-card">' +
-          '<div class="ns-msg-head"><span>Gemini</span></div>' +
-          '<div class="ns-msg-body">' + escapeHtml((node.content && node.content.text) || node.label) + "</div>" +
-          "</div>";
+      } else if (mStatus === "text" || mStatus === "message") {
+        inner = renderTextCardInner(node);
+      } else if (mStatus === "audio") {
+        inner = renderAudioCardInner(node);
+      } else if (mStatus === "video") {
+        inner = renderVideoCardInner(node);
+      } else if (mStatus === "mesh3d") {
+        inner = renderMesh3dCardInner(node);
       } else {
         const imgUrl = node.content && node.content.imageUrl;
         const imgStyle = "filter:" + buildFilterCss(node.filters) + ";";
@@ -3130,11 +4192,11 @@ def _node_studio_js(initial_view: str) -> str:
           (imgUrl ? '<button type="button" class="ns-node-dl-btn" title="Download" onclick="event.stopPropagation();window.TinCanNodeStudio.downloadNode(\'' + escapeHtml(node.id) + '\')">↓</button>' : "") +
           (imgUrl
             ? '<img src="' + escapeHtml(imgUrl) + '" alt="' + escapeHtml(node.label) + '" style="' + imgStyle + '" draggable="false">'
-            : '<div class="ns-msg-card"><div class="ns-msg-body">' + escapeHtml((node.content && node.content.text) || node.label) + "</div></div>") +
+            : renderTextCardInner(node)) +
           '<div class="ns-node-meta-overlay">' +
           '<div class="ns-node-prompt-txt">' + escapeHtml((node.metadata && node.metadata.prompt) || node.label) + "</div>" +
           '<div class="ns-node-sub-txt"><span>' + escapeHtml((node.metadata && node.metadata.resolution) || "1K") +
-          '</span><span>' + escapeHtml((node.metadata && node.metadata.model) || "Nano Banana 2.1") + "</span></div>" +
+          '</span><span>' + escapeHtml(getModelName((node.metadata && node.metadata.model) || "gemini-nano-banana-2.1")) + "</span></div>" +
           "</div></div>";
       }
 
@@ -3149,14 +4211,14 @@ def _node_studio_js(initial_view: str) -> str:
            }).join("") + "</div>")
         : "";
 
+      const isVisual = mStatus === "image" || (mStatus === "omni" && node.omniKind !== "audio");
       const quickBar = mStatus !== "generating"
         ? ('<div class="ns-node-quickbar" onclick="event.stopPropagation()">' +
            '<button type="button" class="ns-qact-btn" onclick="window.TinCanNodeStudio.addNodeAsRef(\'' + escapeHtml(node.id) + '\')">+ Ref</button>' +
-           '<span class="ns-qact-sep"></span>' +
-           '<button type="button" class="ns-qact-btn" onclick="window.TinCanNodeStudio.viewOrConvertNodeSplat(\'' + escapeHtml(node.id) + '\')">❖ 3D Splat</button>' +
+           (isVisual ? '<span class="ns-qact-sep"></span><button type="button" class="ns-qact-btn" onclick="window.TinCanNodeStudio.viewOrConvertNodeSplat(\'' + escapeHtml(node.id) + '\')">❖ 3D Splat</button>' : "") +
            '<span class="ns-qact-sep"></span>' +
            '<button type="button" class="ns-qact-btn" onclick="window.TinCanNodeStudio.editNode(\'' + escapeHtml(node.id) + '\')">Edit</button>' +
-           '<button type="button" class="ns-qact-btn" onclick="window.TinCanNodeStudio.openFilterPopover(\'' + escapeHtml(node.id) + '\')">Filter</button>' +
+           (mStatus === "image" ? '<button type="button" class="ns-qact-btn" onclick="window.TinCanNodeStudio.openFilterPopover(\'' + escapeHtml(node.id) + '\')">Filter</button>' : "") +
            '<button type="button" class="ns-qact-btn" onclick="window.TinCanNodeStudio.duplicateNode(\'' + escapeHtml(node.id) + '\')">Copy</button>' +
            '<button type="button" class="ns-qact-btn" onclick="window.TinCanNodeStudio.downloadNode(\'' + escapeHtml(node.id) + '\')">Download</button>' +
            '<span class="ns-qact-sep"></span>' +
@@ -3175,11 +4237,47 @@ def _node_studio_js(initial_view: str) -> str:
     }).join("");
 
     renderEdges();
+    renderConversationView();
     renderLibraryViewGrid();
     mountAllSplatCanvases();
+    mountAllMeshPreviews();
     if (!state._suppressAutoSave && state.nodes.length > 0) {
       scheduleAutoSave();
     }
+  }
+
+  function copyNodeText(id) {
+    const node = state.nodes.find((n) => n.id === id);
+    const txt = (node && node.content && node.content.text) || (node && node.label) || "";
+    if (!txt) return;
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt);
+      }
+    } catch (_e) {}
+    showToast("Copied text to clipboard", false);
+  }
+
+  function sendTextToImage(id) {
+    const node = state.nodes.find((n) => n.id === id);
+    const txt = (node && node.content && node.content.text) || (node && node.label) || "";
+    selectModality("image");
+    const promptEl = $("nsPromptInput");
+    if (promptEl) {
+      promptEl.value = txt;
+      promptEl.focus();
+    }
+    renderPromptIslandStatus();
+    showToast("Loaded text into Image prompt — click Generate to render", false);
+  }
+
+  function replyToTextNode(id) {
+    state.selectedIds = [id];
+    selectModality("text");
+    syncSelectionRefs();
+    renderNodes();
+    const promptEl = $("nsPromptInput");
+    if (promptEl) promptEl.focus();
   }
 
   function parseSlashCommand(raw) {
@@ -3264,7 +4362,7 @@ def _node_studio_js(initial_view: str) -> str:
     } else if (cmdName === "audio") {
       modality = "audio";
       provider = "nanogpt";
-      model = flags.model || "google/lyria-3.5";
+      model = flags.model || (subCmd === "tts" ? "elevenlabs/eleven-v4" : (subCmd === "sfx" ? "elevenlabs/sound-effects/v3" : "google/lyria-3.5"));
     } else if (cmdName === "video") {
       modality = "video";
       provider = "nanogpt";
@@ -3275,8 +4373,8 @@ def _node_studio_js(initial_view: str) -> str:
       model = flags.model || "hyper3d/rodin-v2.5";
     } else if (cmdName === "text") {
       modality = "text";
-      provider = "nanogpt";
-      model = flags.model || "gemini-nano-banana-2.1";
+      provider = "auto";
+      model = flags.model || "gemini-3.1-pro";
     }
 
     const prefixSymbol = modality === "audio" ? "♪ " : (modality === "3d" ? "❖ " : "● ");
@@ -3365,25 +4463,50 @@ def _node_studio_js(initial_view: str) -> str:
   }
 
   function buildOmniNodeFromParsed(parsed, rawCmd, idSuffix) {
+    let mStatus = "omni";
     let omniKind = "atlas";
     let w = 340;
     let h = 348;
     let vfsPath = "Synced to /worlds/torii_3e78434c/ ✓";
-    if (parsed.modality === "audio") {
+    const cleanLabel = parsed.prompt || rawCmd;
+    if (parsed.modality === "text") {
+      mStatus = "text";
+      omniKind = "text";
+      w = 320;
+      h = 220;
+      vfsPath = "";
+    } else if (parsed.modality === "image") {
+      mStatus = "image";
+      omniKind = "image";
+      w = 256;
+      h = 256;
+      vfsPath = "";
+    } else if (parsed.modality === "audio") {
+      mStatus = "audio";
       omniKind = "audio";
-      w = 280;
-      h = 198;
-      vfsPath = "/audio/torii_master.wav · 48kHz 24-bit";
+      w = 310;
+      h = 218;
+      vfsPath = "/audio/output.wav · 48kHz 24-bit";
+    } else if (parsed.modality === "video") {
+      mStatus = "video";
+      omniKind = "video";
+      w = 320;
+      h = 250;
+      vfsPath = "/videos/output.mp4";
+    } else if (parsed.modality === "3d") {
+      mStatus = "mesh3d";
+      omniKind = "3d";
+      w = 320;
+      h = 326;
+      vfsPath = "/models3d/mesh.glb";
     } else if (parsed.subcommand === "pose" || parsed.atlas_task === "images2PosedRGBD") {
+      mStatus = "omni";
       omniKind = "pose";
       w = 360;
       h = 348;
       vfsPath = "Synced to /worlds/torii_3e78434c/ ✓";
-    } else if (
-      parsed.modality === "atlas" ||
-      parsed.modality === "video" ||
-      parsed.modality === "3d"
-    ) {
+    } else {
+      mStatus = "omni";
       omniKind = "omni_master";
       w = 480;
       h = 368;
@@ -3392,32 +4515,39 @@ def _node_studio_js(initial_view: str) -> str:
     return {
       id: "omni-" + idSuffix,
       type: parsed.modality.toUpperCase(),
-      morphingStatus: "omni",
+      morphingStatus: mStatus,
       omniKind: omniKind,
       modality: parsed.modality,
-      label: rawCmd,
+      label: cleanLabel,
       x: 240 + (idSuffix % 3) * 48,
       y: 110 + (idSuffix % 3) * 56,
       width: w,
       height: h,
-      splatState: {
+      splatState: mStatus === "omni" ? {
         mode: "rgb",
         frustums: true,
         yaw: 0.42,
         pitch: 0.24,
         zoom: 1.0
-      },
+      } : undefined,
       content: {
-        text: rawCmd,
+        text: cleanLabel,
+        kind: parsed.subcommand || state.audioKind || "music",
+        tier: (parsed.flags && parsed.flags.tier) || state.meshTier || "Regular",
+        fps: Number((parsed.flags && parsed.flags.fps) || state.videoFps || 60),
         sparkline: "│┃│┃┃│┃┃"
       },
       metadata: {
-        prompt: rawCmd,
+        prompt: cleanLabel,
+        rawCommand: rawCmd,
         model: parsed.model,
         modality: parsed.modality,
+        audioKind: parsed.subcommand || state.audioKind || "music",
+        tier: (parsed.flags && parsed.flags.tier) || state.meshTier || "Regular",
+        fps: Number((parsed.flags && parsed.flags.fps) || state.videoFps || 60),
         atlasTask: parsed.atlas_task,
         vfsPath: vfsPath,
-        resolution: "1280x720"
+        resolution: state.resolution || "1280x720"
       },
       filters: {}
     };
@@ -3464,7 +4594,7 @@ def _node_studio_js(initial_view: str) -> str:
     const imageRefs = multiRefs.filter((r) => r.type === "image");
     const spawned = buildOmniNodeFromParsed(parsed, rawCmd, state.nodeSeq);
     spawned.metadata.refine = !!state.atlasRefine;
-    // Inherit posedFrames / spzAssetId from selected parent node when chaining steps (Pose -> Generate Views -> Splat -> Mesh)
+    // Inherit posedFrames / spzAssetId from selected parent node when chaining Atlas steps
     let inheritedPosedFrames = [];
     let inheritedSplatAssetId = null;
     for (let i = 0; i < parentIds.length; i++) {
@@ -3478,8 +4608,8 @@ def _node_studio_js(initial_view: str) -> str:
         }
       }
     }
-    // Attach ALL multi-view uploaded/selected photos for 3D Gaussian Splat generation
-    if (imageRefs.length > 0) {
+    // Attach multi-view photos for Atlas Splat reconstruction
+    if (parsed.modality === "atlas" && imageRefs.length > 0) {
       spawned.content.imageUrl = imageRefs[0].url || (imageRefs[0].base64 ? ("data:" + (imageRefs[0].mimeType || "image/jpeg") + ";base64," + imageRefs[0].base64) : "");
       spawned.content.referenceImages = imageRefs.map((r) => r.url || (r.base64 ? ("data:" + (r.mimeType || "image/jpeg") + ";base64," + r.base64) : "")).filter(Boolean);
       spawned.metadata.inputViewCount = imageRefs.length;
@@ -3508,6 +4638,7 @@ def _node_studio_js(initial_view: str) -> str:
             modality: parsed.modality,
             model: parsed.model,
             refine: !!state.atlasRefine,
+            tier: (parsed.flags && parsed.flags.tier) || state.meshTier || "Regular",
             scope: tgt.scope,
             owner_id: tgt.owner_id,
             selectedNodeIds: parentIds,
@@ -3532,7 +4663,7 @@ def _node_studio_js(initial_view: str) -> str:
         if (res && typeof res.json === "function") {
           const data = await res.json();
           if (data && data.ok === false) {
-            const errTxt = String(data.error || ("World Labs request failed (HTTP " + (res.status || 422) + ")"));
+            const errTxt = String(data.error || ("Generation request failed (HTTP " + (res.status || 422) + ")"));
             spawned.metadata.jobStatus = "ERROR";
             spawned.metadata.jobError = errTxt;
             spawned.metadata.simulated = false;
@@ -3541,7 +4672,7 @@ def _node_studio_js(initial_view: str) -> str:
               spawned.metadata.posedFrameCount = data.result.posed_frames.length;
             }
             showToast(errTxt, true);
-            appendTerminalLine("[!] World Labs error: " + errTxt);
+            appendTerminalLine("[!] Error: " + errTxt);
             renderNodes();
             renderPromptIslandStatus();
             return spawned;
@@ -3550,6 +4681,77 @@ def _node_studio_js(initial_view: str) -> str:
             spawned.metadata.vfsPath = _extractSavedVfsPath(data.saved_to_space, spawned.metadata.vfsPath);
           }
           const rObj = (data && data.result) || {};
+          const nestedNode = (rObj.node && rObj.node.data) || (data.node && data.node.data) || null;
+          if (nestedNode && nestedNode.content) {
+            spawned.content = Object.assign({}, spawned.content, nestedNode.content);
+          }
+          if (nestedNode && nestedNode.metadata) {
+            spawned.metadata = Object.assign({}, spawned.metadata, nestedNode.metadata);
+          }
+
+          if (parsed.modality === "audio") {
+            const wavB64 = rObj.audio_bytes_b64 || (spawned.content && spawned.content.audioBytesB64) || "";
+            if (wavB64) {
+              spawned.content.audioBytesB64 = wavB64;
+              spawned.content.mimeType = rObj.mime_type || "audio/wav";
+              spawned.content.audioUrl = "data:" + spawned.content.mimeType + ";base64," + wavB64;
+            }
+            if (rObj.kind) {
+              spawned.content.kind = rObj.kind;
+              spawned.metadata.audioKind = rObj.kind;
+            }
+            if (rObj.path) {
+              spawned.content.vfsPath = rObj.path;
+              spawned.metadata.vfsPath = rObj.path;
+            }
+          } else if (parsed.modality === "3d") {
+            const glbRaw = rObj.glb_raw_url || data.glb_raw_url || (rObj.download && rObj.download.glb_raw_url) || "";
+            if (glbRaw) spawned.content.glbRawUrl = glbRaw;
+            const glbB64 = rObj.glb_bytes_b64 || data.glb_bytes_b64 || "";
+            if (glbB64) {
+              _revokeNodeGlbBlobUrl(spawned);
+              spawned.content.glbB64 = glbB64;
+            }
+            if (rObj.path) {
+              spawned.content.glbPath = rObj.path;
+              spawned.content.vfsPath = rObj.path;
+              spawned.metadata.vfsPath = rObj.path;
+            }
+            if (rObj.rig_type || rObj.bones || parsed.command === "rig") {
+              spawned.content.rigged = true;
+              spawned.content.animation = (rObj.animations && rObj.animations[0]) || (parsed.flags && parsed.flags.anim) || "walk";
+            }
+            const meshJobId = data.job_id || rObj.job_id || rObj.jobId || (spawned.metadata && spawned.metadata.jobId) || "";
+            if ((data.async === true || data.done === false || rObj.jobStatus === "RUNNING") && meshJobId) {
+              spawned.metadata.jobId = meshJobId;
+              spawned.metadata.jobStatus = "RUNNING";
+              spawned.metadata.startedAt = Date.now();
+              spawned.metadata.vfsPath = "Generating .GLB (" + meshJobId + ")...";
+              showToast("3D .GLB job started (" + meshJobId + ") — polling live every 4s...", false);
+              appendTerminalLine("[⟳] Submitted 3D .GLB job " + meshJobId + " (polling live every 4s)");
+              renderNodes();
+              renderPromptIslandStatus();
+              pollMeshJobForNode(spawned);
+              return spawned;
+            }
+          } else if (parsed.modality === "video") {
+            const vidJobId = data.job_id || rObj.job_id || rObj.jobId || (spawned.metadata && spawned.metadata.jobId) || (spawned.content && spawned.content.jobId) || "";
+            if ((data.async === true || data.done === false || rObj.jobStatus === "RUNNING" || (spawned.metadata && spawned.metadata.jobStatus === "RUNNING")) && vidJobId) {
+              spawned.metadata.jobId = vidJobId;
+              spawned.metadata.modelSlug = data.model_slug || rObj.modelSlug || rObj.model_slug || parsed.model || state.model;
+              spawned.metadata.jobStatus = "RUNNING";
+              spawned.metadata.startedAt = Date.now();
+              showToast("Video job started (" + vidJobId + ") — polling live every 4s...", false);
+              appendTerminalLine("[⟳] Submitted Video job " + vidJobId + " (polling live every 4s)");
+              renderNodes();
+              renderPromptIslandStatus();
+              pollVideoJobForNode(spawned);
+              return spawned;
+            }
+          } else if (parsed.modality === "text") {
+            if (rObj.text && !nestedNode) spawned.content.text = rObj.text;
+          }
+
           if (rObj.operation_id || (data && data.operation_id)) {
             spawned.metadata.operationId = rObj.operation_id || data.operation_id;
           }
@@ -3592,6 +4794,19 @@ def _node_studio_js(initial_view: str) -> str:
               spawned.content.imageUrl = "data:" + mime + ";base64," + data.files_b64[imgKey];
               spawned._splatCloud = null;
             }
+            const wavKey = keys.find((k) => /\.wav$/i.test(k));
+            if (wavKey && data.files_b64[wavKey]) {
+              spawned.content.audioBytesB64 = data.files_b64[wavKey];
+              spawned.content.audioUrl = "data:audio/wav;base64," + data.files_b64[wavKey];
+              spawned.content.vfsPath = wavKey;
+            }
+            const glbKey = keys.find((k) => /\.glb$/i.test(k));
+            if (glbKey && data.files_b64[glbKey]) {
+              _revokeNodeGlbBlobUrl(spawned);
+              spawned.content.glbB64 = data.files_b64[glbKey];
+              spawned.content.glbPath = glbKey;
+              spawned.content.vfsPath = glbKey;
+            }
             const spzKey = keys.find((k) => /\.spz$/i.test(k));
             if (spzKey && data.files_b64[spzKey]) {
               spawned.content.spzB64 = data.files_b64[spzKey];
@@ -3600,12 +4815,12 @@ def _node_studio_js(initial_view: str) -> str:
           spawned.metadata.jobStatus = "SUCCEEDED";
         }
       } catch (_err) {
-        // Offline / local simulation keeps spawned Omni-Modal DAG card
+        // Offline / local simulation keeps spawned DAG card
       }
     }
 
     const viewSuffix = imageRefs.length > 0 ? (" [" + imageRefs.length + " input photo" + (imageRefs.length === 1 ? "" : "s") + "]") : "";
-    appendTerminalLine("[+] Routed " + parsed.slash_key + " (" + parsed.model + ")" + viewSuffix + " → " + spawned.metadata.vfsPath);
+    appendTerminalLine("[+] Routed " + parsed.slash_key + " (" + parsed.model + ")" + viewSuffix + " → " + (spawned.metadata.vfsPath || spawned.id));
     renderNodes();
     renderPromptIslandStatus();
     return spawned;
@@ -3676,6 +4891,133 @@ def _node_studio_js(initial_view: str) -> str:
     }, 4000);
   }
 
+  function pollVideoJobForNode(node) {
+    if (!node || !node.metadata || !node.metadata.jobId || typeof fetch !== "function") return;
+    if (node._pollTimer) clearInterval(node._pollTimer);
+    if (!node.metadata.startedAt) node.metadata.startedAt = Date.now();
+    const jobId = node.metadata.jobId;
+    const modelSlug = node.metadata.modelSlug || node.metadata.model || state.model || "kling-4.0";
+    const tgt = _resolveSpaceTarget();
+    const promptStr = (node.metadata && node.metadata.prompt) || node.label || "";
+    const statusUrl =
+      "/api/nodes/video/status?job_id=" + encodeURIComponent(jobId) +
+      "&model=" + encodeURIComponent(modelSlug) +
+      "&scope=" + encodeURIComponent(tgt.scope) +
+      "&owner_id=" + encodeURIComponent(tgt.owner_id) +
+      "&prompt=" + encodeURIComponent(promptStr);
+
+    node._pollTimer = setInterval(async function () {
+      try {
+        const headers = {};
+        if (state.nanogptKey) headers["X-NanoGPT-Api-Key"] = state.nanogptKey;
+        const fetchOpts = Object.keys(headers).length ? { headers: headers } : {};
+        const res = await fetch(statusUrl, fetchOpts);
+        if (!res || typeof res.json !== "function") return;
+        const st = await res.json();
+        if (!st) return;
+
+        if (st.ok === false || st.status === "FAILED" || st.status === "ERROR" || st.error) {
+          clearInterval(node._pollTimer);
+          node._pollTimer = null;
+          const errMsg = (st.error && st.error.message) || String(st.error || st.message || "Video generation failed");
+          node.metadata.jobStatus = "ERROR";
+          node.metadata.jobError = errMsg;
+          showToast("Video error: " + errMsg, true);
+          appendTerminalLine("[!] Video job " + jobId + " failed: " + errMsg);
+          renderNodes();
+          return;
+        }
+
+        if (st.done && st.ok) {
+          clearInterval(node._pollTimer);
+          node._pollTimer = null;
+          node.metadata.jobStatus = "SUCCEEDED";
+          node.metadata.jobError = "";
+          if (!node.content) node.content = {};
+          node.content.videoUrl = st.video_url || st.remote_url || st.videoUrl || "";
+          node.content.vfsPath = st.vfs_path || st.vfsPath || "";
+          node.metadata.vfsPath = st.vfs_path || st.vfsPath || node.metadata.vfsPath || "";
+          showToast("Video ready!" + (node.content.vfsPath ? (" Saved to " + node.content.vfsPath) : ""), false);
+          appendTerminalLine("[✓] Video job " + jobId + " SUCCEEDED → " + (node.content.vfsPath || node.content.videoUrl || "ready"));
+          renderNodes();
+          return;
+        }
+
+        // Still running: refresh elapsed seconds on card
+        node.metadata.jobStatus = "RUNNING";
+        renderNodes();
+      } catch (_pollErr) {}
+    }, 4000);
+  }
+
+  function pollMeshJobForNode(node) {
+    if (!node || !node.metadata || !node.metadata.jobId || typeof fetch !== "function") return;
+    if (node._pollTimer) clearInterval(node._pollTimer);
+    if (!node.metadata.startedAt) node.metadata.startedAt = Date.now();
+    const jobId = node.metadata.jobId;
+    const tgt = _resolveSpaceTarget();
+    const promptStr = (node.metadata && node.metadata.prompt) || node.label || "";
+    const statusUrl =
+      "/api/nodes/mesh/status?job_id=" + encodeURIComponent(jobId) +
+      "&scope=" + encodeURIComponent(tgt.scope) +
+      "&owner_id=" + encodeURIComponent(tgt.owner_id) +
+      "&prompt=" + encodeURIComponent(promptStr);
+
+    node._pollTimer = setInterval(async function () {
+      try {
+        const headers = {};
+        if (state.nanogptKey) headers["X-NanoGPT-Api-Key"] = state.nanogptKey;
+        const fetchOpts = Object.keys(headers).length ? { headers: headers } : {};
+        const res = await fetch(statusUrl, fetchOpts);
+        if (!res || typeof res.json !== "function") return;
+        const st = await res.json();
+        if (!st) return;
+
+        if (st.ok === false || st.status === "FAILED" || st.status === "ERROR" || st.error) {
+          clearInterval(node._pollTimer);
+          node._pollTimer = null;
+          const errMsg = (st.error && st.error.message) || String(st.error || st.message || "3D mesh generation failed");
+          node.metadata.jobStatus = "ERROR";
+          node.metadata.jobError = errMsg;
+          showToast("3D mesh error: " + errMsg, true);
+          appendTerminalLine("[!] 3D mesh job " + jobId + " failed: " + errMsg);
+          renderNodes();
+          return;
+        }
+
+        if ((st.done && st.ok !== false) || st.status === "SUCCEEDED") {
+          clearInterval(node._pollTimer);
+          node._pollTimer = null;
+          node.metadata.jobStatus = "SUCCEEDED";
+          node.metadata.jobError = "";
+          if (!node.content) node.content = {};
+          _revokeNodeGlbBlobUrl(node);
+          node.content.glbRawUrl = st.glb_raw_url || st.glbRawUrl || "";
+          node.content.glbB64 = st.glb_bytes_b64 || st.glbB64 || "";
+          if (st.vfs_path || st.vfsPath) {
+            node.content.glbPath = st.vfs_path || st.vfsPath;
+            node.content.vfsPath = node.content.glbPath;
+            node.metadata.vfsPath = node.content.glbPath;
+          }
+          if (st.rig_type || st.bones || st.rigged) {
+            node.content.rigged = true;
+            node.content.animation = (st.animations && st.animations[0]) || st.animation || "walk";
+          }
+          showToast("3D .GLB mesh ready!" + (node.content.vfsPath ? (" Saved to " + node.content.vfsPath) : ""), false);
+          appendTerminalLine("[✓] 3D mesh job " + jobId + " SUCCEEDED → " + (node.content.vfsPath || "mesh.glb"));
+          renderNodes();
+          if (modalMeshState.activeNodeId === node.id) {
+            openMeshViewer(node.id);
+          }
+          return;
+        }
+
+        node.metadata.jobStatus = "RUNNING";
+        renderNodes();
+      } catch (_pollErr) {}
+    }, 4000);
+  }
+
   function runAtlasStep(taskName, sourceNodeId) {
     if (sourceNodeId) {
       state.selectedIds = [sourceNodeId];
@@ -3695,19 +5037,7 @@ def _node_studio_js(initial_view: str) -> str:
 
   function toggleAtlasRefine() {
     state.atlasRefine = !state.atlasRefine;
-    const btn = $("nsAtlasQualityBtn");
-    if (btn) {
-      btn.classList.toggle("is-refined", state.atlasRefine);
-      btn.textContent = state.atlasRefine ? "Refined (18m · $5.00)" : "Draft (~30s · $0.50)";
-    }
-  }
-
-  function toggleAtlasBar(forceOpen) {
-    const bar = $("nsAtlasWorkflowBar");
-    if (!bar) return;
-    const nextOpen = typeof forceOpen === "boolean" ? forceOpen : bar.classList.contains("hidden");
-    state.isAtlasBarOpen = nextOpen;
-    bar.classList.toggle("hidden", !nextOpen);
+    syncCapabilitiesAndControls();
   }
 
   // =========================================================================
@@ -4424,19 +5754,636 @@ def _node_studio_js(initial_view: str) -> str:
     }, { passive: false });
   }
 
+  // =========================================================================
+  // Interactive 3D .GLB Mesh Preview, Wireframe Fallback & Inspector Modal
+  // =========================================================================
+  function _buildIcosahedronGeometry() {
+    const phi = (1 + Math.sqrt(5)) / 2;
+    const rawVerts = [
+      [-1, phi, 0], [1, phi, 0], [-1, -phi, 0], [1, -phi, 0],
+      [0, -1, phi], [0, 1, phi], [0, -1, -phi], [0, 1, -phi],
+      [phi, 0, -1], [phi, 0, 1], [-phi, 0, -1], [-phi, 0, 1]
+    ];
+    const verts = rawVerts.map((v) => {
+      const len = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) || 1;
+      return [v[0] / len, v[1] / len, v[2] / len];
+    });
+    const edges = [
+      [0, 11], [0, 5], [0, 1], [0, 7], [0, 10],
+      [1, 5], [5, 11], [11, 10], [10, 7], [7, 1],
+      [3, 9], [3, 4], [3, 2], [3, 6], [3, 8],
+      [4, 9], [2, 4], [6, 2], [8, 6], [9, 8],
+      [5, 9], [9, 1], [1, 8], [8, 7], [7, 6],
+      [6, 10], [10, 2], [2, 11], [11, 4], [4, 5]
+    ];
+    return { verts, edges };
+  }
+  const _WIRE_ICO = _buildIcosahedronGeometry();
+
+  function drawMeshWireframeOnCanvas(canvasEl, node, viewOpts) {
+    if (!canvasEl || typeof canvasEl.getContext !== "function") return;
+    const ctx = canvasEl.getContext("2d");
+    if (!ctx) return;
+
+    const w = canvasEl.width || 300;
+    const h = canvasEl.height || 164;
+    const yaw = (viewOpts && viewOpts.yaw !== undefined) ? viewOpts.yaw : 0.55;
+    const pitch = (viewOpts && viewOpts.pitch !== undefined) ? viewOpts.pitch : 0.34;
+    const zoom = (viewOpts && viewOpts.zoom !== undefined) ? viewOpts.zoom : 1.0;
+
+    ctx.fillStyle = "#080808";
+    ctx.fillRect(0, 0, w, h);
+
+    const cosY = Math.cos(yaw), sinY = Math.sin(yaw);
+    const cosP = Math.cos(pitch), sinP = Math.sin(pitch);
+    const fov = Math.min(w, h) * 1.1 * zoom;
+    const camDist = 3.2;
+
+    function proj(px, py, pz) {
+      const x1 = px * cosY - pz * sinY;
+      const z1 = px * sinY + pz * cosY;
+      const y2 = py * cosP - z1 * sinP;
+      const z2 = py * sinP + z1 * cosP + camDist;
+      if (z2 <= 0.25) return null;
+      const sc = fov / z2;
+      return { sx: w * 0.5 + x1 * sc, sy: h * 0.5 - y2 * sc, z: z2 };
+    }
+
+    // Isometric ground grid
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.14)";
+    ctx.lineWidth = 1;
+    for (let g = -2; g <= 2; g++) {
+      const a = proj(g * 0.65, -0.95, -1.3);
+      const b = proj(g * 0.65, -0.95, 1.3);
+      if (a && b) { ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); }
+      const c = proj(-1.3, -0.95, g * 0.65);
+      const d = proj(1.3, -0.95, g * 0.65);
+      if (c && d) { ctx.beginPath(); ctx.moveTo(c.sx, c.sy); ctx.lineTo(d.sx, d.sy); ctx.stroke(); }
+    }
+
+    // Faceted 3D geodesic mesh wireframe
+    const pts = _WIRE_ICO.verts.map((v) => proj(v[0] * 0.92, v[1] * 0.92, v[2] * 0.92));
+    for (let i = 0; i < _WIRE_ICO.edges.length; i++) {
+      const e = _WIRE_ICO.edges[i];
+      const p0 = pts[e[0]];
+      const p1 = pts[e[1]];
+      if (!p0 || !p1) continue;
+      const avgZ = (p0.z + p1.z) * 0.5;
+      const alpha = Math.max(0.25, Math.min(0.95, 1.45 - avgZ * 0.25));
+      ctx.strokeStyle = (node && node.content && node.content.rigged && i % 5 === 0)
+        ? ("rgba(16, 122, 71, " + alpha.toFixed(2) + ")")
+        : ("rgba(245, 245, 245, " + alpha.toFixed(2) + ")");
+      ctx.lineWidth = avgZ < camDist ? 1.5 : 0.9;
+      ctx.beginPath();
+      ctx.moveTo(p0.sx, p0.sy);
+      ctx.lineTo(p1.sx, p1.sy);
+      ctx.stroke();
+    }
+
+    // Vertex nodes
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      if (!p) continue;
+      ctx.fillStyle = i % 3 === 0 ? "#107a47" : "#ffffff";
+      ctx.beginPath();
+      ctx.arc(p.sx, p.sy, p.z < camDist ? 2.4 : 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function mountAllMeshPreviews() {
+    if (!document || typeof document.querySelectorAll !== "function") return;
+
+    const wireCanvases = document.querySelectorAll(".ns-mesh-wire-canvas");
+    if (wireCanvases && wireCanvases.forEach) {
+      wireCanvases.forEach((canvasEl) => {
+        const nid = canvasEl.dataset && canvasEl.dataset.meshNodeId;
+        const node = state.nodes.find((n) => n.id === nid);
+        if (!node) return;
+        if (!node._meshViewState) {
+          node._meshViewState = { yaw: 0.55, pitch: 0.34, zoom: 1.0 };
+        }
+        drawMeshWireframeOnCanvas(canvasEl, node, node._meshViewState);
+
+        if (!canvasEl._meshWireBound) {
+          canvasEl._meshWireBound = true;
+          let dragging = false;
+          let lastX = 0, lastY = 0;
+          canvasEl.addEventListener("mousedown", (ev) => {
+            ev.stopPropagation();
+            dragging = true;
+            lastX = ev.clientX;
+            lastY = ev.clientY;
+          });
+          window.addEventListener("mousemove", (ev) => {
+            if (!dragging) return;
+            const dx = ev.clientX - lastX;
+            const dy = ev.clientY - lastY;
+            lastX = ev.clientX;
+            lastY = ev.clientY;
+            node._meshViewState.yaw += dx * 0.014;
+            node._meshViewState.pitch = Math.max(-0.9, Math.min(1.1, node._meshViewState.pitch + dy * 0.012));
+            drawMeshWireframeOnCanvas(canvasEl, node, node._meshViewState);
+          });
+          window.addEventListener("mouseup", () => { dragging = false; });
+          canvasEl.addEventListener("dblclick", (ev) => {
+            ev.stopPropagation();
+            openMeshViewer(node.id);
+          });
+        }
+      });
+    }
+
+    const mvEls = document.querySelectorAll(".ns-model-viewer");
+    if (mvEls && mvEls.length > 0) {
+      ensureModelViewer().then(() => {
+        mvEls.forEach((mv) => {
+          if (mv._mvBound) return;
+          mv._mvBound = true;
+          mv.addEventListener("load", () => {
+            const stage = mv.parentElement;
+            if (stage && typeof stage.querySelector === "function") {
+              const wire = stage.querySelector(".ns-mesh-wire-canvas");
+              if (wire) wire.classList.add("is-hidden");
+            }
+          });
+        });
+      }).catch(() => {});
+    }
+  }
+
+  function renderModalMeshWireFrame() {
+    const modal = $("nsMeshViewerModal");
+    const canvasEl = $("nsMeshModalWireCanvas");
+    if (!modal || modal.classList.contains("hidden") || !canvasEl || modalMeshState.loadedRealGlb) return;
+    const node = state.nodes.find((n) => n.id === modalMeshState.activeNodeId);
+    if (modalMeshState.autoRotate) {
+      modalMeshState.yaw += 0.01;
+    }
+    drawMeshWireframeOnCanvas(canvasEl, node, modalMeshState);
+    if (modalMeshState.autoRotate && typeof window.requestAnimationFrame === "function") {
+      modalMeshState.rafId = window.requestAnimationFrame(renderModalMeshWireFrame);
+    }
+  }
+
+  function bindModalMeshWireCanvasEvents() {
+    const canvasEl = $("nsMeshModalWireCanvas");
+    if (!canvasEl || canvasEl._meshModalBound) return;
+    canvasEl._meshModalBound = true;
+    let dragging = false;
+    let lastX = 0, lastY = 0;
+    canvasEl.addEventListener("mousedown", (ev) => {
+      dragging = true;
+      modalMeshState.autoRotate = false;
+      lastX = ev.clientX;
+      lastY = ev.clientY;
+    });
+    window.addEventListener("mousemove", (ev) => {
+      if (!dragging) return;
+      const dx = ev.clientX - lastX;
+      const dy = ev.clientY - lastY;
+      lastX = ev.clientX;
+      lastY = ev.clientY;
+      modalMeshState.yaw += dx * 0.012;
+      modalMeshState.pitch = Math.max(-0.9, Math.min(1.1, modalMeshState.pitch + dy * 0.012));
+      renderModalMeshWireFrame();
+    });
+    window.addEventListener("mouseup", () => { dragging = false; });
+    canvasEl.addEventListener("wheel", (ev) => {
+      ev.preventDefault();
+      const factor = ev.deltaY < 0 ? 1.1 : 0.9;
+      modalMeshState.zoom = Math.max(0.45, Math.min(3.0, modalMeshState.zoom * factor));
+      renderModalMeshWireFrame();
+    }, { passive: false });
+  }
+
+  function openMeshViewer(nodeId) {
+    const node = state.nodes.find((n) => n.id === nodeId);
+    if (!node) return;
+    modalMeshState.activeNodeId = node.id;
+    modalMeshState.autoRotate = true;
+    modalMeshState.animPlaying = node._meshAnimPlaying !== false;
+    modalMeshState.loadedRealGlb = false;
+
+    const meta = node.metadata || {};
+    const c = node.content || {};
+    const glbPath = c.glbPath || c.vfsPath || meta.vfsPath || "/models3d/mesh.glb";
+    const glbSrc = _getGlbSrcForNode(node);
+
+    const modal = $("nsMeshViewerModal");
+    const titleEl = $("nsMeshModalTitle");
+    const metaEl = $("nsMeshModalMeta");
+    const viewport = $("nsMeshModalViewport");
+    const badge = $("nsMeshModalBadge");
+    const wireCanvas = $("nsMeshModalWireCanvas");
+    const animBtn = $("nsMeshModalAnimBtn");
+    const rotBtn = $("nsMeshModalAutoRotateBtn");
+
+    if (titleEl) {
+      titleEl.textContent = "3D MESH INSPECTOR (.GLB) · " + (meta.prompt || node.label || node.id);
+    }
+    if (metaEl) {
+      metaEl.textContent = glbPath + " · " + getModelName(meta.model || "hyper3d/rodin-v2.5") +
+        " · Tier: " + (c.tier || meta.tier || "Regular") +
+        (c.rigged ? (" · Rigged (" + (c.animation || "walk") + ")") : "") +
+        " · Drag to Orbit / Scroll to Zoom";
+    }
+    if (animBtn) {
+      animBtn.classList.toggle("hidden", !c.rigged);
+      animBtn.textContent = modalMeshState.animPlaying ? "❚❚ Pause Anim" : "▶ Play Anim";
+    }
+    if (rotBtn) {
+      rotBtn.classList.toggle("is-active", modalMeshState.autoRotate);
+    }
+    if (modal) modal.classList.remove("hidden");
+
+    if (modalMeshState.viewerEl && modalMeshState.viewerEl.parentNode) {
+      try { modalMeshState.viewerEl.parentNode.removeChild(modalMeshState.viewerEl); } catch (_e) {}
+      modalMeshState.viewerEl = null;
+    }
+    if (wireCanvas) wireCanvas.classList.remove("is-hidden");
+    if (badge) {
+      badge.classList.remove("is-live");
+      badge.textContent = glbSrc ? "⟳ LOADING INTERACTIVE .GLB..." : "◐ ISOMETRIC WIREFRAME PREVIEW";
+    }
+
+    bindModalMeshWireCanvasEvents();
+    if (modalMeshState.rafId && typeof window.cancelAnimationFrame === "function") {
+      window.cancelAnimationFrame(modalMeshState.rafId);
+      modalMeshState.rafId = null;
+    }
+    renderModalMeshWireFrame();
+
+    if (glbSrc && viewport) {
+      const mv = document.createElement("model-viewer");
+      mv.className = "ns-mesh-modal-model-viewer";
+      mv.setAttribute("src", glbSrc);
+      mv.setAttribute("camera-controls", "");
+      if (modalMeshState.autoRotate) mv.setAttribute("auto-rotate", "");
+      mv.setAttribute("interaction-prompt", "none");
+      mv.setAttribute("shadow-intensity", "0.7");
+      if (c.rigged && modalMeshState.animPlaying) mv.setAttribute("autoplay", "");
+      mv.addEventListener("load", () => {
+        if (modalMeshState.activeNodeId !== node.id) return;
+        modalMeshState.loadedRealGlb = true;
+        if (modalMeshState.rafId && typeof window.cancelAnimationFrame === "function") {
+          window.cancelAnimationFrame(modalMeshState.rafId);
+          modalMeshState.rafId = null;
+        }
+        if (wireCanvas) wireCanvas.classList.add("is-hidden");
+        if (badge) {
+          badge.classList.add("is-live");
+          badge.textContent = "● LIVE PBR .GLB · MODEL-VIEWER";
+        }
+      });
+      modalMeshState.viewerEl = mv;
+      if (typeof viewport.appendChild === "function") {
+        viewport.appendChild(mv);
+      }
+      ensureModelViewer().catch(() => {
+        if (badge) {
+          badge.classList.remove("is-live");
+          badge.textContent = "◐ ISOMETRIC WIREFRAME PREVIEW (OFFLINE)";
+        }
+      });
+    }
+  }
+
+  function closeMeshViewer() {
+    const modal = $("nsMeshViewerModal");
+    if (modal) modal.classList.add("hidden");
+    modalMeshState.activeNodeId = null;
+    modalMeshState.autoRotate = false;
+    modalMeshState.loadedRealGlb = false;
+    if (modalMeshState.rafId && typeof window.cancelAnimationFrame === "function") {
+      window.cancelAnimationFrame(modalMeshState.rafId);
+      modalMeshState.rafId = null;
+    }
+    if (modalMeshState.viewerEl && modalMeshState.viewerEl.parentNode) {
+      try { modalMeshState.viewerEl.parentNode.removeChild(modalMeshState.viewerEl); } catch (_e) {}
+    }
+    modalMeshState.viewerEl = null;
+  }
+
+  function toggleMeshModalAutoRotate() {
+    modalMeshState.autoRotate = !modalMeshState.autoRotate;
+    const rotBtn = $("nsMeshModalAutoRotateBtn");
+    if (rotBtn) rotBtn.classList.toggle("is-active", modalMeshState.autoRotate);
+    const mv = modalMeshState.viewerEl;
+    if (mv) {
+      if (modalMeshState.autoRotate) {
+        if (typeof mv.setAttribute === "function") mv.setAttribute("auto-rotate", "");
+      } else if (typeof mv.removeAttribute === "function") {
+        mv.removeAttribute("auto-rotate");
+      }
+    }
+    if (modalMeshState.autoRotate && !modalMeshState.loadedRealGlb) {
+      renderModalMeshWireFrame();
+    } else if (!modalMeshState.autoRotate && modalMeshState.rafId && typeof window.cancelAnimationFrame === "function") {
+      window.cancelAnimationFrame(modalMeshState.rafId);
+      modalMeshState.rafId = null;
+    }
+  }
+
+  function toggleMeshModalAnim() {
+    modalMeshState.animPlaying = !modalMeshState.animPlaying;
+    const animBtn = $("nsMeshModalAnimBtn");
+    if (animBtn) animBtn.textContent = modalMeshState.animPlaying ? "❚❚ Pause Anim" : "▶ Play Anim";
+    const node = state.nodes.find((n) => n.id === modalMeshState.activeNodeId);
+    if (node) node._meshAnimPlaying = modalMeshState.animPlaying;
+    const mv = modalMeshState.viewerEl;
+    if (mv) {
+      if (modalMeshState.animPlaying) {
+        if (typeof mv.play === "function") mv.play();
+        if (typeof mv.setAttribute === "function") mv.setAttribute("autoplay", "");
+      } else {
+        if (typeof mv.pause === "function") mv.pause();
+        if (typeof mv.removeAttribute === "function") mv.removeAttribute("autoplay");
+      }
+    }
+  }
+
+  function toggleNodeMeshAnim(nodeId) {
+    const node = state.nodes.find((n) => n.id === nodeId);
+    if (!node) return;
+    node._meshAnimPlaying = node._meshAnimPlaying === false;
+    renderNodes();
+  }
+
+  function downloadActiveMeshGlb() {
+    if (!modalMeshState.activeNodeId) return;
+    downloadNode(modalMeshState.activeNodeId);
+  }
+
+  // =========================================================================
+  // Synced Chat (Conversation) & Asset Library Views
+  // =========================================================================
+  function _getNodeModality(node) {
+    if (!node) return "image";
+    const ms = node.morphingStatus || "";
+    const mod = node.modality || "";
+    const ok = node.omniKind || "";
+    if (ms === "mesh3d" || mod === "3d" || ok === "3d") return "3d";
+    if (ms === "omni" || mod === "atlas" || ok === "omni_master" || ok === "pose" || ok === "splat" || ok === "flythrough") return "atlas";
+    if (ms === "video" || mod === "video" || ok === "video") return "video";
+    if (ms === "audio" || mod === "audio" || ok === "audio") return "audio";
+    if (ms === "text" || ms === "message" || mod === "text" || ok === "text") return "text";
+    return "image";
+  }
+
+  function _modalityDisplayLabel(mod) {
+    const map = {
+      image: "IMAGE",
+      text: "TEXT",
+      video: "VIDEO",
+      audio: "AUDIO",
+      "3d": "3D MESH",
+      atlas: "3D SPLAT"
+    };
+    return map[mod] || "ASSET";
+  }
+
+  function _resolveChatLineage() {
+    if (!state.nodes.length) return [];
+    if (!state.selectedIds.length) return state.nodes.slice();
+    const targetId = state.selectedIds[0];
+    const byId = new Map();
+    state.nodes.forEach((n) => byId.set(n.id, n));
+    if (!byId.has(targetId)) return state.nodes.slice();
+
+    const visited = new Set();
+    const ordered = [];
+    function walkAncestors(id) {
+      if (!id || visited.has(id) || !byId.has(id)) return;
+      visited.add(id);
+      const parents = state.edges.filter((e) => e.target === id).map((e) => e.source);
+      parents.forEach((pid) => walkAncestors(pid));
+      ordered.push(byId.get(id));
+    }
+    walkAncestors(targetId);
+    return ordered;
+  }
+
+  function renderConversationView() {
+    const feed = $("nsChatFeed");
+    const headerMeta = $("nsChatHeaderMeta");
+    const lineage = _resolveChatLineage();
+    const activeModLabel = _modalityDisplayLabel(state.modality || "image");
+    const activeModelName = getModelName(state.model);
+
+    if (headerMeta) {
+      if (state.selectedIds.length > 0 && lineage.length > 0) {
+        headerMeta.textContent = "Branch lineage · " + lineage.length + " turn" + (lineage.length === 1 ? "" : "s") +
+          " · Target: " + state.selectedIds[0] + " · Composer: " + activeModLabel + " (" + activeModelName + ")";
+      } else {
+        headerMeta.textContent = "Full session · " + lineage.length + " node" + (lineage.length === 1 ? "" : "s") +
+          " · Composer: " + activeModLabel + " (" + activeModelName + ")";
+      }
+    }
+
+    if (!feed) return;
+    if (!lineage.length) {
+      feed.innerHTML = '<div class="ns-chat-empty">No nodes in conversation yet. Type a prompt below or generate a node on the canvas.</div>';
+      return;
+    }
+
+    feed.innerHTML = lineage.map((node) => {
+      const nid = escapeHtml(node.id);
+      const mod = _getNodeModality(node);
+      const meta = node.metadata || {};
+      const c = node.content || {};
+      const isSel = state.selectedIds.indexOf(node.id) !== -1;
+      const modelName = getModelName(meta.model || state.model);
+      const promptTxt = (meta.prompt || node.label || "").trim();
+
+      let previewHtml = "";
+      if (mod === "image") {
+        previewHtml = c.imageUrl
+          ? '<img class="ns-chat-thumb" src="' + escapeHtml(c.imageUrl) + '" alt="' + escapeHtml(node.label || node.id) + '">'
+          : '<div class="ns-chat-text">' + escapeHtml(c.text || node.label || "Image node") + "</div>";
+      } else if (mod === "text") {
+        previewHtml = '<div class="ns-chat-text">' + escapeHtml(c.text || node.label || "") + "</div>";
+      } else if (mod === "audio") {
+        const audioSrc = c.audioUrl || (c.audioBytesB64 ? ("data:" + (c.mimeType || "audio/wav") + ";base64," + c.audioBytesB64) : "");
+        previewHtml =
+          (audioSrc ? '<audio class="ns-audio-player" controls src="' + escapeHtml(audioSrc) + '"></audio>' : "") +
+          '<div class="ns-chat-media-row"><span class="ns-omni-status-badge">♪ ' + escapeHtml(String(c.kind || meta.audioKind || "music").toUpperCase()) +
+          "</span><span>" + escapeHtml(c.vfsPath || meta.vfsPath || "/audio/output.wav") + "</span></div>";
+      } else if (mod === "video") {
+        const vidUrl = c.videoUrl || "";
+        if (_isPlayableVideoUrl(vidUrl)) {
+          previewHtml = '<div class="ns-video-stage" style="max-height:200px;"><video class="ns-video-player" controls playsinline loop src="' + escapeHtml(vidUrl) + '"></video></div>';
+        } else if (meta.jobStatus === "ERROR") {
+          previewHtml = '<div class="ns-omni-error-box">' + escapeHtml(meta.jobError || "Video generation failed") + "</div>";
+        } else {
+          previewHtml = '<div class="ns-chat-media-row"><span class="ns-omni-status-badge">' +
+            escapeHtml(meta.jobStatus === "RUNNING" ? "⟳ RENDERING VIDEO" : "▶ VIDEO STAGED") +
+            "</span><span>" + escapeHtml(c.vfsPath || meta.vfsPath || "MP4 Video") + "</span></div>";
+        }
+      } else if (mod === "3d") {
+        const glbPath = c.glbPath || c.vfsPath || meta.vfsPath || "/models3d/mesh.glb";
+        previewHtml =
+          '<div class="ns-chat-media-row">' +
+          '<span class="ns-omni-status-badge">◆ .GLB' + (c.rigged ? (" · RIGGED (" + escapeHtml(c.animation || "walk") + ")") : "") + "</span>" +
+          "<span>" + escapeHtml(glbPath) + "</span>" +
+          '<button type="button" class="ns-card-action-btn" onclick="window.TinCanNodeStudio.openMeshViewer(\'' + nid + '\')">⤢ Inspect 3D</button>' +
+          "</div>";
+      } else {
+        const spzPath = meta.vfsPath || "/worlds/world_splat.spz";
+        previewHtml =
+          '<div class="ns-chat-media-row">' +
+          '<span class="ns-omni-status-badge">❖ .SPZ GAUSSIAN SPLAT</span>' +
+          "<span>" + escapeHtml(spzPath) + "</span>" +
+          '<button type="button" class="ns-card-action-btn" onclick="window.TinCanNodeStudio.openSplatViewer(\'' + nid + '\')">⤢ View 3D Splat</button>' +
+          "</div>";
+      }
+
+      return (
+        '<article class="ns-chat-turn' + (isSel ? " is-selected" : "") + '" data-chat-node-id="' + nid + '">' +
+        '<div class="ns-chat-turn-head">' +
+        '<div class="ns-chat-turn-badges">' +
+        '<span class="ns-omni-pill">' + escapeHtml(_modalityDisplayLabel(mod)) + "</span>" +
+        '<span class="ns-chat-model">' + escapeHtml(modelName) + "</span>" +
+        "</div>" +
+        '<button type="button" class="ns-card-action-btn" onclick="window.TinCanNodeStudio.focusNodeOnCanvas(\'' + nid + '\')">Focus on Canvas</button>' +
+        "</div>" +
+        (promptTxt ? '<div class="ns-chat-prompt">' + escapeHtml(promptTxt) + "</div>" : "") +
+        previewHtml +
+        "</article>"
+      );
+    }).join("");
+  }
+
+  async function sendChatPrompt(rawText) {
+    const chatInp = $("nsChatInput");
+    const text = String(rawText !== undefined && rawText !== null ? rawText : ((chatInp && chatInp.value) || "")).trim();
+    if (!text) return;
+    const promptEl = $("nsPromptInput");
+    if (promptEl) promptEl.value = text;
+    if (chatInp) chatInp.value = "";
+    renderPromptIslandStatus();
+    await generate();
+    renderConversationView();
+  }
+
+  function focusNodeOnCanvas(nodeId) {
+    const node = state.nodes.find((n) => n.id === nodeId);
+    if (!node) return;
+    state.selectedIds = [node.id];
+    syncSelectionRefs();
+    switchView("nodes");
+    const canvas = $("nsDotCanvas");
+    const rect = canvas && typeof canvas.getBoundingClientRect === "function"
+      ? canvas.getBoundingClientRect()
+      : { width: 1200, height: 800 };
+    const cx = node.x + (node.width || 256) * 0.5;
+    const cy = node.y + (node.height || 256) * 0.5;
+    state.panX = Math.round(rect.width * 0.5 - cx * state.zoom);
+    state.panY = Math.round((rect.height - 140) * 0.5 - cy * state.zoom);
+    applyCanvasTransform();
+    renderNodes();
+  }
+
+  function setLibraryFilter(mod) {
+    state.libraryFilter = mod || "all";
+    document.querySelectorAll(".ns-lib-chip").forEach((chip) => {
+      const isAct = chip.dataset && chip.dataset.libFilter === state.libraryFilter;
+      chip.classList.toggle("is-active", !!isAct);
+      chip.setAttribute("aria-pressed", isAct ? "true" : "false");
+    });
+    renderLibraryViewGrid();
+  }
+
+  function setLibrarySearch(query) {
+    state.libraryQuery = String(query || "");
+    renderLibraryViewGrid();
+  }
+
   function renderLibraryViewGrid() {
     const grid = $("nsLibraryViewGrid");
     if (!grid) return;
+
+    document.querySelectorAll(".ns-lib-chip").forEach((chip) => {
+      const isAct = chip.dataset && chip.dataset.libFilter === (state.libraryFilter || "all");
+      chip.classList.toggle("is-active", !!isAct);
+      chip.setAttribute("aria-pressed", isAct ? "true" : "false");
+    });
+
     if (!state.nodes.length) {
-      grid.innerHTML = '<div class="ns-alt-desc">No generated assets yet. Generate or drop images in Editor view to populate your Asset Library.</div>';
+      grid.innerHTML = '<div class="ns-chat-empty" style="grid-column:1 / -1;">No generated assets yet. Generate or drop images in Editor view to populate your Asset Library.</div>';
       return;
     }
-    grid.innerHTML = state.nodes.map((n) =>
-      '<div class="ns-asset-card" onclick="window.TinCanNodeStudio.switchView(\'nodes\')">' +
-      '<div class="ns-asset-thumb">' +
-      (n.content && n.content.imageUrl ? '<img src="' + escapeHtml(n.content.imageUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:5px;">' : '<span>TEXT</span>') +
-      '</div><div class="ns-asset-name">' + escapeHtml(n.label || n.id) + "</div></div>"
-    ).join("");
+
+    const activeFilter = state.libraryFilter || "all";
+    const q = (state.libraryQuery || "").trim().toLowerCase();
+
+    const filtered = state.nodes.filter((n) => {
+      const mod = _getNodeModality(n);
+      if (activeFilter !== "all" && mod !== activeFilter) return false;
+      if (q) {
+        const hay = [
+          n.id,
+          n.label,
+          mod,
+          n.metadata && n.metadata.prompt,
+          n.metadata && n.metadata.model,
+          n.metadata && n.metadata.vfsPath,
+          n.content && n.content.text
+        ].filter(Boolean).join(" ").toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+
+    if (!filtered.length) {
+      grid.innerHTML = '<div class="ns-chat-empty" style="grid-column:1 / -1;">No assets match the current filter or search query.</div>';
+      return;
+    }
+
+    grid.innerHTML = filtered.map((n) => {
+      const nid = escapeHtml(n.id);
+      const mod = _getNodeModality(n);
+      const c = n.content || {};
+      const meta = n.metadata || {};
+      let preview = "";
+      if (mod === "image" && c.imageUrl) {
+        preview = '<img src="' + escapeHtml(c.imageUrl) + '" alt="' + escapeHtml(n.label || n.id) + '">';
+      } else if (mod === "text") {
+        preview = '<div class="ns-lib-preview-text">' + escapeHtml(String(c.text || n.label || "").slice(0, 140)) + "</div>";
+      } else if (mod === "video") {
+        preview = _isPlayableVideoUrl(c.videoUrl)
+          ? '<video muted playsinline src="' + escapeHtml(c.videoUrl) + '"></video>'
+          : '<span>▶ VIDEO · ' + escapeHtml(meta.jobStatus || "MP4") + "</span>";
+      } else if (mod === "audio") {
+        preview = '<span>♪ AUDIO · ' + escapeHtml(String(c.kind || meta.audioKind || "WAV").toUpperCase()) + "</span>";
+      } else if (mod === "3d") {
+        preview = '<span>◆ 3D .GLB' + (c.rigged ? " · RIGGED" : "") + "</span>";
+      } else if (mod === "atlas") {
+        preview = '<span>❖ 3D SPLAT (.SPZ)</span>';
+      } else {
+        preview = '<span>' + escapeHtml(_modalityDisplayLabel(mod)) + "</span>";
+      }
+
+      return (
+        '<div class="ns-lib-asset-card" data-lib-node-id="' + nid + '" data-lib-modality="' + escapeHtml(mod) + '">' +
+        '<div class="ns-lib-preview">' + preview + "</div>" +
+        '<div class="ns-lib-meta">' +
+        '<div class="ns-lib-title" title="' + escapeHtml(n.label || n.id) + '">' + escapeHtml(n.label || n.id) + "</div>" +
+        '<div class="ns-lib-sub">' + escapeHtml(_modalityDisplayLabel(mod) + " · " + getModelName(meta.model || "")) + "</div>" +
+        "</div>" +
+        '<div class="ns-lib-actions">' +
+        '<div class="ns-lib-actions-left">' +
+        '<button type="button" class="ns-card-action-btn is-primary" onclick="window.TinCanNodeStudio.focusNodeOnCanvas(\'' + nid + '\')">Focus</button>' +
+        '<button type="button" class="ns-card-action-btn" onclick="window.TinCanNodeStudio.addNodeAsRef(\'' + nid + '\')">+ Ref</button>' +
+        "</div>" +
+        '<div class="ns-lib-actions-left">' +
+        '<button type="button" class="ns-card-action-btn" title="Download" onclick="window.TinCanNodeStudio.downloadNode(\'' + nid + '\')">↓</button>' +
+        '<button type="button" class="ns-card-action-btn" title="Delete" onclick="window.TinCanNodeStudio.deleteNode(\'' + nid + '\')">×</button>' +
+        "</div>" +
+        "</div>" +
+        "</div>"
+      );
+    }).join("");
   }
 
   function switchView(view) {
@@ -4453,6 +6400,8 @@ def _node_studio_js(initial_view: str) -> str:
     const libV = $("nsLibraryView");
     if (chatV) chatV.classList.toggle("hidden", view !== "conversation");
     if (libV) libV.classList.toggle("hidden", view !== "library");
+    if (view === "conversation") renderConversationView();
+    if (view === "library") renderLibraryViewGrid();
   }
 
   function autoLayout() {
@@ -4545,6 +6494,9 @@ def _node_studio_js(initial_view: str) -> str:
   }
 
   function deleteNode(id) {
+    const target = state.nodes.find((n) => n.id === id);
+    if (target) _cleanupNodeResources(target);
+    if (modalMeshState.activeNodeId === id) closeMeshViewer();
     state.edges = state.edges.filter((e) => e.source !== id && e.target !== id);
     state.nodes = state.nodes.filter((n) => n.id !== id);
     state.selectedIds = state.selectedIds.filter((s) => s !== id);
@@ -4560,6 +6512,11 @@ def _node_studio_js(initial_view: str) -> str:
     copy.id = id + "-copy-" + state.nodeSeq;
     copy.x = orig.x + 40;
     copy.y = orig.y + 40;
+    copy._pollTimer = null;
+    copy._glbBlobUrl = "";
+    copy._glbBlobSourceB64 = "";
+    copy._splatCloud = null;
+    copy._splatImgLoading = false;
     state.nodes.push(copy);
     state.selectedIds = [copy.id];
     syncSelectionRefs();
@@ -4604,10 +6561,35 @@ def _node_studio_js(initial_view: str) -> str:
 
   function downloadNode(id) {
     const node = state.nodes.find((n) => n.id === id);
-    if (!node || !node.content || !node.content.imageUrl) return;
+    if (!node || !node.content) return;
+    const baseName = String(node.label || node.id || "node").replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 48) || "node";
+    const c = node.content;
+    const m = node.metadata || {};
+    let href = "";
+    let filename = baseName;
+    if (c.imageUrl) {
+      href = c.imageUrl;
+      filename = baseName + ".png";
+    } else if (c.audioUrl || c.audioBytesB64) {
+      href = c.audioUrl || ("data:" + (c.mimeType || "audio/wav") + ";base64," + c.audioBytesB64);
+      filename = baseName + ".wav";
+    } else if (c.glbRawUrl || c.glbB64) {
+      href = c.glbRawUrl || ("data:model/gltf-binary;base64," + c.glbB64);
+      filename = baseName + ".glb";
+    } else if (c.videoUrl) {
+      href = c.videoUrl;
+      filename = baseName + ".mp4";
+    } else if (m.spzRawUrl || c.spzB64) {
+      href = m.spzRawUrl || ("data:application/octet-stream;base64," + c.spzB64);
+      filename = baseName + ".spz";
+    } else if (c.text) {
+      href = "data:text/markdown;charset=utf-8," + encodeURIComponent(String(c.text));
+      filename = baseName + ".md";
+    }
+    if (!href) return;
     const a = document.createElement("a");
-    a.href = node.content.imageUrl;
-    a.download = (node.label || "node") + ".png";
+    a.href = href;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -4682,6 +6664,7 @@ def _node_studio_js(initial_view: str) -> str:
           id: nid,
           type: "UPLOADED",
           morphingStatus: "image",
+          modality: "image",
           label: file.name,
           x: Math.round(flowX + idx * 36),
           y: Math.round(flowY + idx * 28),
@@ -4690,16 +6673,6 @@ def _node_studio_js(initial_view: str) -> str:
           content: { imageUrl: dataUrl, base64: b64, mimeType: file.type || "image/jpeg" },
           metadata: { resolution: "1024x1024", model: "Uploaded", prompt: "Uploaded: " + file.name },
           filters: {}
-        });
-        state.references.push({
-          id: nid,
-          source: "upload",
-          url: dataUrl,
-          base64: b64,
-          name: file.name,
-          type: "image",
-          mimeType: file.type || "image/jpeg",
-          size: file.size || 0
         });
         droppedIds.push(nid);
         if (droppedIds.length === imageFiles.length) {
@@ -4817,22 +6790,69 @@ def _node_studio_js(initial_view: str) -> str:
   async function generate() {
     const promptEl = $("nsPromptInput");
     const rawPrompt = promptEl ? promptEl.value.trim() : "";
+    const activeMod = state.modality || (getCaps() && getCaps().modality) || "image";
     const hasPhotos = state.references.filter((r) => r.type === "image").length > 0;
-    const prompt = rawPrompt || (hasPhotos ? "Multi-view 3D Gaussian Splat" : "");
+    const prompt = rawPrompt || ((activeMod === "atlas" && hasPhotos) ? "Multi-view 3D Gaussian Splat" : "");
     if (!prompt || state.activeRuns >= MAX_CONCURRENT_RUNS) return;
 
-    const slashPill = $("nsActiveSlashPill");
-    const slashPillActive = !!(slashPill && !slashPill.classList.contains("hidden") && state.activeSlashCommand && state.activeSlashCommand.indexOf("/atlas") === 0);
-    if (prompt.startsWith("/") || state.modality === "atlas" || state.model === "worldlabs/atlas-v2" || (slashPillActive && hasPhotos)) {
-      const effectiveCmd = prompt.startsWith("/")
-        ? prompt
-        : ((state.activeSlashCommand || "/atlas splat") + " " + prompt);
-      await runTerminalCommand(effectiveCmd);
+    // Ensure any pending FileReader base64 conversions complete before sending
+    if (state.references.length > 0) {
+      try {
+        await Promise.all(state.references.map((r) => r._readPromise || Promise.resolve()));
+      } catch (_e) {}
+    }
+
+    // 1. Explicit slash command typed by user -> route through slash parser
+    if (rawPrompt.startsWith("/")) {
+      await runTerminalCommand(rawPrompt);
       if (promptEl) promptEl.value = "";
       renderPromptIslandStatus();
       return;
     }
 
+    // 2. World Labs 3D Splat — ONLY when the user explicitly selected 3D Splat / World Labs Atlas v2
+    if (activeMod === "atlas" || state.model === "worldlabs/atlas-v2") {
+      const taskToSub = {
+        images2PosedRGBD: "pose",
+        atlasGenerate: "flythrough",
+        splats2Mesh: "mesh",
+        posedImages2Splats: "splat"
+      };
+      const sub = taskToSub[state.atlasTask] || "splat";
+      const refineFlag = (sub === "splat" && state.atlasRefine) ? " --refined" : "";
+      await runTerminalCommand("/atlas " + sub + refineFlag + " " + prompt);
+      state.activeSlashCommand = "";
+      const pill = $("nsActiveSlashPill");
+      if (pill) pill.classList.add("hidden");
+      if (promptEl) promptEl.value = "";
+      renderPromptIslandStatus();
+      return;
+    }
+
+    // 3. Audio (Lyria 3.5 / ElevenLabs v4 / SFX v3) -> /api/omni/route for real WAV generation
+    if (activeMod === "audio") {
+      const kind = state.audioKind || (getCaps() && getCaps().audioKind) || "music";
+      await runTerminalCommand("/audio " + kind + " --model " + state.model + " " + prompt);
+      state.activeSlashCommand = "";
+      const pill = $("nsActiveSlashPill");
+      if (pill) pill.classList.add("hidden");
+      if (promptEl) promptEl.value = "";
+      renderPromptIslandStatus();
+      return;
+    }
+
+    // 4. 3D Mesh (Hyper3D Rodin v2.5) -> /api/omni/route for real PBR .GLB generation
+    if (activeMod === "3d") {
+      await runTerminalCommand("/3d --model " + state.model + " --tier " + (state.meshTier || "Regular") + " " + prompt);
+      state.activeSlashCommand = "";
+      const pill = $("nsActiveSlashPill");
+      if (pill) pill.classList.add("hidden");
+      if (promptEl) promptEl.value = "";
+      renderPromptIslandStatus();
+      return;
+    }
+
+    // 5. Image, Text, and Video -> /api/nodes/generate (Nano Banana, Gemini Pro, DeepSeek, Gemma, Kling, LTX)
     state.activeRuns += 1;
     renderPromptIslandStatus();
     showToast("", false);
@@ -4844,9 +6864,14 @@ def _node_studio_js(initial_view: str) -> str:
       ? (parentIds[0] + ".n" + state.nodeSeq)
       : ("node-" + state.nodeSeq);
 
+    const nodeTypeLabel = activeMod === "text"
+      ? "TEXT"
+      : (activeMod === "video" ? "VIDEO" : (mode === "MERGE" ? "MERGED" : (mode === "EDIT" ? "EDITED" : "GENERATED")));
+
     const newNode = {
       id: newId,
-      type: mode === "MERGE" ? "MERGED" : (mode === "EDIT" ? "EDITED" : "GENERATED"),
+      type: nodeTypeLabel,
+      modality: activeMod,
       morphingStatus: "generating",
       label: prompt,
       x: 420 + (state.nodeSeq % 3) * 40,
@@ -4854,7 +6879,14 @@ def _node_studio_js(initial_view: str) -> str:
       width: 96,
       height: 96,
       content: {},
-      metadata: { prompt: prompt, model: state.model, resolution: state.resolution, conversationHistory: [] },
+      metadata: {
+        prompt: prompt,
+        model: state.model,
+        modality: activeMod,
+        resolution: state.resolution,
+        fps: Number(state.videoFps || 60),
+        conversationHistory: []
+      },
       filters: {}
     };
     state.nodes.push(newNode);
@@ -4868,15 +6900,33 @@ def _node_studio_js(initial_view: str) -> str:
     if (state.apiKey) headers["X-Gemini-Api-Key"] = state.apiKey;
     if (state.nanogptKey) headers["X-NanoGPT-Api-Key"] = state.nanogptKey;
 
+    const allRefs = collectAllImageReferences();
+    const parentNodesPayload = parentIds.map((pid) => {
+      const pn = state.nodes.find((x) => x.id === pid);
+      if (!pn) return null;
+      return {
+        id: pn.id,
+        data: {
+          modality: pn.modality || (pn.morphingStatus === "text" || pn.morphingStatus === "message" ? "text" : "image"),
+          label: pn.label,
+          content: pn.content || {},
+          metadata: pn.metadata || {},
+          filters: pn.filters || {}
+        }
+      };
+    }).filter(Boolean);
+
     const payload = {
       prompt: prompt,
-      modality: state.modality || "image",
+      modality: activeMod,
       selectedNodeIds: parentIds,
-      references: state.references.map((r) => ({ id: r.id, name: r.name, type: r.type, url: r.url, base64: r.base64, mimeType: r.mimeType })),
+      parentNodes: parentNodesPayload,
+      references: allRefs,
       config: {
         model: state.model,
         aspectRatio: state.aspectRatio,
         resolution: state.resolution,
+        fps: Number(state.videoFps || 60),
         thinkingLevel: state.thinkingLevel,
         includeThoughts: state.includeThoughts,
         groundingMode: state.groundingMode,
@@ -4900,17 +6950,78 @@ def _node_studio_js(initial_view: str) -> str:
       newNode.content = Object.assign({}, rContent);
       if (data.image && data.image.data && !newNode.content.imageUrl) {
         newNode.content.imageUrl = "data:" + (data.image.mimeType || "image/png") + ";base64," + data.image.data;
+        newNode.content.base64 = data.image.data;
+        newNode.content.mimeType = data.image.mimeType || "image/png";
       }
-      newNode.morphingStatus = newNode.content.imageUrl ? "image" : "message";
-      newNode.width = newNode.morphingStatus === "image" ? 256 : 280;
-      newNode.height = newNode.morphingStatus === "image" ? 256 : 160;
+      if (newNode.content.imageUrl && !newNode.content.base64) {
+        newNode.content.base64 = _extractDataUrlBase64(newNode.content.imageUrl);
+      }
+
       if (rData.metadata) newNode.metadata = Object.assign(newNode.metadata, rData.metadata);
-      if (newNode.content.text) showToast(newNode.content.text, false);
+
+      const isAsyncVideo = activeMod === "video" && (
+        data.async === true ||
+        data.done === false ||
+        (rData.metadata && rData.metadata.jobStatus === "RUNNING") ||
+        (rContent && rContent.jobStatus === "RUNNING")
+      );
+
+      if (isAsyncVideo) {
+        newNode.morphingStatus = "video";
+        newNode.width = 320;
+        newNode.height = 250;
+        newNode.metadata.jobId =
+          data.job_id ||
+          (data.result && (data.result.jobId || data.result.job_id)) ||
+          (rData.metadata && (rData.metadata.jobId || rData.metadata.job_id)) ||
+          rContent.jobId ||
+          rContent.job_id ||
+          "";
+        newNode.metadata.modelSlug =
+          data.model_slug ||
+          (data.result && (data.result.modelSlug || data.result.model_slug)) ||
+          (rData.metadata && (rData.metadata.modelSlug || rData.metadata.model_slug)) ||
+          rContent.modelSlug ||
+          state.model;
+        newNode.metadata.jobStatus = "RUNNING";
+        newNode.metadata.startedAt = Date.now();
+        showToast("Video rendering started — polling live every 4s...", false);
+        appendTerminalLine("[⟳] Submitted Video job " + (newNode.metadata.jobId || newNode.id) + " (" + newNode.metadata.modelSlug + ") — polling live");
+        pollVideoJobForNode(newNode);
+      } else if (activeMod === "text") {
+        newNode.morphingStatus = "text";
+        newNode.width = 320;
+        newNode.height = 220;
+      } else if (activeMod === "video" || newNode.content.videoUrl) {
+        newNode.morphingStatus = "video";
+        newNode.width = 320;
+        newNode.height = 250;
+      } else if (newNode.content.imageUrl) {
+        newNode.morphingStatus = "image";
+        newNode.width = 256;
+        newNode.height = 256;
+      } else {
+        newNode.morphingStatus = "text";
+        newNode.width = 320;
+        newNode.height = 220;
+      }
+
+      if (activeMod === "image" && newNode.content.text) {
+        showToast(newNode.content.text, false);
+      }
     } catch (err) {
-      newNode.morphingStatus = "message";
-      newNode.width = 280;
-      newNode.height = 160;
-      newNode.content = { text: prompt + " (staged locally)" };
+      if (activeMod === "video" && err && err.message && err.message.indexOf("Failed to fetch") === -1) {
+        newNode.morphingStatus = "video";
+        newNode.width = 320;
+        newNode.height = 250;
+        newNode.metadata.jobStatus = "ERROR";
+        newNode.metadata.jobError = err.message;
+      } else {
+        newNode.morphingStatus = "text";
+        newNode.width = 320;
+        newNode.height = 200;
+        newNode.content = { text: prompt + " (staged locally)" };
+      }
       if (err && err.message && err.message.indexOf("Failed to fetch") === -1) {
         showToast(err.message, true);
       }
@@ -4949,6 +7060,9 @@ def _node_studio_js(initial_view: str) -> str:
     applyCanvasTransform();
     updateApiBadges();
     mountAllSplatCanvases();
+    mountAllMeshPreviews();
+    renderConversationView();
+    renderLibraryViewGrid();
 
     const qGraph = params ? (params.get("graph") || params.get("file")) : null;
     if (qGraph) {
@@ -5175,6 +7289,16 @@ def _node_studio_js(initial_view: str) -> str:
       });
     }
 
+    const chatInputEl = $("nsChatInput");
+    if (chatInputEl) {
+      chatInputEl.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" && !ev.shiftKey) {
+          ev.preventDefault();
+          sendChatPrompt();
+        }
+      });
+    }
+
     document.addEventListener("keydown", (ev) => {
       if (ev.metaKey || ev.ctrlKey) {
         state.metaHeld = true;
@@ -5190,9 +7314,14 @@ def _node_studio_js(initial_view: str) -> str:
       if (tag === "input" || tag === "textarea" || tag === "select") {
         if ((ev.metaKey || ev.ctrlKey) && ev.key === "Enter") {
           ev.preventDefault();
-          generate();
+          if (ev.target && ev.target.id === "nsChatInput") sendChatPrompt();
+          else generate();
         }
         return;
+      }
+      const meshModal = $("nsMeshViewerModal");
+      if (meshModal && !meshModal.classList.contains("hidden")) {
+        if (ev.key === "Escape") { ev.preventDefault(); closeMeshViewer(); return; }
       }
       const splatModal = $("nsSplatViewerModal");
       if (splatModal && !splatModal.classList.contains("hidden")) {
@@ -5352,9 +7481,11 @@ def _node_studio_js(initial_view: str) -> str:
 
     state._suppressAutoSave = true;
     try {
+      state.nodes.forEach(_cleanupNodeResources);
+      closeMeshViewer();
       state.graphName = _cleanGraphName((meta && meta.name) || graphObj.name || state.graphName);
       state.graphPath = (meta && meta.path) || graphObj.path || ("/nodes/" + state.graphName + ".nodes.json");
-      state.nodes = nodes.map((n) => Object.assign({}, n, { _splatCloud: null, _splatImgLoading: false }));
+      state.nodes = nodes.map((n) => Object.assign({}, n, { _splatCloud: null, _splatImgLoading: false, _glbBlobUrl: "", _glbBlobSourceB64: "" }));
       state.edges = edges.slice();
       state.references = refs.slice();
       state.selectedIds = Array.isArray(graphObj.selectedIds) ? graphObj.selectedIds.slice() : [];
@@ -5362,13 +7493,15 @@ def _node_studio_js(initial_view: str) -> str:
       if (typeof vp.panX === "number") state.panX = vp.panX;
       if (typeof vp.panY === "number") state.panY = vp.panY;
       if (typeof vp.zoom === "number" && vp.zoom > 0) state.zoom = vp.zoom;
-      if (cfg.model && CAPS[cfg.model]) state.model = cfg.model;
-      if (cfg.modality) state.modality = cfg.modality;
-      if (cfg.activeSlashCommand) {
-        state.activeSlashCommand = cfg.activeSlashCommand;
-        const pillTxt = $("nsActiveSlashPillText");
-        if (pillTxt) pillTxt.textContent = "● " + cfg.activeSlashCommand;
+      if (cfg.model && CAPS[cfg.model]) {
+        state.model = cfg.model;
+        state.modality = (CAPS[cfg.model] && CAPS[cfg.model].modality) || cfg.modality || "image";
+      } else if (cfg.modality) {
+        state.modality = cfg.modality;
       }
+      state.activeSlashCommand = "";
+      const slashPillEl = $("nsActiveSlashPill");
+      if (slashPillEl) slashPillEl.classList.add("hidden");
       if (cfg.aspectRatio) state.aspectRatio = cfg.aspectRatio;
       if (cfg.resolution) state.resolution = cfg.resolution;
       if (cfg.thinkingLevel) state.thinkingLevel = cfg.thinkingLevel;
@@ -5382,6 +7515,19 @@ def _node_studio_js(initial_view: str) -> str:
       renderNodes();
       renderPromptIslandStatus();
       _updateSaveGraphHud("✓");
+
+      // Automatically resume live polling for any restored RUNNING video/mesh/atlas jobs
+      state.nodes.forEach((n) => {
+        if (!n || !n.metadata || n.metadata.jobStatus !== "RUNNING") return;
+        const mod = _getNodeModality(n);
+        if (mod === "video" && n.metadata.jobId) {
+          pollVideoJobForNode(n);
+        } else if (mod === "3d" && n.metadata.jobId) {
+          pollMeshJobForNode(n);
+        } else if (mod === "atlas" && n.metadata.operationId) {
+          pollAtlasOperationForNode(n);
+        }
+      });
     } finally {
       state._suppressAutoSave = false;
     }
@@ -5540,6 +7686,8 @@ def _node_studio_js(initial_view: str) -> str:
   function newBlankGraph() {
     state._suppressAutoSave = true;
     try {
+      state.nodes.forEach(_cleanupNodeResources);
+      closeMeshViewer();
       state.graphName = "graph_" + String(Date.now()).slice(-4);
       state.graphPath = "/nodes/" + state.graphName + ".nodes.json";
       state.nodes = [];
@@ -5614,8 +7762,11 @@ def _node_studio_js(initial_view: str) -> str:
     runSlashCommand: runTerminalCommand,
     runAtlasStep: runAtlasStep,
     toggleAtlasRefine: toggleAtlasRefine,
-    toggleAtlasBar: toggleAtlasBar,
     toggleTerminal: toggleTerminal,
+    copyNodeText: copyNodeText,
+    sendTextToImage: sendTextToImage,
+    replyToTextNode: replyToTextNode,
+    selectModality: selectModality,
     saveGraphToSpace: saveGraphToSpace,
     loadGraphFromSpace: loadGraphFromSpace,
     listSavedGraphs: listSavedGraphs,
@@ -5636,21 +7787,47 @@ def _node_studio_js(initial_view: str) -> str:
     resetModalCamera: resetModalCamera,
     downloadActiveSplatSpz: downloadActiveSplatSpz,
     mountAllSplatCanvases: mountAllSplatCanvases,
+    pollVideoJobForNode: pollVideoJobForNode,
+    pollMeshJobForNode: pollMeshJobForNode,
+    ensureModelViewer: ensureModelViewer,
+    mountAllMeshPreviews: mountAllMeshPreviews,
+    openMeshViewer: openMeshViewer,
+    closeMeshViewer: closeMeshViewer,
+    toggleMeshModalAutoRotate: toggleMeshModalAutoRotate,
+    toggleMeshModalAnim: toggleMeshModalAnim,
+    toggleNodeMeshAnim: toggleNodeMeshAnim,
+    downloadActiveMeshGlb: downloadActiveMeshGlb,
+    sendChatPrompt: sendChatPrompt,
+    focusNodeOnCanvas: focusNodeOnCanvas,
+    setLibraryFilter: setLibraryFilter,
+    setLibrarySearch: setLibrarySearch,
+    renderConversationView: renderConversationView,
+    renderLibraryViewGrid: renderLibraryViewGrid,
     selectModel: function (mid) {
       state.model = mid;
       const caps = CAPS[mid];
-      if (caps && caps.modality) state.modality = caps.modality;
-      if (mid === "worldlabs/atlas-v2") {
-        state.modality = "atlas";
-        state.activeSlashCommand = "/atlas splat";
-        const pill = $("nsActiveSlashPill");
-        const pillTxt = $("nsActiveSlashPillText");
-        if (pillTxt) pillTxt.textContent = "● /atlas splat";
-        if (pill) pill.classList.remove("hidden");
+      const nextMod = (caps && caps.modality) ? caps.modality : "image";
+      state.modality = nextMod;
+      if (!state.lastModelByModality) state.lastModelByModality = {};
+      state.lastModelByModality[nextMod] = mid;
+      if (caps && caps.audioKind) {
+        state.audioKind = caps.audioKind;
+      }
+      // Always clear stale slash command routes when the user explicitly selects a model
+      state.activeSlashCommand = "";
+      const pill = $("nsActiveSlashPill");
+      if (pill) pill.classList.add("hidden");
+      if (nextMod === "atlas") {
+        state.provider = "worldlabs";
+      } else if (nextMod === "3d") {
+        state.provider = "hyper3d";
+      } else {
+        state.provider = "auto";
       }
       const m = $("nsModelMenu");
       if (m) m.classList.add("hidden");
       syncCapabilitiesAndControls();
+      renderPromptIslandStatus();
     },
     toggleModelMenu: function () {
       const m = $("nsModelMenu");
@@ -5673,8 +7850,24 @@ def _node_studio_js(initial_view: str) -> str:
       updateApiBadges();
     },
     updateConfig: function (key, val) {
-      state[key] = val;
+      if (key === "atlasQuality") {
+        state.atlasRefine = val === "refined";
+      } else {
+        state[key] = val;
+        if (key === "audioKind") {
+          const kindToModel = {
+            music: "google/lyria-3.5",
+            tts: "elevenlabs/eleven-v4",
+            sfx: "elevenlabs/sound-effects/v3"
+          };
+          if (kindToModel[val]) {
+            state.model = kindToModel[val];
+            if (state.lastModelByModality) state.lastModelByModality.audio = state.model;
+          }
+        }
+      }
       syncCapabilitiesAndControls();
+      renderPromptIslandStatus();
     },
     toggleThoughts: function () {
       state.includeThoughts = !state.includeThoughts;
@@ -5782,7 +7975,7 @@ def _render_studio_stage_markup(active_view: str) -> str:
 
     <div id="nsCanvasWorld" class="ns-canvas-world">
       <svg id="nsEdgesSvg" class="ns-edges-svg" aria-hidden="true"></svg>
-      <div id="nsNodesLayer">{_render_omni_modal_showcase_nodes_html()}</div>
+      <div id="nsNodesLayer"></div>
     </div>
 
     <div id="nsSelectionBox" class="ns-selection-box"></div>
@@ -5795,17 +7988,41 @@ def _render_studio_stage_markup(active_view: str) -> str:
   <!-- Chat View (ConversationView) -->
   <section id="nsConversationView" class="ns-alt-view{" hidden" if active_view != "conversation" else ""}" aria-label="Conversation Editor">
     <div class="ns-alt-card">
-      <h2 class="ns-alt-title">Conversation Editor</h2>
-      <p class="ns-alt-desc">Interact with Gemini and NanoGPT using the tree-based conversation context synced directly with your canvas nodes.</p>
+      <div class="ns-chat-head">
+        <div>
+          <h2 class="ns-alt-title">Conversation Editor</h2>
+          <p class="ns-alt-desc">Interact with Gemini and NanoGPT using the tree-based conversation context synced directly with your canvas nodes.</p>
+        </div>
+        <div id="nsChatHeaderMeta" class="ns-chat-meta">Full session · 0 nodes</div>
+      </div>
+      <div id="nsChatFeed" class="ns-chat-feed" role="log" aria-live="polite"></div>
+      <div id="nsChatComposer" class="ns-chat-composer">
+        <textarea id="nsChatInput" class="ns-chat-input" rows="1" placeholder="Send a follow-up prompt using the active modality and model..."></textarea>
+        <button id="nsChatSendBtn" type="button" class="ns-chat-send-btn" onclick="window.TinCanNodeStudio.sendChatPrompt()">Send →</button>
+      </div>
     </div>
   </section>
 
   <!-- Library View (LibraryView) -->
   <section id="nsLibraryView" class="ns-alt-view{" hidden" if active_view != "library" else ""}" aria-label="Asset Library">
     <div class="ns-alt-card">
-      <h2 class="ns-alt-title">Asset Library</h2>
-      <p class="ns-alt-desc">Browse generated assets and conversation history from your Node Studio session.</p>
-      <div id="nsLibraryViewGrid" class="ns-asset-grid"></div>
+      <div>
+        <h2 class="ns-alt-title">Asset Library</h2>
+        <p class="ns-alt-desc">Browse generated assets and conversation history from your Node Studio session.</p>
+      </div>
+      <div id="nsLibFilterBar" class="ns-lib-filter-bar">
+        <div class="ns-lib-chips" role="tablist" aria-label="Filter assets by modality">
+          <button id="nsLibChip-all" type="button" class="ns-lib-chip is-active" data-lib-filter="all" aria-pressed="true" onclick="window.TinCanNodeStudio.setLibraryFilter('all')">All</button>
+          <button id="nsLibChip-image" type="button" class="ns-lib-chip" data-lib-filter="image" aria-pressed="false" onclick="window.TinCanNodeStudio.setLibraryFilter('image')">Image</button>
+          <button id="nsLibChip-text" type="button" class="ns-lib-chip" data-lib-filter="text" aria-pressed="false" onclick="window.TinCanNodeStudio.setLibraryFilter('text')">Text</button>
+          <button id="nsLibChip-video" type="button" class="ns-lib-chip" data-lib-filter="video" aria-pressed="false" onclick="window.TinCanNodeStudio.setLibraryFilter('video')">Video</button>
+          <button id="nsLibChip-audio" type="button" class="ns-lib-chip" data-lib-filter="audio" aria-pressed="false" onclick="window.TinCanNodeStudio.setLibraryFilter('audio')">Audio</button>
+          <button id="nsLibChip-3d" type="button" class="ns-lib-chip" data-lib-filter="3d" aria-pressed="false" onclick="window.TinCanNodeStudio.setLibraryFilter('3d')">3D Mesh</button>
+          <button id="nsLibChip-atlas" type="button" class="ns-lib-chip" data-lib-filter="atlas" aria-pressed="false" onclick="window.TinCanNodeStudio.setLibraryFilter('atlas')">3D Splat</button>
+        </div>
+        <input id="nsLibSearchInput" type="text" class="ns-lib-search" placeholder="Search session assets..." oninput="window.TinCanNodeStudio.setLibrarySearch(this.value)">
+      </div>
+      <div id="nsLibraryViewGrid" class="ns-lib-grid"></div>
     </div>
   </section>
 
@@ -5820,7 +8037,6 @@ def _render_studio_stage_markup(active_view: str) -> str:
   <div class="ns-top-right-hud">
     <div id="nsCopyIndicator" class="ns-copy-indicator hidden">⌘/Ctrl held - click node to duplicate</div>
     <div class="ns-hud-row">
-      <span id="nsAtlasCreditsHudPill" class="ns-hud-btn">● WLT ATLAS v2 · 1,000 CR/$1</span>
       <button id="nsSaveGraphBtn" type="button" class="ns-hud-btn" title="Save node graph to .space (/nodes/*.nodes.json · ⌘S)" onclick="window.TinCanNodeStudio.saveGraphToSpace()">
         <span>Save</span><span id="nsSaveGraphStatus">[workspace]</span>
       </button>
@@ -5828,7 +8044,7 @@ def _render_studio_stage_markup(active_view: str) -> str:
         <span>Graphs</span><span>▾</span>
       </button>
       <button id="nsTerminalToggleBtn" type="button" class="ns-hud-btn" title="Show/Hide Node Studio Dark Terminal (Press `)" onclick="window.TinCanNodeStudio.toggleTerminal()">
-        <span>Terminal</span><span id="nsTerminalToggleState">[Hide]</span>
+        <span>Terminal</span><span id="nsTerminalToggleState">[Show]</span>
       </button>
       <button id="nsAutoLayoutBtn" type="button" class="ns-hud-btn hidden" title="Reorganize tree layout (Press A)" onclick="window.TinCanNodeStudio.autoLayout()">
         <span>Auto-Layout</span><span>[A]</span>
@@ -5958,12 +8174,12 @@ def _render_studio_stage_markup(active_view: str) -> str:
 
         <div class="ns-island-top">
           <div class="ns-island-badges">
-            <button id="nsActiveSlashPill" type="button" class="ns-active-slash-pill" title="Toggle Slash-Command Omni-Modal Router" onclick="window.TinCanNodeStudio.toggleSlashRouterPopover()">
-              <span id="nsActiveSlashPillText">● /atlas splat</span>
+            {_render_modality_bar_html()}
+            <button id="nsActiveSlashPill" type="button" class="ns-active-slash-pill hidden" title="Toggle Slash-Command Omni-Modal Router" onclick="window.TinCanNodeStudio.toggleSlashRouterPopover()">
+              <span id="nsActiveSlashPillText"></span>
               <span class="ns-slash-pill-close" onclick="event.stopPropagation();window.TinCanNodeStudio.clearSlashRoute()">×</span>
             </button>
             <span id="nsModePill" class="ns-mode-pill">GENERATE MODE</span>
-            <span id="nsOmniChainPill" class="ns-mode-pill">● OMNI-CHAIN MODE</span>
             <span id="nsConvPill" class="ns-context-pill hidden">
               <span>In Conversation</span>
               <button type="button" class="ns-context-close" title="End conversation" onclick="window.TinCanNodeStudio.endConversation()">×</button>
@@ -6001,21 +8217,6 @@ def _render_studio_stage_markup(active_view: str) -> str:
           </div>
         </div>
 
-        <div id="nsAtlasWorkflowBar" class="ns-atlas-bar" aria-label="World Labs Atlas v2 Workflow">
-          <div class="ns-atlas-bar-row">
-            <div class="ns-atlas-steps">
-              <span class="ns-atlas-brand">● ATLAS v2 PIPELINE</span>
-              <button id="nsAtlasUploadBtn" type="button" class="ns-atlas-step-btn" onclick="window.TinCanNodeStudio.triggerFileInput()">1. + Upload Photos</button>
-              <button id="nsAtlasPoseBtn" type="button" class="ns-atlas-step-btn" title="Estimate RUB cameras & metric depth (~5s · $0.05)" onclick="window.TinCanNodeStudio.runAtlasStep('images2PosedRGBD')">2. Pose (~5s)</button>
-              <button id="nsAtlasGenViewsBtn" type="button" class="ns-atlas-step-btn" title="Synthesize 6 consistent orbital views with depth (~30s · $0.25)" onclick="window.TinCanNodeStudio.runAtlasStep('atlasGenerate')">3. Generate 6 Views</button>
-              <button id="nsAtlasBuildSplatBtn" type="button" class="ns-atlas-step-btn is-primary" title="Reconstruct real World Labs .SPZ Gaussian Splat" onclick="window.TinCanNodeStudio.runAtlasStep('posedImages2Splats')">4. Build 3D Splat</button>
-              <button id="nsAtlasMeshBtn" type="button" class="ns-atlas-step-btn" title="Extract .GLB mesh from a completed .SPZ splat" onclick="window.TinCanNodeStudio.runAtlasStep('splats2Mesh')">5. Export .GLB</button>
-            </div>
-            <button id="nsAtlasQualityBtn" type="button" class="ns-atlas-quality-btn" title="Toggle Draft (~30s, $0.50) vs Refined 2M (15-21m, $5.00)" onclick="window.TinCanNodeStudio.toggleAtlasRefine()">Draft (~30s · $0.50)</button>
-          </div>
-          <div class="ns-atlas-tip">Stationary scene/room: upload 2–14 overlapping angles → Build 3D Splat · Or from 1 photo: Pose → Generate 6 Views → Build 3D Splat.</div>
-        </div>
-
         <div id="nsRefsStrip" class="ns-refs-strip">
           <div id="nsRefsRow" class="ns-refs-row"></div>
         </div>
@@ -6032,7 +8233,7 @@ def _render_studio_stage_markup(active_view: str) -> str:
 
         <div class="ns-action-bar">
           <div class="ns-settings-group">
-            <div class="ns-setting-wrap">
+            <div id="nsAspectWrap" class="ns-setting-wrap">
               <span class="ns-setting-lbl">ASPECT</span>
               <span id="nsAspectVal" class="ns-setting-val">1:1</span>
               <select id="nsAspectSelect" class="ns-setting-select" aria-label="Aspect Ratio" onchange="window.TinCanNodeStudio.updateConfig('aspectRatio', this.value)">
@@ -6045,6 +8246,56 @@ def _render_studio_stage_markup(active_view: str) -> str:
               <span id="nsResVal" class="ns-setting-val">1K</span>
               <select id="nsResSelect" class="ns-setting-select" aria-label="Resolution" onchange="window.TinCanNodeStudio.updateConfig('resolution', this.value)">
                 {res_opts}
+              </select>
+            </div>
+
+            <div id="nsFpsWrap" class="ns-setting-wrap hidden">
+              <span class="ns-setting-lbl">FPS</span>
+              <span id="nsFpsVal" class="ns-setting-val">60fps</span>
+              <select id="nsFpsSelect" class="ns-setting-select" aria-label="Video Frame Rate" onchange="window.TinCanNodeStudio.updateConfig('videoFps', this.value)">
+                <option value="24">24fps</option>
+                <option value="60" selected>60fps</option>
+              </select>
+            </div>
+
+            <div id="nsAudioKindWrap" class="ns-setting-wrap hidden">
+              <span class="ns-setting-lbl">TYPE</span>
+              <span id="nsAudioKindVal" class="ns-setting-val">Music</span>
+              <select id="nsAudioKindSelect" class="ns-setting-select" aria-label="Audio Type" onchange="window.TinCanNodeStudio.updateConfig('audioKind', this.value)">
+                <option value="music" selected>Music (Lyria 3.5)</option>
+                <option value="tts">Voice TTS (ElevenLabs v4)</option>
+                <option value="sfx">Sound Effects (SFX v3)</option>
+              </select>
+            </div>
+
+            <div id="nsMeshTierWrap" class="ns-setting-wrap hidden">
+              <span class="ns-setting-lbl">TIER</span>
+              <span id="nsMeshTierVal" class="ns-setting-val">Regular</span>
+              <select id="nsMeshTierSelect" class="ns-setting-select" aria-label="3D Mesh Tier" onchange="window.TinCanNodeStudio.updateConfig('meshTier', this.value)">
+                <option value="Sketch">Sketch</option>
+                <option value="Regular" selected>Regular</option>
+                <option value="Detail">Detail</option>
+                <option value="Smooth">Smooth</option>
+              </select>
+            </div>
+
+            <div id="nsAtlasTaskWrap" class="ns-setting-wrap hidden">
+              <span class="ns-setting-lbl">STEP</span>
+              <span id="nsAtlasTaskVal" class="ns-setting-val">Build Splat</span>
+              <select id="nsAtlasTaskSelect" class="ns-setting-select" aria-label="3D Splat Step" onchange="window.TinCanNodeStudio.updateConfig('atlasTask', this.value)">
+                <option value="posedImages2Splats" selected>Build 3D Splat</option>
+                <option value="images2PosedRGBD">Pose Photos</option>
+                <option value="atlasGenerate">Generate 6 Views</option>
+                <option value="splats2Mesh">Export .GLB</option>
+              </select>
+            </div>
+
+            <div id="nsAtlasQualWrap" class="ns-setting-wrap hidden">
+              <span class="ns-setting-lbl">QUALITY</span>
+              <span id="nsAtlasQualVal" class="ns-setting-val">Draft (~30s)</span>
+              <select id="nsAtlasQualSelect" class="ns-setting-select" aria-label="Splat Quality" onchange="window.TinCanNodeStudio.updateConfig('atlasQuality', this.value)">
+                <option value="draft" selected>Draft (~30s · $0.50)</option>
+                <option value="refined">Refined 2M (18m · $5.00)</option>
               </select>
             </div>
 
@@ -6120,6 +8371,32 @@ def _render_studio_stage_markup(active_view: str) -> str:
       </div>
     </div>
   </div>
+
+  <!-- Fullscreen 3D Mesh (.GLB) Interactive Inspector Modal -->
+  <div id="nsMeshViewerModal" class="ns-splat-modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="3D Mesh Inspector">
+    <div class="ns-splat-modal">
+      <div class="ns-splat-modal-head">
+        <div>
+          <div id="nsMeshModalTitle" class="ns-splat-modal-title">3D MESH INSPECTOR (.GLB)</div>
+          <div id="nsMeshModalMeta" class="ns-splat-modal-sub">/models3d/mesh.glb · PBR Textured 3D Mesh · Drag to Orbit / Scroll to Zoom</div>
+        </div>
+        <div class="ns-splat-modal-actions">
+          <button id="nsMeshModalAutoRotateBtn" type="button" class="ns-splat-btn is-active" onclick="window.TinCanNodeStudio.toggleMeshModalAutoRotate()">⟳ Auto-Rotate</button>
+          <button id="nsMeshModalAnimBtn" type="button" class="ns-splat-btn hidden" onclick="window.TinCanNodeStudio.toggleMeshModalAnim()">❚❚ Pause Anim</button>
+          <button id="nsMeshModalDownloadBtn" type="button" class="ns-splat-btn" onclick="window.TinCanNodeStudio.downloadActiveMeshGlb()">↓ .GLB</button>
+          <button id="nsMeshModalCloseBtn" type="button" class="ns-splat-btn ns-splat-btn--expand" onclick="window.TinCanNodeStudio.closeMeshViewer()">✕ Close [Esc]</button>
+        </div>
+      </div>
+      <div id="nsMeshModalViewport" class="ns-mesh-modal-viewport">
+        <div id="nsMeshModalBadge" class="ns-splat-modal-badge">◐ ISOMETRIC WIREFRAME PREVIEW</div>
+        <canvas id="nsMeshModalWireCanvas" class="ns-mesh-wire-canvas" width="940" height="460"></canvas>
+      </div>
+      <div class="ns-splat-modal-foot">
+        <span>Hyper3D Rodin v2.5 · PBR .GLB Interactive Inspector (@google/model-viewer + Wireframe Fallback)</span>
+        <span>Controls: Left-Drag Orbit · Scroll Zoom · Esc Close</span>
+      </div>
+    </div>
+  </div>
 </div>"""
 
 
@@ -6179,6 +8456,7 @@ __all__ = [
     "FILTER_PRESETS",
     "LUMINA_ASSETS",
     "LUMINA_TEMPLATES",
+    "MODALITY_TABS",
     "MODEL_CAPABILITIES",
     "PANORAMIC_ASPECT_RATIOS",
     "SLASH_ROUTER_COMMANDS",
