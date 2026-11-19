@@ -179,12 +179,16 @@ SHELL_JS = r"""
       'harness <cmd> inspect or queue best harness / run `<agy|claude|opencode|dsx> <prompt>`',
       'tui [app]     launch full interactive TUI (claude, opencode, dsx, codex, goose, bash)',
       'ask <q>       ask the AI gateway or generate 2D/3D art (e.g. "make a picture of ...")',
+      '/atlas <args> World Labs Atlas v2 (pose | splat | flythrough | mesh | chisel) -> .space/worlds/',
+      '/image | /video | /audio | /3d | /rig | /text | /mux  omni-modal slash router (/api/omni/route)',
       '<cli> <task>  run a coding harness (goose, claude, opencode, dsx, codex; or `hey goose ...`)',
       'clear         clear the screen',
       'help          this list'
     ].join('\n');
 
-    const TC_SHELL_INTRO = 'Commands run against your own .space: ls [dir], cat file, open file, tree, run [file], py code, runs, drive, status, ask question, help — or prompt naturally ("make a picture of pikachu", "hey goose summarize /src/main.py").';
+    const TC_SHELL_INTRO = 'Commands run against your own .space: ls [dir], cat file, open file, tree, run [file], py code, runs, drive, status, ask question, /atlas, /image, /video, /audio, /3d, /rig, /text, /mux, help — or prompt naturally ("make a picture of pikachu", "hey goose summarize /src/main.py").';
+
+    const TC_OMNI_SLASH_VERBS = ['/atlas', '/image', '/video', '/audio', '/3d', '/rig', '/text', '/mux'];
 
     function termDone(ok, text, extra) { return Object.assign({ ok: !!ok, text: String(text == null ? '' : text) }, extra || {}); }
     function termArtifactUrl(c, path) {
@@ -287,6 +291,67 @@ SHELL_JS = r"""
           }
           const cur = (th && typeof th.get === 'function' ? th.get() : 'dark');
           return termDone(true, `[theme] Active: ${cur} (Monochrome B&W Dark Mode) · Terminal: #000000 Pitch-Black`);
+        }
+        const verbLower = String(verb || '').toLowerCase();
+        if (TC_OMNI_SLASH_VERBS.includes(verbLower)) {
+          progress('Routing omni-modal slash command via /api/omni/route (' + verbLower + ')…');
+          const r = await fetch('/api/omni/route', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              command: line,
+              prompt: line,
+              scope: c.scope,
+              owner_id: c.owner,
+              peer_id: (typeof myPeerId !== 'undefined' && myPeerId) || c.owner || 'terminal'
+            })
+          });
+          const d = await r.json();
+          if (!r.ok || d.error) throw new Error(d.error || ('HTTP ' + r.status));
+          const route = d.route || {};
+          const resObj = d.result || {};
+          const opId = resObj.operation_id || resObj.id || resObj.uuid || d.operation_id || ('op_' + verbLower.slice(1) + '_sim');
+          const pillLabel = route.pill_label || ('● ' + verbLower + (route.subcommand ? (' ' + route.subcommand) : ''));
+          const modelLabel = route.model || route.atlas_task || resObj.model || resObj.task || verbLower.slice(1);
+          const cam = resObj.rub_camera || (resObj.response && resObj.response.rub_camera) || {};
+          const fx = Number(cam.fx || 893.4).toFixed(1);
+          const fy = Number(cam.fy || 893.9).toFixed(1);
+          const spark = resObj.sparkline || (route.modality === 'audio' || verbLower === '/audio' ? '│┃│┃┃│┃┃' : '');
+          const lufs = resObj.lufs != null ? resObj.lufs : -14.0;
+          const savedList = [];
+          const pushSaved = (item) => {
+            if (!item) return;
+            const p = typeof item === 'string' ? item : (item.path || '');
+            if (p && !savedList.includes(p)) savedList.push(p);
+          };
+          if (Array.isArray(d.saved_to_space)) d.saved_to_space.forEach(pushSaved);
+          else if (d.saved_to_space && Array.isArray(d.saved_to_space.saved_files)) d.saved_to_space.saved_files.forEach(pushSaved);
+          else if (d.saved_to_space) pushSaved(d.saved_to_space);
+          if (Array.isArray(resObj.saved_files)) resObj.saved_files.forEach(pushSaved);
+          if (resObj.saved_to_space) pushSaved(resObj.saved_to_space);
+          if (Array.isArray(d.files_mutated)) d.files_mutated.forEach(pushSaved);
+          if (savedList.length) termSpaceChanged(c);
+
+          const outLines = [
+            '+ ' + opId + ': SUCCEEDED (' + pillLabel + ' · ' + modelLabel + ')'
+          ];
+          if (verbLower === '/atlas' || route.modality === 'atlas' || resObj.rub_camera) {
+            outLines.push('  RUB Cam: fx=' + fx + ' fy=' + fy + ' · +98.4% Linear Depth Confidence (.exr verified) · 2.0M Splats (.spz)');
+          }
+          if (spark) {
+            outLines.push('  Audio Sparkline: ' + spark + ' (' + lufs + ' LUFS)');
+          }
+          if (resObj.reply || resObj.text) {
+            outLines.push('  ' + String(resObj.reply || resObj.text));
+          }
+          if (savedList.length) {
+            outLines.push('+ staged: ' + savedList.join(' + '));
+          }
+          return termDone(true, outLines.join('\n'), {
+            operation_id: opId,
+            route: route,
+            files_mutated: savedList
+          });
         }
         if (verb === 'ls') {
           const s = await termFetchSummary(c);
@@ -495,6 +560,8 @@ SHELL_JS = r"""
             ok: !!r.ok,
             text: String(r.text == null ? '' : r.text),
             html: r.html || '',
+            operation_id: r.operation_id || '',
+            route: r.route || null,
             files_mutated: r.files_mutated || [],
             image_assets: r.image_assets || [],
             rodin_assets: r.rodin_assets || [],

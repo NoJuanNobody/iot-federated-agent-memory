@@ -977,12 +977,13 @@ def render_token_vault_window_html() -> str:
           </div>
         </section>
 
-        <!-- Compact Aeonik Hyper3D Rodin + NanoGPT Pool Strip -->
-        <section class="tv-rodin-strip" aria-label="Hyper3D Rodin and NanoGPT Compute Pools">
+        <!-- Compact Aeonik Hyper3D Rodin + NanoGPT + World Labs Atlas v2 Pool Strip -->
+        <section class="tv-rodin-strip" aria-label="Hyper3D Rodin, NanoGPT, and World Labs Atlas v2 Compute Pools">
           <div class="tv-sec-head">
             <div class="tv-subbar-group">
-              <span class="tv-sec-title">Hyper3D Rodin &amp; NanoGPT Compute Pools</span>
+              <span class="tv-sec-title">Hyper3D Rodin &amp; NanoGPT Compute Pools · World Labs Atlas v2</span>
               <span id="rodinBillingStatusBadge" class="tv-badge tv-badge--pos">ONLINE / POOLED</span>
+              <span id="tvAtlasBillingStatusBadge" class="tv-badge tv-badge--pos">WLT_API_KEY · 1,000 CR = $1.00</span>
             </div>
             <div class="tv-subbar-group">
               <button type="button" class="tv-pill tv-pill--sm" onclick="toggleWindow('win-workstation')">Open 3D Studio Controls →</button>
@@ -1003,6 +1004,11 @@ def render_token_vault_window_html() -> str:
               <span id="tvNanoPoolVal" class="tv-rodin-v">-- TEE</span>
               <span id="tvNanoPoolSub" class="tv-mono-xs tv-muted">Checking catalog…</span>
             </div>
+            <div class="tv-rodin-stat" id="tvAtlasPoolCard">
+              <span class="tv-rodin-k">World Labs Atlas v2</span>
+              <span id="tvAtlasPoolVal" class="tv-rodin-v tv-pos">1,000 CR = $1.00</span>
+              <span id="tvAtlasPoolSub" class="tv-mono-xs tv-muted">WLT_API_KEY · RUB RGBD + 2.0M .SPZ</span>
+            </div>
             <div class="tv-rodin-stat">
               <span class="tv-rodin-k">Session 3D Tasks</span>
               <span id="rodinSessionTasks" class="tv-rodin-v">0</span>
@@ -1012,7 +1018,7 @@ def render_token_vault_window_html() -> str:
               <span id="rodinKeyLabel" class="tv-rodin-v tv-truncate" title="pooled-rodin">pooled-rodin</span>
             </div>
           </div>
-          <div class="tv-mono-xs tv-muted">Tier Pricing: Sketch ($0.25) · Regular ($0.50) · Smooth ($0.75) · Detail ($1.00)</div>
+          <div class="tv-mono-xs tv-muted">Tier Pricing: Sketch ($0.25) · Regular ($0.50) · Smooth ($0.75) · Detail ($1.00) · World Labs Atlas v2 (WLT_API_KEY · 1,000 CR = $1.00 · Pose RGBD $0.05 · 24fps Path $0.25 · Splat + GLB $0.50)</div>
         </section>
 
         <!-- Footer Bar -->
@@ -1243,6 +1249,15 @@ TOKEN_VAULT_JS = r"""
           const ns = el('tvNanoPoolSub');
           if (nv) nv.textContent = `${nano.tee_count ?? 0} TEE`;
           if (ns) ns.textContent = `+ ${nano.heretic_count ?? 0} Heretic · ${nano.total_count ?? 0} total`;
+        }
+        if (wsStatus && wsStatus.atlas) {
+          const atlas = wsStatus.atlas;
+          const av = el('tvAtlasPoolVal');
+          const as = el('tvAtlasPoolSub');
+          const ab = el('tvAtlasBillingStatusBadge');
+          if (av) av.textContent = atlas.credits != null ? `${Number(atlas.credits).toLocaleString()} CR` : '1,000 CR = $1.00';
+          if (as) as.textContent = `WLT_API_KEY · ${atlas.key_configured ? 'LIVE' : 'SIMULATED'} · 1,000 CR = $1.00`;
+          if (ab) ab.textContent = `WLT_API_KEY · 1,000 CR = $1.00 (${atlas.key_configured ? 'LIVE' : 'READY'})`;
         }
         if (summary && typeof summary === 'object' && !summary.error) {
           renderSummary(summary);
