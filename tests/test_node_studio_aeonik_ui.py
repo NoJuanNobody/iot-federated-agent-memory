@@ -20,6 +20,7 @@ from iot_federated_agent_memory.mesh_os_ui import MESH_OS_HTML_UI  # noqa: E402
 from iot_federated_agent_memory.node_studio_ui import (  # noqa: E402
     AEONIK_PALETTE,
     AVAILABLE_MODELS,
+    MODALITY_TABS,
     MODEL_CAPABILITIES,
     SLASH_ROUTER_COMMANDS,
     render_node_studio_html,
@@ -72,10 +73,11 @@ def _extract_inline_script(html: str) -> str:
 
 def test_available_models_capabilities_and_slash_router_commands() -> None:
     models_list = list(AVAILABLE_MODELS)
-    assert len(models_list) == 8
-    assert len(AVAILABLE_MODELS) == 8
+    assert len(models_list) == 14
+    assert len(AVAILABLE_MODELS) == 14
+    assert [t["id"] for t in MODALITY_TABS] == ["image", "text", "video", "audio", "3d", "atlas"]
 
-    # First 4 must remain the Nano Banana models
+    # First 4 must remain the Nano Banana image models
     assert [m["id"] for m in models_list[:4]] == [
         "gemini-nano-banana-2.1",
         "gemini-3-pro-image",
@@ -83,21 +85,28 @@ def test_available_models_capabilities_and_slash_router_commands() -> None:
         "gemini-3.1-flash-lite-image",
     ]
 
-    # Next 4 must be World Labs Atlas v2 and Omni-Modal models
+    # Must include Text, Video, Audio, 3D Mesh, and World Labs Spatial models
     by_id = {m["id"]: m for m in models_list}
+    assert by_id["gemini-3.1-pro"]["modality"] == "text"
+    assert by_id["nanogpt/TEE/deepseek-v4.1-flash"]["modality"] == "text"
+    assert by_id["nanogpt/Gemma-4-31B-Gembrain-uncensored-heretic"]["modality"] == "text"
     assert by_id["worldlabs/atlas-v2"]["name"] == "World Labs Atlas v2"
     assert by_id["worldlabs/atlas-v2"]["badge"] == "Spatial"
     assert by_id["google/lyria-3.5"]["name"] == "Lyria 3.5 + ElevenLabs v4"
-    assert by_id["google/lyria-3.5"]["badge"] == "Audio"
+    assert by_id["google/lyria-3.5"]["modality"] == "audio"
     assert by_id["kling-4.0"]["name"] == "Kling 4.0 + LTX-2.5"
     assert by_id["kling-4.0"]["badge"] == "Video"
     assert by_id["hyper3d/rodin-v2.5"]["name"] == "Hyper3D Rodin v2.5 + Rig"
     assert by_id["hyper3d/rodin-v2.5"]["badge"] == "3D"
 
     for mid in (
+        "gemini-3.1-pro",
+        "nanogpt/TEE/deepseek-v4.1-flash",
         "worldlabs/atlas-v2",
         "google/lyria-3.5",
+        "elevenlabs/eleven-v4",
         "kling-4.0",
+        "ltx-video",
         "hyper3d/rodin-v2.5",
     ):
         assert mid in MODEL_CAPABILITIES
@@ -172,6 +181,13 @@ def test_slash_router_popover_floating_terminal_and_omni_modal_cards_markup() ->
     win_html = render_node_studio_window_html()
 
     required_ids = (
+        "nsModalityBar",
+        "nsModTab-image",
+        "nsModTab-text",
+        "nsModTab-video",
+        "nsModTab-audio",
+        "nsModTab-3d",
+        "nsModTab-atlas",
         "nsSlashRouterPopover",
         "nsActiveSlashPill",
         "nsActiveSlashPillText",
@@ -186,7 +202,14 @@ def test_slash_router_popover_floating_terminal_and_omni_modal_cards_markup() ->
         assert f'id="{dom_id}"' in html
         assert f'id="{dom_id}"' in win_html
 
-    # Verify #nsSlashRouterPopover and #nsActiveSlashPill are inside #nsPromptIsland
+    # Confusing Atlas v2 Pipeline bar must be completely removed from the Prompt Island
+    assert "nsAtlasWorkflowBar" not in html
+    assert "ATLAS v2 PIPELINE" not in html
+    assert "nsAtlasWorkflowBar" not in win_html
+    assert 'id="nsActiveSlashPill" type="button" class="ns-active-slash-pill hidden"' in html
+    assert 'id="nsFloatingTerminal" class="ns-floating-terminal ns-terminal-drawer hidden"' in html
+
+    # Verify #nsModalityBar, #nsSlashRouterPopover, and #nsActiveSlashPill are inside #nsPromptIsland
     island_match = re.search(
         r'<div id="nsPromptIsland" class="ns-island">(.*?)<!-- Bottom-Center',
         html + "<!-- Bottom-Center",
@@ -194,19 +217,22 @@ def test_slash_router_popover_floating_terminal_and_omni_modal_cards_markup() ->
     )
     assert island_match
     island_block = island_match.group(1)
+    assert 'id="nsModalityBar"' in island_block
     assert 'id="nsSlashRouterPopover"' in island_block
     assert 'id="nsActiveSlashPill"' in island_block
 
-    # Verify floating terminal and omni-modal node cards content
+    # Verify floating terminal, grouped model picker, and omni-modal node cards content
     for token in (
         "NODE STUDIO DARK TERMINAL · /api/omni/route",
         "RUN ↵",
         "SLASH-COMMAND OMNI-MODAL ROUTER",
-        "● /atlas splat",
+        "/atlas splat",
         "ATLAS · images2PosedRGBD",
         "AUDIO · TTS + SCORE + SFX",
         "│┃│┃┃│┃┃",
         "OMNI-WORLD MASTER · SPLAT + GLB + MP4",
+        "Gemini 3.1 Pro",
+        "DeepSeek v4.1 Flash (TEE)",
         "World Labs Atlas v2",
         "Lyria 3.5 + ElevenLabs v4",
         "Kling 4.0 + LTX-2.5",
@@ -491,3 +517,300 @@ global.fetch = (url, opts) => {{
     assert "│┃│┃┃│┃┃" in res["nodesHtml"]
     assert "OMNI-WORLD MASTER · SPLAT + GLB + MP4" in res["nodesHtml"]
     assert "you@tincan:~/space$" in res["terminalLogHtml"]
+
+
+def test_modality_switching_image_merge_and_non_atlas_generation_in_node() -> None:
+    node_bin = shutil.which("node")
+    if not node_bin:
+        pytest.skip("node binary not available for JS runtime check")
+
+    html = render_node_studio_html()
+    script = _extract_inline_script(html)
+
+    harness = f"""
+const elements = new Map();
+function makeEl(id) {{
+  const el = {{
+    id,
+    textContent: "",
+    innerHTML: "",
+    value: "",
+    placeholder: "",
+    disabled: false,
+    dataset: {{}},
+    style: {{}},
+    attributes: {{}},
+    scrollHeight: 50,
+    _classes: new Set(id === "nsActiveSlashPill" || id === "nsFloatingTerminal" ? ["hidden"] : []),
+    classList: {{
+      toggle(c, force) {{
+        if (force === undefined) {{
+          if (el._classes.has(c)) {{ el._classes.delete(c); return false; }}
+          el._classes.add(c); return true;
+        }}
+        if (force) el._classes.add(c); else el._classes.delete(c);
+        return !!force;
+      }},
+      add(c) {{ el._classes.add(c); }},
+      remove(c) {{ el._classes.delete(c); }},
+      contains(c) {{ return el._classes.has(c); }}
+    }},
+    setAttribute(k, v) {{ el.attributes[k] = String(v); }},
+    addEventListener() {{}},
+    querySelectorAll() {{ return []; }},
+    focus() {{}},
+    getBoundingClientRect() {{ return {{ left: 0, top: 0, width: 1200, height: 800 }}; }}
+  }};
+  return el;
+}}
+[
+  "nsDotCanvas", "nsEmptyState", "nsCanvasWorld", "nsEdgesSvg", "nsNodesLayer",
+  "nsSelectionBox", "nsDropOverlay", "nsConversationView", "nsLibraryView",
+  "nsLibraryViewGrid", "nsCopyIndicator", "nsAutoLayoutBtn", "nsShortcutsBtn",
+  "nsShortcutsPopover", "nsLeftPillWrap", "nsLeftDrawer", "nsAssetSearchInput",
+  "nsLibAssetGrid", "nsLibTemplateList", "nsNewTemplateBtn", "nsModePill",
+  "nsConvPill", "nsBranchPill", "nsApiBtn", "nsApiMenu", "nsApiGeminiStatus",
+  "nsApiNanogptStatus", "nsApiSourceText", "nsApiClearBtn", "nsGeminiKeyInput",
+  "nsNanogptKeyInput", "nsModelBtn", "nsModelBtnLabel", "nsModelMenu",
+  "nsRefsStrip", "nsRefsRow", "nsPromptInput", "nsAttachTrigger", "nsFileInput",
+  "nsAspectWrap", "nsAspectSelect", "nsAspectVal", "nsResWrap", "nsResSelect", "nsResVal",
+  "nsFpsWrap", "nsFpsSelect", "nsFpsVal", "nsAudioKindWrap", "nsAudioKindSelect", "nsAudioKindVal",
+  "nsMeshTierWrap", "nsMeshTierSelect", "nsMeshTierVal", "nsAtlasTaskWrap", "nsAtlasTaskSelect", "nsAtlasTaskVal",
+  "nsAtlasQualWrap", "nsAtlasQualSelect", "nsAtlasQualVal",
+  "nsThinkWrap", "nsThinkSelect", "nsThinkVal", "nsThoughtsBtn",
+  "nsSearchWrap", "nsSearchSelect", "nsSearchVal", "nsViaVal", "nsViaSelect", "nsRefCounter",
+  "nsActiveRunsCount", "nsGenerateBtn", "nsResponseToast",
+  "nsSlashRouterPopover", "nsActiveSlashPill", "nsActiveSlashPillText",
+  "nsFloatingTerminal", "nsTerminalLog", "nsTerminalInput", "nsTerminalRunBtn",
+  "nsTerminalHideBtn", "nsTerminalToggleBtn", "nsTerminalToggleState"
+].forEach((id) => elements.set(id, makeEl(id)));
+
+const fetchCalls = [];
+global.window = {{
+  innerWidth: 1280,
+  innerHeight: 800,
+  location: {{ href: "http://localhost:8013/nodes", search: "" }},
+  addEventListener() {{}}
+}};
+global.document = {{
+  readyState: "complete",
+  getElementById(id) {{ return elements.get(id) || null; }},
+  querySelectorAll() {{ return []; }},
+  addEventListener() {{}},
+  createElement() {{ return makeEl("tmp"); }},
+  body: {{ appendChild() {{}}, removeChild() {{}} }}
+}};
+global.fetch = (url, opts) => {{
+  const method = (opts && opts.method) || "GET";
+  const body = opts && opts.body ? JSON.parse(opts.body) : null;
+  fetchCalls.push({{ url, method, body }});
+  if (url === "/api/nodes/generate") {{
+    const mod = (body && body.modality) || "image";
+    if (mod === "text") {{
+      return Promise.resolve({{
+        status: 200,
+        ok: true,
+        json: async () => ({{
+          ok: true,
+          modality: "text",
+          node: {{
+            id: "node-txt-1",
+            data: {{
+              content: {{ text: "A golden retriever floating peacefully through a vibrant nebula." }},
+              metadata: {{ model: (body.config && body.config.model) || "gemini-3.1-pro", prompt: body.prompt }}
+            }}
+          }}
+        }})
+      }});
+    }}
+    if (mod === "video") {{
+      return Promise.resolve({{
+        status: 200,
+        ok: true,
+        json: async () => ({{
+          ok: true,
+          modality: "video",
+          node: {{
+            id: "node-vid-1",
+            data: {{
+              content: {{ videoUrl: "https://cdn.example.com/dog_space.mp4", fps: 60, text: "Video ready" }},
+              metadata: {{ model: "kling-4.0", prompt: body.prompt }}
+            }}
+          }}
+        }})
+      }});
+    }}
+    return Promise.resolve({{
+      status: 200,
+      ok: true,
+      json: async () => ({{
+        ok: true,
+        modality: "image",
+        mode: "MERGE",
+        node: {{
+          id: "merge-dog-space",
+          data: {{
+            content: {{
+              imageUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==",
+              base64: "iVBORw0KGgoAAAANSUhEUg==",
+              mimeType: "image/png",
+              text: "Merged dog in space"
+            }},
+            metadata: {{ model: (body.config && body.config.model) || "gemini-3.1-flash-image", prompt: body.prompt }}
+          }}
+        }}
+      }})
+    }});
+  }}
+  if (url === "/api/omni/route") {{
+    const mod = (body && body.modality) || "audio";
+    if (mod === "audio") {{
+      return Promise.resolve({{
+        status: 200,
+        ok: true,
+        json: async () => ({{
+          ok: true,
+          result: {{ ok: true, kind: "music", audio_bytes_b64: "UklGRg==", mime_type: "audio/wav", path: "/audio/space_score.wav" }},
+          saved_to_space: {{ path: "/audio/space_score.wav" }},
+          files_b64: {{ "/audio/space_score.wav": "UklGRg==" }}
+        }})
+      }});
+    }}
+    if (mod === "3d") {{
+      return Promise.resolve({{
+        status: 200,
+        ok: true,
+        json: async () => ({{
+          ok: true,
+          result: {{ ok: true, path: "/models3d/space_dog.glb", glb_bytes_b64: "Z2xURg==" }},
+          saved_to_space: {{ path: "/models3d/space_dog.glb" }},
+          files_b64: {{ "/models3d/space_dog.glb": "Z2xURg==" }}
+        }})
+      }});
+    }}
+  }}
+  return Promise.resolve({{ status: 200, ok: true, json: async () => ({{ ok: true }}) }});
+}};
+
+{script}
+
+(async () => {{
+  const api = window.TinCanNodeStudio;
+  const out = {{}};
+
+  // 0. Fresh state must NOT default to /atlas splat
+  out.initialSlashCmd = api.getState().activeSlashCommand;
+  out.initialModality = api.getState().modality;
+
+  // 1. User selects 2 images, switches to Nano Banana 2 (even after touching Atlas!), and merges: "Put this dog in space"
+  api.applySlashRoute("/atlas splat");
+  api.selectModel("gemini-3.1-flash-image");
+  out.slashClearedAfterModelSelect = api.getState().activeSlashCommand;
+  out.providerAfterModelSelect = api.getState().provider;
+
+  api.getState().nodes.push(
+    {{ id: "img-dog", type: "GENERATED", modality: "image", morphingStatus: "image", label: "Dog", x: 100, y: 100, width: 256, height: 256, content: {{ imageUrl: "data:image/png;base64,RE9H", base64: "RE9H", mimeType: "image/png" }}, metadata: {{}} }},
+    {{ id: "img-space", type: "GENERATED", modality: "image", morphingStatus: "image", label: "Space", x: 400, y: 100, width: 256, height: 256, content: {{ imageUrl: "data:image/png;base64,U1BBQ0U=", base64: "U1BBQ0U=", mimeType: "image/png" }}, metadata: {{}} }}
+  );
+  api.addNodeAsRef("img-dog");
+  api.addNodeAsRef("img-space");
+  out.mergeModePill = elements.get("nsModePill").textContent;
+  elements.get("nsPromptInput").value = "Put this dog in space";
+  await api.generate();
+
+  const genCalls = fetchCalls.filter((c) => c.url === "/api/nodes/generate");
+  const omniCallsAfterMerge = fetchCalls.filter((c) => c.url === "/api/omni/route");
+  const mergedNode = api.getState().nodes[api.getState().nodes.length - 1];
+  out.mergeCalledGenerate = genCalls.length === 1;
+  out.mergeCalledOmni = omniCallsAfterMerge.length;
+  out.mergePayloadModality = genCalls[0].body.modality;
+  out.mergePayloadModel = genCalls[0].body.config.model;
+  out.mergePayloadRefCount = genCalls[0].body.references.length;
+  out.mergeNodeStatus = mergedNode.morphingStatus;
+
+  // 2. Switch to Text modality -> aspect/res hidden, generates readable Text node, -> To Image works
+  api.clearSelection();
+  api.selectModality("text");
+  out.textModalityModel = api.getState().model;
+  out.aspectHiddenInText = elements.get("nsAspectWrap").classList.contains("hidden");
+  elements.get("nsPromptInput").value = "Write a vivid prompt for a dog in space";
+  await api.generate();
+  const textNode = api.getState().nodes[api.getState().nodes.length - 1];
+  out.textNodeStatus = textNode.morphingStatus;
+  out.textNodeHtmlHasActions = elements.get("nsNodesLayer").innerHTML.includes("→ To Image") && elements.get("nsNodesLayer").innerHTML.includes("Copy");
+  api.sendTextToImage(textNode.id);
+  out.modalityAfterSendToImage = api.getState().modality;
+  out.promptAfterSendToImage = elements.get("nsPromptInput").value;
+
+  // 3. Switch to Audio modality -> generates playable <audio controls> card
+  api.clearSelection();
+  api.selectModality("audio");
+  out.audioKindVisible = !elements.get("nsAudioKindWrap").classList.contains("hidden");
+  elements.get("nsPromptInput").value = "Ambient synthwave space dog theme";
+  await api.generate();
+  const audioNode = api.getState().nodes[api.getState().nodes.length - 1];
+  out.audioNodeStatus = audioNode.morphingStatus;
+  out.audioHasPlayer = elements.get("nsNodesLayer").innerHTML.includes("<audio class=\\"ns-audio-player\\" controls");
+
+  // 4. Switch to Video modality -> generates Video card (NOT a 3D Splat!)
+  api.clearSelection();
+  api.selectModality("video");
+  out.fpsVisibleInVideo = !elements.get("nsFpsWrap").classList.contains("hidden");
+  elements.get("nsPromptInput").value = "Slow orbital camera around space dog";
+  await api.generate();
+  const videoNode = api.getState().nodes[api.getState().nodes.length - 1];
+  out.videoNodeStatus = videoNode.morphingStatus;
+  out.videoHasPlayer = elements.get("nsNodesLayer").innerHTML.includes("<video class=\\"ns-video-player\\"");
+
+  // 5. Switch to 3D Mesh modality -> generates 3D Mesh .GLB card (NOT a 3D Splat!)
+  api.clearSelection();
+  api.selectModality("3d");
+  out.meshTierVisible = !elements.get("nsMeshTierWrap").classList.contains("hidden");
+  elements.get("nsPromptInput").value = "Astronaut corgi figurine";
+  await api.generate();
+  const meshNode = api.getState().nodes[api.getState().nodes.length - 1];
+  out.meshNodeStatus = meshNode.morphingStatus;
+  out.meshHasAutoRig = elements.get("nsNodesLayer").innerHTML.includes("Auto-Rig Walk");
+
+  console.log(JSON.stringify(out));
+}})();
+"""
+    run_res = subprocess.run(
+        [node_bin, "-e", harness],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert run_res.returncode == 0, f"Node runtime failed: {run_res.stderr}"
+    res = json.loads(run_res.stdout.strip())
+
+    assert res["initialSlashCmd"] == ""
+    assert res["initialModality"] == "image"
+    assert res["slashClearedAfterModelSelect"] == ""
+    assert res["providerAfterModelSelect"] == "auto"
+    assert res["mergeModePill"] == "MERGE MODE"
+    assert res["mergeCalledGenerate"] is True
+    assert res["mergeCalledOmni"] == 0, "Merging 2 images with Nano Banana 2 must NEVER route to Atlas/Omni 3D Splat!"
+    assert res["mergePayloadModality"] == "image"
+    assert res["mergePayloadModel"] == "gemini-3.1-flash-image"
+    assert res["mergePayloadRefCount"] == 2
+    assert res["mergeNodeStatus"] == "image"
+
+    assert res["textModalityModel"] == "gemini-3.1-pro"
+    assert res["aspectHiddenInText"] is True
+    assert res["textNodeStatus"] == "text"
+    assert res["textNodeHtmlHasActions"] is True
+    assert res["modalityAfterSendToImage"] == "image"
+    assert "golden retriever" in res["promptAfterSendToImage"]
+
+    assert res["audioKindVisible"] is True
+    assert res["audioNodeStatus"] == "audio"
+    assert res["audioHasPlayer"] is True
+
+    assert res["fpsVisibleInVideo"] is True
+    assert res["videoNodeStatus"] == "video"
+    assert res["videoHasPlayer"] is True
+
+    assert res["meshTierVisible"] is True
+    assert res["meshNodeStatus"] == "mesh3d"
+    assert res["meshHasAutoRig"] is True

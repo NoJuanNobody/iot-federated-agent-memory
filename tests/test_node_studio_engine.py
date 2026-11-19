@@ -419,3 +419,80 @@ def test_conversation_history_builders_preserve_thought_signatures():
     )
     assert "Context from previous turns:" in briefing
     assert "Current instruction: new prompt" in briefing
+
+
+def test_merge_two_data_url_images_with_nano_banana_2_extracts_both_refs():
+    captured = {}
+
+    def fake_post(url, headers, payload):
+        captured["url"] = url
+        captured["payload"] = payload
+        return 200, {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"text": "Dog floating in space"},
+                            {"inlineData": {"data": "TUVSR0VE", "mimeType": "image/png"}},
+                        ]
+                    }
+                }
+            ]
+        }
+
+    resp = handle_node_studio_generate(
+        {
+            "prompt": "Put this dog in space",
+            "modality": "image",
+            "selectedNodeIds": ["img-dog", "img-space"],
+            "references": [
+                {"id": "img-dog", "name": "dog.png", "type": "image", "url": "data:image/png;base64,RE9H"},
+                {"id": "img-space", "name": "space.jpg", "type": "image", "url": "data:image/jpeg;base64,U1BBQ0U="},
+            ],
+            "config": {"model": "gemini-3.1-flash-image", "provider": "gemini"},
+        },
+        env={"GEMINI_API_KEY": "gem-key"},
+        http_post=fake_post,
+    )
+    assert resp["ok"] is True
+    assert resp["mode"] == "MERGE"
+    assert resp["modality"] == "image"
+    assert "gemini-3.1-flash-image:generateContent" in captured["url"]
+    parts = captured["payload"]["contents"][-1]["parts"]
+    inline_parts = [p["inlineData"] for p in parts if "inlineData" in p]
+    assert len(inline_parts) == 2
+    assert inline_parts[0]["data"] == "RE9H"
+    assert inline_parts[1]["data"] == "U1BBQ0U="
+    assert inline_parts[1]["mimeType"] == "image/jpeg"
+    assert resp["node"]["data"]["content"]["imageUrl"] == "data:image/png;base64,TUVSR0VE"
+
+
+def test_text_modality_with_text_and_image_references_nanogpt():
+    captured = {}
+
+    def fake_post(url, headers, payload):
+        captured["url"] = url
+        captured["payload"] = payload
+        return 200, {"choices": [{"message": {"content": "Refined scene prompt with dog astronaut."}}]}
+
+    resp = handle_node_studio_generate(
+        {
+            "prompt": "Combine these into a movie logline",
+            "modality": "text",
+            "selectedNodeIds": ["txt-1", "img-1"],
+            "references": [
+                {"id": "txt-1", "name": "Notes", "type": "text", "text": "A brave golden retriever."},
+                {"id": "img-1", "name": "Nebula", "type": "image", "url": "data:image/png;base64,TkVCVUxB"},
+            ],
+            "config": {"model": "nanogpt/TEE/deepseek-v4.1-flash", "provider": "nanogpt"},
+        },
+        env={"NANOGPT_API_KEY": "ngpt-key"},
+        http_post=fake_post,
+    )
+    assert resp["ok"] is True
+    assert resp["modality"] == "text"
+    assert captured["url"] == NANOGPT_CHAT_URL
+    last_msg = captured["payload"]["messages"][-1]
+    assert isinstance(last_msg["content"], list)
+    assert "A brave golden retriever." in last_msg["content"][0]["text"]
+    assert last_msg["content"][1]["image_url"]["url"] == "data:image/png;base64,TkVCVUxB"
