@@ -3131,6 +3131,13 @@ def _node_studio_js(initial_view: str) -> str:
     const parsed = applySlashRoute(rawCmd);
     appendTerminalLine("you@tincan:~/space$ " + rawCmd);
 
+    // Ensure all asynchronous FileReader base64 conversions for uploaded photos have completed
+    if (state.references.length > 0) {
+      try {
+        await Promise.all(state.references.map((r) => r._readPromise || Promise.resolve()));
+      } catch (_e) {}
+    }
+
     state.nodeSeq += 1;
     const parentIds = state.selectedIds.slice();
     const multiRefs = collectAllImageReferences();
@@ -3191,8 +3198,9 @@ def _node_studio_js(initial_view: str) -> str:
           }
           if (data && data.files_b64 && typeof data.files_b64 === "object") {
             const keys = Object.keys(data.files_b64);
+            const hasMultiUploaded = Array.isArray(spawned.content.referenceImages) && spawned.content.referenceImages.length > 1;
             const imgKey = keys.find((k) => /\.(jpg|jpeg|png)$/i.test(k));
-            if (imgKey && data.files_b64[imgKey] && String(data.files_b64[imgKey]).length > 120) {
+            if (!hasMultiUploaded && imgKey && data.files_b64[imgKey] && String(data.files_b64[imgKey]).length > 120) {
               const mime = imgKey.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg";
               spawned.content.imageUrl = "data:" + mime + ";base64," + data.files_b64[imgKey];
               spawned._splatCloud = null;
@@ -3340,59 +3348,85 @@ def _node_studio_js(initial_view: str) -> str:
     const promptStr = (node.metadata && node.metadata.prompt) || node.label || "torii";
     node._splatCloud = buildProceduralSplatCloud(promptStr);
 
-    // If the node has an imageUrl and we are in a browser with Image + Canvas 2D support, project real RGBD pixels
-    const imgUrl = node.content && node.content.imageUrl;
-    if (imgUrl && !node._splatImgLoading && typeof Image !== "undefined") {
+    // Project ALL uploaded/selected multi-view reference photos into a unified 360° 3D Gaussian Splat cloud
+    const rawList = (node.content && Array.isArray(node.content.referenceImages) && node.content.referenceImages.length > 0)
+      ? node.content.referenceImages.filter(Boolean)
+      : ((node.content && node.content.imageUrl) ? [node.content.imageUrl] : []);
+
+    if (rawList.length > 0 && !node._splatImgLoading && typeof Image !== "undefined") {
       node._splatImgLoading = true;
-      try {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = function () {
+      const totalViews = Math.min(rawList.length, 14);
+      const gw = totalViews > 1 ? Math.max(22, Math.floor(54 / Math.sqrt(totalViews))) : 54;
+      const gh = totalViews > 1 ? Math.max(16, Math.floor(34 / Math.sqrt(totalViews))) : 34;
+      const mergedCloud = [];
+      let completed = 0;
+
+      function finishOneView() {
+        completed += 1;
+        if (completed >= totalViews && mergedCloud.length > 120) {
+          node._splatCloud = mergedCloud;
+          mountAllSplatCanvases();
+          if (modalSplatState.activeNodeId === node.id) {
+            renderModalSplatFrame();
+          }
+        }
+      }
+
+      for (let viewIdx = 0; viewIdx < totalViews; viewIdx++) {
+        (function (vIdx, url) {
           try {
-            const off = document.createElement("canvas");
-            const gw = 54, gh = 34;
-            off.width = gw;
-            off.height = gh;
-            const octx = off.getContext && off.getContext("2d");
-            if (octx) {
-              octx.drawImage(img, 0, 0, gw, gh);
-              const px = octx.getImageData(0, 0, gw, gh).data;
-              const projected = [];
-              for (let v = 0; v < gh; v++) {
-                for (let u = 0; u < gw; u++) {
-                  const idx = (v * gw + u) * 4;
-                  const r = px[idx], g = px[idx + 1], b = px[idx + 2], a = px[idx + 3];
-                  if (a < 32) continue;
-                  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-                  const nx = (u / (gw - 1) - 0.5) * 2.0;
-                  const ny = (0.5 - v / (gh - 1)) * 1.4;
-                  const depthZ = (v / gh > 0.55)
-                    ? ((v / gh - 0.55) * 3.4 - 0.4)
-                    : (-1.45 + (1.0 - lum) * 1.35);
-                  projected.push({
-                    x: nx * (1.35 + Math.abs(depthZ) * 0.22),
-                    y: ny,
-                    z: depthZ,
-                    r: r,
-                    g: g,
-                    b: b,
-                    size: 4.3,
-                    conf: 0.984
-                  });
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = function () {
+              try {
+                const off = document.createElement("canvas");
+                off.width = gw;
+                off.height = gh;
+                const octx = off.getContext && off.getContext("2d");
+                if (octx) {
+                  octx.drawImage(img, 0, 0, gw, gh);
+                  const px = octx.getImageData(0, 0, gw, gh).data;
+                  // Place each uploaded view around a 360° RUB camera ring so all photos fuse into 3D space
+                  const theta = totalViews > 1 ? (vIdx / totalViews) * Math.PI * 2 : 0;
+                  const cosT = Math.cos(theta);
+                  const sinT = Math.sin(theta);
+                  for (let v = 0; v < gh; v++) {
+                    for (let u = 0; u < gw; u++) {
+                      const idx = (v * gw + u) * 4;
+                      const r = px[idx], g = px[idx + 1], b = px[idx + 2], a = px[idx + 3];
+                      if (a < 32) continue;
+                      const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                      const nx = (u / (gw - 1) - 0.5) * 2.0;
+                      const ny = (0.5 - v / (gh - 1)) * 1.4;
+                      const localZ = (v / gh > 0.55)
+                        ? ((v / gh - 0.55) * 2.8 - 0.35)
+                        : (-1.15 + (1.0 - lum) * 1.25);
+                      const localX = nx * (1.25 + Math.abs(localZ) * 0.2);
+                      const wx = localX * cosT - localZ * sinT;
+                      const wz = localX * sinT + localZ * cosT;
+                      mergedCloud.push({
+                        x: wx,
+                        y: ny,
+                        z: wz,
+                        r: r,
+                        g: g,
+                        b: b,
+                        size: totalViews > 1 ? 4.6 : 4.3,
+                        conf: 0.984
+                      });
+                    }
+                  }
                 }
-              }
-              if (projected.length > 200) {
-                node._splatCloud = projected;
-                mountAllSplatCanvases();
-                if (modalSplatState.activeNodeId === node.id) {
-                  renderModalSplatFrame();
-                }
-              }
-            }
-          } catch (_e) {}
-        };
-        img.src = imgUrl;
-      } catch (_e) {}
+              } catch (_e) {}
+              finishOneView();
+            };
+            img.onerror = finishOneView;
+            img.src = url;
+          } catch (_e) {
+            finishOneView();
+          }
+        })(viewIdx, rawList[viewIdx]);
+      }
     }
     return node._splatCloud;
   }
@@ -3737,8 +3771,16 @@ def _node_studio_js(initial_view: str) -> str:
       openSplatViewer(node.id);
       return;
     }
-    // Convert or branch any 2D Image / Text node into an interactive 3D Gaussian Splat node
-    state.selectedIds = [node.id];
+    // Preserve all currently selected image nodes (and any other uploaded image nodes on canvas) for multi-view Splat generation
+    if (state.selectedIds.indexOf(node.id) === -1) {
+      state.selectedIds.push(node.id);
+    }
+    if (state.selectedIds.length === 1) {
+      const otherUploaded = state.nodes.filter((n) => n.type === "UPLOADED" && n.content && n.content.imageUrl);
+      if (otherUploaded.length > 1) {
+        state.selectedIds = otherUploaded.map((n) => n.id);
+      }
+    }
     const promptTxt = (node.metadata && node.metadata.prompt) || node.label || "Scene 3D Splat";
     runTerminalCommand("/atlas splat " + promptTxt).then((spawned) => {
       if (spawned) openSplatViewer(spawned.id);
@@ -3995,18 +4037,24 @@ def _node_studio_js(initial_view: str) -> str:
       };
       state.references.push(refObj);
       if (rType === "image" && !refObj.base64 && typeof FileReader !== "undefined" && typeof Blob !== "undefined" && file instanceof Blob) {
-        try {
-          const reader = new FileReader();
-          reader.onload = function () {
-            const dataUrl = String(reader.result || "");
-            if (dataUrl) {
-              if (!refObj.url) refObj.url = dataUrl;
-              refObj.base64 = _extractDataUrlBase64(dataUrl);
-              renderReferencesStrip();
-            }
-          };
-          reader.readAsDataURL(file);
-        } catch (_e) {}
+        refObj._readPromise = new Promise((resolve) => {
+          try {
+            const reader = new FileReader();
+            reader.onload = function () {
+              const dataUrl = String(reader.result || "");
+              if (dataUrl) {
+                if (!refObj.url) refObj.url = dataUrl;
+                refObj.base64 = _extractDataUrlBase64(dataUrl);
+                renderReferencesStrip();
+              }
+              resolve();
+            };
+            reader.onerror = function () { resolve(); };
+            reader.readAsDataURL(file);
+          } catch (_e) {
+            resolve();
+          }
+        });
       }
     });
     renderReferencesStrip();

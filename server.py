@@ -983,13 +983,20 @@ def _omni_route(
                     headers=headers,
                     ai_router=rtr,
                 )
+                s1_op_id = (stage1_pose_res or {}).get("operation_id") or (stage1_pose_res or {}).get("id")
+                if stage1_pose_res and stage1_pose_res.get("ok") and not stage1_pose_res.get("done") and s1_op_id:
+                    for _ in range(18):
+                        time.sleep(1.5)
+                        _, polled = _atlas_operation_status(s1_op_id, ai_router=rtr)
+                        if isinstance(polled, dict):
+                            stage1_pose_res = polled
+                            if polled.get("done"):
+                                break
                 s1_resp = (stage1_pose_res or {}).get("response") or {}
-                posed_frames = s1_resp.get("posedFrames") or s1_resp.get("frames") or atlas_frames
+                raw_posed = s1_resp.get("posedFrames") or s1_resp.get("frames") or atlas_frames
+                # Normalize posed frames for World Labs Atlas v2 posedImages2Splats schema
                 req_body = {
-                    "posedFrames": posed_frames,
-                    "frames": atlas_frames,
-                    "targetResolution": target_res,
-                    "prompt": parsed_route.get("prompt") or combined_input,
+                    "frames": raw_posed,
                 }
             else:
                 req_body["frames"] = atlas_frames
