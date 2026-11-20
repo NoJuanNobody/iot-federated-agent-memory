@@ -1931,3 +1931,191 @@ console.log(JSON.stringify({{
     # Scrollable text card scrolls natively without zooming canvas
     assert res["preventedInsideScrollable"] is False
     assert res["zoomAfterTextScroll"] == res["zoomBeforeTextScroll"]
+
+
+def test_smart_node_placement_auto_layout_and_text_error_in_node() -> None:
+    node_bin = shutil.which("node")
+    if not node_bin:
+        pytest.skip("node binary not available for JS runtime check")
+
+    html = render_node_studio_html()
+    script = _extract_inline_script(html)
+
+    harness = f"""
+const elements = new Map();
+function makeEl(id) {{
+  const el = {{
+    id,
+    tagName: "DIV",
+    textContent: "",
+    innerHTML: "",
+    value: "",
+    style: {{}},
+    dataset: {{}},
+    _classes: new Set(id === "nsResponseToast" ? ["hidden"] : []),
+    classList: {{
+      toggle(c, force) {{
+        if (force === undefined) {{
+          if (el._classes.has(c)) {{ el._classes.delete(c); return false; }}
+          el._classes.add(c); return true;
+        }}
+        if (force) el._classes.add(c); else el._classes.delete(c);
+        return !!force;
+      }},
+      add(c) {{ el._classes.add(c); }},
+      remove(c) {{ el._classes.delete(c); }},
+      contains(c) {{ return el._classes.has(c); }}
+    }},
+    setAttribute() {{}},
+    addEventListener() {{}},
+    querySelectorAll() {{ return []; }},
+    getBoundingClientRect() {{ return {{ left: 0, top: 0, width: 1200, height: 800 }}; }}
+  }};
+  return el;
+}}
+[
+  "nsDotCanvas", "nsEmptyState", "nsCanvasWorld", "nsEdgesSvg", "nsNodesLayer",
+  "nsSelectionBox", "nsDropOverlay", "nsRefsStrip", "nsRefsRow", "nsPromptInput",
+  "nsModelBtnLabel", "nsModePill", "nsRefCounter", "nsActiveRunsCount", "nsGenerateBtn",
+  "nsResponseToast", "nsAutoLayoutBtn"
+].forEach((id) => elements.set(id, makeEl(id)));
+
+let resolvePendingGen = null;
+global.window = {{ innerWidth: 1200, innerHeight: 800, location: {{ href: "http://localhost:8013/nodes", search: "" }}, addEventListener() {{}} }};
+global.document = {{
+  readyState: "complete",
+  getElementById(id) {{ return elements.get(id) || null; }},
+  querySelectorAll() {{ return []; }},
+  addEventListener() {{}},
+  createElement(tag) {{ return makeEl(tag); }},
+  body: {{ appendChild() {{}}, removeChild() {{}} }}
+}};
+global.fetch = (url, opts) => {{
+  const body = opts && opts.body ? JSON.parse(opts.body) : null;
+  if (url === "/api/nodes/generate") {{
+    if (body && String(body.prompt || "").includes("trigger_400")) {{
+      return Promise.resolve({{
+        status: 400,
+        ok: false,
+        json: async () => ({{ ok: false, error: "Upstream chat model error" }})
+      }});
+    }}
+    if (body && String(body.prompt || "").includes("deferred_child")) {{
+      return new Promise((resolve) => {{
+        resolvePendingGen = () => resolve({{
+          status: 200,
+          ok: true,
+          json: async () => ({{
+            ok: true,
+            modality: "text",
+            node: {{
+              id: "gen-txt-1",
+              data: {{
+                content: {{ text: "Real LLM output grounded in parent." }},
+                metadata: {{ model: "gemini-3.1-pro", prompt: body.prompt }}
+              }}
+            }}
+          }})
+        }});
+      }});
+    }}
+    return Promise.resolve({{
+      status: 200,
+      ok: true,
+      json: async () => ({{
+        ok: true,
+        modality: body.modality || "text",
+        node: {{
+          id: "gen-node",
+          data: {{
+            content: {{ text: "Output for: " + body.prompt }},
+            metadata: {{ model: "gemini-3.1-pro", prompt: body.prompt }}
+          }}
+        }}
+      }})
+    }});
+  }}
+  return Promise.resolve({{ status: 200, ok: true, json: async () => ({{ ok: true }}) }});
+}};
+
+{script}
+
+(async () => {{
+  const api = window.TinCanNodeStudio;
+  const st = api.getState();
+  const out = {{}};
+
+  // 1. Parent at (900, 500): generating child spawns directly beneath it (NOT hardcoded 420,120!)
+  st.nodes.push({{
+    id: "p-far", type: "GENERATED", modality: "image", morphingStatus: "image",
+    label: "Far Parent", x: 900, y: 500, width: 256, height: 256,
+    content: {{ imageUrl: "data:image/png;base64,AAAA" }}, metadata: {{}}
+  }});
+  st.selectedIds = ["p-far"];
+  api.selectModality("text");
+  elements.get("nsPromptInput").value = "deferred_child describe far parent";
+  const genPromise = api.generate();
+
+  // While still generating (before fetch resolves), spinner is centered inside the reserved slot directly beneath p-far
+  await Promise.resolve();
+  const child1 = st.nodes[st.nodes.length - 1];
+  out.spinnerStatus = child1.morphingStatus;
+  out.spinnerYBelowParent = child1.y > 500 + 256;
+  out.spinnerXNearParentCenter = Math.abs((child1.x + 48) - (900 + 128)) <= 4;
+
+  resolvePendingGen();
+  await genPromise;
+  out.finalStatus = child1.morphingStatus;
+  out.finalYBelowParent = child1.y >= 500 + 256 + 60;
+  out.finalCenterAlignedWithParent = Math.abs((child1.x + child1.width / 2) - (900 + 128)) <= 4;
+
+  // 2. Generating a 2nd child from the SAME parent avoids colliding with child1
+  st.selectedIds = ["p-far"];
+  elements.get("nsPromptInput").value = "second sibling branch";
+  await api.generate();
+  const child2 = st.nodes[st.nodes.length - 1];
+  const overlap12 =
+    child1.x < child2.x + child2.width &&
+    child1.x + child1.width > child2.x &&
+    child1.y < child2.y + child2.height &&
+    child1.y + child1.height > child2.y;
+  out.siblingNoOverlap = !overlap12;
+
+  // 3. Server 400 on Text shows real error box instead of silently faking "(staged locally)"
+  st.selectedIds = [];
+  elements.get("nsPromptInput").value = "trigger_400 test";
+  await api.generate();
+  const errNode = st.nodes[st.nodes.length - 1];
+  out.errStatus = errNode.metadata.jobStatus;
+  out.errNotStagedLocally = !String((errNode.content && errNode.content.text) || "").includes("staged locally");
+  out.errBoxRendered = elements.get("nsNodesLayer").innerHTML.includes("Upstream chat model error");
+
+  // 4. autoLayout() respects tall cards (368px Splat) with zero vertical overlap against child row
+  st.nodes = [
+    {{ id: "tall-splat", type: "ATLAS", modality: "atlas", morphingStatus: "omni", label: "Tall Splat", x: 0, y: 0, width: 340, height: 368, content: {{}}, metadata: {{}} }},
+    {{ id: "child-mesh", type: "3D", modality: "3d", morphingStatus: "mesh3d", label: "Child Mesh", x: 0, y: 0, width: 320, height: 326, content: {{}}, metadata: {{}} }}
+  ];
+  st.edges = [{{ id: "e-tall", source: "tall-splat", target: "child-mesh" }}];
+  api.autoLayout();
+  const nTop = st.nodes.find((n) => n.id === "tall-splat");
+  const nBot = st.nodes.find((n) => n.id === "child-mesh");
+  out.autoLayoutNoVerticalOverlap = nBot.y >= nTop.y + nTop.height + 40;
+
+  console.log(JSON.stringify(out));
+}})();
+"""
+    run_res = subprocess.run([node_bin, "-e", harness], text=True, capture_output=True, check=False)
+    assert run_res.returncode == 0, f"Node runtime failed: {run_res.stderr}"
+    res = json.loads(run_res.stdout.strip())
+
+    assert res["spinnerStatus"] == "generating"
+    assert res["spinnerYBelowParent"] is True
+    assert res["spinnerXNearParentCenter"] is True
+    assert res["finalStatus"] == "text"
+    assert res["finalYBelowParent"] is True
+    assert res["finalCenterAlignedWithParent"] is True
+    assert res["siblingNoOverlap"] is True
+    assert res["errStatus"] == "ERROR"
+    assert res["errNotStagedLocally"] is True
+    assert res["errBoxRendered"] is True
+    assert res["autoLayoutNoVerticalOverlap"] is True

@@ -652,3 +652,66 @@ def test_poll_nanogpt_video_status_states_and_404_retry():
         "job_id": "vid_job_42",
         "error": "GPU OOM during decode",
     }
+
+
+def test_gemini_3_1_pro_nanogpt_mapping_input_grounding_and_fallback():
+    seen_models = []
+    seen_payloads = []
+
+    def fake_post(url, headers, payload):
+        seen_models.append(payload["model"])
+        seen_payloads.append(payload)
+        if len(seen_models) == 1:
+            return 200, {
+                "choices": [
+                    {"message": {"content": "Based on the golden retriever audio theme, here is a 3-beat script."}}
+                ]
+            }
+        # Second test exercises 400 unsupported model -> automatic fallback
+        if payload["model"] == "google/gemini-3.1-pro-preview":
+            return 400, {"error": "Model google/gemini-3.1-pro-preview is not supported on /v1/chat/completions."}
+        return 200, {"choices": [{"message": {"content": "Fallback DeepSeek real output"}}]}
+
+    assert MODEL_SPECS["gemini-3.1-pro"]["nanogptModel"] == "google/gemini-3.1-pro-preview"
+
+    res = handle_node_studio_generate(
+        {
+            "prompt": "Write a 3-beat narration matching this track",
+            "modality": "text",
+            "selectedNodeIds": ["aud-1"],
+            "parentNodes": [
+                {
+                    "id": "aud-1",
+                    "data": {
+                        "modality": "audio",
+                        "label": "Cosmic golden retriever synth",
+                        "content": {"vfsPath": "/audio/music_dog.mp3"},
+                        "metadata": {"prompt": "Cosmic golden retriever synth", "model": "google/lyria-3.5"},
+                    },
+                }
+            ],
+            "config": {"model": "gemini-3.1-pro", "provider": "auto"},
+        },
+        env={"NANOGPT_API_KEY": "ngpt-live-key"},
+        http_post=fake_post,
+    )
+    assert res["ok"] is True
+    assert seen_models[0] == "google/gemini-3.1-pro-preview"
+    assert res["node"]["data"]["content"]["text"].startswith("Based on the golden retriever")
+    msgs = seen_payloads[0]["messages"]
+    assert msgs[0]["role"] == "system"
+    assert "Cosmic golden retriever synth" in msgs[-1]["content"]
+
+    # Unsupported model slug on NanoGPT automatically retries with DeepSeek fallback
+    res_fb = handle_node_studio_generate(
+        {
+            "prompt": "Summarize this idea",
+            "modality": "text",
+            "config": {"model": "gemini-3.1-pro", "provider": "nanogpt"},
+        },
+        env={"NANOGPT_API_KEY": "ngpt-live-key"},
+        http_post=fake_post,
+    )
+    assert res_fb["ok"] is True
+    assert res_fb["node"]["data"]["content"]["text"] == "Fallback DeepSeek real output"
+    assert seen_models[-1] == "TEE/deepseek-v4.1-flash"

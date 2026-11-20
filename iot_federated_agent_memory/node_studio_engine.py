@@ -325,7 +325,7 @@ MODEL_SPECS: Dict[str, Dict[str, Any]] = {
         "label": "Gemini 3.1 Pro",
         "default": False,
         "geminiModel": "gemini-3.1-pro",
-        "nanogptModel": "gemini-3.1-pro",
+        "nanogptModel": "google/gemini-3.1-pro-preview",
         "preferredProvider": "auto",
         "contextWindow": 1000000,
         "teeAttested": False,
@@ -2480,6 +2480,20 @@ def _generate_with_nanogpt(
                 mime = str(ref.get("mimeType") or "image/jpeg")
                 if mime.startswith("image/"):
                     image_ref_urls.append(f"data:{mime};base64,{ref['base64']}")
+            elif ref.get("type") == "image" and isinstance(ref.get("url"), str) and str(ref["url"]).startswith(("http://", "https://")):
+                image_ref_urls.append(str(ref["url"]))
+
+        if text_ref_blocks or image_ref_urls:
+            messages.insert(
+                0,
+                {
+                    "role": "system",
+                    "content": (
+                        "You are TinCan Node Studio's creative AI assistant. "
+                        "Directly use the provided input node content and/or images to generate a clear, accurate response to the user's prompt."
+                    ),
+                },
+            )
 
         effective_prompt = (
             ("\n\n".join(text_ref_blocks) + "\n\n" + prompt)
@@ -2494,22 +2508,55 @@ def _generate_with_nanogpt(
         else:
             messages.append({"role": "user", "content": effective_prompt})
 
-        payload: Dict[str, Any] = {
-            "model": nanogpt_model,
-            "messages": messages,
-            "temperature": config.get("temperature", 0.7),
-        }
-        status_code, data = http_post(NANOGPT_CHAT_URL, headers, payload)
-        if status_code >= 400:
-            raise ProviderHttpError(_extract_error_message(data, status_code), status_code=status_code)
+        candidate_models: List[str] = [nanogpt_model]
+        if image_ref_urls:
+            for fb in ("google/gemini-3.1-pro-preview", "gemini-2.5-pro", "TEE/deepseek-v4.1-flash"):
+                if fb not in candidate_models:
+                    candidate_models.append(fb)
+        else:
+            for fb in ("TEE/deepseek-v4.1-flash", "google/gemini-3.1-pro-preview", "gemini-2.5-pro"):
+                if fb not in candidate_models:
+                    candidate_models.append(fb)
+
+        used_model = nanogpt_model
+        status_code = 502
+        data: Dict[str, Any] = {}
+        for idx_m, cand_model in enumerate(candidate_models):
+            used_model = cand_model
+            payload: Dict[str, Any] = {
+                "model": cand_model,
+                "messages": messages,
+                "temperature": config.get("temperature", 0.7),
+            }
+            status_code, data = http_post(NANOGPT_CHAT_URL, headers, payload)
+            if status_code < 400:
+                break
+            err_low = _extract_error_message(data, status_code).lower()
+            should_fallback = status_code in (400, 404) and any(
+                tok in err_low for tok in ("not supported", "not found", "unknown model", "invalid model", "vision", "image")
+            )
+            if not should_fallback or idx_m >= len(candidate_models) - 1:
+                raise ProviderHttpError(_extract_error_message(data, status_code), status_code=status_code)
+
         choices = data.get("choices") or []
         msg_content = ""
         if choices and isinstance(choices[0], Mapping):
-            msg_content = str((choices[0].get("message") or {}).get("content") or "")
+            msg_obj = choices[0].get("message") or {}
+            raw_content = msg_obj.get("content")
+            if isinstance(raw_content, list):
+                msg_content = "\n".join(
+                    str(part.get("text") or "")
+                    for part in raw_content
+                    if isinstance(part, Mapping) and part.get("text")
+                ).strip()
+            elif raw_content:
+                msg_content = str(raw_content).strip()
+            if not msg_content and msg_obj.get("reasoning_content"):
+                msg_content = str(msg_obj.get("reasoning_content")).strip()
         return {
-            "text": msg_content or f"Generated via NanoGPT ({nanogpt_model})",
+            "text": msg_content or f"Generated via NanoGPT ({used_model})",
             "providerUsed": "nanogpt",
-            "modelUsed": nanogpt_model,
+            "modelUsed": used_model,
         }
 
     if modality == "video":
@@ -3002,6 +3049,31 @@ def _normalize_references(
                 }
             )
             seen_ids.add(pid)
+        else:
+            pmeta = pdata.get("metadata") or {}
+            pmod = str(pdata.get("modality") or pmeta.get("modality") or "node").upper()
+            parts: List[str] = []
+            if pmeta.get("prompt"):
+                parts.append(f"Prompt: {pmeta['prompt']}")
+            elif pdata.get("label"):
+                parts.append(f"Label: {pdata['label']}")
+            if pmeta.get("model"):
+                parts.append(f"Model: {pmeta['model']}")
+            asset_path = pcontent.get("vfsPath") or pcontent.get("glbPath") or pmeta.get("vfsPath")
+            if asset_path:
+                parts.append(f"Asset: {asset_path}")
+            if parts:
+                refs.append(
+                    {
+                        "id": pid,
+                        "nodeId": pid,
+                        "name": f"{pmod} {pdata.get('label') or pid}",
+                        "type": "text",
+                        "text": " | ".join(parts),
+                        "mimeType": "text/plain",
+                    }
+                )
+                seen_ids.add(pid)
 
     return refs[:MAX_REFERENCES]
 

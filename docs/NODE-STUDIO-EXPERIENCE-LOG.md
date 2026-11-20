@@ -88,3 +88,24 @@ Resolve every remaining Node Studio limitation via parallel worktree swarm (`swa
 - Upgraded `zoomBy(factor, clientX, clientY)` to keep 4-decimal precision (`[0.15, 3.0]`) and anchor zoom cleanly around the mouse cursor.
 - Preserved native vertical scrolling inside overflowing Text cards / popovers / menus and converted two-finger horizontal trackpad swipes into smooth horizontal panning instead of accidental zoom jitter.
 
+---
+
+## Entry #5 — 2026-11-20 (Live Production QA · Smart Generating Placement, Dynamic Auto-Layout & Real Text LLM Execution)
+
+### User Experience Notes (Verbatim)
+- `"we have an auto layout bug where the generating node just shows up anywhere, and we need to put that in a more appropriate placement."`
+- `"Also, I would like the text prompts in Node Studio to actually run on something, and then we need the output based on the input. That's generally what it should be doing."`
+
+### Root Causes Found
+1. **Hardcoded random node placement + fixed-height Auto-Layout**:
+   - `generate()` placed new/generating nodes at hardcoded `x: 420 + (nodeSeq % 3) * 40, y: 120 + (parentIds.length ? 280 : 0)`, and `buildOmniNodeFromParsed()` placed Audio/3D/Atlas nodes at `x: 240 + ..., y: 110 + ...` — completely ignoring parent positions, existing sibling cards, and viewport pan/zoom.
+   - `autoLayout()` used a fixed `310px` vertical step, causing taller cards (`326px` 3D Mesh, `348–368px` Atlas Splat) to overlap the row underneath.
+2. **Default Text model rejected on NanoGPT + silent local echo fallback**:
+   - `MODEL_SPECS["gemini-3.1-pro"]["nanogptModel"]` in `node_studio_engine.py` was `"gemini-3.1-pro"` instead of NanoGPT's live catalog slug `"google/gemini-3.1-pro-preview"`, causing every default Text prompt on Railway production to fail with HTTP 400 (`Model gemini-3.1-pro is not supported on /v1/chat/completions.`).
+   - On any API error, `generate()`'s `catch` block silently set `content = { text: prompt + " (staged locally)" }`, echoing the user's own prompt back instead of running a real LLM or showing an error.
+
+### Fixes Shipped
+- **Real Text LLM Execution Grounded in Inputs (`node_studio_engine.py`)**: Mapped `gemini-3.1-pro` to NanoGPT's live `"google/gemini-3.1-pro-preview"` with automatic fallback (`TEE/deepseek-v4.1-flash` / `gemini-2.5-pro`), added a system grounding prompt when input nodes are selected, passed HTTPS image URLs plus non-image/non-text parent node metadata (Audio/Video/3D/Splat) as input context, and extracted `content` / list parts / `reasoning_content` cleanly.
+- **Honest Error Reporting (`node_studio_ui.py`)**: Replaced silent `"(staged locally)"` echoing on server errors with a visible `✕ ERROR` badge and `.ns-omni-error-box` inside Text cards, and enabled scrolling/selection inside `.ns-msg-body`.
+- **Smart Collision-Free Placement & Dynamic Auto-Layout (`node_studio_ui.py`)**: Added `_computeSmartNodePosition`, `_findNonOverlappingSlot`, and `_ensureNodeVisible` so generating spinners reserve their full final footprint directly beneath selected parent(s) (or centered in the visible viewport / neatly beside root nodes), expand smoothly in place with zero jumping or sibling overlap, and gently pan into view. Upgraded `autoLayout()` with longest-path layering, parent-barycenter ordering, and dynamic per-row heights (`maxRowH + 64`).
+

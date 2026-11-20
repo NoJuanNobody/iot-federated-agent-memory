@@ -3588,7 +3588,7 @@ def _node_studio_js(initial_view: str) -> str:
     state.references.forEach(pushRef);
     state.selectedIds.forEach((pid) => {
       const n = state.nodes.find((x) => x.id === pid);
-      if (!n || !n.content) return;
+      if (!n || !n.content || n.morphingStatus === "generating") return;
       if (n.content.imageUrl || n.content.base64) {
         pushRef({
           id: n.id,
@@ -3606,6 +3606,22 @@ def _node_studio_js(initial_view: str) -> str:
           mimeType: "text/plain",
           text: String(n.content.text)
         });
+      } else {
+        const modLbl = _modalityDisplayLabel(_getNodeModality(n));
+        const descParts = [];
+        if (n.metadata && n.metadata.prompt) descParts.push("Prompt: " + n.metadata.prompt);
+        else if (n.label) descParts.push("Label: " + n.label);
+        if (n.content && n.content.text && n.content.text !== n.label) descParts.push("Text: " + n.content.text);
+        if (n.content && (n.content.vfsPath || n.content.glbPath)) descParts.push("Asset: " + (n.content.vfsPath || n.content.glbPath));
+        if (descParts.length) {
+          pushRef({
+            id: n.id,
+            name: modLbl + " (" + (n.label || n.id).slice(0, 24) + ")",
+            type: "text",
+            mimeType: "text/plain",
+            text: descParts.join(" | ")
+          });
+        }
       }
     });
     return out;
@@ -3769,17 +3785,24 @@ def _node_studio_js(initial_view: str) -> str:
   function renderTextCardInner(node) {
     const nid = escapeHtml(node.id);
     const meta = node.metadata || {};
-    const modelLbl = escapeHtml(getModelName(meta.model || state.model));
+    const modelLbl = escapeHtml(getModelName(meta.model || meta.modelUsed || state.model));
     const promptTxt = escapeHtml(meta.prompt || node.label || "");
-    const bodyTxt = escapeHtml((node.content && node.content.text) || node.label || "");
+    const isErr = meta.jobStatus === "ERROR";
+    const errBlock = meta.jobError
+      ? '<div class="ns-omni-error-box">' + escapeHtml(meta.jobError) + "</div>"
+      : "";
+    const bodyTxt = escapeHtml((node.content && node.content.text) || (isErr ? "" : (node.label || "")));
     return (
       '<div class="ns-msg-card">' +
       '<div class="ns-msg-head">' +
       '<span class="ns-omni-pill">TEXT · ' + modelLbl + "</span>" +
-      '<button type="button" class="ns-card-action-btn" title="Copy text" onclick="event.stopPropagation();window.TinCanNodeStudio.copyNodeText(\'' + nid + '\')">Copy</button>' +
+      (isErr
+        ? '<span class="ns-omni-status-badge is-error">✕ ERROR</span>'
+        : '<button type="button" class="ns-card-action-btn" title="Copy text" onclick="event.stopPropagation();window.TinCanNodeStudio.copyNodeText(\'' + nid + '\')">Copy</button>') +
       "</div>" +
       (promptTxt ? '<div class="ns-msg-prompt-sub" title="' + promptTxt + '">Prompt: ' + promptTxt + "</div>" : "") +
-      '<div class="ns-msg-body" onmousedown="event.stopPropagation()">' + bodyTxt + "</div>" +
+      errBlock +
+      (bodyTxt ? '<div class="ns-msg-body" onmousedown="event.stopPropagation()">' + bodyTxt + "</div>" : "") +
       '<div class="ns-card-foot-bar" onmousedown="event.stopPropagation()">' +
       '<div class="ns-card-foot-group">' +
       '<button type="button" class="ns-card-action-btn is-primary" title="Use this text to generate an Image" onclick="event.stopPropagation();window.TinCanNodeStudio.sendTextToImage(\'' + nid + '\')">→ To Image</button>' +
@@ -4637,6 +4660,9 @@ def _node_studio_js(initial_view: str) -> str:
     const multiRefs = collectAllImageReferences();
     const imageRefs = multiRefs.filter((r) => r.type === "image");
     const spawned = buildOmniNodeFromParsed(parsed, rawCmd, state.nodeSeq);
+    const smartPos = _computeSmartNodePosition(parentIds, spawned.width || 320, spawned.height || 256);
+    spawned.x = smartPos.x;
+    spawned.y = smartPos.y;
     spawned.metadata.refine = !!state.atlasRefine;
     // Inherit posedFrames / spzAssetId from selected parent node when chaining Atlas steps
     let inheritedPosedFrames = [];
@@ -4664,6 +4690,7 @@ def _node_studio_js(initial_view: str) -> str:
       state.edges.push({ id: "e-" + pid + "-" + spawned.id, source: pid, target: spawned.id });
     });
     state.selectedIds = [spawned.id];
+    _ensureNodeVisible(spawned.x, spawned.y, spawned.width || 320, spawned.height || 256);
     renderNodes();
 
     const headers = { "Content-Type": "application/json" };
@@ -6555,17 +6582,180 @@ def _node_studio_js(initial_view: str) -> str:
     if (view === "library") renderLibraryViewGrid();
   }
 
+  function _expectedNodeDimensions(modality, morphingStatus) {
+    const mod = String(modality || "").toLowerCase();
+    const st = String(morphingStatus || "").toLowerCase();
+    if (mod === "text" || st === "text" || st === "message") return { w: 340, h: 250 };
+    if (mod === "video" || st === "video") return { w: 320, h: 250 };
+    if (mod === "audio" || st === "audio") return { w: 320, h: 256 };
+    if (mod === "3d" || st === "mesh3d") return { w: 320, h: 326 };
+    if (mod === "atlas" || st === "omni") return { w: 340, h: 348 };
+    return { w: 256, h: 256 };
+  }
+
+  function _getNodeLayoutBox(n) {
+    if (!n) return { x: 0, y: 0, w: 256, h: 256 };
+    if (n._targetSlot && n.morphingStatus === "generating") {
+      return { x: n._targetSlot.x, y: n._targetSlot.y, w: n._targetSlot.w, h: n._targetSlot.h };
+    }
+    return { x: Number(n.x) || 0, y: Number(n.y) || 0, w: Number(n.width) || 256, h: Number(n.height) || 256 };
+  }
+
+  function _rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh, pad) {
+    const p = typeof pad === "number" ? pad : 24;
+    return ax < bx + bw + p && ax + aw + p > bx && ay < by + bh + p && ay + ah + p > by;
+  }
+
+  function _findNonOverlappingSlot(startX, startY, w, h, ignoreId) {
+    const boxes = state.nodes
+      .filter((n) => !ignoreId || n.id !== ignoreId)
+      .map(_getNodeLayoutBox);
+    const gapX = 44;
+    const gapY = 64;
+    function collides(cx, cy) {
+      for (let i = 0; i < boxes.length; i++) {
+        const b = boxes[i];
+        if (_rectsOverlap(cx, cy, w, h, b.x, b.y, b.w, b.h, 24)) return true;
+      }
+      return false;
+    }
+    if (!collides(startX, startY)) {
+      return { x: Math.round(startX), y: Math.round(startY) };
+    }
+    for (let row = 0; row < 8; row++) {
+      const cy = startY + row * (h + gapY);
+      const stepX = w + gapX;
+      for (let k = 1; k <= 12; k++) {
+        const rightX = startX + k * stepX;
+        if (!collides(rightX, cy)) return { x: Math.round(rightX), y: Math.round(cy) };
+        if (row === 0) {
+          const leftX = startX - k * stepX;
+          if (!collides(leftX, cy)) return { x: Math.round(leftX), y: Math.round(cy) };
+        }
+      }
+    }
+    return { x: Math.round(startX + w + gapX), y: Math.round(startY) };
+  }
+
+  function _computeSmartNodePosition(parentIds, targetW, targetH) {
+    const w = targetW || 256;
+    const h = targetH || 256;
+    const gapX = 44;
+    const gapY = 64;
+    const pIds = Array.isArray(parentIds) ? parentIds : [];
+    const parents = pIds
+      .map((pid) => state.nodes.find((x) => x.id === pid))
+      .filter(Boolean);
+
+    if (parents.length > 0) {
+      const pBoxes = parents.map(_getNodeLayoutBox);
+      const avgCenterX = pBoxes.reduce((acc, b) => acc + b.x + b.w / 2, 0) / pBoxes.length;
+      const maxBottomY = pBoxes.reduce((acc, b) => Math.max(acc, b.y + b.h), -Infinity);
+      const desiredX = avgCenterX - w / 2;
+      const desiredY = maxBottomY + gapY;
+      return _findNonOverlappingSlot(desiredX, desiredY, w, h, null);
+    }
+
+    const canvas = $("nsDotCanvas");
+    const rect = canvas && canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : { left: 0, top: 0, width: 1200, height: 800 };
+    const zoom = state.zoom || 1;
+    const vw = rect.width || 1200;
+    const vh = rect.height || 800;
+    const usableH = Math.max(260, vh - 230);
+    const viewCenterX = (vw / 2 - state.panX) / zoom;
+    const viewTopY = (Math.max(84, (usableH - h) / 2) - state.panY) / zoom;
+    const viewMinX = -state.panX / zoom;
+    const viewMaxX = (vw - state.panX) / zoom;
+    const viewMinY = -state.panY / zoom;
+    const viewMaxY = (usableH - state.panY) / zoom;
+
+    if (!state.nodes.length) {
+      return { x: Math.round(viewCenterX - w / 2), y: Math.round(viewTopY) };
+    }
+
+    const roots = state.nodes.filter((n) => !state.edges.some((e) => e.target === n.id));
+    const rootBoxes = (roots.length ? roots : state.nodes).map(_getNodeLayoutBox);
+    let rightmost = rootBoxes[0];
+    for (let i = 1; i < rootBoxes.length; i++) {
+      if (rootBoxes[i].x + rootBoxes[i].w > rightmost.x + rightmost.w) {
+        rightmost = rootBoxes[i];
+      }
+    }
+    const nextRootX = rightmost.x + rightmost.w + gapX;
+    const nextRootY = rightmost.y;
+    const inView =
+      nextRootX + w >= viewMinX - 180 &&
+      nextRootX <= viewMaxX + 260 &&
+      nextRootY + h >= viewMinY - 120 &&
+      nextRootY <= viewMaxY + 180;
+    if (inView) {
+      return _findNonOverlappingSlot(nextRootX, nextRootY, w, h, null);
+    }
+    return _findNonOverlappingSlot(viewCenterX - w / 2, viewTopY, w, h, null);
+  }
+
+  function _ensureNodeVisible(x, y, w, h) {
+    const canvas = $("nsDotCanvas");
+    if (!canvas || !canvas.getBoundingClientRect) return;
+    const rect = canvas.getBoundingClientRect();
+    const vw = rect.width || 1200;
+    const vh = rect.height || 800;
+    const zoom = state.zoom || 1;
+    const marginX = 72;
+    const topSafe = 76;
+    const bottomSafe = Math.max(topSafe + 160, vh - 210);
+    const sx1 = x * zoom + state.panX;
+    const sy1 = y * zoom + state.panY;
+    const sx2 = (x + (w || 256)) * zoom + state.panX;
+    const sy2 = (y + (h || 256)) * zoom + state.panY;
+    let moved = false;
+    if (sx1 < marginX) {
+      state.panX += Math.round(marginX - sx1);
+      moved = true;
+    } else if (sx2 > vw - marginX) {
+      state.panX -= Math.round(sx2 - (vw - marginX));
+      moved = true;
+    }
+    if (sy1 < topSafe) {
+      state.panY += Math.round(topSafe - sy1);
+      moved = true;
+    } else if (sy2 > bottomSafe) {
+      state.panY -= Math.round(sy2 - bottomSafe);
+      moved = true;
+    }
+    if (moved) applyCanvasTransform();
+  }
+
   function autoLayout() {
     if (!state.nodes.length) return;
-    const roots = state.nodes.filter((n) => !state.edges.some((e) => e.target === n.id));
+    const nodeById = {};
+    state.nodes.forEach((n) => { nodeById[n.id] = n; });
+    const inDeg = {};
+    const childrenOf = {};
+    const parentsOf = {};
+    state.nodes.forEach((n) => {
+      inDeg[n.id] = 0;
+      childrenOf[n.id] = [];
+      parentsOf[n.id] = [];
+    });
+    state.edges.forEach((e) => {
+      if (!nodeById[e.source] || !nodeById[e.target] || e.source === e.target) return;
+      childrenOf[e.source].push(e.target);
+      parentsOf[e.target].push(e.source);
+      inDeg[e.target] += 1;
+    });
+
+    const roots = state.nodes.filter((n) => inDeg[n.id] === 0);
     const levels = {};
     const queue = (roots.length ? roots : [state.nodes[0]]).map((n) => ({ id: n.id, lvl: 0 }));
-    while (queue.length) {
+    let guard = 0;
+    while (queue.length && guard < state.nodes.length * 12 + 20) {
+      guard += 1;
       const cur = queue.shift();
       if (levels[cur.id] !== undefined && levels[cur.id] >= cur.lvl) continue;
       levels[cur.id] = cur.lvl;
-      state.edges.filter((e) => e.source === cur.id).forEach((e) => {
-        queue.push({ id: e.target, lvl: cur.lvl + 1 });
+      (childrenOf[cur.id] || []).forEach((cid) => {
+        queue.push({ id: cid, lvl: cur.lvl + 1 });
       });
     }
     const byLvl = {};
@@ -6574,16 +6764,51 @@ def _node_studio_js(initial_view: str) -> str:
       if (!byLvl[lvl]) byLvl[lvl] = [];
       byLvl[lvl].push(n);
     });
-    Object.keys(byLvl).forEach((lvlStr) => {
-      const lvl = parseInt(lvlStr, 10);
-      const list = byLvl[lvlStr];
-      const totalW = list.reduce((acc, n) => acc + (n.width || 256) + 40, -40);
-      let cursorX = 480 - totalW / 2;
-      list.forEach((n) => {
-        n.x = Math.round(cursorX);
-        n.y = 90 + lvl * 310;
-        cursorX += (n.width || 256) + 40;
+
+    const canvas = $("nsDotCanvas");
+    const rect = canvas && canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : { width: 1200, height: 800 };
+    const centerAnchorX = Math.max(480, Math.round((rect.width || 1200) / 2));
+    const gapX = 44;
+    const gapY = 64;
+    const sortedLvls = Object.keys(byLvl).map((k) => parseInt(k, 10)).sort((a, b) => a - b);
+    let cursorY = 90;
+
+    sortedLvls.forEach((lvl) => {
+      const list = byLvl[lvl];
+      if (lvl > 0) {
+        list.sort((a, b) => {
+          const avgParentX = (node) => {
+            const ps = (parentsOf[node.id] || []).map((pid) => nodeById[pid]).filter(Boolean);
+            if (!ps.length) return _getNodeLayoutBox(node).x;
+            return ps.reduce((s, p) => {
+              const b = _getNodeLayoutBox(p);
+              return s + b.x + b.w / 2;
+            }, 0) / ps.length;
+          };
+          return avgParentX(a) - avgParentX(b);
+        });
+      }
+      const boxes = list.map(_getNodeLayoutBox);
+      const totalW = boxes.reduce((acc, b) => acc + b.w + gapX, -gapX);
+      let cursorX = centerAnchorX - totalW / 2;
+      let maxRowH = 220;
+      list.forEach((n, idx) => {
+        const b = boxes[idx];
+        const nextX = Math.round(cursorX);
+        const nextY = Math.round(cursorY);
+        if (n.morphingStatus === "generating" && n._targetSlot) {
+          n._targetSlot.x = nextX;
+          n._targetSlot.y = nextY;
+          n.x = Math.round(nextX + (n._targetSlot.w - (n.width || 96)) / 2);
+          n.y = Math.round(nextY + (n._targetSlot.h - (n.height || 96)) / 2);
+        } else {
+          n.x = nextX;
+          n.y = nextY;
+        }
+        maxRowH = Math.max(maxRowH, b.h);
+        cursorX += b.w + gapX;
       });
+      cursorY += maxRowH + gapY;
     });
     renderNodes();
   }
@@ -6685,8 +6910,9 @@ def _node_studio_js(initial_view: str) -> str:
     state.nodeSeq += 1;
     const copy = JSON.parse(JSON.stringify(orig));
     copy.id = id + "-copy-" + state.nodeSeq;
-    copy.x = orig.x + 40;
-    copy.y = orig.y + 40;
+    const dupPos = _findNonOverlappingSlot(orig.x + (orig.width || 256) + 44, orig.y, orig.width || 256, orig.height || 256, null);
+    copy.x = dupPos.x;
+    copy.y = dupPos.y;
     copy._pollTimer = null;
     copy._glbBlobUrl = "";
     copy._glbBlobSourceB64 = "";
@@ -6952,13 +7178,14 @@ def _node_studio_js(initial_view: str) -> str:
     if (!asset) return;
     state.nodeSeq += 1;
     const nid = "asset-" + state.nodeSeq;
+    const assetPos = _computeSmartNodePosition([], 280, 160);
     state.nodes.push({
       id: nid,
       type: "UPLOADED",
       morphingStatus: "message",
       label: asset.name,
-      x: 320 + (state.nodeSeq * 25) % 240,
-      y: 120 + (state.nodeSeq * 25) % 160,
+      x: assetPos.x,
+      y: assetPos.y,
       width: 280,
       height: 160,
       content: { text: asset.name + " [" + asset.tag + "] loaded from Lumina Library" },
@@ -7130,16 +7357,23 @@ def _node_studio_js(initial_view: str) -> str:
       ? "TEXT"
       : (activeMod === "video" ? "VIDEO" : (mode === "MERGE" ? "MERGED" : (mode === "EDIT" ? "EDITED" : "GENERATED")));
 
+    const allRefs = collectAllImageReferences();
+    const finalDim = _expectedNodeDimensions(activeMod, activeMod);
+    const slot = _computeSmartNodePosition(parentIds, finalDim.w, finalDim.h);
+    const spinX = Math.round(slot.x + (finalDim.w - 96) / 2);
+    const spinY = Math.round(slot.y + (finalDim.h - 96) / 2);
+
     const newNode = {
       id: newId,
       type: nodeTypeLabel,
       modality: activeMod,
       morphingStatus: "generating",
       label: prompt,
-      x: 420 + (state.nodeSeq % 3) * 40,
-      y: 120 + (parentIds.length ? 280 : 0),
+      x: spinX,
+      y: spinY,
       width: 96,
       height: 96,
+      _targetSlot: { x: slot.x, y: slot.y, w: finalDim.w, h: finalDim.h, spinX: spinX, spinY: spinY },
       content: {},
       metadata: {
         prompt: prompt,
@@ -7156,13 +7390,13 @@ def _node_studio_js(initial_view: str) -> str:
       state.edges.push({ id: "e-" + pid + "-" + newId, source: pid, target: newId });
     });
     state.selectedIds = [newId];
+    _ensureNodeVisible(slot.x, slot.y, finalDim.w, finalDim.h);
     renderNodes();
 
     const headers = { "Content-Type": "application/json" };
     if (state.apiKey) headers["X-Gemini-Api-Key"] = state.apiKey;
     if (state.nanogptKey) headers["X-NanoGPT-Api-Key"] = state.nanogptKey;
 
-    const allRefs = collectAllImageReferences();
     const parentNodesPayload = parentIds.map((pid) => {
       const pn = state.nodes.find((x) => x.id === pid);
       if (!pn) return null;
@@ -7228,10 +7462,27 @@ def _node_studio_js(initial_view: str) -> str:
         (rContent && rContent.jobStatus === "RUNNING")
       );
 
+      function _expandGeneratingSlot(targetW, targetH) {
+        const ts = newNode._targetSlot;
+        newNode.width = targetW;
+        newNode.height = targetH;
+        if (ts) {
+          const userMoved = Math.abs(newNode.x - ts.spinX) > 4 || Math.abs(newNode.y - ts.spinY) > 4;
+          if (userMoved) {
+            newNode.x = Math.round(newNode.x - (targetW - 96) / 2);
+            newNode.y = Math.round(newNode.y - (targetH - 96) / 2);
+          } else {
+            const settled = _findNonOverlappingSlot(ts.x, ts.y, targetW, targetH, newNode.id);
+            newNode.x = settled.x;
+            newNode.y = settled.y;
+          }
+          delete newNode._targetSlot;
+        }
+      }
+
       if (isAsyncVideo) {
         newNode.morphingStatus = "video";
-        newNode.width = 320;
-        newNode.height = 250;
+        _expandGeneratingSlot(320, 250);
         newNode.metadata.jobId =
           data.job_id ||
           (data.result && (data.result.jobId || data.result.job_id)) ||
@@ -7252,40 +7503,51 @@ def _node_studio_js(initial_view: str) -> str:
         pollVideoJobForNode(newNode);
       } else if (activeMod === "text") {
         newNode.morphingStatus = "text";
-        newNode.width = 320;
-        newNode.height = 220;
+        _expandGeneratingSlot(340, 250);
       } else if (activeMod === "video" || newNode.content.videoUrl) {
         newNode.morphingStatus = "video";
-        newNode.width = 320;
-        newNode.height = 250;
+        _expandGeneratingSlot(320, 250);
       } else if (newNode.content.imageUrl) {
         newNode.morphingStatus = "image";
-        newNode.width = 256;
-        newNode.height = 256;
+        _expandGeneratingSlot(256, 256);
       } else {
         newNode.morphingStatus = "text";
-        newNode.width = 320;
-        newNode.height = 220;
+        _expandGeneratingSlot(340, 250);
       }
 
       if (activeMod === "image" && newNode.content.text) {
         showToast(newNode.content.text, false);
       }
     } catch (err) {
-      if (activeMod === "video" && err && err.message && err.message.indexOf("Failed to fetch") === -1) {
+      const tsErr = newNode._targetSlot;
+      const errMsg = (err && err.message) ? String(err.message) : "Generation failed";
+      const isNetworkDown = errMsg.indexOf("Failed to fetch") !== -1;
+      if (activeMod === "video" && !isNetworkDown) {
         newNode.morphingStatus = "video";
         newNode.width = 320;
         newNode.height = 250;
         newNode.metadata.jobStatus = "ERROR";
-        newNode.metadata.jobError = err.message;
+        newNode.metadata.jobError = errMsg;
+      } else if (!isNetworkDown) {
+        newNode.morphingStatus = "text";
+        newNode.width = 340;
+        newNode.height = 220;
+        newNode.metadata.jobStatus = "ERROR";
+        newNode.metadata.jobError = errMsg;
+        newNode.content = { text: "" };
       } else {
         newNode.morphingStatus = "text";
         newNode.width = 320;
         newNode.height = 200;
         newNode.content = { text: prompt + " (staged locally)" };
       }
-      if (err && err.message && err.message.indexOf("Failed to fetch") === -1) {
-        showToast(err.message, true);
+      if (tsErr) {
+        newNode.x = tsErr.x;
+        newNode.y = tsErr.y;
+        delete newNode._targetSlot;
+      }
+      if (!isNetworkDown) {
+        showToast(errMsg, true);
       }
     } finally {
       state.activeRuns = Math.max(0, state.activeRuns - 1);
@@ -7352,7 +7614,7 @@ def _node_studio_js(initial_view: str) -> str:
     if (canvas) {
       canvas.addEventListener("wheel", (ev) => {
         const scrollTarget = ev.target && ev.target.closest
-          ? ev.target.closest(".ns-text-body, .ns-omni-box, .ns-chat-feed, .ns-lib-grid, .ns-popover, .ns-floating-terminal, .ns-model-menu, .ns-api-menu, .ns-graphs-popover")
+          ? ev.target.closest(".ns-msg-body, .ns-text-body, .ns-omni-box, .ns-chat-feed, .ns-lib-grid, .ns-popover, .ns-floating-terminal, .ns-model-menu, .ns-api-menu, .ns-graphs-popover")
           : null;
         if (scrollTarget && scrollTarget.scrollHeight > scrollTarget.clientHeight + 2) {
           return;
@@ -7380,7 +7642,7 @@ def _node_studio_js(initial_view: str) -> str:
           ev.stopPropagation();
           const nid = nodeEl.dataset.nodeId;
           const interactiveEl = ev.target && ev.target.closest
-            ? ev.target.closest("audio, video, model-viewer, button, input, select, textarea, a, .ns-mesh-stage, .ns-splat-canvas, .ns-text-body")
+            ? ev.target.closest("audio, video, model-viewer, button, input, select, textarea, a, .ns-mesh-stage, .ns-splat-canvas, .ns-msg-body, .ns-text-body")
             : null;
           if (interactiveEl) {
             // Preserve live <audio>/<video>/<model-viewer> & buttons: never rebuild innerHTML or drag card mid-click
