@@ -8179,12 +8179,32 @@ def _node_studio_js(initial_view: str) -> str:
     renderLibraryViewGrid();
 
     const qGraph = params ? (params.get("graph") || params.get("file")) : null;
-    if (qGraph) {
-      loadGraphFromSpace(qGraph, false);
-    } else {
-      loadGraphFromSpace(state.graphPath, true);
-    }
-    listSavedGraphs();
+    (async function () {
+      state._initialLoadDone = false;
+      try {
+        if (qGraph) {
+          await loadGraphFromSpace(qGraph, false);
+        } else {
+          const tgt = _resolveSpaceTarget();
+          const lastSaved = _getLastGraph(tgt.scope, tgt.owner_id);
+          let restored = false;
+          if (lastSaved) {
+            restored = await loadGraphFromSpace(lastSaved, true);
+          }
+          if (!restored) {
+            restored = await loadGraphFromSpace(state.graphPath, true);
+          }
+          const graphs = await listSavedGraphs();
+          if (!restored && !state.nodes.length && Array.isArray(graphs) && graphs.length > 0 && graphs[0].path) {
+            await loadGraphFromSpace(graphs[0].path, true);
+          }
+          return;
+        }
+        await listSavedGraphs();
+      } finally {
+        state._initialLoadDone = true;
+      }
+    })();
 
     if (typeof fetch === "function") {
       fetch("/api/nodes/health").then((r) => (r.ok ? r.json() : fetch("/api/health").then((r2) => r2.json())))
@@ -8566,11 +8586,37 @@ def _node_studio_js(initial_view: str) -> str:
   function _resolveSpaceTarget() {
     const params = typeof window !== "undefined" && window.location && window.location.search
       ? new URLSearchParams(window.location.search) : null;
-    const scope = (typeof window !== "undefined" && window.currentSpaceScope) ||
-      (params && params.get("scope")) || "user";
-    const owner_id = (typeof window !== "undefined" && window.currentSpaceOwner) ||
-      (params && (params.get("owner_id") || params.get("peer_id"))) || "default";
+    let savedPeer = "";
+    try {
+      if (typeof localStorage !== "undefined" && localStorage.getItem) {
+        savedPeer = String(localStorage.getItem("tincan_peer_id") || "").trim();
+      }
+    } catch (_e) {}
+    const winScope = (typeof window !== "undefined" && window.currentSpaceScope) ? String(window.currentSpaceScope).trim() : "";
+    const winOwner = (typeof window !== "undefined" && window.currentSpaceOwner) ? String(window.currentSpaceOwner).trim() : "";
+    const scope = winScope || (params && params.get("scope")) || "user";
+    const owner_id = winOwner ||
+      (params && (params.get("owner_id") || params.get("peer_id") || params.get("peer"))) ||
+      savedPeer ||
+      "default";
     return { scope: String(scope || "user"), owner_id: String(owner_id || "default") };
+  }
+
+  function _rememberLastGraph(scope, ownerId, graphName) {
+    try {
+      if (typeof localStorage !== "undefined" && localStorage.setItem && graphName) {
+        localStorage.setItem("tincan_ns_last_graph_" + scope + "_" + ownerId, String(graphName));
+      }
+    } catch (_e) {}
+  }
+
+  function _getLastGraph(scope, ownerId) {
+    try {
+      if (typeof localStorage !== "undefined" && localStorage.getItem) {
+        return String(localStorage.getItem("tincan_ns_last_graph_" + scope + "_" + ownerId) || "").trim();
+      }
+    } catch (_e) {}
+    return "";
   }
 
   function _cleanGraphName(rawName) {
@@ -8746,9 +8792,11 @@ def _node_studio_js(initial_view: str) -> str:
     state.graphPath = "/nodes/" + targetName + ".nodes.json";
     const graphObj = serializeGraphState();
     const tgt = _resolveSpaceTarget();
+    _rememberLastGraph(tgt.scope, tgt.owner_id, targetName);
 
     try {
       if (typeof localStorage !== "undefined" && localStorage.setItem) {
+        localStorage.setItem("tincan_ns_graph_" + tgt.scope + "_" + tgt.owner_id + "_" + targetName, JSON.stringify(graphObj));
         localStorage.setItem("tincan_ns_graph_" + targetName, JSON.stringify(graphObj));
       }
     } catch (_lsErr) {}
@@ -8841,7 +8889,9 @@ def _node_studio_js(initial_view: str) -> str:
     if (!loaded) {
       try {
         if (typeof localStorage !== "undefined" && localStorage.getItem) {
-          const raw = localStorage.getItem("tincan_ns_graph_" + cleanName);
+          const raw =
+            localStorage.getItem("tincan_ns_graph_" + tgt.scope + "_" + tgt.owner_id + "_" + cleanName) ||
+            localStorage.getItem("tincan_ns_graph_" + cleanName);
           if (raw) loaded = JSON.parse(raw);
         }
       } catch (_lsErr) {}
@@ -8849,6 +8899,7 @@ def _node_studio_js(initial_view: str) -> str:
 
     if (loaded && Array.isArray(loaded.nodes) && (loaded.nodes.length > 0 || !silent)) {
       applyGraphState(loaded, { name: cleanName, path: targetPath });
+      _rememberLastGraph(tgt.scope, tgt.owner_id, cleanName);
       const pop = $("nsGraphsPopover");
       if (pop) pop.classList.add("hidden");
       if (!silent) {

@@ -129,3 +129,21 @@ Resolve every remaining Node Studio limitation via parallel worktree swarm (`swa
    - Accessible from any collection tile, any single image card (`⤢` button or double-click), Chat view, and Asset Library.
    - Includes `←`/`→` keyboard & button navigation, bottom filmstrip thumbnails, click-to-zoom `2×`, **`+ Use as Ref`** (attaches the exact chosen frame), **`↗ Pop Out Node`** (spawns that frame onto the canvas), **`↓ Download`**, and `Esc`/backdrop close.
 
+---
+
+## Entry #7 — 2026-11-20 (Zero-Reset Persistent Deploy Architecture)
+
+### User Experience Notes (Verbatim)
+- `"we need the ability to deploy without reseting everyones space files"`
+
+### Root Causes Found
+1. **Node Studio opened empty `user:default` instead of the user's real `.space` after refresh/deploy**: `_resolveSpaceTarget()` ignored `localStorage.getItem("tincan_peer_id")` when `window.currentSpaceOwner` was `""` during initial page boot (or on standalone `/nodes`), and `init()` only tried `/nodes/workspace.nodes.json` instead of the user's last active graph (e.g. `test.nodes.json`), making real persisted files on `/data/spaces/users/peer-jewkdo.space` look reset.
+2. **Unsafe SQLite + S3 sync & missing graceful `SIGTERM` flush**: `SingleFileSpaceVFS` lacked WAL mode / `busy_timeout` / `sqlite3.backup()` online snapshots, fired unbounded overlapping raw-file S3 upload threads (risking torn uploads or OOM on 385 MB spaces), downloaded S3 restores non-atomically without integrity checks, and `server.py` had no `SIGTERM` handler to checkpoint WALs before container swap (plus `TinCanBlindRelay` used `:memory:`).
+3. **No automatic S3 hydration or pre/post-deploy space audit**: `AgentSpaceManager` only read local disk at boot without hydrating missing spaces from S3, and there was no persistence audit or on-demand backup endpoint.
+
+### Fixes Shipped
+- **Atomic Integrity-Verified S3 Storage (`s3_storage.py`, `agent_space.py`)**: Enabled SQLite WAL + `busy_timeout=10000`, consistent `sqlite3.backup()` online snapshots for S3 uploads, debounced single-worker coalesced S3 sync, atomic `.tmp` + `PRAGMA quick_check` S3 downloads (never clobbering healthy local `/data` files), startup `hydrate_from_s3()`, `backup_all_spaces()`, `flush_all_spaces()`, and `get_persistence_status()`.
+- **Graceful Deploy Shutdown & Persistence API (`server.py`)**: Added `SIGTERM`/`SIGINT`/`atexit` WAL checkpointing + dirty-space flush, persisted `TinCanBlindRelay` to `/data/tincan_relay.db`, and added `GET /api/spaces/persistence`, `POST /api/spaces/backup`, and `POST /api/spaces/hydrate`.
+- **Identity & Last-Graph Auto-Restore (`node_studio_ui.py`, `mesh_os_ui.py`)**: Initialized `window.currentSpaceOwner` from `myPeerId`/`tincan_peer_id` immediately, updated `_resolveSpaceTarget()` to honor `tincan_peer_id`, remembered the active graph per `(scope, owner_id)`, and auto-restored the user's last graph (or newest saved graph in their `.space`) on reload/deploy.
+- **Zero-Reset Deploy Wrapper (`scripts/safe_deploy.sh`)**: Audits space & VFS file counts before deploy, triggers consistent S3 backup, pushes & waits for Railway `SUCCESS`, and asserts zero spaces or files were lost post-deploy.
+

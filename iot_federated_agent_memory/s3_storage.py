@@ -7,7 +7,9 @@ import hashlib
 import hmac
 import json
 import os
+import sqlite3
 import subprocess
+import threading
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -37,6 +39,10 @@ def get_s3_credentials(bucket_alias: str = "tincan-videos") -> Optional[Dict[str
             "region": region or "auto",
         }
         return _CACHED_CREDS
+
+    # Never shell out to live Railway production bucket credentials during pytest runs
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return None
 
     # Fallback: query local `railway bucket credentials --bucket <alias> --json`
     try:
@@ -141,6 +147,24 @@ def _build_sigv4_headers(
     return out_headers
 
 
+def validate_sqlite_file(file_path: str) -> bool:
+    """Verify a local file is a valid, non-corrupt SQLite 3 database."""
+    try:
+        if not os.path.isfile(file_path) or os.path.getsize(file_path) < 100:
+            return False
+        with open(file_path, "rb") as f:
+            if f.read(16) != b"SQLite format 3\x00":
+                return False
+        conn = sqlite3.connect(f"file:{file_path}?mode=ro", uri=True, timeout=5.0)
+        try:
+            row = conn.execute("PRAGMA quick_check").fetchone()
+            return bool(row and str(row[0]).lower() == "ok")
+        finally:
+            conn.close()
+    except Exception:
+        return False
+
+
 def s3_put_object(
     local_path: str,
     object_key: str,
@@ -174,7 +198,7 @@ def s3_put_object(
     )
 
     req = urllib.request.Request(url, data=payload, headers=headers, method="PUT")
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=120) as resp:
         return {
             "status": resp.status,
             "bucket": resolved["bucket"],
@@ -188,8 +212,9 @@ def s3_get_object(
     object_key: str,
     dest_path: str,
     creds: Optional[Dict[str, str]] = None,
+    validate_sqlite: Optional[bool] = None,
 ) -> bool:
-    """Download an object from the Railway S3 bucket to dest_path."""
+    """Atomically download an object from the Railway S3 bucket to dest_path with optional SQLite integrity validation."""
     resolved = creds or get_s3_credentials()
     if not resolved:
         return False
@@ -208,17 +233,31 @@ def s3_get_object(
         creds=resolved,
     )
 
+    abs_dest = os.path.abspath(dest_path)
+    tmp_path = f"{abs_dest}.{os.getpid()}.{threading.get_ident()}.dl.tmp"
+    check_sqlite = bool(validate_sqlite) if validate_sqlite is not None else abs_dest.endswith(".space")
     try:
         req = urllib.request.Request(url, headers=headers, method="GET")
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=120) as resp:
             data = resp.read()
         if len(data) > 1024:
-            os.makedirs(os.path.dirname(os.path.abspath(dest_path)), exist_ok=True)
-            with open(dest_path, "wb") as f:
+            os.makedirs(os.path.dirname(abs_dest), exist_ok=True)
+            with open(tmp_path, "wb") as f:
                 f.write(data)
+            if check_sqlite and not validate_sqlite_file(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                return False
+            os.replace(tmp_path, abs_dest)
             return True
     except Exception:
-        pass
+        try:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+        except OSError:
+            pass
     return False
 
 

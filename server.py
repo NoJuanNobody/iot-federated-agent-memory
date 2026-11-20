@@ -2241,7 +2241,25 @@ relay = WebRTCSignalingRelay()
 router = DynamicAIGatewayRouter()
 _DEFAULT_ROUTER = router
 scale = IoTFederatedMemoryScale()
-tincan_relay = TinCanBlindRelay()
+def _resolve_relay_db_path() -> str:
+    """Persist blind relay SQLite envelopes on the persistent Railway volume when available."""
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return ":memory:"
+    data_dir = (
+        os.environ.get("TINCAN_DATA_DIR")
+        or os.environ.get("RAILWAY_VOLUME_MOUNT_PATH")
+        or ""
+    ).strip()
+    if data_dir:
+        try:
+            os.makedirs(data_dir, exist_ok=True)
+            return os.path.join(data_dir, "tincan_relay.db")
+        except Exception:
+            pass
+    return ":memory:"
+
+
+tincan_relay = TinCanBlindRelay(db_path=_resolve_relay_db_path())
 playlist = RelayVideoPlaylist()
 sponsor_manager = SponsorAdManager()
 sponsor_manager.sync_from_playlist([asdict(it) for it in playlist.items])
@@ -5600,6 +5618,30 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json(out, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/spaces/backup":
+            try:
+                data = self._read_json_body()
+            except Exception:
+                data = {}
+            only_dirty = bool((data or {}).get("only_dirty", False))
+            sm = _get_space_manager()
+            if hasattr(sm, "backup_all_spaces"):
+                res = sm.backup_all_spaces(only_dirty=only_dirty)
+                self._send_json(res, 200 if res.get("ok") else 500)
+            else:
+                self._send_json({"ok": False, "error": "Backup unsupported on fallback manager"}, 501)
+        elif parsed.path == "/api/spaces/hydrate":
+            try:
+                data = self._read_json_body()
+            except Exception:
+                data = {}
+            overwrite = bool((data or {}).get("overwrite_existing", False))
+            sm = _get_space_manager()
+            if hasattr(sm, "hydrate_from_s3"):
+                res = sm.hydrate_from_s3(overwrite_existing=overwrite)
+                self._send_json(res, 200 if res.get("ok") else 500)
+            else:
+                self._send_json({"ok": False, "error": "Hydration unsupported on fallback manager"}, 501)
         elif parsed.path == "/api/space/create":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
@@ -6475,6 +6517,20 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     models = [m for m in models if str(m.get("gateway", "openrouter")).lower() == gateway]
             models = filter_gateway_models(models, search=search_q)
             self._send_json({"models": models, "count": len(models)}, 200)
+        elif parsed.path == "/api/spaces/persistence":
+            sm = _get_space_manager()
+            status = sm.get_persistence_status() if hasattr(sm, "get_persistence_status") else {
+                "ok": True,
+                "base_dir": getattr(sm, "base_dir", None),
+                "space_count": len(sm.list_spaces()) if hasattr(sm, "list_spaces") else 0,
+                "is_persistent_volume": False,
+                "s3_backup_enabled": False,
+            }
+            status["commit"] = COMMIT_HASH
+            status["relay_db"] = getattr(tincan_relay, "db_path", ":memory:")
+            status["accounts_db"] = getattr(account_registry, "db_path", None)
+            status["cyberspace_db"] = getattr(cyberspace_board, "db_path", None)
+            self._send_json(status, 200)
         elif parsed.path == "/api/spaces":
             query = parse_qs(parsed.query)
             scope = query.get("scope", [None])[0]
@@ -6930,10 +6986,61 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             self._send_empty(404)
 
 
+_shutdown_flushed = False
+
+
+def _graceful_shutdown_persistence(sync_s3: bool = True) -> None:
+    """Checkpoint all SQLite WALs and flush dirty .space containers cleanly before deploy/exit."""
+    global _shutdown_flushed
+    if _shutdown_flushed:
+        return
+    _shutdown_flushed = True
+    try:
+        sm = globals().get("_space_manager")
+        if sm is not None and hasattr(sm, "flush_all_spaces"):
+            res = sm.flush_all_spaces(sync_s3=sync_s3)
+            print(f"[*] Graceful persistence flush complete: {res}", flush=True)
+    except Exception as exc:
+        print(f"[!] Space flush warning during shutdown: {exc}", flush=True)
+    for db_owner, attr in (
+        (globals().get("account_registry"), "db_path"),
+        (globals().get("cyberspace_board"), "db_path"),
+        (globals().get("tincan_relay"), "db_path"),
+    ):
+        dbp = getattr(db_owner, attr, None)
+        if dbp and dbp != ":memory:" and os.path.isfile(dbp):
+            try:
+                import sqlite3 as _sq
+                c = _sq.connect(dbp, timeout=5.0)
+                c.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+                c.close()
+            except Exception:
+                pass
+
+
 if __name__ == "__main__":
+    import atexit
+    import signal
+
     server = HTTPServer(("0.0.0.0", PORT), MeshGatewayHandler)
-    print(f"[*] IoT Federated Agent Mesh listening on port {PORT}")
-    server.serve_forever()
+    atexit.register(_graceful_shutdown_persistence, True)
+
+    def _on_termination_signal(signum, _frame):
+        print(f"[*] Received signal {signum}; checkpointing spaces & shutting down cleanly...", flush=True)
+        _graceful_shutdown_persistence(sync_s3=True)
+        threading.Thread(target=server.shutdown, daemon=True).start()
+
+    for _sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            signal.signal(_sig, _on_termination_signal)
+        except Exception:
+            pass
+
+    print(f"[*] IoT Federated Agent Mesh listening on port {PORT}", flush=True)
+    try:
+        server.serve_forever()
+    finally:
+        _graceful_shutdown_persistence(sync_s3=True)
 
 
 # ---------------------------------------------------------------------------
@@ -7127,6 +7234,22 @@ def _nodes_audio_status(
         ai_router=router,
     )
     return res
+
+@app.get("/api/spaces/persistence")
+def _api_spaces_persistence():
+    sm = _get_space_manager()
+    status = sm.get_persistence_status() if hasattr(sm, "get_persistence_status") else {"ok": True}
+    status["commit"] = COMMIT_HASH
+    status["relay_db"] = getattr(tincan_relay, "db_path", ":memory:")
+    status["accounts_db"] = getattr(account_registry, "db_path", None)
+    status["cyberspace_db"] = getattr(cyberspace_board, "db_path", None)
+    return status
+
+@app.post("/api/spaces/backup")
+def _api_spaces_backup(payload: Optional[Dict[str, Any]] = None):
+    sm = _get_space_manager()
+    only_dirty = bool((payload or {}).get("only_dirty", False))
+    return sm.backup_all_spaces(only_dirty=only_dirty) if hasattr(sm, "backup_all_spaces") else {"ok": False}
 
 @app.get("/api/nodes/graphs")
 def _nodes_graphs_list(scope: str = "user", owner_id: str = "default"):

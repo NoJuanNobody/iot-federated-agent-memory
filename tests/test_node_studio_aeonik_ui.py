@@ -2369,3 +2369,108 @@ global.fetch = (url, opts) => {{
     assert res["poppedNodeUrl"] == "data:image/png;base64,SU1HXz2"
     assert res["lbClosedOnEsc"] is True
     assert res["nodesAddedOnSplit"] == 4
+
+
+def test_node_studio_preserves_peer_space_and_last_graph_across_reload() -> None:
+    node_bin = shutil.which("node")
+    if not node_bin:
+        pytest.skip("node binary not available for JS runtime check")
+
+    html = render_node_studio_html()
+    script = _extract_inline_script(html)
+
+    harness = f"""
+const elements = new Map();
+function makeEl(id) {{
+  const el = {{
+    id, tagName: "DIV", textContent: "", innerHTML: "", value: "", style: {{}}, dataset: {{}},
+    _classes: new Set(),
+    classList: {{
+      toggle(c, f) {{ if (f === undefined) {{ if (el._classes.has(c)) {{ el._classes.delete(c); return false; }} el._classes.add(c); return true; }} if (f) el._classes.add(c); else el._classes.delete(c); return !!f; }},
+      add(c) {{ el._classes.add(c); }}, remove(c) {{ el._classes.delete(c); }}, contains(c) {{ return el._classes.has(c); }}
+    }},
+    setAttribute() {{}}, addEventListener() {{}}, querySelectorAll() {{ return []; }},
+    getBoundingClientRect() {{ return {{ left: 0, top: 0, width: 1200, height: 800 }}; }}
+  }};
+  return el;
+}}
+[
+  "nsDotCanvas", "nsEmptyState", "nsCanvasWorld", "nsEdgesSvg", "nsNodesLayer",
+  "nsSelectionBox", "nsDropOverlay", "nsRefsStrip", "nsRefsRow", "nsPromptInput",
+  "nsModelBtnLabel", "nsModePill", "nsRefCounter", "nsActiveRunsCount", "nsGenerateBtn",
+  "nsSaveGraphStatus", "nsGraphNameInput", "nsSavedGraphsList"
+].forEach((id) => elements.set(id, makeEl(id)));
+
+const lsStore = new Map([
+  ["tincan_peer_id", "peer-jewkdo"],
+  ["tincan_ns_last_graph_user_peer-jewkdo", "test"]
+]);
+global.localStorage = {{
+  getItem(k) {{ return lsStore.has(k) ? lsStore.get(k) : null; }},
+  setItem(k, v) {{ lsStore.set(k, String(v)); }}
+}};
+const fetchedUrls = [];
+global.window = {{
+  innerWidth: 1200, innerHeight: 800,
+  currentSpaceScope: "user",
+  currentSpaceOwner: "", // Simulates Mesh OS initial boot before refreshAgentSpace() runs!
+  location: {{ href: "http://localhost:8013/nodes", search: "" }},
+  addEventListener() {{}}
+}};
+global.document = {{
+  readyState: "complete",
+  getElementById(id) {{ return elements.get(id) || null; }},
+  querySelectorAll() {{ return []; }},
+  addEventListener() {{}},
+  createElement(tag) {{ return makeEl(tag); }},
+  body: {{ appendChild() {{}}, removeChild() {{}} }}
+}};
+global.fetch = (url) => {{
+  fetchedUrls.push(String(url));
+  if (String(url).includes("/api/nodes/graph?") && String(url).includes("owner_id=peer-jewkdo") && String(url).includes("test.nodes.json")) {{
+    return Promise.resolve({{
+      status: 200, ok: true,
+      json: async () => ({{
+        ok: true,
+        path: "/nodes/test.nodes.json",
+        graph: {{
+          name: "test",
+          path: "/nodes/test.nodes.json",
+          nodes: [{{ id: "surv-1", type: "TEXT", modality: "text", morphingStatus: "text", label: "Survived deploy", x: 100, y: 100, width: 340, height: 250, content: {{ text: "Persisted across deploy!" }}, metadata: {{}} }}],
+          edges: [],
+          references: []
+        }}
+      }})
+    }});
+  }}
+  if (String(url).includes("/api/nodes/graphs?")) {{
+    return Promise.resolve({{
+      status: 200, ok: true,
+      json: async () => ({{ ok: true, graphs: [{{ name: "test", path: "/nodes/test.nodes.json", size_bytes: 12000 }}] }})
+    }});
+  }}
+  return Promise.resolve({{ status: 404, ok: false, json: async () => ({{ ok: false }}) }});
+}};
+
+{script}
+
+setTimeout(() => {{
+  const api = window.TinCanNodeStudio;
+  const st = api.getState();
+  console.log(JSON.stringify({{
+    fetchedUrls,
+    restoredGraphName: st.graphName,
+    restoredNodeCount: st.nodes.length,
+    restoredText: st.nodes[0] && st.nodes[0].content ? st.nodes[0].content.text : ""
+  }}));
+}}, 40);
+"""
+    run_res = subprocess.run([node_bin, "-e", harness], text=True, capture_output=True, check=False)
+    assert run_res.returncode == 0, f"Node runtime failed: {run_res.stderr}"
+    res = json.loads(run_res.stdout.strip())
+
+    assert any("owner_id=peer-jewkdo" in u for u in res["fetchedUrls"]), f"Expected peer-jewkdo fetch, got {res['fetchedUrls']}"
+    assert not any("owner_id=default" in u for u in res["fetchedUrls"]), "Must NOT fall back to empty default space when tincan_peer_id exists!"
+    assert res["restoredGraphName"] == "test"
+    assert res["restoredNodeCount"] == 1
+    assert res["restoredText"] == "Persisted across deploy!"

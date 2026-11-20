@@ -8787,7 +8787,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     // AgentSpace & Wasm Studio (Single-File SQLite VFS + Rodin 3D + 15 ArtCraft Apps)
     // -------------------------------------------------------------------------
     let currentSpaceScope = 'user';
-    let currentSpaceOwner = '';
+    let currentSpaceOwner = (typeof myPeerId !== 'undefined' && myPeerId) ? myPeerId : (localStorage.getItem('tincan_peer_id') || 'default');
     let currentSpaceFile = '/src/main.py';
     window.currentSpaceScope = currentSpaceScope;
     window.currentSpaceOwner = currentSpaceOwner;
@@ -8923,6 +8923,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       currentSpaceOwner = (ownerInput && ownerInput.value.trim()) || (myPeerId || 'default');
       window.currentSpaceScope = currentSpaceScope;
       window.currentSpaceOwner = currentSpaceOwner;
+      if (!background && window.TinCanNodeStudio && typeof window.TinCanNodeStudio.listSavedGraphs === 'function') {
+        try { window.TinCanNodeStudio.listSavedGraphs(); } catch (e) {}
+      }
       if (typeof notifyParentInstanceTitle === 'function' && (singleWindowParam === 'win-agentspace' || singleWindowParam === 'win-workstation')) {
         notifyParentInstanceTitle(`${currentSpaceScope}: ${currentSpaceOwner}${currentSpaceFile ? (' · ' + currentSpaceFile.split('/').pop()) : ''}`);
       }

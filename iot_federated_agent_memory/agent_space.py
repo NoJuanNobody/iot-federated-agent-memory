@@ -881,6 +881,10 @@ class SingleFileSpaceVFS:
 
         os.makedirs(os.path.dirname(self.space_path), exist_ok=True)
         self._lock = threading.RLock()
+        self._s3_sync_lock = threading.Lock()
+        self._s3_dirty = False
+        self._s3_sync_inflight = False
+        self._last_s3_sync_at: Optional[float] = None
         scope_plural = "users" if self.scope == "user" else ("topics" if self.scope == "topic" else self.scope)
         self.s3_object_key = f"spaces/{scope_plural}/{clean_id}.space"
         is_temp_test = (
@@ -890,46 +894,138 @@ class SingleFileSpaceVFS:
         )
         self.enable_s3_sync = bool(enable_s3_sync and not is_temp_test)
 
-        if self.enable_s3_sync and not os.path.isfile(self.space_path):
+        # Only restore from S3 if the local persistent volume file is missing or corrupt;
+        # NEVER overwrite a healthy existing local .space file on deploy/restart!
+        needs_restore = not os.path.isfile(self.space_path) or os.path.getsize(self.space_path) < 100
+        if not needs_restore:
+            try:
+                from iot_federated_agent_memory.s3_storage import validate_sqlite_file
+                if not validate_sqlite_file(self.space_path):
+                    needs_restore = True
+            except Exception:
+                pass
+        if self.enable_s3_sync and needs_restore:
             self._restore_from_s3_if_missing()
 
         self._init_db(title=title, description=description)
 
     def _restore_from_s3_if_missing(self) -> bool:
-        """Attempt to restore this .space SQLite container from the Railway S3 bucket if missing locally."""
+        """Atomically restore this .space SQLite container from Railway S3 if missing/corrupt locally."""
         try:
             from iot_federated_agent_memory.s3_storage import s3_get_object
-            if s3_get_object(self.s3_object_key, self.space_path):
+            if s3_get_object(self.s3_object_key, self.space_path, validate_sqlite=True):
+                # Remove any stale WAL/SHM sidecar files after replacing the container file
+                for suf in ("-wal", "-shm"):
+                    sidecar = self.space_path + suf
+                    if os.path.exists(sidecar):
+                        try:
+                            os.unlink(sidecar)
+                        except OSError:
+                            pass
                 return True
         except Exception:
             pass
         return False
 
+    def _create_consistent_snapshot(self, dest_path: str) -> bool:
+        """Create a transactionally consistent single-file SQLite backup snapshot under lock."""
+        with self._lock:
+            if not os.path.isfile(self.space_path):
+                return False
+            src = sqlite3.connect(self.space_path, timeout=15.0, check_same_thread=False)
+            dst = sqlite3.connect(dest_path, timeout=15.0, check_same_thread=False)
+            try:
+                src.backup(dst)
+                dst.commit()
+                return True
+            finally:
+                dst.close()
+                src.close()
+
+    def checkpoint(self) -> None:
+        """Flush SQLite WAL frames cleanly back into the main .space container file."""
+        with self._lock:
+            if not os.path.isfile(self.space_path):
+                return
+            conn = sqlite3.connect(self.space_path, timeout=15.0, check_same_thread=False)
+            try:
+                conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+                conn.commit()
+            except Exception:
+                pass
+            finally:
+                conn.close()
+
     def sync_to_s3(self) -> Optional[Dict[str, Any]]:
-        """Synchronously upload this .space SQLite file to the Railway S3 bucket."""
+        """Synchronously upload a consistent SQLite backup snapshot of this .space file to Railway S3."""
+        snap_path = f"{self.space_path}.{os.getpid()}.{threading.get_ident()}.s3snap.tmp"
         try:
             from iot_federated_agent_memory.s3_storage import s3_put_object
-            if os.path.isfile(self.space_path):
-                return s3_put_object(
-                    local_path=self.space_path,
-                    object_key=self.s3_object_key,
-                    content_type="application/x-sqlite3",
-                )
+            if not self._create_consistent_snapshot(snap_path):
+                return None
+            res = s3_put_object(
+                local_path=snap_path,
+                object_key=self.s3_object_key,
+                content_type="application/x-sqlite3",
+            )
+            if res is not None:
+                self._last_s3_sync_at = time.time()
+            return res
         except Exception:
-            pass
-        return None
+            return None
+        finally:
+            try:
+                if os.path.exists(snap_path):
+                    os.unlink(snap_path)
+            except OSError:
+                pass
 
     def _sync_to_s3_async(self) -> None:
-        """Asynchronously replicate this .space SQLite file to the Railway S3 bucket."""
+        """Coalesced, debounced background S3 replication (at most 1 upload worker per space)."""
         if not self.enable_s3_sync:
             return
-        threading.Thread(target=self.sync_to_s3, daemon=True).start()
+        with self._s3_sync_lock:
+            self._s3_dirty = True
+            if self._s3_sync_inflight:
+                return
+            self._s3_sync_inflight = True
+
+        def _worker() -> None:
+            try:
+                # Coalesce rapid bursts of writes (e.g. Node Studio auto-save + media assets)
+                time.sleep(1.5)
+                while True:
+                    with self._s3_sync_lock:
+                        if not self._s3_dirty:
+                            self._s3_sync_inflight = False
+                            return
+                        self._s3_dirty = False
+                    self.sync_to_s3()
+            finally:
+                with self._s3_sync_lock:
+                    self._s3_sync_inflight = False
+
+        threading.Thread(target=_worker, daemon=True, name=f"space-s3-{self.clean_id[:20]}").start()
+
+    def flush(self, sync_s3: bool = False) -> bool:
+        """Checkpoint WAL cleanly and optionally perform a synchronous S3 backup if dirty."""
+        self.checkpoint()
+        if sync_s3 and self.enable_s3_sync:
+            with self._s3_sync_lock:
+                was_dirty = self._s3_dirty
+                self._s3_dirty = False
+            if was_dirty:
+                return self.sync_to_s3() is not None
+        return True
 
     @contextlib.contextmanager
     def _connect(self):
-        conn = sqlite3.connect(self.space_path, check_same_thread=False)
+        conn = sqlite3.connect(self.space_path, timeout=15.0, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         try:
+            conn.execute("PRAGMA busy_timeout=10000;")
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA synchronous=NORMAL;")
             yield conn
             conn.commit()
         finally:
@@ -1340,19 +1436,52 @@ class SingleFileSpaceVFS:
         }
 
     def export_space_bytes(self) -> bytes:
-        """Export the raw .space SQLite file bytes."""
+        """Export a transactionally consistent single-file .space SQLite snapshot."""
+        snap_path = f"{self.space_path}.{os.getpid()}.{threading.get_ident()}.export.tmp"
+        try:
+            if self._create_consistent_snapshot(snap_path):
+                with open(snap_path, "rb") as f:
+                    return f.read()
+        finally:
+            try:
+                if os.path.exists(snap_path):
+                    os.unlink(snap_path)
+            except OSError:
+                pass
         with self._lock:
+            self.checkpoint()
             with open(self.space_path, "rb") as f:
                 return f.read()
 
     def import_space_bytes(self, raw_bytes: bytes) -> Dict[str, Any]:
-        """Validate SQLite header and replace the .space container file."""
-        if len(raw_bytes) < 16 or not raw_bytes.startswith(b"SQLite format 3\x00"):
+        """Validate SQLite integrity and atomically replace the .space container file."""
+        if len(raw_bytes) < 100 or not raw_bytes.startswith(b"SQLite format 3\x00"):
             raise ValueError("Invalid SQLite space file header")
+        tmp_path = f"{self.space_path}.{os.getpid()}.{threading.get_ident()}.import.tmp"
         with self._lock:
-            with open(self.space_path, "wb") as f:
-                f.write(raw_bytes)
+            try:
+                with open(tmp_path, "wb") as f:
+                    f.write(raw_bytes)
+                from iot_federated_agent_memory.s3_storage import validate_sqlite_file
+                if not validate_sqlite_file(tmp_path):
+                    raise ValueError("Imported SQLite space file failed integrity check")
+                for suf in ("-wal", "-shm"):
+                    sidecar = self.space_path + suf
+                    if os.path.exists(sidecar):
+                        try:
+                            os.unlink(sidecar)
+                        except OSError:
+                            pass
+                os.replace(tmp_path, self.space_path)
+            except Exception:
+                try:
+                    if os.path.exists(tmp_path):
+                        os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
             self._init_db()
+        self._sync_to_s3_async()
         return {
             "imported": True,
             "size_bytes": len(raw_bytes),
@@ -3218,7 +3347,7 @@ class AgentSpaceHarness:
 class AgentSpaceManager:
     """Manages User & Cyberspace Topic Single-File Spaces (*.space), execution, and forking."""
 
-    def __init__(self, base_dir: Optional[str] = None, ai_router: Optional[Any] = None):
+    def __init__(self, base_dir: Optional[str] = None, ai_router: Optional[Any] = None, auto_hydrate_s3: bool = True):
         if base_dir is None:
             base_dir = _resolve_default_spaces_base_dir()
         self.base_dir = os.path.abspath(base_dir)
@@ -3227,6 +3356,162 @@ class AgentSpaceManager:
         self.launcher_bridge = ArtCraftLauncherBridge()
         self._spaces: Dict[str, SingleFileSpaceVFS] = {}
         self._lock = threading.RLock()
+        self._hydrated_from_s3_count = 0
+        self._last_backup_at: Optional[float] = None
+        is_temp_test = (
+            "/tmp" in self.base_dir
+            or "/var/folders" in self.base_dir
+            or "PYTEST_CURRENT_TEST" in os.environ
+        )
+        if auto_hydrate_s3 and not is_temp_test:
+            threading.Thread(
+                target=self.hydrate_from_s3,
+                kwargs={"overwrite_existing": False},
+                daemon=True,
+                name="agent-spaces-s3-hydrate",
+            ).start()
+
+    def hydrate_from_s3(self, overwrite_existing: bool = False) -> Dict[str, Any]:
+        """Restore any missing or corrupt .space files from S3 without ever overwriting valid local spaces."""
+        restored: List[str] = []
+        skipped: List[str] = []
+        failed: List[str] = []
+        try:
+            from iot_federated_agent_memory.s3_storage import s3_get_object, s3_list_objects, validate_sqlite_file
+            objs = s3_list_objects(prefix="spaces/")
+        except Exception as exc:
+            return {"ok": False, "error": str(exc), "restored": [], "skipped": [], "failed": []}
+
+        for obj in objs:
+            key = str(obj.get("key") or "")
+            if not key.startswith("spaces/") or not key.endswith(".space"):
+                continue
+            parts = key.split("/")
+            if len(parts) != 3:
+                continue
+            _, scope_dir, fname = parts
+            if not re.match(r"^[a-z0-9_\-]+$", scope_dir) or not re.match(r"^[a-zA-Z0-9_\-\.]+\.space$", fname):
+                continue
+            local_path = os.path.join(self.base_dir, "spaces", scope_dir, fname)
+            if not overwrite_existing and os.path.isfile(local_path) and validate_sqlite_file(local_path):
+                skipped.append(key)
+                continue
+            if s3_get_object(key, local_path, validate_sqlite=True):
+                restored.append(key)
+            else:
+                failed.append(key)
+
+        self._hydrated_from_s3_count += len(restored)
+        return {
+            "ok": True,
+            "restored_count": len(restored),
+            "skipped_count": len(skipped),
+            "failed_count": len(failed),
+            "restored": restored,
+            "failed": failed,
+        }
+
+    def backup_all_spaces(self, only_dirty: bool = False) -> Dict[str, Any]:
+        """Checkpoint and upload consistent SQLite snapshots of all local .space containers to S3."""
+        backed_up: List[str] = []
+        skipped: List[str] = []
+        failed: List[str] = []
+        total_bytes = 0
+
+        # Ensure all on-disk spaces are discovered
+        discovered = self.list_spaces()
+        with self._lock:
+            space_objs = list(self._spaces.values())
+
+        for sp in space_objs:
+            sp.checkpoint()
+            if only_dirty and not sp._s3_dirty:
+                skipped.append(sp.s3_object_key)
+                continue
+            res = sp.sync_to_s3()
+            if res is not None:
+                with sp._s3_sync_lock:
+                    sp._s3_dirty = False
+                backed_up.append(sp.s3_object_key)
+                total_bytes += int(res.get("size_bytes") or 0)
+            else:
+                failed.append(sp.s3_object_key)
+
+        if backed_up:
+            self._last_backup_at = time.time()
+        return {
+            "ok": len(failed) == 0,
+            "discovered_spaces": len(discovered),
+            "backed_up_count": len(backed_up),
+            "skipped_count": len(skipped),
+            "failed_count": len(failed),
+            "total_bytes": total_bytes,
+            "backed_up": backed_up,
+            "failed": failed,
+        }
+
+    def flush_all_spaces(self, sync_s3: bool = False) -> Dict[str, Any]:
+        """Gracefully checkpoint WAL on all open .space containers (and optionally flush dirty ones to S3)."""
+        flushed = 0
+        synced = 0
+        with self._lock:
+            space_objs = list(self._spaces.values())
+        for sp in space_objs:
+            try:
+                was_dirty = bool(getattr(sp, "_s3_dirty", False))
+                ok = sp.flush(sync_s3=sync_s3)
+                flushed += 1
+                if sync_s3 and was_dirty and ok:
+                    synced += 1
+            except Exception:
+                pass
+        return {"flushed": flushed, "synced_to_s3": synced}
+
+    def get_persistence_status(self) -> Dict[str, Any]:
+        """Report volume mount status, discovered spaces, disk usage, and S3 backup health."""
+        spaces_root = os.path.join(self.base_dir, "spaces")
+        os.makedirs(spaces_root, exist_ok=True)
+        writable = os.access(spaces_root, os.W_OK)
+        vol_mount = os.environ.get("RAILWAY_VOLUME_MOUNT_PATH") or os.environ.get("TINCAN_DATA_DIR") or ""
+        is_persistent = bool(vol_mount and os.path.abspath(self.base_dir).startswith(os.path.abspath(vol_mount)))
+
+        space_files = 0
+        total_bytes = 0
+        total_vfs_files = 0
+        dirty_spaces = 0
+        summaries = self.list_spaces()
+        for s in summaries:
+            space_files += 1
+            total_bytes += int(s.get("space_size_bytes") or 0)
+            total_vfs_files += int(s.get("file_count") or 0)
+        with self._lock:
+            for sp in self._spaces.values():
+                if getattr(sp, "_s3_dirty", False):
+                    dirty_spaces += 1
+
+        s3_creds = None
+        try:
+            from iot_federated_agent_memory.s3_storage import get_s3_credentials
+            s3_creds = get_s3_credentials()
+        except Exception:
+            s3_creds = None
+
+        return {
+            "ok": True,
+            "base_dir": self.base_dir,
+            "spaces_root": spaces_root,
+            "volume_mount_path": vol_mount or None,
+            "is_persistent_volume": is_persistent,
+            "writable": writable,
+            "space_count": space_files,
+            "total_vfs_files": total_vfs_files,
+            "total_space_bytes": total_bytes,
+            "dirty_spaces": dirty_spaces,
+            "hydrated_from_s3_count": self._hydrated_from_s3_count,
+            "s3_backup_enabled": bool(s3_creds),
+            "s3_bucket": (s3_creds or {}).get("bucket"),
+            "last_backup_at": self._last_backup_at,
+        }
 
     def get_space(
         self,
