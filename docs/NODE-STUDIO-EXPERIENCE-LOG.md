@@ -109,3 +109,23 @@ Resolve every remaining Node Studio limitation via parallel worktree swarm (`swa
 - **Honest Error Reporting (`node_studio_ui.py`)**: Replaced silent `"(staged locally)"` echoing on server errors with a visible `✕ ERROR` badge and `.ns-omni-error-box` inside Text cards, and enabled scrolling/selection inside `.ns-msg-body`.
 - **Smart Collision-Free Placement & Dynamic Auto-Layout (`node_studio_ui.py`)**: Added `_computeSmartNodePosition`, `_findNonOverlappingSlot`, and `_ensureNodeVisible` so generating spinners reserve their full final footprint directly beneath selected parent(s) (or centered in the visible viewport / neatly beside root nodes), expand smoothly in place with zero jumping or sibling overlap, and gently pan into view. Upgraded `autoLayout()` with longest-path layering, parent-barycenter ordering, and dynamic per-row heights (`maxRowH + 64`).
 
+---
+
+## Entry #6 — 2026-11-20 (Live Production QA · Resizable Text Notes + Nano Banana Image Collections & Lightbox)
+
+### User Experience Notes (Verbatim)
+- `"We need a way to resize notes so we can view the content, specifically the text notes."`
+- `"we need a way for nano banana to generate a collection of images and we need the ui to handle showing a collection of images with a lightbox to view them"`
+
+### Shipped Enhancements
+1. **Resizable Nodes + 1-Click Expand for Text Notes (`node_studio_ui.py`)**:
+   - Added a tactile bottom-right corner drag-to-resize handle (`.ns-resize-handle`) to every non-generating canvas card with zoom-aware 60fps resizing (`220–1100px` × `140–1000px`), live edge updates, and `.nodes.json` persistence.
+   - Added a 1-click **`⤢ Expand` / `↙ Compact`** button in Text note headers (and double-click on any resize grip) that automatically sizes the note to fit long LLM outputs cleanly with scrollable, selectable `.ns-msg-body` prose.
+2. **Nano Banana Multi-Image Collections (`node_studio_engine.py`, `node_studio_ui.py`)**:
+   - Added a `COUNT` selector (`1x`, `2x`, `3x`, `4x`) beside `ASPECT`/`RES` in the Prompt Island (visible in Image mode) and updated the Generate button label dynamically (`Generate 4 Images →`).
+   - Upgraded `_generate_with_nanogpt`, `_generate_with_gemini`, and `_generate_offline_synthetic` to request `n=count` and automatically top up remaining frames in parallel (`ThreadPoolExecutor`) when an upstream Nano Banana endpoint caps single calls to 1 image — returning `content.images[]`, `collectionCount`, and `type: "COLLECTION"`.
+   - Built a 2×2 bento contact-sheet Collection card (`.ns-collection-card` / `.ns-collection-grid`) with numbered tiles, **`⤢ Lightbox`**, **`Split Nodes`** (expands all collection frames into individual connected canvas nodes), and **`↓ All`**.
+3. **Fullscreen Image Lightbox (`#nsImageLightboxModal`)**:
+   - Accessible from any collection tile, any single image card (`⤢` button or double-click), Chat view, and Asset Library.
+   - Includes `←`/`→` keyboard & button navigation, bottom filmstrip thumbnails, click-to-zoom `2×`, **`+ Use as Ref`** (attaches the exact chosen frame), **`↗ Pop Out Node`** (spawns that frame onto the canvas), **`↓ Download`**, and `Esc`/backdrop close.
+

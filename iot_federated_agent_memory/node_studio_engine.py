@@ -10,6 +10,7 @@ filter racks, and DAG-to-timeline projection.
 from __future__ import annotations
 
 import base64
+import concurrent.futures
 import copy
 import hashlib
 import json
@@ -2381,63 +2382,156 @@ def _generate_with_gemini(
             body["tools"] = [{"googleSearch": {}}]
 
     url = f"{GEMINI_API_BASE_URL}/{gemini_model}:generateContent?key={api_key}"
-    status_code, data = http_post(
-        url,
-        {"Content-Type": "application/json"},
-        body,
-    )
-    if status_code >= 400:
-        raise ProviderHttpError(_extract_error_message(data, status_code), status_code=status_code)
+    batch_count = _resolve_image_batch_count(config) if modality == "image" else 1
 
-    candidates = data.get("candidates") or []
-    candidate = candidates[0] if candidates else {}
-    response_parts = (candidate.get("content") or {}).get("parts") or []
+    def _call_single_gemini() -> Tuple[Optional[str], str, Optional[str], List[str], List[str], Optional[Dict[str, Any]], List[Any]]:
+        status_code, data = http_post(
+            url,
+            {"Content-Type": "application/json"},
+            body,
+        )
+        if status_code >= 400:
+            raise ProviderHttpError(_extract_error_message(data, status_code), status_code=status_code)
 
-    image_data: Optional[str] = None
-    mime_type = "image/png"
-    thought_signature: Optional[str] = None
-    text_segments: List[str] = []
-    thought_segments: List[str] = []
+        candidates = data.get("candidates") or []
+        candidate = candidates[0] if candidates else {}
+        response_parts = (candidate.get("content") or {}).get("parts") or []
 
-    for part in response_parts:
-        if not isinstance(part, Mapping):
-            continue
-        if part.get("thoughtSignature"):
-            thought_signature = str(part["thoughtSignature"])
-        if part.get("thought"):
+        image_data: Optional[str] = None
+        mime_type = "image/png"
+        thought_signature: Optional[str] = None
+        text_segments: List[str] = []
+        thought_segments: List[str] = []
+
+        for part in response_parts:
+            if not isinstance(part, Mapping):
+                continue
+            if part.get("thoughtSignature"):
+                thought_signature = str(part["thoughtSignature"])
+            if part.get("thought"):
+                if part.get("text"):
+                    thought_segments.append(str(part["text"]))
+                continue
             if part.get("text"):
-                thought_segments.append(str(part["text"]))
-            continue
-        if part.get("text"):
-            text_segments.append(str(part["text"]))
-        inline = part.get("inlineData")
-        if isinstance(inline, Mapping) and inline.get("data"):
-            image_data = str(inline["data"])
-            if inline.get("mimeType"):
-                mime_type = str(inline["mimeType"])
+                text_segments.append(str(part["text"]))
+            inline = part.get("inlineData")
+            if isinstance(inline, Mapping) and inline.get("data"):
+                image_data = str(inline["data"])
+                if inline.get("mimeType"):
+                    mime_type = str(inline["mimeType"])
+        return (
+            image_data,
+            mime_type,
+            thought_signature,
+            text_segments,
+            thought_segments,
+            _extract_grounding_summary(candidate),
+            response_parts,
+        )
+
+    image_data, mime_type, thought_signature, text_segments, thought_segments, grounding_metadata, response_parts = _call_single_gemini()
+    collected_images: List[Dict[str, Any]] = []
+    if image_data:
+        collected_images.append(
+            {
+                "data": image_data,
+                "mimeType": mime_type,
+                "thoughtSignature": thought_signature,
+                "index": 0,
+            }
+        )
+    if batch_count > 1 and image_data:
+        extra_needed = batch_count - 1
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, extra_needed)) as pool:
+            futs = [pool.submit(_call_single_gemini) for _ in range(extra_needed)]
+            for idx_e, fut in enumerate(futs, start=1):
+                try:
+                    e_img, e_mime, e_sig, _, _, _, _ = fut.result()
+                    if e_img:
+                        collected_images.append(
+                            {
+                                "data": e_img,
+                                "mimeType": e_mime,
+                                "thoughtSignature": e_sig,
+                                "index": idx_e,
+                            }
+                        )
+                except Exception:
+                    pass
 
     final_text = "\n".join(text_segments).strip() or None
     thoughts = "\n".join(thought_segments).strip() or None
-    grounding_metadata = _extract_grounding_summary(candidate)
 
     result: Dict[str, Any] = {
-        "text": final_text or ("Generated successfully" if image_data else "No content generated."),
+        "text": final_text or (
+            f"Generated {len(collected_images)} images" if len(collected_images) > 1
+            else ("Generated successfully" if image_data else "No content generated.")
+        ),
         "thoughts": thoughts,
         "groundingMetadata": grounding_metadata,
         "providerUsed": "gemini",
         "modelUsed": gemini_model,
     }
-    if image_data:
+    if collected_images:
         result["image"] = {
-            "data": image_data,
-            "mimeType": mime_type,
-            "thoughtSignature": thought_signature,
+            "data": collected_images[0]["data"],
+            "mimeType": collected_images[0]["mimeType"],
+            "thoughtSignature": collected_images[0].get("thoughtSignature"),
         }
+        result["images"] = collected_images
+        result["count"] = len(collected_images)
         result["responseParts"] = response_parts
     elif thought_signature:
         result["thoughtSignature"] = thought_signature
         result["responseParts"] = response_parts
     return result
+
+
+def _resolve_image_batch_count(config: Mapping[str, Any], body: Optional[Mapping[str, Any]] = None) -> int:
+    raw = (
+        config.get("count")
+        or config.get("batchSize")
+        or config.get("numImages")
+        or config.get("n")
+        or (body.get("count") if isinstance(body, Mapping) else None)
+        or (body.get("batchSize") if isinstance(body, Mapping) else None)
+        or (body.get("numImages") if isinstance(body, Mapping) else None)
+        or 1
+    )
+    try:
+        val = int(raw)
+    except Exception:
+        val = 1
+    return max(1, min(4, val))
+
+
+def _extract_nanogpt_image_entry(
+    item: Mapping[str, Any],
+    http_get: Callable[..., Tuple[int, bytes, Dict[str, str]]],
+) -> Optional[Dict[str, str]]:
+    if not isinstance(item, Mapping):
+        return None
+    if item.get("b64_json"):
+        raw = str(item["b64_json"])
+        if raw.startswith("data:") and ";base64," in raw:
+            header_part, b64_data = raw.split(";base64,", 1)
+            mime_type = header_part[len("data:") :] or "image/png"
+        else:
+            b64_data = raw
+            try:
+                decoded = base64.b64decode(raw, validate=False)
+                mime_type = _detect_mime_from_bytes(decoded, "image/png")
+            except Exception:
+                mime_type = "image/png"
+        if b64_data:
+            return {"data": b64_data, "mimeType": mime_type}
+    if item.get("url"):
+        img_status, img_bytes, img_hdrs = http_get(str(item["url"]))
+        if img_status >= 400:
+            raise ProviderHttpError(f"Failed to fetch NanoGPT output image ({img_status})", status_code=502)
+        mime_type = _detect_mime_from_bytes(img_bytes, img_hdrs.get("content-type", "image/png"))
+        return {"data": base64.b64encode(img_bytes).decode("ascii"), "mimeType": mime_type}
+    return None
 
 
 def _generate_with_nanogpt(
@@ -2677,10 +2771,12 @@ def _generate_with_nanogpt(
         if text_ref_snippets
         else prompt
     )
+    batch_count = _resolve_image_batch_count(config)
+    base_prompt_text = build_text_context_prompt(effective_img_prompt, conversation_history)
     payload = {
         "model": nanogpt_model,
-        "prompt": build_text_context_prompt(effective_img_prompt, conversation_history),
-        "n": 1,
+        "prompt": base_prompt_text,
+        "n": batch_count,
         "output_format": "png",
         "aspect_ratio": aspect_ratio,
     }
@@ -2705,42 +2801,71 @@ def _generate_with_nanogpt(
             payload["input_references"] = input_refs
 
     status_code, data = http_post(NANOGPT_IMAGES_URL, headers, payload)
+    if status_code >= 400 and batch_count > 1:
+        # Some NanoGPT image models reject n > 1; fall back cleanly to n=1 + parallel collection calls
+        single_payload = dict(payload)
+        single_payload["n"] = 1
+        status_code, data = http_post(NANOGPT_IMAGES_URL, headers, single_payload)
     if status_code >= 400:
         raise ProviderHttpError(_extract_error_message(data, status_code), status_code=status_code)
 
-    first = (data.get("data") or [None])[0]
-    if not isinstance(first, Mapping):
+    raw_items = data.get("data") if isinstance(data, Mapping) else None
+    if not isinstance(raw_items, list) or not raw_items:
         raise ProviderHttpError("NanoGPT returned no generated image data.", status_code=502)
 
-    base64_data = ""
-    mime_type = "image/png"
-    if first.get("b64_json"):
-        raw = str(first["b64_json"])
-        if raw.startswith("data:") and ";base64," in raw:
-            header_part, base64_data = raw.split(";base64,", 1)
-            mime_type = header_part[len("data:") :] or "image/png"
-        else:
-            base64_data = raw
-            try:
-                decoded = base64.b64decode(raw, validate=False)
-                mime_type = _detect_mime_from_bytes(decoded, "image/png")
-            except Exception:
-                mime_type = "image/png"
-    elif first.get("url"):
-        img_status, img_bytes, img_hdrs = http_get(str(first["url"]))
-        if img_status >= 400:
-            raise ProviderHttpError(f"Failed to fetch NanoGPT output image ({img_status})", status_code=502)
-        mime_type = _detect_mime_from_bytes(img_bytes, img_hdrs.get("content-type", "image/png"))
-        base64_data = base64.b64encode(img_bytes).decode("ascii")
-    else:
+    collected_images: List[Dict[str, Any]] = []
+    for item in raw_items[:batch_count]:
+        parsed_img = _extract_nanogpt_image_entry(item, http_get)
+        if parsed_img:
+            collected_images.append({"data": parsed_img["data"], "mimeType": parsed_img["mimeType"], "index": len(collected_images)})
+
+    if not collected_images:
         raise ProviderHttpError("NanoGPT response lacked image bytes or URL.", status_code=502)
 
+    # If model returned fewer images than requested (common on Nano Banana endpoints that cap single calls at 1),
+    # generate the remaining collection frames concurrently so the user gets a true multi-image collection.
+    remaining = batch_count - len(collected_images)
+    if remaining > 0:
+        def _fetch_extra_frame(slot_idx: int) -> Optional[Dict[str, Any]]:
+            p_copy = dict(payload)
+            p_copy["n"] = 1
+            st_e, d_e = http_post(NANOGPT_IMAGES_URL, headers, p_copy)
+            if st_e >= 400 or not isinstance(d_e, Mapping):
+                return None
+            items_e = d_e.get("data") or []
+            if not items_e:
+                return None
+            parsed_e = _extract_nanogpt_image_entry(items_e[0], http_get)
+            if not parsed_e:
+                return None
+            return {"data": parsed_e["data"], "mimeType": parsed_e["mimeType"], "index": slot_idx}
+
+        start_idx = len(collected_images)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, remaining)) as pool:
+            futs = [pool.submit(_fetch_extra_frame, start_idx + i) for i in range(remaining)]
+            for fut in futs:
+                try:
+                    extra = fut.result()
+                    if extra:
+                        collected_images.append(extra)
+                except Exception:
+                    pass
+
+    for idx_i, entry in enumerate(collected_images):
+        entry["index"] = idx_i
+
     return {
-        "text": f"Generated via NanoGPT ({nanogpt_model})",
+        "text": (
+            f"Generated {len(collected_images)} images via NanoGPT ({nanogpt_model})"
+            if len(collected_images) > 1
+            else f"Generated via NanoGPT ({nanogpt_model})"
+        ),
         "image": {
-            "data": base64_data,
-            "mimeType": mime_type,
+            "data": collected_images[0]["data"],
+            "mimeType": collected_images[0]["mimeType"],
         },
+        "images": collected_images,
+        "count": len(collected_images),
         "providerUsed": "nanogpt",
         "modelUsed": nanogpt_model,
     }
@@ -2962,14 +3087,30 @@ def _generate_offline_synthetic(
         }
 
     # image
+    batch_count = _resolve_image_batch_count(config)
+    synth_images = [
+        {
+            "data": _SYNTHETIC_1X1_PNG_B64,
+            "mimeType": "image/png",
+            "thoughtSignature": thought_sig,
+            "index": i,
+        }
+        for i in range(batch_count)
+    ]
     return {
-        "text": f"Synthetic {mode} frame via {model_used}: {prompt.strip()}",
-        "thoughts": f"Visual composition plan (aspect={config.get('aspectRatio', '1:1')}, sig={thought_sig}).",
+        "text": (
+            f"Synthetic {mode} collection ({batch_count} frames) via {model_used}: {prompt.strip()}"
+            if batch_count > 1
+            else f"Synthetic {mode} frame via {model_used}: {prompt.strip()}"
+        ),
+        "thoughts": f"Visual composition plan (aspect={config.get('aspectRatio', '1:1')}, count={batch_count}, sig={thought_sig}).",
         "image": {
             "data": _SYNTHETIC_1X1_PNG_B64,
             "mimeType": "image/png",
             "thoughtSignature": thought_sig,
         },
+        "images": synth_images,
+        "count": batch_count,
         "providerUsed": "synthetic",
         "modelUsed": model_used,
         "offline": True,
@@ -3110,6 +3251,10 @@ def handle_node_studio_generate(
         return {"ok": False, "statusCode": 400, "error": "Prompt is required."}
 
     config = dict(body.get("config")) if isinstance(body.get("config"), Mapping) else {}
+    if "count" not in config:
+        req_count = _resolve_image_batch_count(config, body)
+        if req_count > 1:
+            config["count"] = req_count
     slash_route: Optional[Dict[str, Any]] = None
     prompt = raw_prompt
 
@@ -3384,6 +3529,28 @@ def handle_node_studio_generate(
         content["mimeType"] = img.get("mimeType", "image/png")
         if content["base64"]:
             content["imageUrl"] = f"data:{content['mimeType']};base64,{content['base64']}"
+        raw_imgs = gen_result.get("images")
+        if isinstance(raw_imgs, list) and len(raw_imgs) > 0:
+            norm_imgs: List[Dict[str, Any]] = []
+            for idx_img, entry in enumerate(raw_imgs):
+                if not isinstance(entry, Mapping):
+                    continue
+                eb64 = str(entry.get("data") or entry.get("base64") or "")
+                emime = str(entry.get("mimeType") or "image/png")
+                eurl = str(entry.get("imageUrl") or entry.get("url") or (f"data:{emime};base64,{eb64}" if eb64 else ""))
+                if eurl or eb64:
+                    norm_imgs.append(
+                        {
+                            "index": idx_img,
+                            "base64": eb64,
+                            "mimeType": emime,
+                            "imageUrl": eurl,
+                        }
+                    )
+            if norm_imgs:
+                content["images"] = norm_imgs
+                if len(norm_imgs) > 1 and mode == "GENERATE":
+                    node_type = "COLLECTION"
     elif modality == "video" and isinstance(gen_result.get("video"), Mapping):
         vid = gen_result["video"]
         content["videoUrl"] = vid.get("url", "")
@@ -3506,6 +3673,8 @@ def handle_node_studio_generate(
         node_metadata["atlasTask"] = gen_result.get("atlasTask")
     if gen_result.get("vfsPaths"):
         node_metadata["vfsPaths"] = gen_result["vfsPaths"]
+    if modality == "image" and isinstance(content.get("images"), list):
+        node_metadata["collectionCount"] = len(content["images"])
     if modality == "video" and gen_result.get("async"):
         vid = gen_result.get("video") if isinstance(gen_result.get("video"), Mapping) else {}
         node_metadata["jobId"] = str(gen_result.get("jobId") or vid.get("jobId") or "")
@@ -3573,6 +3742,9 @@ def handle_node_studio_generate(
         "result": gen_result,
         "generationResult": gen_result,
     }
+    if modality == "image" and isinstance(content.get("images"), list):
+        response["images"] = content["images"]
+        response["collectionCount"] = len(content["images"])
     if modality == "video" and gen_result.get("async"):
         vid = gen_result.get("video") if isinstance(gen_result.get("video"), Mapping) else {}
         response["async"] = True

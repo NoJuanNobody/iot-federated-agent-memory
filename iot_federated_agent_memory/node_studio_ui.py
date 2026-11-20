@@ -1296,22 +1296,213 @@ def _node_studio_css() -> str:
     color: var(--ns-faint);
   }
 
-  /* Stage 2: MessageContent (280x160) */
+  /* Stage 2: MessageContent (resizable text notes) */
   .ns-msg-card {
     width: 100%;
     height: 100%;
+    min-height: 0;
     padding: 12px;
     display: flex;
     flex-direction: column;
     gap: 6px;
     background: var(--ns-card);
+    overflow: hidden;
   }
-  .ns-msg-head { display: flex; align-items: center; gap: 6px; font-family: var(--ns-mono); font-size: 10px; font-weight: 700; color: var(--ns-muted); text-transform: uppercase; }
-  .ns-msg-body { font-size: 12px; line-height: 1.45; color: var(--ns-ink); overflow-y: auto; flex: 1 1 auto; white-space: pre-wrap; }
+  .ns-msg-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-family: var(--ns-mono); font-size: 10px; font-weight: 700; color: var(--ns-muted); text-transform: uppercase; flex-shrink: 0; }
+  .ns-msg-head-actions { display: inline-flex; align-items: center; gap: 4px; }
+  .ns-msg-body { font-size: 12.5px; line-height: 1.5; color: var(--ns-ink); overflow-y: auto; flex: 1 1 auto; min-height: 0; white-space: pre-wrap; user-select: text; cursor: text; padding-right: 4px; }
 
-  /* Stage 3: Image Node */
+  /* Corner Drag-to-Resize Handle on Canvas Nodes */
+  .ns-resize-handle {
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    width: 20px;
+    height: 20px;
+    cursor: nwse-resize;
+    z-index: 22;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    padding: 3px;
+    color: var(--ns-muted);
+    opacity: 0.45;
+    transition: opacity 120ms, color 120ms;
+    border-radius: 0 0 8px 0;
+  }
+  .ns-canvas-node:hover .ns-resize-handle,
+  .ns-canvas-node.is-selected .ns-resize-handle,
+  .ns-resize-handle:hover {
+    opacity: 1;
+    color: var(--ns-ink);
+  }
+
+  /* Stage 3: Image Node & Multi-Image Collection Grid */
   .ns-img-node { position: relative; width: 100%; height: 100%; background: var(--ns-paper); }
-  .ns-img-node img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ns-img-node img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: zoom-in; }
+  .ns-node-lb-btn {
+    position: absolute;
+    top: 8px;
+    right: 34px;
+    padding: 3px 6px;
+    border-radius: 6px;
+    background: rgba(244, 248, 240, 0.92);
+    border: var(--ns-hair-soft);
+    color: var(--ns-ink);
+    font-family: var(--ns-mono);
+    font-size: 10px;
+    cursor: pointer;
+    z-index: 4;
+  }
+  .ns-node-lb-btn:hover { background: var(--ns-ink); color: var(--ns-bg); }
+  .ns-collection-card {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--ns-card);
+    overflow: hidden;
+  }
+  .ns-collection-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: minmax(0, 1fr);
+    gap: 6px;
+  }
+  .ns-collection-tile {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 76px;
+    border-radius: 7px;
+    overflow: hidden;
+    border: var(--ns-hair-soft);
+    background: var(--ns-paper);
+    cursor: zoom-in;
+    padding: 0;
+  }
+  .ns-collection-tile img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 150ms ease;
+  }
+  .ns-collection-tile:hover img { transform: scale(1.03); }
+  .ns-collection-idx {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(17, 17, 17, 0.78);
+    color: #ffffff;
+    font-family: var(--ns-mono);
+    font-size: 9px;
+    font-weight: 700;
+  }
+
+  /* Fullscreen Image Lightbox Modal */
+  .ns-lightbox-stage {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 360px;
+    max-height: 62vh;
+    background: #0d0d0d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: auto;
+    padding: 14px;
+  }
+  .ns-lightbox-img {
+    max-width: 100%;
+    max-height: 58vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+    cursor: zoom-in;
+    transition: transform 160ms ease;
+    display: block;
+  }
+  .ns-lightbox-img.is-zoomed {
+    max-width: none;
+    max-height: none;
+    width: 185%;
+    cursor: zoom-out;
+  }
+  .ns-lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 38px;
+    height: 38px;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(17, 17, 17, 0.78);
+    color: #ffffff;
+    font-family: var(--ns-mono);
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 6;
+  }
+  .ns-lightbox-nav:hover { background: #ffffff; color: #000000; }
+  .ns-lightbox-nav--prev { left: 14px; }
+  .ns-lightbox-nav--next { right: 14px; }
+  .ns-lightbox-strip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--ns-card);
+    border-top: var(--ns-hair-soft);
+    overflow-x: auto;
+  }
+  .ns-lightbox-thumb {
+    position: relative;
+    width: 58px;
+    height: 58px;
+    flex-shrink: 0;
+    border-radius: 7px;
+    overflow: hidden;
+    border: 2px solid transparent;
+    padding: 0;
+    background: var(--ns-paper);
+    cursor: pointer;
+    opacity: 0.72;
+    transition: opacity 120ms, border-color 120ms;
+  }
+  .ns-lightbox-thumb:hover { opacity: 0.95; }
+  .ns-lightbox-thumb.is-active {
+    opacity: 1;
+    border-color: var(--ns-ink);
+  }
+  .ns-lightbox-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ns-chat-coll-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .ns-chat-coll-grid img {
+    width: 100%;
+    height: 96px;
+    object-fit: cover;
+    border-radius: 7px;
+    border: var(--ns-hair-soft);
+    cursor: zoom-in;
+    display: block;
+  }
   .ns-node-type-badge {
     position: absolute;
     top: 8px;
@@ -1881,6 +2072,10 @@ def _node_studio_css() -> str:
   body.tc-dark .ns-morph-card,
   html[data-theme="dark"] .ns-msg-card,
   body.tc-dark .ns-msg-card,
+  html[data-theme="dark"] .ns-collection-card,
+  body.tc-dark .ns-collection-card,
+  html[data-theme="dark"] .ns-lightbox-strip,
+  body.tc-dark .ns-lightbox-strip,
   html[data-theme="dark"] .ns-img-node,
   body.tc-dark .ns-img-node,
   html[data-theme="dark"] .ns-living-cube,
@@ -3189,6 +3384,7 @@ def _node_studio_js(initial_view: str) -> str:
     lastModelByModality: Object.assign({}, MODALITY_DEFAULTS),
     aspectRatio: "1:1",
     resolution: "1K",
+    imageCount: 1,
     thinkingLevel: "medium",
     includeThoughts: false,
     groundingMode: "Off",
@@ -3209,6 +3405,8 @@ def _node_studio_js(initial_view: str) -> str:
     panStart: { x: 0, y: 0 },
     dragNodeId: null,
     dragNodeOffset: { x: 0, y: 0 },
+    resizeNodeId: null,
+    resizeStart: null,
     isBoxSelecting: false,
     boxStart: { x: 0, y: 0 },
     connectFromId: null,
@@ -3340,6 +3538,15 @@ def _node_studio_js(initial_view: str) -> str:
     }
     const resVal = $("nsResVal");
     if (resVal) resVal.textContent = state.resolution;
+
+    const batchWrap = $("nsBatchWrap");
+    if (batchWrap) batchWrap.classList.toggle("hidden", mod !== "image");
+    const batchCount = Math.max(1, Math.min(4, parseInt(state.imageCount, 10) || 1));
+    state.imageCount = batchCount;
+    const batchVal = $("nsBatchVal");
+    if (batchVal) batchVal.textContent = batchCount + "x";
+    const batchSel = $("nsBatchSelect");
+    if (batchSel) batchSel.value = String(batchCount);
 
     const thinkWrap = $("nsThinkWrap");
     const thoughtsBtn = $("nsThoughtsBtn");
@@ -3503,8 +3710,12 @@ def _node_studio_js(initial_view: str) -> str:
     if (genBtn) {
       const canRunWithoutPrompt = mod === "atlas" && hasPhotos;
       genBtn.disabled = (!hasPrompt && !canRunWithoutPrompt) || state.activeRuns >= MAX_CONCURRENT_RUNS;
+      const imgCnt = Math.max(1, Math.min(4, parseInt(state.imageCount, 10) || 1));
+      const imgLbl = imgCnt > 1
+        ? (mode === "MERGE" ? ("Merge " + imgCnt + " Images →") : (mode === "EDIT" ? ("Edit " + imgCnt + " Images →") : ("Generate " + imgCnt + " Images →")))
+        : (mode === "MERGE" ? "Merge Images →" : (mode === "EDIT" ? "Edit Image →" : "Generate →"));
       const lblMap = {
-        image: mode === "MERGE" ? "Merge Images →" : (mode === "EDIT" ? "Edit Image →" : "Generate →"),
+        image: imgLbl,
         text: mode === "GENERATE" ? "Generate Text →" : "Reply / Transform →",
         video: "Generate Video →",
         audio: "Generate Audio →",
@@ -3782,12 +3993,73 @@ def _node_studio_js(initial_view: str) -> str:
     );
   }
 
+  function _getNodeImages(node) {
+    if (!node || !node.content) return [];
+    const c = node.content;
+    if (Array.isArray(c.images) && c.images.length > 0) {
+      return c.images
+        .map((img, i) => {
+          if (!img) return null;
+          if (typeof img === "string") {
+            return { index: i, imageUrl: img, base64: _extractDataUrlBase64(img), mimeType: "image/png" };
+          }
+          const mime = img.mimeType || img.mime_type || "image/png";
+          const b64 = img.base64 || img.data || _extractDataUrlBase64(img.imageUrl || img.url || "");
+          const url = img.imageUrl || img.url || (b64 ? ("data:" + mime + ";base64," + b64) : "");
+          if (!url && !b64) return null;
+          return { index: i, imageUrl: url, base64: b64, mimeType: mime };
+        })
+        .filter(Boolean);
+    }
+    if (c.imageUrl || c.base64) {
+      const mime = c.mimeType || "image/png";
+      const b64 = c.base64 || _extractDataUrlBase64(c.imageUrl || "");
+      const url = c.imageUrl || (b64 ? ("data:" + mime + ";base64," + b64) : "");
+      if (url || b64) return [{ index: 0, imageUrl: url, base64: b64, mimeType: mime }];
+    }
+    return [];
+  }
+
+  function renderImageCollectionCardInner(node) {
+    const nid = escapeHtml(node.id);
+    const meta = node.metadata || {};
+    const imgs = _getNodeImages(node);
+    const imgStyle = "filter:" + buildFilterCss(node.filters) + ";";
+    const promptTxt = escapeHtml(meta.prompt || node.label || "");
+    const modelLbl = escapeHtml(getModelName(meta.model || "gemini-nano-banana-2.1"));
+    const tilesHtml = imgs.map((img, idx) => (
+      '<button type="button" class="ns-collection-tile" title="Open image ' + (idx + 1) + ' in Lightbox" ' +
+      'onclick="event.stopPropagation();window.TinCanNodeStudio.openImageLightbox(\'' + nid + '\',' + idx + ')">' +
+      '<img src="' + escapeHtml(img.imageUrl) + '" alt="' + promptTxt + ' #' + (idx + 1) + '" style="' + imgStyle + '" draggable="false">' +
+      '<span class="ns-collection-idx">' + (idx + 1) + "</span>" +
+      "</button>"
+    )).join("");
+    return (
+      '<div class="ns-collection-card">' +
+      '<div class="ns-omni-top-row">' +
+      '<span class="ns-omni-pill">◼ COLLECTION · ' + imgs.length + " IMAGES</span>" +
+      '<span class="ns-omni-status-badge">' + modelLbl + "</span>" +
+      "</div>" +
+      '<div class="ns-collection-grid" onmousedown="event.stopPropagation()">' + tilesHtml + "</div>" +
+      '<div class="ns-omni-title">' + promptTxt + "</div>" +
+      '<div class="ns-card-foot-bar" onmousedown="event.stopPropagation()">' +
+      '<div class="ns-card-foot-group">' +
+      '<button type="button" class="ns-card-action-btn is-primary" onclick="event.stopPropagation();window.TinCanNodeStudio.openImageLightbox(\'' + nid + '\',0)">⤢ Lightbox</button>' +
+      '<button type="button" class="ns-card-action-btn" title="Split collection into individual canvas nodes" onclick="event.stopPropagation();window.TinCanNodeStudio.splitCollectionToNodes(\'' + nid + '\')">Split Nodes</button>' +
+      "</div>" +
+      '<button type="button" class="ns-card-action-btn" onclick="event.stopPropagation();window.TinCanNodeStudio.downloadNode(\'' + nid + '\')">↓ All</button>' +
+      "</div>" +
+      "</div>"
+    );
+  }
+
   function renderTextCardInner(node) {
     const nid = escapeHtml(node.id);
     const meta = node.metadata || {};
     const modelLbl = escapeHtml(getModelName(meta.model || meta.modelUsed || state.model));
     const promptTxt = escapeHtml(meta.prompt || node.label || "");
     const isErr = meta.jobStatus === "ERROR";
+    const isExpanded = (node.width || 340) >= 480 || (node.height || 250) >= 380;
     const errBlock = meta.jobError
       ? '<div class="ns-omni-error-box">' + escapeHtml(meta.jobError) + "</div>"
       : "";
@@ -3796,9 +4068,12 @@ def _node_studio_js(initial_view: str) -> str:
       '<div class="ns-msg-card">' +
       '<div class="ns-msg-head">' +
       '<span class="ns-omni-pill">TEXT · ' + modelLbl + "</span>" +
+      '<div class="ns-msg-head-actions" onmousedown="event.stopPropagation()">' +
+      '<button type="button" class="ns-card-action-btn" title="Toggle expanded reading view (or drag corner to resize)" onclick="event.stopPropagation();window.TinCanNodeStudio.toggleNodeExpand(\'' + nid + '\')">' + (isExpanded ? "↙ Compact" : "⤢ Expand") + "</button>" +
       (isErr
         ? '<span class="ns-omni-status-badge is-error">✕ ERROR</span>'
         : '<button type="button" class="ns-card-action-btn" title="Copy text" onclick="event.stopPropagation();window.TinCanNodeStudio.copyNodeText(\'' + nid + '\')">Copy</button>') +
+      "</div>" +
       "</div>" +
       (promptTxt ? '<div class="ns-msg-prompt-sub" title="' + promptTxt + '">Prompt: ' + promptTxt + "</div>" : "") +
       errBlock +
@@ -4251,20 +4526,26 @@ def _node_studio_js(initial_view: str) -> str:
       } else if (mStatus === "mesh3d") {
         inner = renderMesh3dCardInner(node);
       } else {
-        const imgUrl = node.content && node.content.imageUrl;
-        const imgStyle = "filter:" + buildFilterCss(node.filters) + ";";
-        inner =
-          '<div class="ns-img-node">' +
-          '<span class="ns-node-type-badge">' + escapeHtml(node.type || "GENERATED") + "</span>" +
-          (imgUrl ? '<button type="button" class="ns-node-dl-btn" title="Download" onclick="event.stopPropagation();window.TinCanNodeStudio.downloadNode(\'' + escapeHtml(node.id) + '\')">↓</button>' : "") +
-          (imgUrl
-            ? '<img src="' + escapeHtml(imgUrl) + '" alt="' + escapeHtml(node.label) + '" style="' + imgStyle + '" draggable="false">'
-            : renderTextCardInner(node)) +
-          '<div class="ns-node-meta-overlay">' +
-          '<div class="ns-node-prompt-txt">' + escapeHtml((node.metadata && node.metadata.prompt) || node.label) + "</div>" +
-          '<div class="ns-node-sub-txt"><span>' + escapeHtml((node.metadata && node.metadata.resolution) || "1K") +
-          '</span><span>' + escapeHtml(getModelName((node.metadata && node.metadata.model) || "gemini-nano-banana-2.1")) + "</span></div>" +
-          "</div></div>";
+        const nodeImgs = _getNodeImages(node);
+        if (nodeImgs.length > 1) {
+          inner = renderImageCollectionCardInner(node);
+        } else {
+          const imgUrl = (nodeImgs[0] && nodeImgs[0].imageUrl) || (node.content && node.content.imageUrl);
+          const imgStyle = "filter:" + buildFilterCss(node.filters) + ";";
+          inner =
+            '<div class="ns-img-node">' +
+            '<span class="ns-node-type-badge">' + escapeHtml(node.type || "GENERATED") + "</span>" +
+            (imgUrl ? '<button type="button" class="ns-node-lb-btn" title="View in Lightbox" onclick="event.stopPropagation();window.TinCanNodeStudio.openImageLightbox(\'' + escapeHtml(node.id) + '\',0)">⤢</button>' : "") +
+            (imgUrl ? '<button type="button" class="ns-node-dl-btn" title="Download" onclick="event.stopPropagation();window.TinCanNodeStudio.downloadNode(\'' + escapeHtml(node.id) + '\')">↓</button>' : "") +
+            (imgUrl
+              ? '<img src="' + escapeHtml(imgUrl) + '" alt="' + escapeHtml(node.label) + '" style="' + imgStyle + '" draggable="false" ondblclick="event.stopPropagation();window.TinCanNodeStudio.openImageLightbox(\'' + escapeHtml(node.id) + '\',0)">'
+              : renderTextCardInner(node)) +
+            '<div class="ns-node-meta-overlay">' +
+            '<div class="ns-node-prompt-txt">' + escapeHtml((node.metadata && node.metadata.prompt) || node.label) + "</div>" +
+            '<div class="ns-node-sub-txt"><span>' + escapeHtml((node.metadata && node.metadata.resolution) || "1K") +
+            '</span><span>' + escapeHtml(getModelName((node.metadata && node.metadata.model) || "gemini-nano-banana-2.1")) + "</span></div>" +
+            "</div></div>";
+        }
       }
 
       const filterPop = state.openFilterNodeId === node.id
@@ -4293,13 +4574,20 @@ def _node_studio_js(initial_view: str) -> str:
            "</div>")
         : "";
 
+      const resizeHandle = mStatus !== "generating"
+        ? ('<div class="ns-resize-handle" data-resize-node-id="' + escapeHtml(node.id) + '" title="Drag to resize (double-click to expand)" ' +
+           'ondblclick="event.stopPropagation();window.TinCanNodeStudio.toggleNodeExpand(\'' + escapeHtml(node.id) + '\')">' +
+           '<svg viewBox="0 0 12 12" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">' +
+           '<path d="M11 3L3 11M11 7L7 11"/></svg></div>')
+        : "";
+
       return '<div id="nsCanvasNode-' + escapeHtml(node.id) + '" class="ns-canvas-node' + (isSel ? " is-selected" : "") + '" ' +
         'data-node-id="' + escapeHtml(node.id) + '" ' +
         'style="left:' + node.x + "px;top:" + node.y + "px;width:" + w + "px;height:" + h + 'px;">' +
         '<div class="ns-node-handle ns-node-handle--top" data-handle="top" data-node-id="' + escapeHtml(node.id) + '"></div>' +
         '<div class="ns-node-handle ns-node-handle--bottom" data-handle="bottom" data-node-id="' + escapeHtml(node.id) + '"></div>' +
         quickBar + filterPop +
-        '<div class="ns-morph-card">' + inner + "</div>" +
+        '<div class="ns-morph-card">' + inner + resizeHandle + "</div>" +
         "</div>";
     }).join("");
 
@@ -6225,6 +6513,257 @@ def _node_studio_js(initial_view: str) -> str:
     }
   }
 
+  // =========================================================================
+  // Fullscreen Image Lightbox, Node Resize/Expand & Collection Utilities
+  // =========================================================================
+  const lightboxState = {
+    nodeId: null,
+    index: 0,
+    zoomed: false
+  };
+
+  function toggleNodeExpand(id) {
+    const node = state.nodes.find((n) => n.id === id);
+    if (!node) return;
+    const mod = _getNodeModality(node);
+    const compact = _expectedNodeDimensions(mod, node.morphingStatus);
+    const isExpanded = (node.width || compact.w) >= compact.w + 110 || (node.height || compact.h) >= compact.h + 110;
+    if (isExpanded) {
+      node.width = node._prevCompactW || compact.w;
+      node.height = node._prevCompactH || compact.h;
+    } else {
+      node._prevCompactW = node.width || compact.w;
+      node._prevCompactH = node.height || compact.h;
+      const textLen = String((node.content && node.content.text) || "").length;
+      if (mod === "text") {
+        node.width = textLen > 600 ? 600 : 520;
+        node.height = textLen > 900 ? 540 : (textLen > 350 ? 460 : 380);
+      } else {
+        node.width = Math.min(720, Math.round(compact.w * 1.55));
+        node.height = Math.min(680, Math.round(compact.h * 1.55));
+      }
+    }
+    _ensureNodeVisible(node.x, node.y, node.width, node.height);
+    renderNodes();
+  }
+
+  function renderLightboxView() {
+    const modal = $("nsImageLightboxModal");
+    if (!modal || !lightboxState.nodeId) return;
+    const node = state.nodes.find((n) => n.id === lightboxState.nodeId);
+    const imgs = node ? _getNodeImages(node) : [];
+    if (!node || !imgs.length) {
+      closeImageLightbox();
+      return;
+    }
+    const idx = ((lightboxState.index % imgs.length) + imgs.length) % imgs.length;
+    lightboxState.index = idx;
+    const active = imgs[idx];
+    const meta = node.metadata || {};
+
+    const titleEl = $("nsLightboxTitle");
+    if (titleEl) {
+      titleEl.textContent = imgs.length > 1
+        ? ("IMAGE COLLECTION · " + (idx + 1) + " / " + imgs.length)
+        : "IMAGE LIGHTBOX";
+    }
+    const metaEl = $("nsLightboxMeta");
+    if (metaEl) {
+      metaEl.textContent = getModelName(meta.model || "gemini-nano-banana-2.1") +
+        " · " + (meta.resolution || "1K") +
+        (meta.prompt ? (" · " + String(meta.prompt).slice(0, 120)) : "");
+    }
+    const imgEl = $("nsLightboxImg");
+    if (imgEl) {
+      imgEl.src = active.imageUrl || "";
+      imgEl.alt = (meta.prompt || node.label || "Image") + " #" + (idx + 1);
+      imgEl.style.filter = buildFilterCss(node.filters);
+      imgEl.classList.toggle("is-zoomed", !!lightboxState.zoomed);
+    }
+    const zoomBtn = $("nsLightboxZoomBtn");
+    if (zoomBtn) {
+      zoomBtn.textContent = lightboxState.zoomed ? "1× Fit" : "2× Zoom";
+      zoomBtn.classList.toggle("is-active", !!lightboxState.zoomed);
+    }
+    const counterEl = $("nsLightboxCounter");
+    if (counterEl) {
+      counterEl.textContent = (idx + 1) + " / " + imgs.length;
+    }
+    const prevBtn = $("nsLightboxPrevBtn");
+    const nextBtn = $("nsLightboxNextBtn");
+    if (prevBtn) prevBtn.classList.toggle("hidden", imgs.length <= 1);
+    if (nextBtn) nextBtn.classList.toggle("hidden", imgs.length <= 1);
+
+    const stripEl = $("nsLightboxStrip");
+    if (stripEl) {
+      stripEl.classList.toggle("hidden", imgs.length <= 1);
+      if (imgs.length > 1) {
+        stripEl.innerHTML = imgs.map((im, i) => (
+          '<button type="button" class="ns-lightbox-thumb' + (i === idx ? " is-active" : "") + '" ' +
+          'title="View image ' + (i + 1) + '" onclick="window.TinCanNodeStudio.selectLightboxIndex(' + i + ')">' +
+          '<img src="' + escapeHtml(im.imageUrl) + '" alt="Thumb ' + (i + 1) + '">' +
+          "</button>"
+        )).join("");
+      } else {
+        stripEl.innerHTML = "";
+      }
+    }
+  }
+
+  function openImageLightbox(nodeId, index) {
+    const node = state.nodes.find((n) => n.id === nodeId);
+    const imgs = node ? _getNodeImages(node) : [];
+    if (!node || !imgs.length) return;
+    lightboxState.nodeId = node.id;
+    lightboxState.index = typeof index === "number" ? index : 0;
+    lightboxState.zoomed = false;
+    const modal = $("nsImageLightboxModal");
+    if (modal) modal.classList.remove("hidden");
+    renderLightboxView();
+  }
+
+  function closeImageLightbox() {
+    const modal = $("nsImageLightboxModal");
+    if (modal) modal.classList.add("hidden");
+    lightboxState.nodeId = null;
+    lightboxState.index = 0;
+    lightboxState.zoomed = false;
+  }
+
+  function stepLightbox(delta) {
+    if (!lightboxState.nodeId) return;
+    lightboxState.index += Number(delta) || 0;
+    lightboxState.zoomed = false;
+    renderLightboxView();
+  }
+
+  function selectLightboxIndex(idx) {
+    if (!lightboxState.nodeId) return;
+    lightboxState.index = Number(idx) || 0;
+    lightboxState.zoomed = false;
+    renderLightboxView();
+  }
+
+  function toggleLightboxZoom() {
+    if (!lightboxState.nodeId) return;
+    lightboxState.zoomed = !lightboxState.zoomed;
+    renderLightboxView();
+  }
+
+  function useLightboxImageAsRef() {
+    if (!lightboxState.nodeId) return;
+    const node = state.nodes.find((n) => n.id === lightboxState.nodeId);
+    const imgs = node ? _getNodeImages(node) : [];
+    const active = imgs[lightboxState.index];
+    if (!node || !active) return;
+    const rid = node.id + "-img-" + (lightboxState.index + 1);
+    if (!state.references.some((r) => r.id === rid)) {
+      state.references.push({
+        id: rid,
+        source: "upload",
+        name: (node.label || node.id).slice(0, 24) + " #" + (lightboxState.index + 1),
+        type: "image",
+        mimeType: active.mimeType || "image/png",
+        url: active.imageUrl,
+        base64: active.base64 || _extractDataUrlBase64(active.imageUrl),
+        size: 0
+      });
+    }
+    renderReferencesStrip();
+    closeImageLightbox();
+    showToast("Attached image #" + (lightboxState.index + 1) + " as reference", false);
+  }
+
+  function popOutLightboxImage() {
+    if (!lightboxState.nodeId) return;
+    const node = state.nodes.find((n) => n.id === lightboxState.nodeId);
+    const imgs = node ? _getNodeImages(node) : [];
+    const active = imgs[lightboxState.index];
+    if (!node || !active) return;
+    state.nodeSeq += 1;
+    const nid = node.id + "-pick-" + state.nodeSeq;
+    const pos = _computeSmartNodePosition([node.id], 256, 256);
+    state.nodes.push({
+      id: nid,
+      type: "GENERATED",
+      modality: "image",
+      morphingStatus: "image",
+      label: (node.label || "Image") + " #" + (lightboxState.index + 1),
+      x: pos.x,
+      y: pos.y,
+      width: 256,
+      height: 256,
+      content: {
+        imageUrl: active.imageUrl,
+        base64: active.base64 || _extractDataUrlBase64(active.imageUrl),
+        mimeType: active.mimeType || "image/png"
+      },
+      metadata: Object.assign({}, node.metadata || {}, {
+        prompt: (node.metadata && node.metadata.prompt) || node.label || "",
+        pickedIndex: lightboxState.index
+      }),
+      filters: Object.assign({}, node.filters || {})
+    });
+    state.edges.push({ id: "e-" + node.id + "-" + nid, source: node.id, target: nid });
+    state.selectedIds = [nid];
+    syncSelectionRefs();
+    closeImageLightbox();
+    _ensureNodeVisible(pos.x, pos.y, 256, 256);
+    renderNodes();
+    showToast("Popped out image #" + (lightboxState.index + 1) + " to canvas", false);
+  }
+
+  function downloadLightboxImage() {
+    if (!lightboxState.nodeId) return;
+    const node = state.nodes.find((n) => n.id === lightboxState.nodeId);
+    const imgs = node ? _getNodeImages(node) : [];
+    const active = imgs[lightboxState.index];
+    if (!node || !active || !active.imageUrl) return;
+    const baseName = String(node.label || node.id || "image").replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 44) || "image";
+    const a = document.createElement("a");
+    a.href = active.imageUrl;
+    a.download = baseName + "_" + (lightboxState.index + 1) + ".png";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  function splitCollectionToNodes(nodeId) {
+    const node = state.nodes.find((n) => n.id === nodeId);
+    const imgs = node ? _getNodeImages(node) : [];
+    if (!node || imgs.length <= 1) return;
+    const spawnedIds = [];
+    imgs.forEach((im, idx) => {
+      state.nodeSeq += 1;
+      const nid = node.id + "-item-" + (idx + 1) + "-" + state.nodeSeq;
+      const pos = _computeSmartNodePosition([node.id], 256, 256);
+      state.nodes.push({
+        id: nid,
+        type: "GENERATED",
+        modality: "image",
+        morphingStatus: "image",
+        label: (node.label || "Image") + " #" + (idx + 1),
+        x: pos.x,
+        y: pos.y,
+        width: 256,
+        height: 256,
+        content: {
+          imageUrl: im.imageUrl,
+          base64: im.base64 || _extractDataUrlBase64(im.imageUrl),
+          mimeType: im.mimeType || "image/png"
+        },
+        metadata: Object.assign({}, node.metadata || {}, { pickedIndex: idx }),
+        filters: Object.assign({}, node.filters || {})
+      });
+      state.edges.push({ id: "e-" + node.id + "-" + nid, source: node.id, target: nid });
+      spawnedIds.push(nid);
+    });
+    state.selectedIds = spawnedIds.slice();
+    syncSelectionRefs();
+    renderNodes();
+    showToast("Split collection into " + spawnedIds.length + " canvas nodes", false);
+  }
+
   function closeMeshViewer() {
     const modal = $("nsMeshViewerModal");
     if (modal) modal.classList.add("hidden");
@@ -6374,9 +6913,20 @@ def _node_studio_js(initial_view: str) -> str:
 
       let previewHtml = "";
       if (mod === "image") {
-        previewHtml = c.imageUrl
-          ? '<img class="ns-chat-thumb" src="' + escapeHtml(c.imageUrl) + '" alt="' + escapeHtml(node.label || node.id) + '">'
-          : '<div class="ns-chat-text">' + escapeHtml(c.text || node.label || "Image node") + "</div>";
+        const chatImgs = _getNodeImages(node);
+        if (chatImgs.length > 1) {
+          previewHtml =
+            '<div class="ns-chat-coll-grid">' +
+            chatImgs.map((im, idx) => (
+              '<img src="' + escapeHtml(im.imageUrl) + '" alt="' + escapeHtml(node.label || node.id) + ' #' + (idx + 1) + '" ' +
+              'onclick="window.TinCanNodeStudio.openImageLightbox(\'' + nid + '\',' + idx + ')">'
+            )).join("") +
+            "</div>";
+        } else {
+          previewHtml = c.imageUrl
+            ? '<img class="ns-chat-thumb" style="cursor:zoom-in;" src="' + escapeHtml(c.imageUrl) + '" alt="' + escapeHtml(node.label || node.id) + '" onclick="window.TinCanNodeStudio.openImageLightbox(\'' + nid + '\',0)">'
+            : '<div class="ns-chat-text">' + escapeHtml(c.text || node.label || "Image node") + "</div>";
+        }
       } else if (mod === "text") {
         previewHtml = '<div class="ns-chat-text">' + escapeHtml(c.text || node.label || "") + "</div>";
       } else if (mod === "audio") {
@@ -6525,7 +7075,9 @@ def _node_studio_js(initial_view: str) -> str:
       const meta = n.metadata || {};
       let preview = "";
       if (mod === "image" && c.imageUrl) {
-        preview = '<img src="' + escapeHtml(c.imageUrl) + '" alt="' + escapeHtml(n.label || n.id) + '">';
+        const libImgs = _getNodeImages(n);
+        preview = '<img src="' + escapeHtml(c.imageUrl) + '" alt="' + escapeHtml(n.label || n.id) + '" style="cursor:zoom-in;" onclick="event.stopPropagation();window.TinCanNodeStudio.openImageLightbox(\'' + nid + '\',0)">' +
+          (libImgs.length > 1 ? '<span class="ns-collection-idx" style="top:6px;right:6px;left:auto;">' + libImgs.length + " IMGS</span>" : "");
       } else if (mod === "text") {
         preview = '<div class="ns-lib-preview-text">' + escapeHtml(String(c.text || n.label || "").slice(0, 140)) + "</div>";
       } else if (mod === "video") {
@@ -6897,6 +7449,7 @@ def _node_studio_js(initial_view: str) -> str:
     const target = state.nodes.find((n) => n.id === id);
     if (target) _cleanupNodeResources(target);
     if (modalMeshState.activeNodeId === id) closeMeshViewer();
+    if (lightboxState.nodeId === id) closeImageLightbox();
     state.edges = state.edges.filter((e) => e.source !== id && e.target !== id);
     state.nodes = state.nodes.filter((n) => n.id !== id);
     state.selectedIds = state.selectedIds.filter((s) => s !== id);
@@ -6966,6 +7519,19 @@ def _node_studio_js(initial_view: str) -> str:
     const baseName = String(node.label || node.id || "node").replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 48) || "node";
     const c = node.content;
     const m = node.metadata || {};
+    const nodeImgs = _getNodeImages(node);
+    if (nodeImgs.length > 1) {
+      nodeImgs.forEach((im, idx) => {
+        if (!im.imageUrl) return;
+        const a = document.createElement("a");
+        a.href = im.imageUrl;
+        a.download = baseName + "_" + (idx + 1) + ".png";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      });
+      return;
+    }
     let href = "";
     let filename = baseName;
     if (c.imageUrl) {
@@ -7358,7 +7924,10 @@ def _node_studio_js(initial_view: str) -> str:
       : (activeMod === "video" ? "VIDEO" : (mode === "MERGE" ? "MERGED" : (mode === "EDIT" ? "EDITED" : "GENERATED")));
 
     const allRefs = collectAllImageReferences();
-    const finalDim = _expectedNodeDimensions(activeMod, activeMod);
+    const imgCountReq = activeMod === "image" ? Math.max(1, Math.min(4, parseInt(state.imageCount, 10) || 1)) : 1;
+    const finalDim = (activeMod === "image" && imgCountReq > 1)
+      ? { w: 360, h: 380 }
+      : _expectedNodeDimensions(activeMod, activeMod);
     const slot = _computeSmartNodePosition(parentIds, finalDim.w, finalDim.h);
     const spinX = Math.round(slot.x + (finalDim.w - 96) / 2);
     const spinY = Math.round(slot.y + (finalDim.h - 96) / 2);
@@ -7422,6 +7991,7 @@ def _node_studio_js(initial_view: str) -> str:
         model: state.model,
         aspectRatio: state.aspectRatio,
         resolution: state.resolution,
+        count: imgCountReq,
         fps: Number(state.videoFps || 60),
         thinkingLevel: state.thinkingLevel,
         includeThoughts: state.includeThoughts,
@@ -7444,6 +8014,25 @@ def _node_studio_js(initial_view: str) -> str:
       const rData = returnedNode.data || {};
       const rContent = rData.content || data.content || {};
       newNode.content = Object.assign({}, rContent);
+      const rawImgs = Array.isArray(rContent.images) && rContent.images.length
+        ? rContent.images
+        : (Array.isArray(data.images) && data.images.length ? data.images : null);
+      if (rawImgs) {
+        newNode.content.images = rawImgs.map((im, idx) => {
+          const mime = (im && (im.mimeType || im.mime_type)) || "image/png";
+          const b64 = (im && (im.base64 || im.data)) || _extractDataUrlBase64((im && (im.imageUrl || im.url)) || "");
+          const url = (im && (im.imageUrl || im.url)) || (b64 ? ("data:" + mime + ";base64," + b64) : "");
+          return { index: idx, imageUrl: url, base64: b64, mimeType: mime };
+        }).filter((im) => im.imageUrl || im.base64);
+        if (newNode.content.images.length && !newNode.content.imageUrl) {
+          newNode.content.imageUrl = newNode.content.images[0].imageUrl;
+          newNode.content.base64 = newNode.content.images[0].base64;
+          newNode.content.mimeType = newNode.content.images[0].mimeType;
+        }
+        if (newNode.content.images.length > 1) {
+          newNode.type = "COLLECTION";
+        }
+      }
       if (data.image && data.image.data && !newNode.content.imageUrl) {
         newNode.content.imageUrl = "data:" + (data.image.mimeType || "image/png") + ";base64," + data.image.data;
         newNode.content.base64 = data.image.data;
@@ -7509,7 +8098,8 @@ def _node_studio_js(initial_view: str) -> str:
         _expandGeneratingSlot(320, 250);
       } else if (newNode.content.imageUrl) {
         newNode.morphingStatus = "image";
-        _expandGeneratingSlot(256, 256);
+        const isColl = Array.isArray(newNode.content.images) && newNode.content.images.length > 1;
+        _expandGeneratingSlot(isColl ? 360 : 256, isColl ? 380 : 256);
       } else {
         newNode.morphingStatus = "text";
         _expandGeneratingSlot(340, 250);
@@ -7631,6 +8221,23 @@ def _node_studio_js(initial_view: str) -> str:
       }, { passive: false });
 
       canvas.addEventListener("mousedown", (ev) => {
+        const resizeEl = ev.target && ev.target.closest ? ev.target.closest(".ns-resize-handle") : null;
+        if (resizeEl) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const rnid = resizeEl.dataset.resizeNodeId;
+          const rnode = state.nodes.find((n) => n.id === rnid);
+          if (rnode) {
+            state.resizeNodeId = rnid;
+            state.resizeStart = {
+              x: ev.clientX,
+              y: ev.clientY,
+              w: Number(rnode.width) || 320,
+              h: Number(rnode.height) || 240
+            };
+          }
+          return;
+        }
         const nodeEl = ev.target.closest ? ev.target.closest(".ns-canvas-node") : null;
         const handleEl = ev.target.closest ? ev.target.closest(".ns-node-handle") : null;
         if (handleEl) {
@@ -7756,6 +8363,20 @@ def _node_studio_js(initial_view: str) -> str:
         }).map((n) => n.id);
         return;
       }
+      if (state.resizeNodeId && state.resizeStart) {
+        const node = state.nodes.find((n) => n.id === state.resizeNodeId);
+        if (node) {
+          const z = state.zoom || 1;
+          const nextW = Math.max(220, Math.min(1100, Math.round(state.resizeStart.w + (ev.clientX - state.resizeStart.x) / z)));
+          const nextH = Math.max(140, Math.min(1000, Math.round(state.resizeStart.h + (ev.clientY - state.resizeStart.y) / z)));
+          node.width = nextW;
+          node.height = nextH;
+          const el = $("nsCanvasNode-" + node.id);
+          if (el) { el.style.width = nextW + "px"; el.style.height = nextH + "px"; }
+          renderEdges();
+        }
+        return;
+      }
       if (state.dragNodeId) {
         const node = state.nodes.find((n) => n.id === state.dragNodeId);
         if (node) {
@@ -7791,6 +8412,11 @@ def _node_studio_js(initial_view: str) -> str:
           renderEdges();
         }
         state.connectFromId = null;
+      }
+      if (state.resizeNodeId) {
+        state.resizeNodeId = null;
+        state.resizeStart = null;
+        if (!state._suppressAutoSave && state.nodes.length > 0) scheduleAutoSave();
       }
       state.isDraggingPill = false;
       state.dragNodeId = null;
@@ -7869,6 +8495,12 @@ def _node_studio_js(initial_view: str) -> str:
           else generate();
         }
         return;
+      }
+      const lbModal = $("nsImageLightboxModal");
+      if (lbModal && !lbModal.classList.contains("hidden")) {
+        if (ev.key === "Escape") { ev.preventDefault(); closeImageLightbox(); return; }
+        if (ev.key === "ArrowLeft") { ev.preventDefault(); stepLightbox(-1); return; }
+        if (ev.key === "ArrowRight") { ev.preventDefault(); stepLightbox(1); return; }
       }
       const meshModal = $("nsMeshViewerModal");
       if (meshModal && !meshModal.classList.contains("hidden")) {
@@ -8013,6 +8645,7 @@ def _node_studio_js(initial_view: str) -> str:
         activeSlashCommand: state.activeSlashCommand,
         aspectRatio: state.aspectRatio,
         resolution: state.resolution,
+        imageCount: state.imageCount,
         thinkingLevel: state.thinkingLevel,
         includeThoughts: state.includeThoughts,
         groundingMode: state.groundingMode,
@@ -8038,6 +8671,7 @@ def _node_studio_js(initial_view: str) -> str:
     try {
       state.nodes.forEach(_cleanupNodeResources);
       closeMeshViewer();
+      closeImageLightbox();
       state.graphName = _cleanGraphName((meta && meta.name) || graphObj.name || state.graphName);
       state.graphPath = (meta && meta.path) || graphObj.path || ("/nodes/" + state.graphName + ".nodes.json");
       state.nodes = nodes.map((n) => Object.assign({}, n, { _splatCloud: null, _splatImgLoading: false, _glbBlobUrl: "", _glbBlobSourceB64: "" }));
@@ -8059,6 +8693,7 @@ def _node_studio_js(initial_view: str) -> str:
       if (slashPillEl) slashPillEl.classList.add("hidden");
       if (cfg.aspectRatio) state.aspectRatio = cfg.aspectRatio;
       if (cfg.resolution) state.resolution = cfg.resolution;
+      if (cfg.imageCount) state.imageCount = Math.max(1, Math.min(4, parseInt(cfg.imageCount, 10) || 1));
       if (cfg.thinkingLevel) state.thinkingLevel = cfg.thinkingLevel;
       if (typeof cfg.includeThoughts === "boolean") state.includeThoughts = cfg.includeThoughts;
       if (cfg.groundingMode) state.groundingMode = cfg.groundingMode;
@@ -8245,6 +8880,7 @@ def _node_studio_js(initial_view: str) -> str:
     try {
       state.nodes.forEach(_cleanupNodeResources);
       closeMeshViewer();
+      closeImageLightbox();
       state.graphName = "graph_" + String(Date.now()).slice(-4);
       state.graphPath = "/nodes/" + state.graphName + ".nodes.json";
       state.nodes = [];
@@ -8355,6 +8991,16 @@ def _node_studio_js(initial_view: str) -> str:
     toggleMeshModalAnim: toggleMeshModalAnim,
     toggleNodeMeshAnim: toggleNodeMeshAnim,
     downloadActiveMeshGlb: downloadActiveMeshGlb,
+    toggleNodeExpand: toggleNodeExpand,
+    openImageLightbox: openImageLightbox,
+    closeImageLightbox: closeImageLightbox,
+    stepLightbox: stepLightbox,
+    selectLightboxIndex: selectLightboxIndex,
+    toggleLightboxZoom: toggleLightboxZoom,
+    useLightboxImageAsRef: useLightboxImageAsRef,
+    popOutLightboxImage: popOutLightboxImage,
+    downloadLightboxImage: downloadLightboxImage,
+    splitCollectionToNodes: splitCollectionToNodes,
     sendChatPrompt: sendChatPrompt,
     focusNodeOnCanvas: focusNodeOnCanvas,
     setLibraryFilter: setLibraryFilter,
@@ -8410,6 +9056,8 @@ def _node_studio_js(initial_view: str) -> str:
     updateConfig: function (key, val) {
       if (key === "atlasQuality") {
         state.atlasRefine = val === "refined";
+      } else if (key === "imageCount") {
+        state.imageCount = Math.max(1, Math.min(4, parseInt(val, 10) || 1));
       } else {
         state[key] = val;
         if (key === "audioKind") {
@@ -8807,6 +9455,17 @@ def _render_studio_stage_markup(active_view: str) -> str:
               </select>
             </div>
 
+            <div id="nsBatchWrap" class="ns-setting-wrap">
+              <span class="ns-setting-lbl">COUNT</span>
+              <span id="nsBatchVal" class="ns-setting-val">1x</span>
+              <select id="nsBatchSelect" class="ns-setting-select" aria-label="Image Collection Count" onchange="window.TinCanNodeStudio.updateConfig('imageCount', this.value)">
+                <option value="1" selected>1 Image (1x)</option>
+                <option value="2">2 Images (Collection)</option>
+                <option value="3">3 Images (Collection)</option>
+                <option value="4">4 Images (Collection)</option>
+              </select>
+            </div>
+
             <div id="nsFpsWrap" class="ns-setting-wrap hidden">
               <span class="ns-setting-lbl">FPS</span>
               <span id="nsFpsVal" class="ns-setting-val">60fps</span>
@@ -8952,6 +9611,36 @@ def _render_studio_stage_markup(active_view: str) -> str:
       <div class="ns-splat-modal-foot">
         <span>Hyper3D Rodin v2.5 · PBR .GLB Interactive Inspector (@google/model-viewer + Wireframe Fallback)</span>
         <span>Controls: Left-Drag Orbit · Scroll Zoom · Esc Close</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen Image & Collection Lightbox Modal -->
+  <div id="nsImageLightboxModal" class="ns-splat-modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="Image Lightbox" onclick="if(event.target===this)window.TinCanNodeStudio.closeImageLightbox()">
+    <div class="ns-splat-modal">
+      <div class="ns-splat-modal-head">
+        <div>
+          <div id="nsLightboxTitle" class="ns-splat-modal-title">IMAGE LIGHTBOX</div>
+          <div id="nsLightboxMeta" class="ns-splat-modal-sub">Nano Banana · High-Resolution Preview</div>
+        </div>
+        <div class="ns-splat-modal-actions">
+          <span id="nsLightboxCounter" class="ns-splat-btn">1 / 1</span>
+          <button id="nsLightboxZoomBtn" type="button" class="ns-splat-btn" onclick="window.TinCanNodeStudio.toggleLightboxZoom()">2× Zoom</button>
+          <button id="nsLightboxUseRefBtn" type="button" class="ns-splat-btn" onclick="window.TinCanNodeStudio.useLightboxImageAsRef()">+ Use as Ref</button>
+          <button id="nsLightboxPopOutBtn" type="button" class="ns-splat-btn" onclick="window.TinCanNodeStudio.popOutLightboxImage()">↗ Pop Out Node</button>
+          <button id="nsLightboxDownloadBtn" type="button" class="ns-splat-btn" onclick="window.TinCanNodeStudio.downloadLightboxImage()">↓ Download</button>
+          <button id="nsLightboxCloseBtn" type="button" class="ns-splat-btn ns-splat-btn--expand" onclick="window.TinCanNodeStudio.closeImageLightbox()">✕ Close [Esc]</button>
+        </div>
+      </div>
+      <div id="nsLightboxStage" class="ns-lightbox-stage">
+        <button id="nsLightboxPrevBtn" type="button" class="ns-lightbox-nav ns-lightbox-nav--prev hidden" aria-label="Previous image" onclick="window.TinCanNodeStudio.stepLightbox(-1)">‹</button>
+        <img id="nsLightboxImg" class="ns-lightbox-img" src="" alt="Lightbox preview" onclick="window.TinCanNodeStudio.toggleLightboxZoom()">
+        <button id="nsLightboxNextBtn" type="button" class="ns-lightbox-nav ns-lightbox-nav--next hidden" aria-label="Next image" onclick="window.TinCanNodeStudio.stepLightbox(1)">›</button>
+      </div>
+      <div id="nsLightboxStrip" class="ns-lightbox-strip hidden"></div>
+      <div class="ns-splat-modal-foot">
+        <span>Click image to toggle 2× Zoom · Use filmstrip or ←/→ keys to browse collection</span>
+        <span>Controls: ←/→ Navigate · Click Zoom · Esc Close</span>
       </div>
     </div>
   </div>

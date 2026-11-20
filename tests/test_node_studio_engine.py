@@ -715,3 +715,70 @@ def test_gemini_3_1_pro_nanogpt_mapping_input_grounding_and_fallback():
     assert res_fb["ok"] is True
     assert res_fb["node"]["data"]["content"]["text"] == "Fallback DeepSeek real output"
     assert seen_models[-1] == "TEE/deepseek-v4.1-flash"
+
+
+def test_nano_banana_image_collection_generation_and_parallel_topup():
+    # 1. NanoGPT returns 4 images in a single n=4 call
+    def fake_post_batch(url, headers, payload):
+        assert payload["n"] == 4
+        return 200, {
+            "data": [
+                {"b64_json": base64.b64encode(f"PNG_FRAME_{i}".encode()).decode("ascii")}
+                for i in range(4)
+            ]
+        }
+
+    res4 = handle_node_studio_generate(
+        {
+            "prompt": "Cyberpunk golden retriever astronaut posters",
+            "modality": "image",
+            "config": {"model": "gemini-3.1-flash-image", "provider": "nanogpt", "count": 4},
+        },
+        env={"NANOGPT_API_KEY": "ngpt-coll-key"},
+        http_post=fake_post_batch,
+    )
+    assert res4["ok"] is True
+    assert res4["collectionCount"] == 4
+    assert res4["node"]["data"]["type"] == "COLLECTION"
+    imgs4 = res4["node"]["data"]["content"]["images"]
+    assert len(imgs4) == 4
+    assert res4["node"]["data"]["content"]["imageUrl"] == imgs4[0]["imageUrl"]
+
+    # 2. NanoGPT rejects n > 1 (or only returns 1 frame per request) -> parallel top-up fills all 3 frames
+    call_counter = {"n": 0}
+
+    def fake_post_capped(url, headers, payload):
+        if payload.get("n", 1) > 1:
+            return 400, {"error": "n must be 1 for this model"}
+        call_counter["n"] += 1
+        idx = call_counter["n"]
+        return 200, {
+            "data": [{"b64_json": base64.b64encode(f"FRAME_{idx}".encode()).decode("ascii")}]
+        }
+
+    res3 = handle_node_studio_generate(
+        {
+            "prompt": "Minimalist architectural brutalist chairs",
+            "modality": "image",
+            "config": {"model": "gemini-nano-banana-2.1", "provider": "nanogpt", "count": 3},
+        },
+        env={"NANOGPT_API_KEY": "ngpt-coll-key"},
+        http_post=fake_post_capped,
+    )
+    assert res3["ok"] is True
+    assert res3["collectionCount"] == 3
+    assert len(res3["node"]["data"]["content"]["images"]) == 3
+    assert call_counter["n"] == 3
+
+    # 3. Offline synthetic collection honors count=3 cleanly
+    res_off = handle_node_studio_generate(
+        {
+            "prompt": "Offline botanical plates",
+            "modality": "image",
+            "config": {"model": "gemini-nano-banana-2.1", "count": 3},
+        },
+        env={},
+    )
+    assert res_off["ok"] is True
+    assert res_off["collectionCount"] == 3
+    assert len(res_off["node"]["data"]["content"]["images"]) == 3

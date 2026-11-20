@@ -846,6 +846,23 @@ def test_async_media_mesh_modal_chat_and_library_markup_and_compliance() -> None
         "nsLibChip-3d",
         "nsLibChip-atlas",
         "nsLibraryViewGrid",
+        "nsBatchWrap",
+        "nsBatchVal",
+        "nsBatchSelect",
+        "nsImageLightboxModal",
+        "nsLightboxTitle",
+        "nsLightboxMeta",
+        "nsLightboxCounter",
+        "nsLightboxZoomBtn",
+        "nsLightboxUseRefBtn",
+        "nsLightboxPopOutBtn",
+        "nsLightboxDownloadBtn",
+        "nsLightboxCloseBtn",
+        "nsLightboxStage",
+        "nsLightboxPrevBtn",
+        "nsLightboxImg",
+        "nsLightboxNextBtn",
+        "nsLightboxStrip",
     )
     for dom_id in required_ids:
         assert f'id="{dom_id}"' in html, f"Missing id={dom_id} in standalone HTML"
@@ -2119,3 +2136,236 @@ global.fetch = (url, opts) => {{
     assert res["errNotStagedLocally"] is True
     assert res["errBoxRendered"] is True
     assert res["autoLayoutNoVerticalOverlap"] is True
+
+
+def test_resizable_text_notes_image_collections_and_lightbox_in_node() -> None:
+    node_bin = shutil.which("node")
+    if not node_bin:
+        pytest.skip("node binary not available for JS runtime check")
+
+    html = render_node_studio_html()
+    script = _extract_inline_script(html)
+
+    harness = f"""
+const elements = new Map();
+const docListeners = {{}};
+const elListeners = new Map();
+function makeEl(id) {{
+  const el = {{
+    id,
+    tagName: "DIV",
+    textContent: "",
+    innerHTML: "",
+    value: "",
+    src: "",
+    alt: "",
+    style: {{}},
+    dataset: {{}},
+    _classes: new Set(id === "nsImageLightboxModal" || id === "nsMeshViewerModal" || id === "nsSplatViewerModal" || id === "nsResponseToast" ? ["hidden"] : []),
+    classList: {{
+      toggle(c, force) {{
+        if (force === undefined) {{
+          if (el._classes.has(c)) {{ el._classes.delete(c); return false; }}
+          el._classes.add(c); return true;
+        }}
+        if (force) el._classes.add(c); else el._classes.delete(c);
+        return !!force;
+      }},
+      add(c) {{ el._classes.add(c); }},
+      remove(c) {{ el._classes.delete(c); }},
+      contains(c) {{ return el._classes.has(c); }}
+    }},
+    setAttribute() {{}},
+    addEventListener(type, fn) {{
+      if (!elListeners.has(id)) elListeners.set(id, {{}});
+      if (!elListeners.get(id)[type]) elListeners.get(id)[type] = [];
+      elListeners.get(id)[type].push(fn);
+    }},
+    querySelectorAll() {{ return []; }},
+    getBoundingClientRect() {{ return {{ left: 0, top: 0, width: 1200, height: 800 }}; }}
+  }};
+  return el;
+}}
+[
+  "nsDotCanvas", "nsEmptyState", "nsCanvasWorld", "nsEdgesSvg", "nsNodesLayer",
+  "nsSelectionBox", "nsDropOverlay", "nsRefsStrip", "nsRefsRow", "nsPromptInput",
+  "nsModelBtnLabel", "nsModePill", "nsRefCounter", "nsActiveRunsCount", "nsGenerateBtn",
+  "nsResponseToast", "nsBatchWrap", "nsBatchVal", "nsBatchSelect",
+  "nsImageLightboxModal", "nsLightboxTitle", "nsLightboxMeta", "nsLightboxCounter",
+  "nsLightboxZoomBtn", "nsLightboxUseRefBtn", "nsLightboxPopOutBtn", "nsLightboxDownloadBtn",
+  "nsLightboxCloseBtn", "nsLightboxStage", "nsLightboxPrevBtn", "nsLightboxImg",
+  "nsLightboxNextBtn", "nsLightboxStrip"
+].forEach((id) => elements.set(id, makeEl(id)));
+
+const fetchCalls = [];
+global.window = {{ innerWidth: 1200, innerHeight: 800, location: {{ href: "http://localhost:8013/nodes", search: "" }}, addEventListener() {{}} }};
+global.document = {{
+  readyState: "complete",
+  getElementById(id) {{ return elements.get(id) || null; }},
+  querySelectorAll() {{ return []; }},
+  addEventListener(type, fn) {{
+    if (!docListeners[type]) docListeners[type] = [];
+    docListeners[type].push(fn);
+  }},
+  createElement(tag) {{ const el = makeEl(tag); el.click = () => {{}}; return el; }},
+  body: {{ appendChild() {{}}, removeChild() {{}} }}
+}};
+global.fetch = (url, opts) => {{
+  const body = opts && opts.body ? JSON.parse(opts.body) : null;
+  fetchCalls.push({{ url: String(url), body }});
+  if (url === "/api/nodes/generate") {{
+    const cnt = (body && body.config && body.config.count) || 1;
+    const imgs = [];
+    for (let i = 0; i < cnt; i++) {{
+      imgs.push({{
+        index: i,
+        imageUrl: "data:image/png;base64,SU1HXz" + (i + 1),
+        base64: "SU1HXz" + (i + 1),
+        mimeType: "image/png"
+      }});
+    }}
+    return Promise.resolve({{
+      status: 200,
+      ok: true,
+      json: async () => ({{
+        ok: true,
+        modality: "image",
+        collectionCount: imgs.length,
+        images: imgs,
+        node: {{
+          id: "coll-1",
+          data: {{
+            type: imgs.length > 1 ? "COLLECTION" : "GENERATED",
+            content: {{ imageUrl: imgs[0].imageUrl, base64: imgs[0].base64, mimeType: "image/png", images: imgs }},
+            metadata: {{ model: "gemini-3.1-flash-image", prompt: body.prompt, resolution: "1K" }}
+          }}
+        }}
+      }})
+    }});
+  }}
+  return Promise.resolve({{ status: 200, ok: true, json: async () => ({{ ok: true }}) }});
+}};
+
+{script}
+
+(async () => {{
+  const api = window.TinCanNodeStudio;
+  const st = api.getState();
+  const out = {{}};
+
+  // 1. Resizable Text note: 1-click Expand / Compact AND drag-to-resize corner handle
+  st.nodes.push({{
+    id: "txt-note-1", type: "TEXT", modality: "text", morphingStatus: "text",
+    label: "Long screenplay beat", x: 100, y: 100, width: 340, height: 250,
+    content: {{ text: "A ".repeat(400) }},
+    metadata: {{ model: "gemini-3.1-pro", prompt: "Write a long scene" }}
+  }});
+  api.selectModality("image");
+  api.toggleNodeExpand("txt-note-1");
+  const txtNode = st.nodes.find((n) => n.id === "txt-note-1");
+  out.expandedTextW = txtNode.width;
+  out.expandedTextH = txtNode.height;
+  out.expandBtnNowCompact = elements.get("nsNodesLayer").innerHTML.includes("↙ Compact");
+
+  // Simulate corner drag resize (+120px right, +90px down at zoom=1)
+  const canvasMousedown = (elListeners.get("nsDotCanvas") || {{}}).mousedown || [];
+  canvasMousedown.forEach((fn) => fn({{
+    clientX: 500, clientY: 500, preventDefault() {{}}, stopPropagation() {{}},
+    target: {{ closest(sel) {{ return sel === ".ns-resize-handle" ? {{ dataset: {{ resizeNodeId: "txt-note-1" }} }} : null; }} }}
+  }}));
+  (docListeners.mousemove || []).forEach((fn) => fn({{ clientX: 620, clientY: 590 }}));
+  (docListeners.mouseup || []).forEach((fn) => fn({{}}));
+  out.resizedTextW = txtNode.width;
+  out.resizedTextH = txtNode.height;
+  out.resizeClearedOnUp = st.resizeNodeId === null;
+
+  // Toggle compact restores pre-expand dimensions
+  api.toggleNodeExpand("txt-note-1");
+  out.compactedTextW = txtNode.width;
+
+  // 2. Nano Banana 4-Image Collection generation -> grid UI + Lightbox navigation + Ref + Pop Out + Split
+  api.selectModel("gemini-3.1-flash-image");
+  api.updateConfig("imageCount", "4");
+  out.batchBadge = elements.get("nsBatchVal").textContent;
+  elements.get("nsPromptInput").value = "Brutalist ceramic lamps collection";
+  api.handlePromptInput(elements.get("nsPromptInput").value);
+  out.genBtnText = elements.get("nsGenerateBtn").textContent;
+  await api.generate();
+
+  const genCall = fetchCalls.find((c) => c.url === "/api/nodes/generate");
+  out.sentCount = genCall && genCall.body && genCall.body.config ? genCall.body.config.count : 0;
+  const collNode = st.nodes[st.nodes.length - 1];
+  out.collType = collNode.type;
+  out.collImgCount = collNode.content.images.length;
+  const nodesHtml = elements.get("nsNodesLayer").innerHTML;
+  out.collGridRendered = nodesHtml.includes("COLLECTION · 4 IMAGES") && nodesHtml.includes("ns-collection-grid") && nodesHtml.includes("Split Nodes");
+
+  // Open Lightbox at index 1 (image #2 of 4)
+  api.openImageLightbox(collNode.id, 1);
+  out.lbOpen = !elements.get("nsImageLightboxModal").classList.contains("hidden");
+  out.lbCounterInitial = elements.get("nsLightboxCounter").textContent;
+  out.lbImgSrcInitial = elements.get("nsLightboxImg").src;
+  out.lbStripHas4 = (elements.get("nsLightboxStrip").innerHTML.match(/ns-lightbox-thumb/g) || []).length === 4;
+
+  // Keyboard ArrowRight advances to image #3 of 4; zoom toggles; Esc closes
+  (docListeners.keydown || []).forEach((fn) => fn({{ key: "ArrowRight", preventDefault() {{}} }}));
+  out.lbCounterAfterRight = elements.get("nsLightboxCounter").textContent;
+  api.toggleLightboxZoom();
+  out.lbZoomed = elements.get("nsLightboxImg").classList.contains("is-zoomed");
+
+  // Use image #3 as reference attaches it cleanly and closes lightbox
+  api.useLightboxImageAsRef();
+  out.lbClosedAfterUseRef = elements.get("nsImageLightboxModal").classList.contains("hidden");
+  out.refAddedFromLightbox = st.references.some((r) => r.url === "data:image/png;base64,SU1HXz3");
+
+  // Reopen & Pop Out image #2 to standalone canvas node
+  api.openImageLightbox(collNode.id, 1);
+  const countBeforePop = st.nodes.length;
+  api.popOutLightboxImage();
+  out.nodeAddedOnPopOut = st.nodes.length === countBeforePop + 1;
+  out.poppedNodeUrl = st.nodes[st.nodes.length - 1].content.imageUrl;
+
+  // Reopen & Escape closes cleanly
+  api.openImageLightbox(collNode.id, 0);
+  (docListeners.keydown || []).forEach((fn) => fn({{ key: "Escape", preventDefault() {{}} }}));
+  out.lbClosedOnEsc = elements.get("nsImageLightboxModal").classList.contains("hidden");
+
+  // Split collection spawns all 4 standalone nodes
+  const countBeforeSplit = st.nodes.length;
+  api.splitCollectionToNodes(collNode.id);
+  out.nodesAddedOnSplit = st.nodes.length - countBeforeSplit;
+
+  console.log(JSON.stringify(out));
+}})();
+"""
+    run_res = subprocess.run([node_bin, "-e", harness], text=True, capture_output=True, check=False)
+    assert run_res.returncode == 0, f"Node runtime failed: {run_res.stderr}"
+    res = json.loads(run_res.stdout.strip())
+
+    assert res["expandedTextW"] >= 520
+    assert res["expandedTextH"] >= 460
+    assert res["expandBtnNowCompact"] is True
+    assert res["resizedTextW"] == res["expandedTextW"] + 120
+    assert res["resizedTextH"] == res["expandedTextH"] + 90
+    assert res["resizeClearedOnUp"] is True
+    assert res["compactedTextW"] == 340
+
+    assert res["batchBadge"] == "4x"
+    assert "4 Images" in res["genBtnText"]
+    assert res["sentCount"] == 4
+    assert res["collType"] == "COLLECTION"
+    assert res["collImgCount"] == 4
+    assert res["collGridRendered"] is True
+
+    assert res["lbOpen"] is True
+    assert res["lbCounterInitial"] == "2 / 4"
+    assert res["lbImgSrcInitial"] == "data:image/png;base64,SU1HXz2"
+    assert res["lbStripHas4"] is True
+    assert res["lbCounterAfterRight"] == "3 / 4"
+    assert res["lbZoomed"] is True
+    assert res["lbClosedAfterUseRef"] is True
+    assert res["refAddedFromLightbox"] is True
+    assert res["nodeAddedOnPopOut"] is True
+    assert res["poppedNodeUrl"] == "data:image/png;base64,SU1HXz2"
+    assert res["lbClosedOnEsc"] is True
+    assert res["nodesAddedOnSplit"] == 4
