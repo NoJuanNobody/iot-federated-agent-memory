@@ -72,3 +72,19 @@ Resolve every remaining Node Studio limitation via parallel worktree swarm (`swa
 - **Durable Streaming & Async Polling (`server.py`)**: Persisted completed audio into `.space/audio/` with real detected MIME/extension, returned durable `/api/space/file?raw=1...` `audio_raw_url` (served with HTTP `Range` `206 Partial Content`), omitted >2MB inline base64 payloads, and added `GET /api/nodes/audio/status` in both `BaseHTTPRequestHandler` and FastAPI.
 - **Playable Audio Cards + Local Audio Upload (`node_studio_ui.py`)**: Expanded audio cards to `320x256px` and `.ns-audio-player` to `42px`, preferred streaming `/api/space/file?raw=1...` URLs with `preload="metadata"` and dynamic `.MP3`/`.WAV`/`.OGG` download buttons, added live 3.5s `pollAudioJobForNode()` + reload auto-resume, fixed canvas `mousedown` so `<audio>`/`<video>`/`<model-viewer>` controls never rebuild or drag mid-click, and added `audio/*` support to `#nsFileInput`, attach, and drag-and-drop onto the canvas.
 
+---
+
+## Entry #4 — 2026-11-20 (Live Production QA · Smooth Scroll Zoom Damping)
+
+### User Experience Notes (Verbatim)
+- `"can we fix the scroll zoom thing its like way too sensitive"`
+
+### Root Cause
+- All three `wheel` handlers (`#nsDotCanvas`, `.ns-splat-canvas`, `#nsSplatModalCanvas`) ignored `ev.deltaY` magnitude and applied a fixed `1.08x`/`0.92x` (or `1.1x`/`0.9x`) multiplier per wheel event, causing MacBook trackpads (60–120 tiny pixel events/sec) to explode zoom by `~500–700%` on a gentle scroll.
+- `zoomBy` rounded to `toFixed(2)` and zoomed around `(0, 0)` rather than the cursor position, and scrolling inside overflowing Text cards / popovers zoomed the canvas instead of scrolling the element.
+
+### Fixes Shipped
+- Added `_wheelZoomFactor(ev, baseScale, pinchScale)` using `deltaMode` normalization, `[-80, 80]` per-event clamping, and smooth exponential damping (`0.0012` scroll / `0.004` trackpad pinch) across `#nsDotCanvas` and both 3D Splat viewports.
+- Upgraded `zoomBy(factor, clientX, clientY)` to keep 4-decimal precision (`[0.15, 3.0]`) and anchor zoom cleanly around the mouse cursor.
+- Preserved native vertical scrolling inside overflowing Text cards / popovers / menus and converted two-finger horizontal trackpad swipes into smooth horizontal panning instead of accidental zoom jitter.
+

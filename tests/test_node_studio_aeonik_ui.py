@@ -1806,3 +1806,128 @@ global.fetch = (url, opts) => {{
     assert res["uploadedAudioRefChip"] is True
     assert res["resumedAudioPolling"] is True
     assert res["intervalsLeft"] == 0
+
+
+def test_smooth_damped_wheel_zoom_and_cursor_anchoring_in_node() -> None:
+    node_bin = shutil.which("node")
+    if not node_bin:
+        pytest.skip("node binary not available for JS runtime check")
+
+    html = render_node_studio_html()
+    script = _extract_inline_script(html)
+
+    harness = f"""
+const elements = new Map();
+const listeners = new Map();
+function makeEl(id) {{
+  const el = {{
+    id,
+    tagName: "DIV",
+    textContent: "",
+    innerHTML: "",
+    value: "",
+    style: {{}},
+    dataset: {{}},
+    _classes: new Set(),
+    classList: {{
+      toggle(c, force) {{
+        if (force === undefined) {{
+          if (el._classes.has(c)) {{ el._classes.delete(c); return false; }}
+          el._classes.add(c); return true;
+        }}
+        if (force) el._classes.add(c); else el._classes.delete(c);
+        return !!force;
+      }},
+      add(c) {{ el._classes.add(c); }},
+      remove(c) {{ el._classes.delete(c); }},
+      contains(c) {{ return el._classes.has(c); }}
+    }},
+    setAttribute() {{}},
+    addEventListener(type, fn) {{
+      if (!listeners.has(id)) listeners.set(id, {{}});
+      if (!listeners.get(id)[type]) listeners.get(id)[type] = [];
+      listeners.get(id)[type].push(fn);
+    }},
+    querySelectorAll() {{ return []; }},
+    getBoundingClientRect() {{ return {{ left: 0, top: 0, width: 1200, height: 800 }}; }}
+  }};
+  return el;
+}}
+[
+  "nsDotCanvas", "nsEmptyState", "nsCanvasWorld", "nsEdgesSvg", "nsNodesLayer",
+  "nsSelectionBox", "nsDropOverlay", "nsRefsStrip", "nsRefsRow", "nsPromptInput",
+  "nsModelBtnLabel", "nsModePill", "nsRefCounter", "nsActiveRunsCount", "nsGenerateBtn"
+].forEach((id) => elements.set(id, makeEl(id)));
+
+global.window = {{ innerWidth: 1200, innerHeight: 800, location: {{ href: "http://localhost:8013/nodes", search: "" }}, addEventListener() {{}} }};
+global.document = {{
+  readyState: "complete",
+  getElementById(id) {{ return elements.get(id) || null; }},
+  querySelectorAll() {{ return []; }},
+  addEventListener() {{}},
+  createElement(tag) {{ return makeEl(tag); }},
+  body: {{ appendChild() {{}}, removeChild() {{}} }}
+}};
+global.fetch = () => Promise.resolve({{ status: 200, ok: true, json: async () => ({{ ok: true }}) }});
+
+{script}
+
+const api = window.TinCanNodeStudio;
+const st = api.getState();
+const wheelFns = (listeners.get("nsDotCanvas") || {{}}).wheel || [];
+const fireWheel = (ev) => wheelFns.forEach((fn) => fn(Object.assign({{ preventDefault() {{}}, target: {{}} }}, ev)));
+
+// 1. 20 tiny Mac trackpad ticks (-4px each = -80px total) should zoom smoothly by ~10%, NOT 500%!
+st.zoom = 1; st.panX = 0; st.panY = 0;
+for (let i = 0; i < 20; i++) {{
+  fireWheel({{ deltaY: -4, deltaX: 0, deltaMode: 0, clientX: 600, clientY: 400 }});
+}}
+const afterTrackpadZoom = st.zoom;
+const afterTrackpadPanX = st.panX;
+const afterTrackpadPanY = st.panY;
+
+// 2. Horizontal two-finger swipe pans panX instead of zooming
+const zoomBeforeHoriz = st.zoom;
+const panXBeforeHoriz = st.panX;
+fireWheel({{ deltaX: 40, deltaY: 2, deltaMode: 0, clientX: 600, clientY: 400 }});
+const zoomAfterHoriz = st.zoom;
+const panXAfterHoriz = st.panX;
+
+// 3. Scrolling inside an overflowing .ns-text-body does NOT zoom the canvas
+let preventedInsideScrollable = false;
+const zoomBeforeTextScroll = st.zoom;
+fireWheel({{
+  deltaY: 40, deltaX: 0, deltaMode: 0, clientX: 300, clientY: 300,
+  preventDefault() {{ preventedInsideScrollable = true; }},
+  target: {{ closest() {{ return {{ scrollHeight: 400, clientHeight: 120 }}; }} }}
+}});
+const zoomAfterTextScroll = st.zoom;
+
+console.log(JSON.stringify({{
+  afterTrackpadZoom,
+  afterTrackpadPanX,
+  afterTrackpadPanY,
+  zoomBeforeHoriz,
+  zoomAfterHoriz,
+  panXBeforeHoriz,
+  panXAfterHoriz,
+  preventedInsideScrollable,
+  zoomBeforeTextScroll,
+  zoomAfterTextScroll
+}}));
+"""
+    run_res = subprocess.run([node_bin, "-e", harness], text=True, capture_output=True, check=False)
+    assert run_res.returncode == 0, f"Node runtime failed: {run_res.stderr}"
+    res = json.loads(run_res.stdout.strip())
+
+    # 20 x -4px = -80px -> exp(80 * 0.0012) ~= 1.1008 (smooth ~10% zoom, nowhere near old 1.08^20 = 4.66x!)
+    assert 1.06 <= res["afterTrackpadZoom"] <= 1.15, f"Unexpected trackpad zoom: {res['afterTrackpadZoom']}"
+    # Cursor-anchored around (600, 400) -> pan shifts negative to keep cursor point pinned
+    assert res["afterTrackpadPanX"] < 0
+    assert res["afterTrackpadPanY"] < 0
+    # Horizontal swipe pans instead of zooming
+    assert res["zoomAfterHoriz"] == res["zoomBeforeHoriz"]
+    assert res["panXAfterHoriz"] < res["panXBeforeHoriz"]
+    # Scrollable text card scrolls natively without zooming canvas
+    assert res["preventedInsideScrollable"] is False
+    assert res["zoomAfterTextScroll"] == res["zoomBeforeTextScroll"]

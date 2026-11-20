@@ -5609,8 +5609,8 @@ def _node_studio_js(initial_view: str) -> str:
         canvasEl.addEventListener("wheel", (ev) => {
           ev.preventDefault();
           ev.stopPropagation();
-          const factor = ev.deltaY < 0 ? 1.1 : 0.9;
-          node.splatState.zoom = Math.max(0.45, Math.min(2.8, node.splatState.zoom * factor));
+          const factor = _wheelZoomFactor(ev, 0.0014, 0.004);
+          node.splatState.zoom = Math.max(0.45, Math.min(2.8, Number((node.splatState.zoom * factor).toFixed(4))));
           drawSplatSceneOnCanvas(canvasEl, node, node.splatState);
         }, { passive: false });
         canvasEl.addEventListener("dblclick", (ev) => {
@@ -5897,8 +5897,8 @@ def _node_studio_js(initial_view: str) -> str:
     canvasEl.addEventListener("wheel", (ev) => {
       ev.preventDefault();
       modalSplatState.autoOrbit = false;
-      const factor = ev.deltaY < 0 ? 1.1 : 0.9;
-      modalSplatState.zoom = Math.max(0.4, Math.min(3.5, modalSplatState.zoom * factor));
+      const factor = _wheelZoomFactor(ev, 0.0014, 0.004);
+      modalSplatState.zoom = Math.max(0.4, Math.min(3.5, Number((modalSplatState.zoom * factor).toFixed(4))));
       renderModalSplatFrame();
     }, { passive: false });
   }
@@ -6613,8 +6613,32 @@ def _node_studio_js(initial_view: str) -> str:
     applyCanvasTransform();
   }
 
-  function zoomBy(factor) {
-    state.zoom = Math.max(0.1, Math.min(3.0, Number((state.zoom * factor).toFixed(2))));
+  function _wheelZoomFactor(ev, baseScale, pinchScale) {
+    let dy = Number(ev && ev.deltaY) || 0;
+    if (!dy) return 1;
+    if (ev.deltaMode === 1) dy *= 16;
+    else if (ev.deltaMode === 2) dy *= 120;
+    const isPinch = !!(ev.ctrlKey || ev.metaKey);
+    const clamped = Math.max(-80, Math.min(80, dy));
+    const sens = isPinch ? (pinchScale || 0.004) : (baseScale || 0.0012);
+    return Math.exp(-clamped * sens);
+  }
+
+  function zoomBy(factor, clientX, clientY) {
+    const prevZoom = state.zoom || 1;
+    const nextZoom = Math.max(0.15, Math.min(3.0, Number((prevZoom * factor).toFixed(4))));
+    if (nextZoom === prevZoom) return;
+    if (typeof clientX === "number" && typeof clientY === "number") {
+      const canvas = $("nsDotCanvas");
+      const rect = canvas && canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : { left: 0, top: 0 };
+      const cx = clientX - rect.left;
+      const cy = clientY - rect.top;
+      const worldX = (cx - state.panX) / prevZoom;
+      const worldY = (cy - state.panY) / prevZoom;
+      state.panX = Math.round(cx - worldX * nextZoom);
+      state.panY = Math.round(cy - worldY * nextZoom);
+    }
+    state.zoom = nextZoom;
     applyCanvasTransform();
   }
 
@@ -7327,8 +7351,21 @@ def _node_studio_js(initial_view: str) -> str:
     const canvas = $("nsDotCanvas");
     if (canvas) {
       canvas.addEventListener("wheel", (ev) => {
+        const scrollTarget = ev.target && ev.target.closest
+          ? ev.target.closest(".ns-text-body, .ns-omni-box, .ns-chat-feed, .ns-lib-grid, .ns-popover, .ns-floating-terminal, .ns-model-menu, .ns-api-menu, .ns-graphs-popover")
+          : null;
+        if (scrollTarget && scrollTarget.scrollHeight > scrollTarget.clientHeight + 2) {
+          return;
+        }
         ev.preventDefault();
-        zoomBy(ev.deltaY < 0 ? 1.08 : 0.92);
+        const absX = Math.abs(Number(ev.deltaX) || 0);
+        const absY = Math.abs(Number(ev.deltaY) || 0);
+        if (!ev.ctrlKey && !ev.metaKey && absX > absY * 1.5 && absX > 0) {
+          state.panX = Math.round(state.panX - (Number(ev.deltaX) || 0) * 0.65);
+          applyCanvasTransform();
+          return;
+        }
+        zoomBy(_wheelZoomFactor(ev, 0.0012, 0.004), ev.clientX, ev.clientY);
       }, { passive: false });
 
       canvas.addEventListener("mousedown", (ev) => {
