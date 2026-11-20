@@ -658,6 +658,9 @@ class DynamicAIGatewayRouter:
     NANOGPT_IMAGE_ENDPOINT = "https://api.nano-gpt.com/api/v1/images/generations"
     NANOGPT_MEDIA_SUBMIT_URL = "https://api.nano-gpt.com/api/generate-video"
     NANOGPT_MEDIA_STATUS_URL = "https://api.nano-gpt.com/api/video/status"
+    NANOGPT_AUDIO_SPEECH_URL = "https://api.nano-gpt.com/api/v1/audio/speech"
+    NANOGPT_TTS_URL = "https://api.nano-gpt.com/api/tts"
+    NANOGPT_TTS_STATUS_URL = "https://api.nano-gpt.com/api/tts/status"
     NANOGPT_3D_MODELS_URL = "https://api.nano-gpt.com/api/v1/3d-models"
     NANOGPT_MODELS_URL = "https://api.nano-gpt.com/api/v1/models?detailed=true"
     NANOGPT_BALANCE_URL = "https://api.nano-gpt.com/api/check-balance"
@@ -4206,6 +4209,141 @@ class DynamicAIGatewayRouter:
             "simulated": bool(op.get("simulated")),
         }
 
+    @staticmethod
+    def _detect_audio_format(raw_bytes: bytes, content_type: str = "") -> tuple[str, str]:
+        """Detect real audio MIME type and file extension from magic bytes and Content-Type."""
+        head = raw_bytes[:16] if raw_bytes else b""
+        if len(head) >= 12 and head[:4] == b"RIFF" and head[8:12] == b"WAVE":
+            return "audio/wav", ".wav"
+        if head[:3] == b"ID3" or (len(head) >= 2 and head[0] == 0xFF and (head[1] & 0xE0) == 0xE0):
+            return "audio/mpeg", ".mp3"
+        if head[:4] == b"OggS":
+            return "audio/ogg", ".ogg"
+        if head[:4] == b"fLaC":
+            return "audio/flac", ".flac"
+        if len(head) >= 8 and head[4:8] == b"ftyp":
+            return "audio/mp4", ".m4a"
+        ct = (content_type or "").split(";", 1)[0].strip().lower()
+        if ct in ("audio/mpeg", "audio/mp3"):
+            return "audio/mpeg", ".mp3"
+        if ct in ("audio/ogg", "audio/opus"):
+            return "audio/ogg", ".ogg"
+        if ct == "audio/flac":
+            return "audio/flac", ".flac"
+        if ct in ("audio/mp4", "audio/m4a", "audio/aac"):
+            return "audio/mp4", ".m4a"
+        if ct in ("audio/wav", "audio/x-wav", "audio/wave"):
+            return "audio/wav", ".wav"
+        return "audio/mpeg", ".mp3"
+
+    @classmethod
+    def _extract_audio_urls(cls, data: Any) -> List[str]:
+        """Recursively extract playable audio URLs from NanoGPT /api/tts or /api/tts/status JSON."""
+        urls: List[str] = []
+
+        def _add(val: Any) -> None:
+            raw_u = val.get("url") if isinstance(val, dict) else (val if isinstance(val, str) else None)
+            if not raw_u or not isinstance(raw_u, str):
+                return
+            u = raw_u.strip()
+            if u.startswith("/api/") or u.startswith("/"):
+                u = cls.NANOGPT_BASE_URL + u
+            if u.startswith(("http://", "https://")) and u not in urls:
+                urls.append(u)
+
+        def _walk(node: Any) -> None:
+            if isinstance(node, dict):
+                for k in (
+                    "audioUrl",
+                    "audio_url",
+                    "outputUrl",
+                    "output_url",
+                    "fileUrl",
+                    "file_url",
+                    "downloadUrl",
+                    "download_url",
+                    "url",
+                    "audio",
+                ):
+                    if k in node:
+                        val = node[k]
+                        if isinstance(val, str) and (val.startswith(("http://", "https://", "/api/")) or val.startswith("/")):
+                            _add(val)
+                        elif isinstance(val, dict):
+                            _add(val)
+                for k in ("audioUrls", "files", "outputs", "assets", "data"):
+                    sub = node.get(k)
+                    if isinstance(sub, list):
+                        for item in sub:
+                            _walk(item)
+                    elif isinstance(sub, dict):
+                        _walk(sub)
+            elif isinstance(node, list):
+                for item in node:
+                    _walk(item)
+
+        _walk(data)
+        audio_ext = (".mp3", ".wav", ".ogg", ".opus", ".flac", ".m4a")
+        preferred = [u for u in urls if any(ext in u.lower().split("?", 1)[0] for ext in audio_ext)]
+        other = [u for u in urls if u not in preferred]
+        return preferred + other
+
+    @staticmethod
+    def _extract_inline_audio_b64(data: Any) -> Optional[str]:
+        """Extract inline base64 audio payload if NanoGPT returns base64 JSON instead of a URL."""
+        if not isinstance(data, dict):
+            return None
+        for container in (data, data.get("data") if isinstance(data.get("data"), dict) else {}):
+            for k in ("audio_base64", "audioBase64", "audio_bytes_b64", "audioContent", "b64_audio", "audio"):
+                val = container.get(k)
+                if isinstance(val, str) and len(val.strip()) > 64 and not val.strip().startswith(("http://", "https://", "/")):
+                    raw = val.strip()
+                    if raw.startswith("data:") and ";base64," in raw:
+                        raw = raw.split(";base64,", 1)[1]
+                    return raw
+        return None
+
+    def _download_nanogpt_audio_url(self, audio_url: str, nanogpt_key: str) -> tuple[bytes, str, str]:
+        """Download completed audio bytes from a NanoGPT audioUrl and detect real MIME/extension."""
+        headers: Dict[str, str] = {"User-Agent": "tincan-audio/1.0"}
+        if self.NANOGPT_BASE_URL in audio_url and nanogpt_key:
+            headers["Authorization"] = f"Bearer {nanogpt_key}"
+            headers["x-api-key"] = nanogpt_key
+        req = urllib.request.Request(audio_url, headers=headers, method="GET")
+        with urllib.request.urlopen(req, timeout=60.0) as resp:
+            raw_bytes = resp.read()
+            ctype = resp.headers.get("Content-Type", "")
+        mime_type, ext = self._detect_audio_format(raw_bytes, ctype)
+        return raw_bytes, mime_type, ext
+
+    @staticmethod
+    def _resolve_upstream_audio_model_and_voice(
+        resolved_model: str,
+        norm_kind: str,
+        voice: Optional[str],
+    ) -> tuple[str, Optional[str]]:
+        """Map internal audio aliases to exact NanoGPT catalog model IDs and valid default voices."""
+        low = (resolved_model or "").strip().lower()
+        upstream_model = "Kokoro-82m" if low in ("kokoro-82m", "kokoro", "kokoro-tts") else resolved_model
+        clean_voice = (voice or "").strip() or None
+        if clean_voice and clean_voice.lower() == "aeonik_default":
+            clean_voice = None
+        is_tts = (
+            norm_kind in ("tts", "speech", "voice")
+            or "eleven-v4" in low
+            or "elevenlabs-turbo" in low
+            or "tts" in low
+            or "kokoro" in low
+        )
+        if not is_tts:
+            return upstream_model, clean_voice
+        if not clean_voice:
+            if "kokoro" in low:
+                clean_voice = "af_bella"
+            elif "eleven" in low:
+                clean_voice = "Aria"
+        return upstream_model, clean_voice
+
     def generate_omni_audio(
         self,
         prompt: str,
@@ -4213,8 +4351,10 @@ class DynamicAIGatewayRouter:
         kind: str = "music",
         model: Optional[str] = None,
         voice: Optional[str] = None,
+        api_key: Optional[str] = None,
+        duration: Optional[float] = None,
     ) -> Dict[str, Any]:
-        """Generate TTS, score/music, or SFX audio via NanoGPT Audio models or deterministic Kokoro/WAV synthesis."""
+        """Generate real TTS, music, or SFX audio via NanoGPT (/api/tts & /api/v1/audio/speech) with offline WAV fallback."""
         clean_prompt = (prompt or "").strip() or "Aeonik ambient spatial synth"
         norm_kind = (kind or "music").strip().lower()
         if norm_kind not in ("music", "tts", "sfx", "score", "speech", "voice", "fx"):
@@ -4232,17 +4372,375 @@ class DynamicAIGatewayRouter:
             else (raw_model or self.OMNI_AUDIO_DEFAULT_BY_KIND.get(norm_kind, "google/lyria-3.5"))
         )
 
-        wav_bytes = generate_minimal_wav_bytes(f"{ norm_kind }:{ resolved_model }:{ clean_prompt }")
-        wav_b64 = base64.b64encode(wav_bytes).decode("ascii")
+        nanogpt_key = (
+            (api_key or "").strip()
+            or (self.nanogpt_key or "").strip()
+        )
+        if not nanogpt_key:
+            wav_bytes = generate_minimal_wav_bytes(f"{ norm_kind }:{ resolved_model }:{ clean_prompt }")
+            wav_b64 = base64.b64encode(wav_bytes).decode("ascii")
+            return {
+                "ok": True,
+                "done": True,
+                "simulated": True,
+                "kind": norm_kind,
+                "model": resolved_model,
+                "voice": voice or ("af_heart" if "kokoro" in resolved_model else "aeonik_default"),
+                "prompt": clean_prompt,
+                "audio_bytes_b64": wav_b64,
+                "mime_type": "audio/wav",
+                "ext": ".wav",
+                "size_bytes": len(wav_bytes),
+                "sparkline": "│┃│┃┃│┃┃",
+                "lufs": -14.0,
+            }
+
+        upstream_model, resolved_voice = self._resolve_upstream_audio_model_and_voice(
+            resolved_model, norm_kind, voice
+        )
+        headers = {
+            "Authorization": f"Bearer {nanogpt_key}",
+            "x-api-key": nanogpt_key,
+            "Content-Type": "application/json",
+            "User-Agent": "tincan-audio/1.0",
+        }
+
+        tts_payload: Dict[str, Any] = {
+            "text": clean_prompt,
+            "model": upstream_model,
+        }
+        speech_payload: Dict[str, Any] = {
+            "model": upstream_model,
+            "input": clean_prompt,
+            "response_format": "mp3",
+        }
+        if resolved_voice:
+            tts_payload["voice"] = resolved_voice
+            speech_payload["voice"] = resolved_voice
+        if "sound-effects" in upstream_model.lower():
+            dur_val = float(duration) if duration is not None else 5.0
+            tts_payload["duration"] = max(0.5, min(30.0, dur_val))
+            tts_payload["output_format"] = "mp3_44100_128"
+            speech_payload["duration"] = tts_payload["duration"]
+
+        attempts = (
+            (self.NANOGPT_TTS_URL, tts_payload),
+            (self.NANOGPT_AUDIO_SPEECH_URL, speech_payload),
+        )
+        last_err_code = 502
+        last_err_msg = "NanoGPT audio request failed"
+
+        for endpoint_url, body_obj in attempts:
+            req = urllib.request.Request(
+                endpoint_url,
+                data=json.dumps(body_obj).encode("utf-8"),
+                headers=headers,
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=90.0) as resp:
+                    status_code = getattr(resp, "status", 200)
+                    ctype = (resp.headers.get("Content-Type") or "").lower()
+                    raw_body = resp.read()
+            except urllib.error.HTTPError as he:
+                last_err_code = int(getattr(he, "code", 502) or 502)
+                try:
+                    err_raw = he.read().decode("utf-8", errors="replace")
+                    err_json = json.loads(err_raw) if err_raw.strip().startswith("{") else {}
+                    last_err_msg = (
+                        (err_json.get("error") if isinstance(err_json.get("error"), str) else None)
+                        or (err_json.get("error", {}).get("message") if isinstance(err_json.get("error"), dict) else None)
+                        or err_json.get("message")
+                        or err_raw[:300]
+                        or f"HTTP {last_err_code}"
+                    )
+                except Exception:
+                    last_err_msg = str(he)
+                # Try fallback endpoint (/api/v1/audio/speech) on 400/404/405/422
+                if last_err_code in (400, 404, 405, 422):
+                    continue
+                return {
+                    "ok": False,
+                    "status_code": last_err_code,
+                    "simulated": False,
+                    "kind": norm_kind,
+                    "model": upstream_model,
+                    "error": f"NanoGPT audio ({upstream_model}): {last_err_msg}",
+                }
+            except Exception as exc:
+                last_err_code = 502
+                last_err_msg = str(exc)
+                continue
+
+            # Case A: Direct binary audio response
+            is_json_ct = "application/json" in ctype or "text/json" in ctype
+            looks_like_json = is_json_ct or raw_body[:1] in (b"{", b"[")
+            if raw_body and not looks_like_json:
+                mime_type, ext = self._detect_audio_format(raw_body, ctype)
+                return {
+                    "ok": True,
+                    "done": True,
+                    "async": False,
+                    "simulated": False,
+                    "kind": norm_kind,
+                    "model": upstream_model,
+                    "voice": resolved_voice or "",
+                    "prompt": clean_prompt,
+                    "audio_bytes_b64": base64.b64encode(raw_body).decode("ascii"),
+                    "mime_type": mime_type,
+                    "ext": ext,
+                    "size_bytes": len(raw_body),
+                    "sparkline": "│┃│┃┃│┃┃",
+                    "lufs": -14.0,
+                }
+
+            # Case B/C: JSON response (immediate audioUrl / inline base64 OR async 202 pending runId)
+            try:
+                data = json.loads(raw_body.decode("utf-8", errors="replace")) if raw_body else {}
+            except Exception:
+                data = {}
+            if not isinstance(data, dict):
+                data = {}
+
+            inner = data.get("data") if isinstance(data.get("data"), dict) else data
+            urls = self._extract_audio_urls(data)
+            if urls:
+                try:
+                    dl_bytes, mime_type, ext = self._download_nanogpt_audio_url(urls[0], nanogpt_key)
+                    if dl_bytes:
+                        return {
+                            "ok": True,
+                            "done": True,
+                            "async": False,
+                            "simulated": False,
+                            "kind": norm_kind,
+                            "model": upstream_model,
+                            "voice": resolved_voice or "",
+                            "prompt": clean_prompt,
+                            "remote_url": urls[0],
+                            "audio_bytes_b64": base64.b64encode(dl_bytes).decode("ascii"),
+                            "mime_type": mime_type,
+                            "ext": ext,
+                            "size_bytes": len(dl_bytes),
+                            "sparkline": "│┃│┃┃│┃┃",
+                            "lufs": -14.0,
+                        }
+                except Exception as dl_exc:
+                    return {
+                        "ok": True,
+                        "done": True,
+                        "async": False,
+                        "simulated": False,
+                        "kind": norm_kind,
+                        "model": upstream_model,
+                        "voice": resolved_voice or "",
+                        "prompt": clean_prompt,
+                        "remote_url": urls[0],
+                        "audio_url": urls[0],
+                        "mime_type": "audio/mpeg",
+                        "ext": ".mp3",
+                        "download_warning": str(dl_exc),
+                        "sparkline": "│┃│┃┃│┃┃",
+                        "lufs": -14.0,
+                    }
+
+            inline_b64 = self._extract_inline_audio_b64(data)
+            if inline_b64:
+                try:
+                    decoded = base64.b64decode(inline_b64)
+                    mime_type, ext = self._detect_audio_format(decoded, str(inner.get("contentType") or inner.get("mimeType") or ""))
+                    return {
+                        "ok": True,
+                        "done": True,
+                        "async": False,
+                        "simulated": False,
+                        "kind": norm_kind,
+                        "model": upstream_model,
+                        "voice": resolved_voice or "",
+                        "prompt": clean_prompt,
+                        "audio_bytes_b64": inline_b64,
+                        "mime_type": mime_type,
+                        "ext": ext,
+                        "size_bytes": len(decoded),
+                        "sparkline": "│┃│┃┃│┃┃",
+                        "lufs": -14.0,
+                    }
+                except Exception:
+                    pass
+
+            run_id = (
+                data.get("runId")
+                or data.get("requestId")
+                or data.get("jobId")
+                or data.get("id")
+                or inner.get("runId")
+                or inner.get("requestId")
+                or inner.get("jobId")
+                or inner.get("id")
+            )
+            raw_status = str(data.get("status") or inner.get("status") or "").lower()
+            if run_id and (status_code == 202 or raw_status in ("", "pending", "processing", "queued", "running", "in_progress", "submitted")):
+                return {
+                    "ok": True,
+                    "async": True,
+                    "done": False,
+                    "simulated": False,
+                    "status": "RUNNING",
+                    "job_id": str(run_id),
+                    "kind": norm_kind,
+                    "model": str(data.get("model") or upstream_model),
+                    "cost": data.get("cost"),
+                    "payment_source": data.get("paymentSource") or data.get("payment_source"),
+                    "voice": resolved_voice or "",
+                    "prompt": clean_prompt,
+                    "sparkline": "│┃│┃┃│┃┃",
+                    "lufs": -14.0,
+                }
+
+            err_val = data.get("error") or inner.get("error") or data.get("message")
+            if err_val:
+                last_err_msg = err_val.get("message") if isinstance(err_val, dict) else str(err_val)
+
+        return {
+            "ok": False,
+            "status_code": last_err_code,
+            "simulated": False,
+            "kind": norm_kind,
+            "model": upstream_model,
+            "error": f"NanoGPT audio ({upstream_model}): {last_err_msg}",
+        }
+
+    def poll_nanogpt_audio_status(
+        self,
+        job_id: str,
+        *,
+        model: Optional[str] = None,
+        cost: Optional[Any] = None,
+        payment_source: Optional[str] = None,
+        api_key: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Poll NanoGPT GET /api/tts/status for an asynchronous TTS/Music/SFX audio job."""
+        clean_id = (job_id or "").strip()
+        if not clean_id:
+            return {"ok": False, "done": True, "status": "FAILED", "error": "Missing job_id"}
+        nanogpt_key = (
+            (api_key or "").strip()
+            or (self.nanogpt_key or "").strip()
+        )
+        if not nanogpt_key:
+            return {"ok": False, "done": True, "status": "FAILED", "error": "NANOGPT_API_KEY is not configured"}
+
+        params: Dict[str, str] = {"runId": clean_id, "isApiRequest": "true"}
+        if model and str(model).strip():
+            params["model"] = str(model).strip()
+        if cost is not None and str(cost).strip():
+            params["cost"] = str(cost).strip()
+        if payment_source and str(payment_source).strip():
+            params["paymentSource"] = str(payment_source).strip()
+
+        url = f"{self.NANOGPT_TTS_STATUS_URL}?{urllib.parse.urlencode(params)}"
+        headers = {
+            "Authorization": f"Bearer {nanogpt_key}",
+            "x-api-key": nanogpt_key,
+            "User-Agent": "tincan-audio/1.0",
+        }
+        req = urllib.request.Request(url, headers=headers, method="GET")
+        try:
+            with urllib.request.urlopen(req, timeout=30.0) as resp:
+                ctype = (resp.headers.get("Content-Type") or "").lower()
+                raw_body = resp.read()
+        except urllib.error.HTTPError as he:
+            code = int(getattr(he, "code", 502) or 502)
+            if code == 404:
+                return {"ok": True, "done": False, "status": "RUNNING", "job_id": clean_id, "model": model or ""}
+            try:
+                err_txt = he.read().decode("utf-8", errors="replace")[:300]
+            except Exception:
+                err_txt = str(he)
+            return {"ok": False, "done": True, "status": "FAILED", "job_id": clean_id, "error": f"NanoGPT audio status HTTP {code}: {err_txt}"}
+        except Exception as exc:
+            return {"ok": False, "done": True, "status": "FAILED", "job_id": clean_id, "error": str(exc)}
+
+        is_json_ct = "application/json" in ctype or "text/json" in ctype
+        if raw_body and not (is_json_ct or raw_body[:1] in (b"{", b"[")):
+            mime_type, ext = self._detect_audio_format(raw_body, ctype)
+            return {
+                "ok": True,
+                "done": True,
+                "status": "SUCCEEDED",
+                "job_id": clean_id,
+                "model": model or "",
+                "audio_bytes_b64": base64.b64encode(raw_body).decode("ascii"),
+                "mime_type": mime_type,
+                "ext": ext,
+                "size_bytes": len(raw_body),
+            }
+
+        try:
+            data = json.loads(raw_body.decode("utf-8", errors="replace")) if raw_body else {}
+        except Exception:
+            data = {}
+        if not isinstance(data, dict):
+            data = {}
+        inner = data.get("data") if isinstance(data.get("data"), dict) else data
+        raw_st = str(data.get("status") or inner.get("status") or "pending").lower()
+
+        if raw_st in ("failed", "error", "canceled", "cancelled", "timed_out"):
+            err_val = data.get("error") or inner.get("error") or data.get("message") or "NanoGPT audio generation failed"
+            err_msg = err_val.get("message") if isinstance(err_val, dict) else str(err_val)
+            return {"ok": False, "done": True, "status": "FAILED", "job_id": clean_id, "error": err_msg}
+
+        urls = self._extract_audio_urls(data)
+        inline_b64 = self._extract_inline_audio_b64(data)
+        if urls or inline_b64 or raw_st in ("completed", "complete", "succeeded", "success", "done"):
+            if urls:
+                try:
+                    dl_bytes, mime_type, ext = self._download_nanogpt_audio_url(urls[0], nanogpt_key)
+                    if dl_bytes:
+                        return {
+                            "ok": True,
+                            "done": True,
+                            "status": "SUCCEEDED",
+                            "job_id": clean_id,
+                            "model": model or "",
+                            "remote_url": urls[0],
+                            "audio_bytes_b64": base64.b64encode(dl_bytes).decode("ascii"),
+                            "mime_type": mime_type,
+                            "ext": ext,
+                            "size_bytes": len(dl_bytes),
+                        }
+                except Exception as dl_exc:
+                    return {
+                        "ok": True,
+                        "done": True,
+                        "status": "SUCCEEDED",
+                        "job_id": clean_id,
+                        "model": model or "",
+                        "remote_url": urls[0],
+                        "audio_url": urls[0],
+                        "mime_type": "audio/mpeg",
+                        "ext": ".mp3",
+                        "download_warning": str(dl_exc),
+                    }
+            if inline_b64:
+                decoded = base64.b64decode(inline_b64)
+                mime_type, ext = self._detect_audio_format(decoded, str(inner.get("contentType") or inner.get("mimeType") or ""))
+                return {
+                    "ok": True,
+                    "done": True,
+                    "status": "SUCCEEDED",
+                    "job_id": clean_id,
+                    "model": model or "",
+                    "audio_bytes_b64": inline_b64,
+                    "mime_type": mime_type,
+                    "ext": ext,
+                    "size_bytes": len(decoded),
+                }
 
         return {
             "ok": True,
-            "kind": norm_kind,
-            "model": resolved_model,
-            "voice": voice or ("af_heart" if "kokoro" in resolved_model else "aeonik_default"),
-            "prompt": clean_prompt,
-            "audio_bytes_b64": wav_b64,
-            "mime_type": "audio/wav",
-            "sparkline": "│┃│┃┃│┃┃",
-            "lufs": -14.0,
+            "done": False,
+            "status": "RUNNING",
+            "job_id": clean_id,
+            "model": model or "",
         }

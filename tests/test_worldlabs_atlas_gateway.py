@@ -433,3 +433,122 @@ def test_ai_gateway_telemetry_worldlabs_classification() -> None:
     assert est["estimated_credits"] == 500
     assert est["estimated_usd"] == 0.50
     assert "worldlabs atlas v2" in est["recommended_route"]
+
+
+def test_generate_omni_audio_live_nanogpt_binary_async_polling_and_error(monkeypatch):
+    import io
+    import json
+    import urllib.error
+    import urllib.request
+
+    class _FakeResp:
+        def __init__(self, body: bytes, status: int = 200, content_type: str = "application/json"):
+            self._body = body
+            self.status = status
+            self.headers = {"Content-Type": content_type}
+
+        def read(self):
+            return self._body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    fake_mp3 = b"ID3\x03\x00\x00\x00\x00\x00\x00" + b"\xff\xfb\x90\x00" + b"MP3AUDIOBYTES" * 10
+    seen_reqs = []
+
+    def _fake_urlopen(req, timeout=None):
+        url = req.full_url
+        method = req.get_method()
+        raw_data = req.data.decode("utf-8") if req.data else ""
+        body = json.loads(raw_data) if raw_data else {}
+        seen_reqs.append((method, url, body, dict(req.header_items())))
+
+        if url == DynamicAIGatewayRouter.NANOGPT_TTS_URL:
+            txt = body.get("text", "")
+            if "trigger_error" in txt:
+                raise urllib.error.HTTPError(
+                    url,
+                    500,
+                    "Internal Server Error",
+                    {},
+                    io.BytesIO(b'{"error":"Upstream audio synth crashed"}'),
+                )
+            if "async_music" in txt:
+                payload = {
+                    "status": "pending",
+                    "runId": "tts_run_42",
+                    "model": "google/lyria-3.5",
+                    "cost": 0.11,
+                    "paymentSource": "USD",
+                }
+                return _FakeResp(json.dumps(payload).encode("utf-8"), status=202, content_type="application/json")
+            # Direct binary MP3 response
+            return _FakeResp(fake_mp3, status=200, content_type="audio/mpeg")
+
+        if url.startswith(DynamicAIGatewayRouter.NANOGPT_TTS_STATUS_URL):
+            if "runId=tts_run_pending" in url:
+                return _FakeResp(json.dumps({"status": "pending", "runId": "tts_run_pending"}).encode("utf-8"))
+            if "runId=tts_run_failed" in url:
+                return _FakeResp(json.dumps({"status": "error", "error": "Voice model overloaded"}).encode("utf-8"))
+            return _FakeResp(
+                json.dumps({"status": "completed", "audioUrl": "https://cdn.example.com/tracks/lyria_42.mp3"}).encode("utf-8")
+            )
+
+        if url == "https://cdn.example.com/tracks/lyria_42.mp3":
+            return _FakeResp(fake_mp3, status=200, content_type="audio/mpeg")
+
+        raise AssertionError(f"Unexpected URL: {url}")
+
+    monkeypatch.setattr(urllib.request, "urlopen", _fake_urlopen)
+    router = DynamicAIGatewayRouter(nanogpt_key="ng-uuid-test-key", worldlabs_key=None)
+
+    # 1. Direct binary MP3 TTS generation (ElevenLabs v4 gets valid default voice "Aria")
+    tts = router.generate_omni_audio("Hello from TinCan", kind="tts", model="elevenlabs/eleven-v4")
+    assert tts["ok"] is True
+    assert tts["simulated"] is False
+    assert tts["done"] is True
+    assert tts["mime_type"] == "audio/mpeg"
+    assert tts["ext"] == ".mp3"
+    assert tts["voice"] == "Aria"
+    assert base64.b64decode(tts["audio_bytes_b64"]) == fake_mp3
+
+    # 2. Async HTTP 202 music generation returns pending runId + cost metadata
+    mus = router.generate_omni_audio("async_music koto score", kind="music", model="google/lyria-3.5")
+    assert mus["ok"] is True
+    assert mus["async"] is True
+    assert mus["done"] is False
+    assert mus["status"] == "RUNNING"
+    assert mus["job_id"] == "tts_run_42"
+    assert mus["cost"] == 0.11
+    assert mus["payment_source"] == "USD"
+
+    # 3. Polling: pending -> completed (downloads CDN MP3 without leaking auth header) -> failed
+    st_pending = router.poll_nanogpt_audio_status("tts_run_pending", model="google/lyria-3.5")
+    assert st_pending["ok"] is True
+    assert st_pending["done"] is False
+    assert st_pending["status"] == "RUNNING"
+
+    st_done = router.poll_nanogpt_audio_status("tts_run_42", model="google/lyria-3.5", cost=0.11, payment_source="USD")
+    assert st_done["ok"] is True
+    assert st_done["done"] is True
+    assert st_done["status"] == "SUCCEEDED"
+    assert st_done["mime_type"] == "audio/mpeg"
+    assert st_done["ext"] == ".mp3"
+    assert base64.b64decode(st_done["audio_bytes_b64"]) == fake_mp3
+    cdn_req = [r for r in seen_reqs if r[1] == "https://cdn.example.com/tracks/lyria_42.mp3"][0]
+    assert "Authorization" not in cdn_req[3]
+
+    st_fail = router.poll_nanogpt_audio_status("tts_run_failed", model="google/lyria-3.5")
+    assert st_fail["ok"] is False
+    assert st_fail["done"] is True
+    assert st_fail["status"] == "FAILED"
+    assert "overloaded" in st_fail["error"]
+
+    # 4. Live upstream HTTP 500 error never fakes a 120ms beep
+    err = router.generate_omni_audio("trigger_error boom", kind="sfx", model="elevenlabs/sound-effects/v3")
+    assert err["ok"] is False
+    assert err["status_code"] == 500
+    assert "crashed" in err["error"]

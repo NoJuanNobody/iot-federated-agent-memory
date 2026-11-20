@@ -857,6 +857,8 @@ def test_async_media_mesh_modal_chat_and_library_markup_and_compliance() -> None
         "https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js",
         "/api/nodes/video/status",
         "/api/nodes/mesh/status",
+        "/api/nodes/audio/status",
+        "pollAudioJobForNode",
         "pollVideoJobForNode",
         "pollMeshJobForNode",
         "openMeshViewer",
@@ -1548,3 +1550,259 @@ global.fetch = (url, opts) => {{
     assert res["lib3dFilterWorks"] is True
     assert res["libSearchWorks"] is True
     assert res["meshBlobRevokedOnDelete"] is True
+
+
+def test_async_audio_polling_streaming_and_upload_in_node() -> None:
+    node_bin = shutil.which("node")
+    if not node_bin:
+        pytest.skip("node binary not available for JS runtime check")
+
+    html = render_node_studio_html()
+    script = _extract_inline_script(html)
+
+    harness = f"""
+const elements = new Map();
+function makeEl(id) {{
+  const el = {{
+    id,
+    tagName: "DIV",
+    textContent: "",
+    innerHTML: "",
+    value: "",
+    placeholder: "",
+    disabled: false,
+    dataset: {{}},
+    style: {{}},
+    attributes: {{}},
+    scrollHeight: 50,
+    children: [],
+    _classes: new Set(id === "nsMeshViewerModal" || id === "nsSplatViewerModal" || id === "nsResponseToast" ? ["hidden"] : []),
+    classList: {{
+      toggle(c, force) {{
+        if (force === undefined) {{
+          if (el._classes.has(c)) {{ el._classes.delete(c); return false; }}
+          el._classes.add(c); return true;
+        }}
+        if (force) el._classes.add(c); else el._classes.delete(c);
+        return !!force;
+      }},
+      add(c) {{ el._classes.add(c); }},
+      remove(c) {{ el._classes.delete(c); }},
+      contains(c) {{ return el._classes.has(c); }}
+    }},
+    setAttribute(k, v) {{ el.attributes[k] = String(v); }},
+    removeAttribute(k) {{ delete el.attributes[k]; }},
+    addEventListener() {{}},
+    querySelectorAll() {{ return []; }},
+    appendChild(child) {{ child.parentNode = el; el.children.push(child); }},
+    removeChild(child) {{ el.children = el.children.filter((c) => c !== child); child.parentNode = null; }},
+    focus() {{}},
+    getBoundingClientRect() {{ return {{ left: 0, top: 0, width: 1200, height: 800 }}; }}
+  }};
+  return el;
+}}
+[
+  "nsDotCanvas", "nsEmptyState", "nsCanvasWorld", "nsEdgesSvg", "nsNodesLayer",
+  "nsSelectionBox", "nsDropOverlay", "nsConversationView", "nsLibraryView",
+  "nsLibraryViewGrid", "nsChatHeaderMeta", "nsChatFeed", "nsChatComposer",
+  "nsChatInput", "nsChatSendBtn", "nsLibFilterBar", "nsLibSearchInput",
+  "nsCopyIndicator", "nsAutoLayoutBtn", "nsShortcutsBtn", "nsShortcutsPopover",
+  "nsLeftPillWrap", "nsLeftDrawer", "nsAssetSearchInput", "nsLibAssetGrid",
+  "nsLibTemplateList", "nsNewTemplateBtn", "nsModePill", "nsConvPill", "nsBranchPill",
+  "nsApiBtn", "nsApiMenu", "nsApiGeminiStatus", "nsApiNanogptStatus", "nsApiSourceText",
+  "nsApiClearBtn", "nsGeminiKeyInput", "nsNanogptKeyInput", "nsModelBtn", "nsModelBtnLabel",
+  "nsModelMenu", "nsRefsStrip", "nsRefsRow", "nsPromptInput", "nsAttachTrigger", "nsFileInput",
+  "nsAspectWrap", "nsAspectSelect", "nsAspectVal", "nsResWrap", "nsResSelect", "nsResVal",
+  "nsFpsWrap", "nsFpsSelect", "nsFpsVal", "nsAudioKindWrap", "nsAudioKindSelect", "nsAudioKindVal",
+  "nsMeshTierWrap", "nsMeshTierSelect", "nsMeshTierVal", "nsAtlasTaskWrap", "nsAtlasTaskSelect",
+  "nsAtlasTaskVal", "nsAtlasQualWrap", "nsAtlasQualSelect", "nsAtlasQualVal",
+  "nsThinkWrap", "nsThinkSelect", "nsThinkVal", "nsThoughtsBtn", "nsSearchWrap",
+  "nsSearchSelect", "nsSearchVal", "nsViaVal", "nsViaSelect", "nsRefCounter",
+  "nsActiveRunsCount", "nsGenerateBtn", "nsResponseToast", "nsSlashRouterPopover",
+  "nsActiveSlashPill", "nsActiveSlashPillText", "nsFloatingTerminal", "nsTerminalLog",
+  "nsTerminalInput", "nsTerminalRunBtn", "nsTerminalHideBtn", "nsTerminalToggleBtn",
+  "nsTerminalToggleState"
+].forEach((id) => elements.set(id, makeEl(id)));
+
+let timerSeq = 0;
+const intervals = new Map();
+global.setInterval = (fn, ms) => {{ timerSeq += 1; intervals.set(timerSeq, {{ fn, ms }}); return timerSeq; }};
+global.clearInterval = (id) => {{ intervals.delete(id); }};
+
+const fetchCalls = [];
+const audioPollCounts = {{}};
+const mockGraphs = new Map();
+
+global.window = {{
+  innerWidth: 1280,
+  innerHeight: 800,
+  location: {{ href: "http://localhost:8013/nodes", search: "" }},
+  addEventListener() {{}}
+}};
+global.document = {{
+  readyState: "complete",
+  getElementById(id) {{ return elements.get(id) || null; }},
+  querySelectorAll() {{ return []; }},
+  addEventListener() {{}},
+  createElement(tag) {{ const el = makeEl(tag); el.tagName = String(tag || "").toUpperCase(); return el; }},
+  body: {{ appendChild() {{}}, removeChild() {{}} }}
+}};
+global.fetch = (url, opts) => {{
+  const headers = (opts && opts.headers) || {{}};
+  const body = opts && opts.body ? JSON.parse(opts.body) : null;
+  fetchCalls.push({{ url: String(url), headers, body }});
+
+  if (url === "/api/omni/route" && body && body.modality === "audio") {{
+    const isErr = String(body.prompt || "").includes("quota fail");
+    const jid = isErr ? "aud-job-err" : "aud-job-55";
+    return Promise.resolve({{
+      status: 200,
+      ok: true,
+      json: async () => ({{
+        ok: true,
+        async: true,
+        done: false,
+        status: "RUNNING",
+        job_id: jid,
+        model: "google/lyria-3.5",
+        cost: 0.11,
+        payment_source: "USD",
+        result: {{ ok: true, async: true, done: false, status: "RUNNING", job_id: jid, kind: "music" }}
+      }})
+    }});
+  }}
+  if (String(url).startsWith("/api/nodes/audio/status")) {{
+    const m = String(url).match(/job_id=([^&]+)/);
+    const jid = m ? decodeURIComponent(m[1]) : "";
+    audioPollCounts[jid] = (audioPollCounts[jid] || 0) + 1;
+    if (jid === "aud-job-err") {{
+      return Promise.resolve({{
+        status: 200,
+        ok: true,
+        json: async () => ({{ ok: false, done: true, status: "FAILED", error: "NanoGPT Lyria balance empty" }})
+      }});
+    }}
+    if (audioPollCounts[jid] === 1) {{
+      return Promise.resolve({{
+        status: 200,
+        ok: true,
+        json: async () => ({{ ok: true, done: false, status: "RUNNING" }})
+      }});
+    }}
+    return Promise.resolve({{
+      status: 200,
+      ok: true,
+      json: async () => ({{
+        ok: true,
+        done: true,
+        status: "SUCCEEDED",
+        audio_url: "/api/space/file?raw=1&scope=user&owner_id=default&path=%2Faudio%2Fmusic_koto.mp3",
+        audio_raw_url: "/api/space/file?raw=1&scope=user&owner_id=default&path=%2Faudio%2Fmusic_koto.mp3",
+        vfs_path: "/audio/music_koto.mp3",
+        mime_type: "audio/mpeg",
+        ext: ".mp3"
+      }})
+    }});
+  }}
+  if (String(url).startsWith("/api/nodes/graph?")) {{
+    const m = String(url).match(/path=([^&]+)/);
+    const p = m ? decodeURIComponent(m[1]) : "";
+    return Promise.resolve({{ status: 200, ok: true, json: async () => ({{ ok: true, path: p, graph: mockGraphs.get(p) }}) }});
+  }}
+  return Promise.resolve({{ status: 200, ok: true, json: async () => ({{ ok: true }}) }});
+}};
+
+{script}
+
+(async () => {{
+  const api = window.TinCanNodeStudio;
+  const out = {{}};
+
+  api.setNanogptKey("sk-nano-audio-key");
+  api.selectModality("audio");
+  elements.get("nsPromptInput").value = "Warm lo-fi synthwave skyline";
+  await api.generate();
+  const audNode = api.getState().nodes[api.getState().nodes.length - 1];
+  out.initialStatus = audNode.metadata.jobStatus;
+  out.initialJobId = audNode.metadata.jobId;
+  out.runningBadge = elements.get("nsNodesLayer").innerHTML.includes("⟳ GENERATING AUDIO (");
+  out.timerActive = intervals.has(audNode._pollTimer);
+
+  // Tick 1: still RUNNING
+  await intervals.get(audNode._pollTimer).fn();
+  const firstPoll = fetchCalls.find((c) => c.url.startsWith("/api/nodes/audio/status"));
+  out.pollUrl = firstPoll ? firstPoll.url : "";
+  out.pollKeyHeader = firstPoll && firstPoll.headers ? firstPoll.headers["X-NanoGPT-Api-Key"] : "";
+  out.statusAfterTick1 = audNode.metadata.jobStatus;
+
+  // Tick 2: SUCCEEDED -> hot-swaps into streaming <audio controls preload="metadata" src="/api/space/file?raw=1..."> + ↓ .MP3
+  await intervals.get(audNode._pollTimer).fn();
+  out.statusAfterTick2 = audNode.metadata.jobStatus;
+  out.timerCleared = audNode._pollTimer === null;
+  out.finalAudioSrc = audNode.content.audioRawUrl;
+  const doneHtml = elements.get("nsNodesLayer").innerHTML;
+  out.hasStreamingAudioTag = doneHtml.includes('<audio class="ns-audio-player" controls preload="metadata" src="/api/space/file?raw=1');
+  out.hasMp3DownloadBtn = doneHtml.includes("↓ .MP3");
+
+  // Error job -> .ns-omni-error-box
+  elements.get("nsPromptInput").value = "Trigger quota fail audio";
+  await api.generate();
+  const errNode = api.getState().nodes[api.getState().nodes.length - 1];
+  await intervals.get(errNode._pollTimer).fn();
+  out.errStatus = errNode.metadata.jobStatus;
+  out.errHtmlHasBox = elements.get("nsNodesLayer").innerHTML.includes("NanoGPT Lyria balance empty");
+
+  // Uploading local .mp3 file via attach spawns playable AUDIO card + ♪ AUDIO ref chip
+  api.handleFilesSelected([
+    {{ name: "demo_track.mp3", type: "audio/mpeg", size: 4096, url: "data:audio/mpeg;base64,SUQz" }}
+  ]);
+  const upNode = api.getState().nodes[api.getState().nodes.length - 1];
+  out.uploadedAudioModality = upNode.morphingStatus;
+  out.uploadedAudioHasMp3Tag = elements.get("nsNodesLayer").innerHTML.includes("demo_track.mp3");
+  out.uploadedAudioRefChip = elements.get("nsRefsRow").innerHTML.includes("♪ AUDIO");
+
+  // Graph reload resumes RUNNING audio polling cleanly
+  mockGraphs.set("/nodes/audio_resume.nodes.json", {{
+    schema: "tincan.node_studio.graph.v1",
+    name: "audio_resume",
+    path: "/nodes/audio_resume.nodes.json",
+    nodes: [
+      {{ id: "r-aud", type: "AUDIO", modality: "audio", morphingStatus: "audio", label: "Resume aud", x: 10, y: 10, width: 320, height: 256, content: {{ kind: "music" }}, metadata: {{ jobId: "aud-resume-1", model: "google/lyria-3.5", jobStatus: "RUNNING" }} }}
+    ],
+    edges: [],
+    references: []
+  }});
+  await api.loadGraphFromSpace("audio_resume", false);
+  const restoredAud = api.getState().nodes.find((n) => n.id === "r-aud");
+  out.resumedAudioPolling = !!(restoredAud && intervals.has(restoredAud._pollTimer));
+  api.newBlankGraph();
+  out.intervalsLeft = intervals.size;
+
+  console.log(JSON.stringify(out));
+}})();
+"""
+    run_res = subprocess.run([node_bin, "-e", harness], text=True, capture_output=True, check=False)
+    assert run_res.returncode == 0, f"Node runtime failed: {run_res.stderr}"
+    res = json.loads(run_res.stdout.strip())
+
+    assert res["initialStatus"] == "RUNNING"
+    assert res["initialJobId"] == "aud-job-55"
+    assert res["runningBadge"] is True
+    assert res["timerActive"] is True
+    assert "job_id=aud-job-55" in res["pollUrl"]
+    assert "cost=0.11" in res["pollUrl"]
+    assert "payment_source=USD" in res["pollUrl"]
+    assert res["pollKeyHeader"] == "sk-nano-audio-key"
+    assert res["statusAfterTick1"] == "RUNNING"
+    assert res["statusAfterTick2"] == "SUCCEEDED"
+    assert res["timerCleared"] is True
+    assert res["finalAudioSrc"].startswith("/api/space/file?raw=1")
+    assert res["hasStreamingAudioTag"] is True
+    assert res["hasMp3DownloadBtn"] is True
+    assert res["errStatus"] == "ERROR"
+    assert res["errHtmlHasBox"] is True
+    assert res["uploadedAudioModality"] == "audio"
+    assert res["uploadedAudioHasMp3Tag"] is True
+    assert res["uploadedAudioRefChip"] is True
+    assert res["resumedAudioPolling"] is True
+    assert res["intervalsLeft"] == 0

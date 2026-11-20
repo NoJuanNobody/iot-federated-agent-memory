@@ -52,3 +52,23 @@ Resolve every remaining Node Studio limitation via parallel worktree swarm (`swa
    - Upgraded `#nsConversationView` (`Chat`) into a live canvas-lineage conversation feed (`renderConversationView`) with rich multi-modal previews, `Focus on Canvas`, and direct inline reply composer (`sendChatPrompt`).
    - Upgraded `#nsLibraryView` (`Library`) with modality filter pills (`All | Image | Text | Video | Audio | 3D Mesh | 3D Splat`), live search, and 1-click `Focus`, `+ Ref`, `Download`, and `Delete` actions.
 
+---
+
+## Entry #3 — 2026-11-20 (Live Production QA · Audio Pipeline Repair)
+
+### User Experience Notes (Verbatim)
+- `"audio files are not working"` during live production QA on `/nodes`.
+
+### Root Causes Found
+1. **Fake 120ms beep instead of real NanoGPT audio**: `DynamicAIGatewayRouter.generate_omni_audio()` in `ai_gateway.py` never called NanoGPT even when `NANOGPT_API_KEY` was configured in production — it unconditionally emitted a 3.8 KB, 0.12-second synthetic sine-wave `.wav`.
+2. **Hardcoded `.wav`, missing durable streaming URL, and missing async `runId` polling**: `_audio_generate_and_save()` in `server.py` forced `.wav` extensions regardless of real MP3/OGG/WAV magic bytes, omitted `/api/space/file?raw=1...` `Range` `206` streaming URLs (forcing huge inline `data:` URLs that stall Safari/Chrome playback), and had no `/api/nodes/audio/status` polling endpoint for NanoGPT HTTP `202` pending `runId` jobs.
+3. **Clipped `<audio controls>`, canvas click-stealing, and rejected local audio uploads**:
+   - Audio cards (`310x218px`, `overflow: hidden`) + `.ns-audio-player` (`32px`) clipped native browser `<audio controls>`.
+   - Clicking an unselected Audio card's native Play button triggered `renderNodes()` synchronously on `mousedown` (destroying the `<audio>` DOM node mid-click) and initiated card dragging on scrub/volume gestures.
+   - `#nsFileInput` omitted `audio/*` and `addImageFilesToCanvas` / `addFilesToRefs` silently dropped local `.mp3`/`.wav`/`.ogg`/`.flac`/`.m4a` files.
+
+### Fixes Shipped
+- **Real NanoGPT Audio Synthesis (`ai_gateway.py`)**: Wired `generate_omni_audio()` to live NanoGPT `POST /api/tts` (with `/api/v1/audio/speech` fallback), real magic-byte format detection (`.mp3`/`.wav`/`.ogg`/`.flac`/`.m4a`), valid model/voice mapping (`google/lyria-3.5`, `elevenlabs/eleven-v4` -> `Aria`, `elevenlabs/sound-effects/v3`, `Kokoro-82m` -> `af_bella`), async HTTP `202` `runId` support + `poll_nanogpt_audio_status()` (`GET /api/tts/status`), and honest upstream error propagation (keeping deterministic WAV fallback only when offline without a key).
+- **Durable Streaming & Async Polling (`server.py`)**: Persisted completed audio into `.space/audio/` with real detected MIME/extension, returned durable `/api/space/file?raw=1...` `audio_raw_url` (served with HTTP `Range` `206 Partial Content`), omitted >2MB inline base64 payloads, and added `GET /api/nodes/audio/status` in both `BaseHTTPRequestHandler` and FastAPI.
+- **Playable Audio Cards + Local Audio Upload (`node_studio_ui.py`)**: Expanded audio cards to `320x256px` and `.ns-audio-player` to `42px`, preferred streaming `/api/space/file?raw=1...` URLs with `preload="metadata"` and dynamic `.MP3`/`.WAV`/`.OGG` download buttons, added live 3.5s `pollAudioJobForNode()` + reload auto-resume, fixed canvas `mousedown` so `<audio>`/`<video>`/`<model-viewer>` controls never rebuild or drag mid-click, and added `audio/*` support to `#nsFileInput`, attach, and drag-and-drop onto the canvas.
+

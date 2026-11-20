@@ -315,6 +315,7 @@ def test_fastapi_routes_registered_for_node_studio():
         "/api/nodes/state",
         "/api/nodes/video/status",
         "/api/nodes/mesh/status",
+        "/api/nodes/audio/status",
     )
     expected_post = ("/api/nodes/generate", "/api/generate", "/api/nodes/filter")
     if hasattr(server.app, "routes") and isinstance(server.app.routes, dict):
@@ -609,3 +610,137 @@ def test_nodes_mesh_status_and_omni_route_3d_async_vs_completed(live_node_server
     finally:
         media_srv.shutdown()
         media_srv.server_close()
+
+
+def test_nodes_audio_status_and_omni_route_audio_streaming(live_node_server, tmp_path, monkeypatch):
+    temp_mgr = AgentSpaceManager(base_dir=str(tmp_path / "spaces"), ai_router=server.router)
+    monkeypatch.setattr(server, "_space_manager", temp_mgr)
+    monkeypatch.setattr(server, "_get_space_manager", lambda: temp_mgr)
+
+    fake_mp3 = b"ID3\x03\x00\x00\x00\x00\x00\x00" + b"\xff\xfb\x90\x00" + b"LIVEMP3STREAM" * 16
+    fake_mp3_b64 = base64.b64encode(fake_mp3).decode("ascii")
+
+    # 1. Immediate real MP3 generation via /api/omni/route saves .mp3 into .space/audio/ and streams 206 Range
+    monkeypatch.setattr(
+        server.router,
+        "generate_omni_audio",
+        lambda prompt, **kw: {
+            "ok": True,
+            "done": True,
+            "simulated": False,
+            "kind": kw.get("kind") or "tts",
+            "model": kw.get("model") or "elevenlabs/eleven-v4",
+            "audio_bytes_b64": fake_mp3_b64,
+            "mime_type": "audio/mpeg",
+            "ext": ".mp3",
+            "size_bytes": len(fake_mp3),
+        },
+    )
+    st_imm, raw_imm, _ = _http_req(
+        f"{live_node_server}/api/omni/route",
+        method="POST",
+        payload={"command": '/audio tts --model elevenlabs/eleven-v4 "Hello TinCan"', "scope": "user", "owner_id": "aud_peer"},
+        headers={"X-NanoGPT-Api-Key": "ng-aud-key"},
+    )
+    assert st_imm == 200
+    d_imm = json.loads(raw_imm)
+    assert d_imm["ok"] is True
+    assert d_imm["audio_raw_url"].startswith("/api/space/file?raw=1&")
+    assert d_imm["saved_to_space"]["path"].startswith("/audio/")
+    assert d_imm["saved_to_space"]["path"].endswith(".mp3")
+
+    st_206, chunk_206, hdrs_206 = _http_req_bytes(
+        f"{live_node_server}{d_imm['audio_raw_url']}",
+        headers={"Range": "bytes=0-15"},
+    )
+    assert st_206 == 206
+    assert hdrs_206.get("accept-ranges") == "bytes"
+    assert chunk_206 == fake_mp3[:16]
+
+    # 2. Async audio job propagation via /api/omni/route -> GET /api/nodes/audio/status (RUNNING -> FAILED -> SUCCEEDED)
+    monkeypatch.setattr(
+        server.router,
+        "generate_omni_audio",
+        lambda prompt, **kw: {
+            "ok": True,
+            "async": True,
+            "done": False,
+            "status": "RUNNING",
+            "job_id": "aud_run_900",
+            "model": "google/lyria-3.5",
+            "cost": 0.11,
+            "payment_source": "USD",
+        },
+    )
+    st_async, raw_async, _ = _http_req(
+        f"{live_node_server}/api/omni/route",
+        method="POST",
+        payload={"command": '/audio music "Ambient alpine koto"', "scope": "user", "owner_id": "aud_peer"},
+    )
+    assert st_async == 200
+    d_async = json.loads(raw_async)
+    assert d_async["ok"] is True
+    assert d_async["async"] is True
+    assert d_async["done"] is False
+    assert d_async["job_id"] == "aud_run_900"
+    assert d_async["cost"] == 0.11
+
+    monkeypatch.setattr(
+        server.router,
+        "poll_nanogpt_audio_status",
+        lambda jid, **kw: {"ok": True, "done": False, "status": "RUNNING", "job_id": jid, "model": kw.get("model") or ""},
+    )
+    st_p1, raw_p1, _ = _http_req(
+        f"{live_node_server}/api/nodes/audio/status?job_id=aud_run_900&model=google/lyria-3.5&scope=user&owner_id=aud_peer"
+    )
+    assert st_p1 == 200
+    assert json.loads(raw_p1)["done"] is False
+
+    monkeypatch.setattr(
+        server.router,
+        "poll_nanogpt_audio_status",
+        lambda jid, **kw: {
+            "ok": True,
+            "done": True,
+            "status": "SUCCEEDED",
+            "job_id": jid,
+            "model": "google/lyria-3.5",
+            "audio_bytes_b64": fake_mp3_b64,
+            "mime_type": "audio/mpeg",
+            "ext": ".mp3",
+            "size_bytes": len(fake_mp3),
+        },
+    )
+    st_p2, raw_p2, _ = _http_req(
+        f"{live_node_server}/api/nodes/audio/status?job_id=aud_run_900&model=google/lyria-3.5&kind=music&scope=user&owner_id=aud_peer&prompt=Alpine+koto"
+    )
+    assert st_p2 == 200
+    d_p2 = json.loads(raw_p2)
+    assert d_p2["ok"] is True
+    assert d_p2["done"] is True
+    assert d_p2["status"] == "SUCCEEDED"
+    assert d_p2["vfs_path"].startswith("/audio/") and d_p2["vfs_path"].endswith(".mp3")
+    assert d_p2["audio_url"].startswith("/api/space/file?raw=1&")
+
+    st_aud_r, aud_r_bytes, _ = _http_req_bytes(
+        f"{live_node_server}{d_p2['audio_url']}",
+        headers={"Range": "bytes=0-9"},
+    )
+    assert st_aud_r == 206
+    assert aud_r_bytes == fake_mp3[:10]
+
+    # 3. Upstream error surfaces cleanly without faking a beep
+    monkeypatch.setattr(
+        server.router,
+        "generate_omni_audio",
+        lambda prompt, **kw: {"ok": False, "status_code": 502, "error": "NanoGPT audio quota exceeded"},
+    )
+    st_err, raw_err, _ = _http_req(
+        f"{live_node_server}/api/omni/route",
+        method="POST",
+        payload={"command": '/audio music "Fail test"', "scope": "user", "owner_id": "aud_peer"},
+    )
+    assert st_err == 502
+    d_err = json.loads(raw_err)
+    assert d_err["ok"] is False
+    assert "quota exceeded" in d_err["error"]

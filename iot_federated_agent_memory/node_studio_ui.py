@@ -2218,7 +2218,9 @@ def _node_studio_css() -> str:
   }
   .ns-audio-player {
     width: 100%;
-    height: 32px;
+    height: 42px;
+    min-height: 40px;
+    flex-shrink: 0;
     display: block;
     border-radius: 6px;
   }
@@ -3528,7 +3530,7 @@ def _node_studio_js(initial_view: str) -> str:
       if (ref.type === "image" && ref.url) {
         inner = '<img src="' + escapeHtml(ref.url) + '" alt="' + escapeHtml(ref.name) + '">';
       } else {
-        const badge = ref.type === "pdf" ? "PDF" : (ref.type === "video" ? "VIDEO" : ref.type.toUpperCase());
+        const badge = ref.type === "pdf" ? "PDF" : (ref.type === "video" ? "VIDEO" : (ref.type === "audio" ? "♪ AUDIO" : ref.type.toUpperCase()));
         inner = '<div class="ns-ref-badge-box"><strong>' + escapeHtml(badge) + '</strong><span>' + escapeHtml(ref.name) + "</span></div>";
       }
       return '<div class="ns-ref-chip" draggable="true" data-ref-index="' + idx + '" title="' + escapeHtml(ref.name) + '">' +
@@ -3789,31 +3791,69 @@ def _node_studio_js(initial_view: str) -> str:
     );
   }
 
+  function _audioExtLabel(c, meta) {
+    const ext = String((c && c.ext) || "").toLowerCase();
+    const p = String((c && c.vfsPath) || (meta && meta.vfsPath) || "").toLowerCase();
+    const mime = String((c && c.mimeType) || "").toLowerCase();
+    if (ext === ".mp3" || p.endsWith(".mp3") || mime.indexOf("mpeg") !== -1 || mime.indexOf("mp3") !== -1) return ".MP3";
+    if (ext === ".ogg" || p.endsWith(".ogg") || mime.indexOf("ogg") !== -1 || mime.indexOf("opus") !== -1) return ".OGG";
+    if (ext === ".flac" || p.endsWith(".flac") || mime.indexOf("flac") !== -1) return ".FLAC";
+    if (ext === ".m4a" || p.endsWith(".m4a") || mime.indexOf("mp4") !== -1) return ".M4A";
+    return ".WAV";
+  }
+
+  function _getAudioSrcForNode(node) {
+    const c = (node && node.content) || {};
+    if (c.audioRawUrl && typeof c.audioRawUrl === "string") return c.audioRawUrl;
+    if (c.audioUrl && typeof c.audioUrl === "string") return c.audioUrl;
+    if (c.audioBytesB64 && typeof c.audioBytesB64 === "string") {
+      return "data:" + (c.mimeType || "audio/wav") + ";base64," + c.audioBytesB64;
+    }
+    return "";
+  }
+
   function renderAudioCardInner(node) {
     const nid = escapeHtml(node.id);
     const meta = node.metadata || {};
     const c = node.content || {};
     const promptTxt = escapeHtml(meta.prompt || node.label || "");
     const audioKindLbl = String(c.kind || meta.audioKind || "music").toUpperCase();
-    const audioSrc = c.audioUrl || (c.audioBytesB64 ? ("data:" + (c.mimeType || "audio/wav") + ";base64," + c.audioBytesB64) : "");
-    const playerHtml = audioSrc
-      ? '<audio class="ns-audio-player" controls src="' + escapeHtml(audioSrc) + '" onmousedown="event.stopPropagation()"></audio>'
+    const jobStatus = meta.jobStatus || "";
+    const elapsed = meta.startedAt ? Math.max(1, Math.round((Date.now() - meta.startedAt) / 1000)) : 1;
+    const extLbl = _audioExtLabel(c, meta);
+    const audioSrc = _getAudioSrcForNode(node);
+
+    let statusBadgeHtml = '<span class="ns-omni-status-badge">' + escapeHtml(audioKindLbl) + " · -14 LUFS</span>";
+    if (jobStatus === "RUNNING") {
+      statusBadgeHtml = '<span class="ns-omni-status-badge">⟳ GENERATING AUDIO (' + elapsed + "s)</span>";
+    } else if (jobStatus === "ERROR") {
+      statusBadgeHtml = '<span class="ns-omni-status-badge is-error">✕ ERROR</span>';
+    }
+
+    const errBlock = meta.jobError
+      ? ('<div class="ns-omni-error-box">' + escapeHtml(meta.jobError) + "</div>")
       : "";
+    const playerHtml = jobStatus === "RUNNING"
+      ? '<div class="ns-omni-box"><div>⟳ Generating ' + escapeHtml(audioKindLbl.toLowerCase()) + ' audio (' + elapsed + 's)...</div><div>Polling /api/nodes/audio/status every 3.5s</div></div>'
+      : (audioSrc
+        ? '<audio class="ns-audio-player" controls preload="metadata" src="' + escapeHtml(audioSrc) + '" onmousedown="event.stopPropagation()"></audio>'
+        : "");
     return (
       '<div class="ns-omni-card">' +
       '<div class="ns-omni-top-row">' +
       '<span class="ns-omni-pill ns-omni-pill--outline">♪ AUDIO · TTS + SCORE + SFX</span>' +
-      '<span class="ns-omni-status-badge">' + escapeHtml(audioKindLbl) + " · -14 LUFS</span>" +
+      statusBadgeHtml +
       "</div>" +
       '<div class="ns-omni-box">' +
       "<div>│┃│┃┃│┃┃ " + escapeHtml(getModelName(meta.model || "google/lyria-3.5")) + "</div>" +
-      "<div>" + escapeHtml(c.vfsPath || meta.vfsPath || "/audio/output.wav · 48kHz 24-bit") + "</div>" +
+      "<div>" + escapeHtml(c.vfsPath || meta.vfsPath || ("/audio/output" + extLbl.toLowerCase())) + "</div>" +
       "</div>" +
+      errBlock +
       playerHtml +
       '<div class="ns-omni-title">' + promptTxt + "</div>" +
       '<div class="ns-card-foot-bar" onmousedown="event.stopPropagation()">' +
-      '<span class="ns-omni-sub">' + escapeHtml(c.vfsPath || meta.vfsPath || "48kHz WAV") + "</span>" +
-      '<button type="button" class="ns-card-action-btn" onclick="event.stopPropagation();window.TinCanNodeStudio.downloadNode(\'' + nid + '\')">↓ .WAV</button>' +
+      '<span class="ns-omni-sub">' + escapeHtml(c.vfsPath || meta.vfsPath || ("Audio " + extLbl)) + "</span>" +
+      '<button type="button" class="ns-card-action-btn" onclick="event.stopPropagation();window.TinCanNodeStudio.downloadNode(\'' + nid + '\')">↓ ' + escapeHtml(extLbl) + "</button>" +
       "</div>" +
       "</div>"
     );
@@ -3890,6 +3930,10 @@ def _node_studio_js(initial_view: str) -> str:
     if (node._pollTimer) {
       clearInterval(node._pollTimer);
       node._pollTimer = null;
+    }
+    if (node._audioBlobUrl && typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") {
+      try { URL.revokeObjectURL(node._audioBlobUrl); } catch (_e) {}
+      node._audioBlobUrl = "";
     }
     _revokeNodeGlbBlobUrl(node);
   }
@@ -4160,7 +4204,7 @@ def _node_studio_js(initial_view: str) -> str:
       let h = node.height || 256;
       if (mStatus === "generating") { w = 96; h = 96; }
       else if (mStatus === "text" || mStatus === "message") { w = node.width || 320; h = node.height || 220; }
-      else if (mStatus === "audio") { w = node.width || 310; h = node.height || 218; }
+      else if (mStatus === "audio") { w = node.width || 320; h = node.height || 256; }
       else if (mStatus === "video") { w = node.width || 320; h = node.height || 250; }
       else if (mStatus === "mesh3d") { w = node.width || 320; h = node.height || 326; }
       else if (mStatus === "omni") { w = node.width || 320; h = node.height || 198; }
@@ -4484,9 +4528,9 @@ def _node_studio_js(initial_view: str) -> str:
     } else if (parsed.modality === "audio") {
       mStatus = "audio";
       omniKind = "audio";
-      w = 310;
-      h = 218;
-      vfsPath = "/audio/output.wav · 48kHz 24-bit";
+      w = 320;
+      h = 256;
+      vfsPath = "/audio/output.mp3";
     } else if (parsed.modality === "video") {
       mStatus = "video";
       omniKind = "video";
@@ -4690,11 +4734,20 @@ def _node_studio_js(initial_view: str) -> str:
           }
 
           if (parsed.modality === "audio") {
-            const wavB64 = rObj.audio_bytes_b64 || (spawned.content && spawned.content.audioBytesB64) || "";
-            if (wavB64) {
-              spawned.content.audioBytesB64 = wavB64;
-              spawned.content.mimeType = rObj.mime_type || "audio/wav";
-              spawned.content.audioUrl = "data:" + spawned.content.mimeType + ";base64," + wavB64;
+            const audRawUrl = data.audio_raw_url || rObj.audio_raw_url || rObj.audio_url || "";
+            if (audRawUrl) {
+              spawned.content.audioRawUrl = audRawUrl;
+              spawned.content.audioUrl = audRawUrl;
+            }
+            if (rObj.mime_type) spawned.content.mimeType = rObj.mime_type;
+            if (rObj.ext) spawned.content.ext = rObj.ext;
+            const audB64 = rObj.audio_bytes_b64 || (spawned.content && spawned.content.audioBytesB64) || "";
+            if (audB64) {
+              spawned.content.audioBytesB64 = audB64;
+              if (!spawned.content.mimeType) spawned.content.mimeType = "audio/wav";
+              if (!spawned.content.audioUrl) {
+                spawned.content.audioUrl = "data:" + spawned.content.mimeType + ";base64," + audB64;
+              }
             }
             if (rObj.kind) {
               spawned.content.kind = rObj.kind;
@@ -4703,6 +4756,22 @@ def _node_studio_js(initial_view: str) -> str:
             if (rObj.path) {
               spawned.content.vfsPath = rObj.path;
               spawned.metadata.vfsPath = rObj.path;
+            }
+            const audJobId = data.job_id || rObj.job_id || rObj.runId || "";
+            if ((data.async === true || data.done === false || rObj.status === "RUNNING") && audJobId) {
+              spawned.metadata.jobId = audJobId;
+              spawned.metadata.jobStatus = "RUNNING";
+              spawned.metadata.startedAt = Date.now();
+              spawned.metadata.model = data.model || rObj.model || parsed.model;
+              if (data.cost !== undefined && data.cost !== null) spawned.metadata.audioCost = data.cost;
+              if (data.payment_source) spawned.metadata.audioPaymentSource = data.payment_source;
+              spawned.metadata.vfsPath = "Generating audio (" + audJobId + ")...";
+              showToast("Audio job started (" + audJobId + ") — polling live...", false);
+              appendTerminalLine("[⟳] Submitted Audio job " + audJobId + " (polling live every 3.5s)");
+              renderNodes();
+              renderPromptIslandStatus();
+              pollAudioJobForNode(spawned);
+              return spawned;
             }
           } else if (parsed.modality === "3d") {
             const glbRaw = rObj.glb_raw_url || data.glb_raw_url || (rObj.download && rObj.download.glb_raw_url) || "";
@@ -4794,11 +4863,16 @@ def _node_studio_js(initial_view: str) -> str:
               spawned.content.imageUrl = "data:" + mime + ";base64," + data.files_b64[imgKey];
               spawned._splatCloud = null;
             }
-            const wavKey = keys.find((k) => /\.wav$/i.test(k));
-            if (wavKey && data.files_b64[wavKey]) {
-              spawned.content.audioBytesB64 = data.files_b64[wavKey];
-              spawned.content.audioUrl = "data:audio/wav;base64," + data.files_b64[wavKey];
-              spawned.content.vfsPath = wavKey;
+            const audKey = keys.find((k) => /\.(mp3|wav|ogg|flac|m4a)$/i.test(k));
+            if (audKey && data.files_b64[audKey]) {
+              const lowK = audKey.toLowerCase();
+              const aMime = lowK.endsWith(".mp3") ? "audio/mpeg" : (lowK.endsWith(".ogg") ? "audio/ogg" : (lowK.endsWith(".flac") ? "audio/flac" : (lowK.endsWith(".m4a") ? "audio/mp4" : "audio/wav")));
+              spawned.content.audioBytesB64 = data.files_b64[audKey];
+              spawned.content.mimeType = spawned.content.mimeType || aMime;
+              if (!spawned.content.audioRawUrl && !spawned.content.audioUrl) {
+                spawned.content.audioUrl = "data:" + spawned.content.mimeType + ";base64," + data.files_b64[audKey];
+              }
+              spawned.content.vfsPath = audKey;
             }
             const glbKey = keys.find((k) => /\.glb$/i.test(k));
             if (glbKey && data.files_b64[glbKey]) {
@@ -4889,6 +4963,81 @@ def _node_studio_js(initial_view: str) -> str:
         }
       } catch (_pollErr) {}
     }, 4000);
+  }
+
+  function pollAudioJobForNode(node) {
+    if (!node || !node.metadata || !node.metadata.jobId || typeof fetch !== "function") return;
+    if (node._pollTimer) clearInterval(node._pollTimer);
+    if (!node.metadata.startedAt) node.metadata.startedAt = Date.now();
+    const jobId = node.metadata.jobId;
+    const modelId = node.metadata.model || state.model || "google/lyria-3.5";
+    const kind = (node.content && node.content.kind) || node.metadata.audioKind || "music";
+    const tgt = _resolveSpaceTarget();
+    const promptStr = (node.metadata && node.metadata.prompt) || node.label || "";
+    let statusUrl =
+      "/api/nodes/audio/status?job_id=" + encodeURIComponent(jobId) +
+      "&model=" + encodeURIComponent(modelId) +
+      "&kind=" + encodeURIComponent(kind) +
+      "&scope=" + encodeURIComponent(tgt.scope) +
+      "&owner_id=" + encodeURIComponent(tgt.owner_id) +
+      "&prompt=" + encodeURIComponent(promptStr);
+    if (node.metadata.audioCost !== undefined && node.metadata.audioCost !== null) {
+      statusUrl += "&cost=" + encodeURIComponent(String(node.metadata.audioCost));
+    }
+    if (node.metadata.audioPaymentSource) {
+      statusUrl += "&payment_source=" + encodeURIComponent(String(node.metadata.audioPaymentSource));
+    }
+
+    node._pollTimer = setInterval(async function () {
+      try {
+        const headers = {};
+        if (state.nanogptKey) headers["X-NanoGPT-Api-Key"] = state.nanogptKey;
+        const fetchOpts = Object.keys(headers).length ? { headers: headers } : {};
+        const res = await fetch(statusUrl, fetchOpts);
+        if (!res || typeof res.json !== "function") return;
+        const st = await res.json();
+        if (!st) return;
+
+        if (st.ok === false || st.status === "FAILED" || st.error) {
+          clearInterval(node._pollTimer);
+          node._pollTimer = null;
+          const errMsg = (st.error && st.error.message) || String(st.error || "Audio generation failed");
+          node.metadata.jobStatus = "ERROR";
+          node.metadata.jobError = errMsg;
+          showToast("Audio error: " + errMsg, true);
+          appendTerminalLine("[!] Audio job " + jobId + " failed: " + errMsg);
+          renderNodes();
+          return;
+        }
+
+        if (st.done && st.ok) {
+          clearInterval(node._pollTimer);
+          node._pollTimer = null;
+          node.metadata.jobStatus = "SUCCEEDED";
+          node.metadata.jobError = "";
+          if (!node.content) node.content = {};
+          if (st.audio_raw_url || st.audio_url) {
+            node.content.audioRawUrl = st.audio_raw_url || st.audio_url;
+            node.content.audioUrl = st.audio_url || st.audio_raw_url;
+          }
+          if (st.audio_bytes_b64) {
+            node.content.audioBytesB64 = st.audio_bytes_b64;
+          }
+          if (st.mime_type) node.content.mimeType = st.mime_type;
+          if (st.ext) node.content.ext = st.ext;
+          if (st.vfs_path) {
+            node.content.vfsPath = st.vfs_path;
+            node.metadata.vfsPath = st.vfs_path;
+          }
+          showToast("Audio ready! Saved to " + (st.vfs_path || "session"), false);
+          appendTerminalLine("[✓] Audio job " + jobId + " SUCCEEDED → " + (st.vfs_path || node.content.audioUrl || "ready"));
+          renderNodes();
+          return;
+        }
+
+        renderNodes();
+      } catch (_pollErr) {}
+    }, 3500);
   }
 
   function pollVideoJobForNode(node) {
@@ -6204,11 +6353,13 @@ def _node_studio_js(initial_view: str) -> str:
       } else if (mod === "text") {
         previewHtml = '<div class="ns-chat-text">' + escapeHtml(c.text || node.label || "") + "</div>";
       } else if (mod === "audio") {
-        const audioSrc = c.audioUrl || (c.audioBytesB64 ? ("data:" + (c.mimeType || "audio/wav") + ";base64," + c.audioBytesB64) : "");
+        const audioSrc = _getAudioSrcForNode(node);
         previewHtml =
-          (audioSrc ? '<audio class="ns-audio-player" controls src="' + escapeHtml(audioSrc) + '"></audio>' : "") +
+          (meta.jobStatus === "ERROR"
+            ? '<div class="ns-omni-error-box">' + escapeHtml(meta.jobError || "Audio generation failed") + "</div>"
+            : (audioSrc ? '<audio class="ns-audio-player" controls preload="metadata" src="' + escapeHtml(audioSrc) + '"></audio>' : "")) +
           '<div class="ns-chat-media-row"><span class="ns-omni-status-badge">♪ ' + escapeHtml(String(c.kind || meta.audioKind || "music").toUpperCase()) +
-          "</span><span>" + escapeHtml(c.vfsPath || meta.vfsPath || "/audio/output.wav") + "</span></div>";
+          "</span><span>" + escapeHtml(c.vfsPath || meta.vfsPath || "/audio/output.mp3") + "</span></div>";
       } else if (mod === "video") {
         const vidUrl = c.videoUrl || "";
         if (_isPlayableVideoUrl(vidUrl)) {
@@ -6570,9 +6721,9 @@ def _node_studio_js(initial_view: str) -> str:
     if (c.imageUrl) {
       href = c.imageUrl;
       filename = baseName + ".png";
-    } else if (c.audioUrl || c.audioBytesB64) {
-      href = c.audioUrl || ("data:" + (c.mimeType || "audio/wav") + ";base64," + c.audioBytesB64);
-      filename = baseName + ".wav";
+    } else if (c.audioRawUrl || c.audioUrl || c.audioBytesB64) {
+      href = _getAudioSrcForNode(node);
+      filename = baseName + _audioExtLabel(c, m).toLowerCase();
     } else if (c.glbRawUrl || c.glbB64) {
       href = c.glbRawUrl || ("data:model/gltf-binary;base64," + c.glbB64);
       filename = baseName + ".glb";
@@ -6595,15 +6746,91 @@ def _node_studio_js(initial_view: str) -> str:
     document.body.removeChild(a);
   }
 
+  function _isAudioFile(file) {
+    if (!file) return false;
+    if (file.type && String(file.type).indexOf("audio/") === 0) return true;
+    return /\.(mp3|wav|ogg|opus|flac|m4a|aac)$/i.test(String(file.name || ""));
+  }
+
+  function _guessAudioMimeAndExt(file) {
+    const name = String((file && file.name) || "").toLowerCase();
+    const mime = String((file && file.type) || "").toLowerCase();
+    if (name.endsWith(".mp3") || mime.indexOf("mpeg") !== -1 || mime.indexOf("mp3") !== -1) return { mime: "audio/mpeg", ext: ".mp3" };
+    if (name.endsWith(".ogg") || name.endsWith(".opus") || mime.indexOf("ogg") !== -1 || mime.indexOf("opus") !== -1) return { mime: "audio/ogg", ext: ".ogg" };
+    if (name.endsWith(".flac") || mime.indexOf("flac") !== -1) return { mime: "audio/flac", ext: ".flac" };
+    if (name.endsWith(".m4a") || name.endsWith(".aac") || mime.indexOf("mp4") !== -1 || mime.indexOf("aac") !== -1) return { mime: "audio/mp4", ext: ".m4a" };
+    return { mime: mime || "audio/wav", ext: ".wav" };
+  }
+
+  function _spawnUploadedAudioNode(file, flowX, flowY, idx) {
+    const info = _guessAudioMimeAndExt(file);
+    const hasBlob = (typeof URL !== "undefined" && typeof URL.createObjectURL === "function" && typeof Blob !== "undefined" && file instanceof Blob);
+    const blobUrl = hasBlob ? URL.createObjectURL(file) : ((file && file.url) || "");
+    state.nodeSeq += 1;
+    const nid = "uploaded-audio-" + state.nodeSeq;
+    const node = {
+      id: nid,
+      type: "AUDIO",
+      morphingStatus: "audio",
+      omniKind: "audio",
+      modality: "audio",
+      label: (file && file.name) || ("audio_" + state.nodeSeq + info.ext),
+      x: Math.round((typeof flowX === "number" ? flowX : (220 + (state.nodeSeq % 4) * 40)) + (idx || 0) * 36),
+      y: Math.round((typeof flowY === "number" ? flowY : (120 + (state.nodeSeq % 3) * 36)) + (idx || 0) * 28),
+      width: 320,
+      height: 256,
+      _audioBlobUrl: hasBlob ? blobUrl : "",
+      content: {
+        kind: "upload",
+        audioUrl: blobUrl,
+        audioRawUrl: blobUrl,
+        mimeType: info.mime,
+        ext: info.ext,
+        vfsPath: (file && file.name) || ("audio_" + state.nodeSeq + info.ext)
+      },
+      metadata: {
+        model: "Uploaded Audio",
+        audioKind: "upload",
+        prompt: "Uploaded: " + ((file && file.name) || "audio"),
+        vfsPath: (file && file.name) || ("audio_" + state.nodeSeq + info.ext)
+      },
+      filters: {}
+    };
+    state.nodes.push(node);
+    if (typeof FileReader !== "undefined" && typeof Blob !== "undefined" && file instanceof Blob && (file.size || 0) <= 4 * 1024 * 1024) {
+      try {
+        const reader = new FileReader();
+        reader.onload = function () {
+          const dataUrl = String(reader.result || "");
+          const b64 = _extractDataUrlBase64(dataUrl);
+          if (b64) {
+            node.content.audioBytesB64 = b64;
+            if (!node.content.audioUrl) node.content.audioUrl = dataUrl;
+          }
+        };
+        reader.readAsDataURL(file);
+      } catch (_e) {}
+    }
+    return node;
+  }
+
   function addFilesToRefs(fileList) {
     const caps = getCaps();
     const files = Array.from(fileList || []);
-    files.forEach((file) => {
+    let spawnedAudio = false;
+    files.forEach((file, idx) => {
       if (state.references.length >= caps.maxReferences) return;
       const fname = (file && file.name) || ("photo_" + (state.references.length + 1) + ".jpg");
-      const mime = (file && file.type) || (fname.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg");
-      const rType = mime === "application/pdf" ? "pdf" : (mime.indexOf("video/") === 0 ? "video" : "image");
-      if (!caps.supportsVideoAndPdf && rType !== "image") return;
+      const isAud = _isAudioFile(file);
+      const mime = (file && file.type) || (isAud ? _guessAudioMimeAndExt(file).mime : (fname.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg"));
+      const rType = isAud ? "audio" : (mime === "application/pdf" ? "pdf" : (mime.indexOf("video/") === 0 ? "video" : "image"));
+      if (isAud) {
+        const audNode = _spawnUploadedAudioNode(file, undefined, undefined, idx);
+        state.selectedIds = [audNode.id];
+        spawnedAudio = true;
+      } else if (!caps.supportsVideoAndPdf && rType !== "image") {
+        return;
+      }
       const url = (typeof URL !== "undefined" && URL.createObjectURL && file instanceof Blob)
         ? URL.createObjectURL(file)
         : ((file && file.url) || "");
@@ -6639,6 +6866,7 @@ def _node_studio_js(initial_view: str) -> str:
         });
       }
     });
+    if (spawnedAudio) renderNodes();
     renderReferencesStrip();
   }
 
@@ -6648,7 +6876,17 @@ def _node_studio_js(initial_view: str) -> str:
     const flowX = (clientX - rect.left - state.panX) / state.zoom;
     const flowY = (clientY - rect.top - state.panY) / state.zoom;
     const droppedIds = [];
-    const imageFiles = Array.from(fileList || []).filter((f) => {
+    const allFiles = Array.from(fileList || []);
+    const audioFiles = allFiles.filter(_isAudioFile);
+    audioFiles.forEach((file, idx) => {
+      const audNode = _spawnUploadedAudioNode(file, flowX, flowY, idx);
+      droppedIds.push(audNode.id);
+    });
+    if (audioFiles.length) {
+      state.selectedIds = droppedIds.slice();
+      renderNodes();
+    }
+    const imageFiles = allFiles.filter((f) => {
       if (!f) return false;
       if (f.type && f.type.indexOf("image/") === 0) return true;
       return /\.(jpe?g|png|webp|heic|heif|bmp|gif)$/i.test(String(f.name || ""));
@@ -6666,8 +6904,8 @@ def _node_studio_js(initial_view: str) -> str:
           morphingStatus: "image",
           modality: "image",
           label: file.name,
-          x: Math.round(flowX + idx * 36),
-          y: Math.round(flowY + idx * 28),
+          x: Math.round(flowX + (audioFiles.length + idx) * 36),
+          y: Math.round(flowY + (audioFiles.length + idx) * 28),
           width: 256,
           height: 256,
           content: { imageUrl: dataUrl, base64: b64, mimeType: file.type || "image/jpeg" },
@@ -6675,7 +6913,7 @@ def _node_studio_js(initial_view: str) -> str:
           filters: {}
         });
         droppedIds.push(nid);
-        if (droppedIds.length === imageFiles.length) {
+        if (droppedIds.length === audioFiles.length + imageFiles.length) {
           state.selectedIds = droppedIds.slice();
           syncSelectionRefs();
         }
@@ -7104,6 +7342,20 @@ def _node_studio_js(initial_view: str) -> str:
         if (nodeEl) {
           ev.stopPropagation();
           const nid = nodeEl.dataset.nodeId;
+          const interactiveEl = ev.target && ev.target.closest
+            ? ev.target.closest("audio, video, model-viewer, button, input, select, textarea, a, .ns-mesh-stage, .ns-splat-canvas, .ns-text-body")
+            : null;
+          if (interactiveEl) {
+            // Preserve live <audio>/<video>/<model-viewer> & buttons: never rebuild innerHTML or drag card mid-click
+            if (state.selectedIds.indexOf(nid) === -1) {
+              state.selectedIds = [nid];
+              document.querySelectorAll(".ns-canvas-node").forEach((el) => {
+                el.classList.toggle("is-selected", el.dataset && el.dataset.nodeId === nid);
+              });
+              syncSelectionRefs();
+            }
+            return;
+          }
           if (state.metaHeld || ev.metaKey || ev.ctrlKey) {
             duplicateNode(nid);
             return;
@@ -7413,6 +7665,10 @@ def _node_studio_js(initial_view: str) -> str:
       if (content.imageUrl && content.imageUrl.indexOf("blob:") === 0 && content.base64) {
         content.imageUrl = "data:" + (content.mimeType || "image/jpeg") + ";base64," + content.base64;
       }
+      if (content.audioUrl && content.audioUrl.indexOf("blob:") === 0 && content.audioBytesB64) {
+        content.audioUrl = "data:" + (content.mimeType || "audio/mpeg") + ";base64," + content.audioBytesB64;
+        if (content.audioRawUrl && content.audioRawUrl.indexOf("blob:") === 0) content.audioRawUrl = "";
+      }
       return {
         id: n.id,
         type: n.type,
@@ -7522,6 +7778,8 @@ def _node_studio_js(initial_view: str) -> str:
         const mod = _getNodeModality(n);
         if (mod === "video" && n.metadata.jobId) {
           pollVideoJobForNode(n);
+        } else if (mod === "audio" && n.metadata.jobId) {
+          pollAudioJobForNode(n);
         } else if (mod === "3d" && n.metadata.jobId) {
           pollMeshJobForNode(n);
         } else if (mod === "atlas" && n.metadata.operationId) {
@@ -7787,6 +8045,7 @@ def _node_studio_js(initial_view: str) -> str:
     resetModalCamera: resetModalCamera,
     downloadActiveSplatSpz: downloadActiveSplatSpz,
     mountAllSplatCanvases: mountAllSplatCanvases,
+    pollAudioJobForNode: pollAudioJobForNode,
     pollVideoJobForNode: pollVideoJobForNode,
     pollMeshJobForNode: pollMeshJobForNode,
     ensureModelViewer: ensureModelViewer,
@@ -8223,12 +8482,12 @@ def _render_studio_stage_markup(active_view: str) -> str:
 
         <div class="ns-prompt-area">
           <textarea id="nsPromptInput" class="ns-prompt-textarea" rows="1" spellcheck="false" placeholder="Describe what you want to generate..."></textarea>
-          <button id="nsAttachTrigger" type="button" class="ns-attach-trigger" title="Attach references (Images, Video, PDF — up to 14)" onclick="window.TinCanNodeStudio.triggerFileInput()">
+          <button id="nsAttachTrigger" type="button" class="ns-attach-trigger" title="Attach references (Images, Audio, Video, PDF — up to 14)" onclick="window.TinCanNodeStudio.triggerFileInput()">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
               <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
             </svg>
           </button>
-          <input id="nsFileInput" type="file" class="ns-hidden-input" multiple accept="image/*,video/*,application/pdf" onchange="window.TinCanNodeStudio.handleFilesSelected(this.files);this.value='';">
+          <input id="nsFileInput" type="file" class="ns-hidden-input" multiple accept="image/*,video/*,audio/*,application/pdf" onchange="window.TinCanNodeStudio.handleFilesSelected(this.files);this.value='';">
         </div>
 
         <div class="ns-action-bar">

@@ -1084,7 +1084,11 @@ def _atlas_download_operation(data: Dict[str, Any], ai_router: Any = None) -> Tu
     return (200 if dl_res.get("ok") else 400), dl_res
 
 
-def _audio_generate_and_save(data: Dict[str, Any], ai_router: Any = None) -> Tuple[int, Dict[str, Any]]:
+def _audio_generate_and_save(
+    data: Dict[str, Any],
+    headers: Optional[Dict[str, str]] = None,
+    ai_router: Any = None,
+) -> Tuple[int, Dict[str, Any]]:
     if not isinstance(data, dict):
         return 400, {"ok": False, "error": "Payload must be a JSON object"}
     from iot_federated_agent_memory.agent_space import _slug_from_prompt, _unique_space_path
@@ -1097,14 +1101,30 @@ def _audio_generate_and_save(data: Dict[str, Any], ai_router: Any = None) -> Tup
         kind = "music"
     model = data.get("model")
     voice = data.get("voice")
+    duration = data.get("duration")
     scope = (data.get("scope") or "user").strip()
     owner_id = (data.get("owner_id") or data.get("peer_id") or "default").strip()
     peer_id = (data.get("peer_id") or owner_id or "peer").strip()
     save_path = (data.get("save_path") or "").strip()
 
+    hdrs_low = {str(k).lower(): str(v) for k, v in (headers or {}).items()}
+    api_key_override = hdrs_low.get("x-nanogpt-api-key") or None
+
     rtr = ai_router or globals().get("router")
     if rtr is not None and hasattr(rtr, "generate_omni_audio"):
-        res = dict(rtr.generate_omni_audio(prompt, kind=kind, model=model, voice=voice))
+        try:
+            res = dict(
+                rtr.generate_omni_audio(
+                    prompt,
+                    kind=kind,
+                    model=model,
+                    voice=voice,
+                    api_key=api_key_override,
+                    duration=duration,
+                )
+            )
+        except TypeError:
+            res = dict(rtr.generate_omni_audio(prompt, kind=kind, model=model, voice=voice))
     else:
         default_models = {
             "tts": "elevenlabs/eleven-v4",
@@ -1115,34 +1135,173 @@ def _audio_generate_and_save(data: Dict[str, Any], ai_router: Any = None) -> Tup
         wav_bytes = _build_minimal_wav_bytes()
         res = {
             "ok": True,
+            "done": True,
+            "simulated": True,
             "kind": kind,
             "model": resolved_model,
             "prompt": prompt,
             "audio_bytes_b64": base64.b64encode(wav_bytes).decode("ascii"),
             "mime_type": "audio/wav",
+            "ext": ".wav",
             "sparkline": "│┃│┃┃│┃┃",
             "lufs": -14.0,
         }
 
-    wav_b64 = res.get("audio_bytes_b64") or ""
-    if not wav_b64:
-        wav_bytes = _build_minimal_wav_bytes()
-        wav_b64 = base64.b64encode(wav_bytes).decode("ascii")
-        res["audio_bytes_b64"] = wav_b64
+    # Propagate real upstream NanoGPT errors cleanly without substituting a fake beep
+    if res.get("ok") is False:
+        return int(res.get("status_code") or 502), res
+
+    # Propagate live asynchronous NanoGPT audio jobs (HTTP 202 pending runId) for UI polling
+    if res.get("async") or res.get("done") is False:
+        res.setdefault("ok", True)
+        res.setdefault("async", True)
+        res.setdefault("done", False)
+        res.setdefault("status", "RUNNING")
+        return 200, res
+
+    audio_b64 = res.get("audio_bytes_b64") or ""
+    mime_type = str(res.get("mime_type") or "audio/wav")
+    ext = str(res.get("ext") or "")
+    if not ext:
+        if "mpeg" in mime_type or "mp3" in mime_type:
+            ext = ".mp3"
+        elif "ogg" in mime_type or "opus" in mime_type:
+            ext = ".ogg"
+        elif "flac" in mime_type:
+            ext = ".flac"
+        elif "mp4" in mime_type or "m4a" in mime_type:
+            ext = ".m4a"
+        else:
+            ext = ".wav"
+
+    if audio_b64:
+        audio_bytes = base64.b64decode(audio_b64)
+    elif res.get("remote_url") or res.get("audio_url"):
+        # Remote URL returned without local download; return playable remote URL directly
+        remote_u = str(res.get("remote_url") or res.get("audio_url"))
+        res["ok"] = True
+        res["audio_url"] = remote_u
+        res["audio_raw_url"] = remote_u
+        return 200, res
     else:
-        wav_bytes = base64.b64decode(wav_b64)
+        audio_bytes = _build_minimal_wav_bytes()
+        audio_b64 = base64.b64encode(audio_bytes).decode("ascii")
+        res["audio_bytes_b64"] = audio_b64
+        mime_type = "audio/wav"
+        ext = ".wav"
 
     sm = _get_space_manager()
     sp = sm.get_or_create_space(scope, owner_id)
     slug = _slug_from_prompt(prompt, default=f"{kind}_track")
-    sp_path = save_path or _unique_space_path(sp, "/audio", f"{kind}_{slug}", ".wav")
-    sp.write_file(sp_path, wav_bytes, mime_type=res.get("mime_type") or "audio/wav", updated_by=peer_id)
+    sp_path = save_path or _unique_space_path(sp, "/audio", f"{kind}_{slug}", ext)
+    sp.write_file(sp_path, audio_bytes, mime_type=mime_type, updated_by=peer_id)
 
+    audio_raw_url = _build_space_raw_url(scope, owner_id, sp_path)
     res["ok"] = True
+    res["done"] = True
     res["path"] = sp_path
-    res["size_bytes"] = len(wav_bytes)
+    res["mime_type"] = mime_type
+    res["ext"] = ext
+    res["size_bytes"] = len(audio_bytes)
+    res["audio_raw_url"] = audio_raw_url
+    res["audio_url"] = audio_raw_url
     res["saved_to_space"] = {"scope": scope, "owner_id": owner_id, "path": sp_path}
+    # Keep small files inline for backwards compat / offline tests; rely on audio_raw_url for >2MB tracks
+    if len(audio_bytes) > 2 * 1024 * 1024:
+        res.pop("audio_bytes_b64", None)
     return 200, res
+
+
+def _node_studio_audio_status(
+    params: Dict[str, Any],
+    headers: Optional[Dict[str, str]] = None,
+    ai_router: Any = None,
+) -> Tuple[int, Dict[str, Any]]:
+    from iot_federated_agent_memory.agent_space import _slug_from_prompt, _unique_space_path
+
+    job_id = str(params.get("job_id") or params.get("run_id") or params.get("runId") or "").strip()
+    if not job_id:
+        return 400, {"ok": False, "error": "Missing 'job_id'"}
+
+    model = str(params.get("model") or "").strip() or None
+    cost = params.get("cost")
+    payment_source = str(params.get("payment_source") or params.get("paymentSource") or "").strip() or None
+    kind = str(params.get("kind") or "music").strip().lower()
+    if kind not in ("tts", "music", "sfx"):
+        kind = "music"
+    scope = str(params.get("scope") or "user").strip() or "user"
+    owner_id = str(params.get("owner_id") or params.get("peer_id") or "default").strip() or "default"
+    peer_id = str(params.get("peer_id") or owner_id or "peer").strip()
+    prompt = str(params.get("prompt") or "").strip()
+
+    hdrs_low = {str(k).lower(): str(v) for k, v in (headers or {}).items()}
+    api_key_override = hdrs_low.get("x-nanogpt-api-key") or None
+
+    rtr = ai_router or globals().get("router")
+    if rtr is None or not hasattr(rtr, "poll_nanogpt_audio_status"):
+        return 501, {"ok": False, "done": True, "status": "FAILED", "job_id": job_id, "error": "Audio polling unavailable"}
+
+    st = dict(
+        rtr.poll_nanogpt_audio_status(
+            job_id,
+            model=model,
+            cost=cost,
+            payment_source=payment_source,
+            api_key=api_key_override,
+        )
+    )
+    if not st.get("done"):
+        return 200, {
+            "ok": True,
+            "done": False,
+            "status": st.get("status") or "RUNNING",
+            "job_id": job_id,
+            "model": st.get("model") or model or "",
+        }
+    if not st.get("ok"):
+        return 200, {
+            "ok": False,
+            "done": True,
+            "status": "FAILED",
+            "job_id": job_id,
+            "error": st.get("error") or "Audio generation failed",
+        }
+
+    audio_b64 = st.get("audio_bytes_b64") or ""
+    mime_type = str(st.get("mime_type") or "audio/mpeg")
+    ext = str(st.get("ext") or (".wav" if "wav" in mime_type else ".mp3"))
+    remote_url = st.get("remote_url") or st.get("audio_url") or ""
+
+    vfs_path = ""
+    audio_raw_url = remote_url
+    size_bytes = int(st.get("size_bytes") or 0)
+    if audio_b64:
+        audio_bytes = base64.b64decode(audio_b64)
+        size_bytes = len(audio_bytes)
+        sm = _get_space_manager()
+        sp = sm.get_or_create_space(scope, owner_id)
+        slug = _slug_from_prompt(prompt or job_id, default=f"{kind}_track")
+        vfs_path = _unique_space_path(sp, "/audio", f"{kind}_{slug}", ext)
+        sp.write_file(vfs_path, audio_bytes, mime_type=mime_type, updated_by=peer_id)
+        audio_raw_url = _build_space_raw_url(scope, owner_id, vfs_path)
+
+    out: Dict[str, Any] = {
+        "ok": True,
+        "done": True,
+        "status": "SUCCEEDED",
+        "job_id": job_id,
+        "model": st.get("model") or model or "",
+        "audio_url": audio_raw_url,
+        "audio_raw_url": audio_raw_url,
+        "remote_url": remote_url,
+        "vfs_path": vfs_path,
+        "mime_type": mime_type,
+        "ext": ext,
+        "size_bytes": size_bytes,
+    }
+    if audio_b64 and size_bytes <= 2 * 1024 * 1024:
+        out["audio_bytes_b64"] = audio_b64
+    return 200, out
 
 
 def _fallback_parse_omni_slash_command(raw_input: str) -> Dict[str, Any]:
@@ -1716,24 +1875,50 @@ def _omni_route(
         if kind not in ("tts", "music", "sfx"):
             kind = "music"
         flags = parsed_route.get("flags") or {}
-        _, aud_res = _audio_generate_and_save(
+        aud_code, aud_res = _audio_generate_and_save(
             {
                 "prompt": parsed_route.get("prompt") or combined_input,
                 "kind": kind,
                 "model": flags.get("model") or parsed_route.get("model"),
                 "voice": flags.get("voice") or data.get("voice"),
+                "duration": flags.get("duration") or data.get("duration"),
                 "scope": scope,
                 "owner_id": owner_id,
                 "peer_id": peer_id,
                 "save_path": data.get("save_path"),
             },
+            headers=headers,
             ai_router=rtr,
         )
+        if aud_code >= 400 or aud_res.get("ok") is False:
+            return aud_code, {
+                "ok": False,
+                "route": parsed_route,
+                "error": aud_res.get("error") or f"Audio generation failed (HTTP {aud_code})",
+                "result": aud_res,
+            }
+        if aud_res.get("async") or aud_res.get("done") is False:
+            return 200, {
+                "ok": True,
+                "async": True,
+                "done": False,
+                "status": aud_res.get("status") or "RUNNING",
+                "job_id": aud_res.get("job_id") or "",
+                "model": aud_res.get("model") or "",
+                "cost": aud_res.get("cost"),
+                "payment_source": aud_res.get("payment_source"),
+                "route": parsed_route,
+                "result": aud_res,
+                "saved_to_space": None,
+                "files_b64": {},
+            }
         sp_path = aud_res.get("path")
         files_b64 = {sp_path: aud_res["audio_bytes_b64"]} if (sp_path and aud_res.get("audio_bytes_b64")) else {}
         return 200, {
             "ok": True,
+            "done": True,
             "route": parsed_route,
+            "audio_raw_url": aud_res.get("audio_raw_url") or aud_res.get("audio_url"),
             "result": aud_res,
             "saved_to_space": aud_res.get("saved_to_space"),
             "files_b64": files_b64,
@@ -5673,7 +5858,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         elif parsed.path == "/api/audio/generate":
             try:
                 data = self._read_json_body()
-                code, res = _audio_generate_and_save(data, ai_router=router)
+                code, res = _audio_generate_and_save(data, headers=dict(self.headers), ai_router=router)
                 self._send_json(res, code)
             except ValueError as ve:
                 self._send_json({"ok": False, "error": str(ve)}, 400)
@@ -6393,6 +6578,27 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             }
             code, res = _node_studio_mesh_status(params, ai_router=router)
             self._send_json(res, code)
+        elif parsed.path == "/api/nodes/audio/status":
+            query = parse_qs(parsed.query)
+            params = {
+                "job_id": (
+                    query.get("job_id", [""])[0]
+                    or query.get("jobId", [""])[0]
+                    or query.get("run_id", [""])[0]
+                    or query.get("runId", [""])[0]
+                    or query.get("id", [""])[0]
+                ).strip(),
+                "model": (query.get("model", [""])[0] or "").strip(),
+                "kind": (query.get("kind", ["music"])[0] or "music").strip(),
+                "cost": query.get("cost", [""])[0],
+                "payment_source": query.get("payment_source", query.get("paymentSource", [""]))[0],
+                "scope": query.get("scope", ["user"])[0],
+                "owner_id": query.get("owner_id", query.get("peer_id", ["default"]))[0],
+                "peer_id": query.get("peer_id", query.get("owner_id", ["default"]))[0],
+                "prompt": query.get("prompt", [""])[0],
+            }
+            code, res = _node_studio_audio_status(params, headers=dict(self.headers), ai_router=router)
+            self._send_json(res, code)
         elif parsed.path == "/api/nodes/graphs":
             query = parse_qs(parsed.query)
             scope = query.get("scope", ["user"])[0]
@@ -6888,6 +7094,32 @@ def _nodes_mesh_status(
     _, res = _node_studio_mesh_status(
         {
             "job_id": job_id,
+            "scope": scope,
+            "owner_id": owner_id,
+            "prompt": prompt,
+        },
+        ai_router=router,
+    )
+    return res
+
+@app.get("/api/nodes/audio/status")
+def _nodes_audio_status(
+    job_id: str = "",
+    model: str = "",
+    kind: str = "music",
+    cost: str = "",
+    payment_source: str = "",
+    scope: str = "user",
+    owner_id: str = "default",
+    prompt: str = "",
+):
+    _, res = _node_studio_audio_status(
+        {
+            "job_id": job_id,
+            "model": model,
+            "kind": kind,
+            "cost": cost,
+            "payment_source": payment_source,
             "scope": scope,
             "owner_id": owner_id,
             "prompt": prompt,
