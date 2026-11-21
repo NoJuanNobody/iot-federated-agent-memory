@@ -8946,6 +8946,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
         const files = data.files || [];
+        spaceVfsAllFiles = files;
         if (badgeEl) badgeEl.textContent = `${files.length} File${files.length === 1 ? '' : 's'}`;
         ideMerkle = String(data.merkle_root || '').slice(0, 10);
         ideUpdateStatus();
@@ -8953,10 +8954,12 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
         if (files.length === 0) {
           rangerItems = [];
+          spaceVfsCwd = '/';
+          setRangerListHeader();
           fileListEl.innerHTML = '<div class="text-slate-500 py-2 text-center text-xs">No files in space yet. Click + New File or Generate 3D.</div>';
           return;
         }
-        renderRangerList(files.map(f => ({ kind: 'file', source: 'space', path: f.path, name: f.path, size: f.size_bytes, mime: f.mime_type })));
+        navigateSpaceVfs(spaceVfsCwd || '/');
 
         if (!document.getElementById('agentspaceEditor').value && !ideClosedAll && files.length > 0) {
           openAgentSpaceFile(files[0].path);
@@ -9907,6 +9910,72 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     // ---- File list (shared by .space and drive mirror) ----------------------
+    let spaceVfsAllFiles = [];
+    let spaceVfsCwd = '/';
+
+    function _normSpaceDir(p) {
+      const clean = '/' + String(p || '/').replace(/^\/+|\/+$/g, '');
+      return clean === '/' ? '/' : clean;
+    }
+
+    function navigateSpaceVfs(dirPath, highlightChildPath) {
+      rangerMode = 'space';
+      const dirNorm = _normSpaceDir(dirPath || '/');
+      spaceVfsCwd = dirNorm;
+      const prefix = dirNorm === '/' ? '/' : (dirNorm + '/');
+      const dirCounts = new Map();
+      const immediateFiles = [];
+
+      (spaceVfsAllFiles || []).forEach(f => {
+        const rawPath = '/' + String((f && f.path) || '').replace(/^\/+/, '');
+        if (!rawPath.startsWith(prefix)) return;
+        const rel = rawPath.slice(prefix.length);
+        if (!rel) return;
+        const slashIdx = rel.indexOf('/');
+        if (slashIdx === -1) {
+          immediateFiles.push({
+            kind: 'file',
+            source: 'space',
+            path: rawPath,
+            name: rel,
+            size: f.size_bytes,
+            mime: f.mime_type,
+          });
+        } else {
+          const subName = rel.slice(0, slashIdx);
+          const subPath = (dirNorm === '/' ? '' : dirNorm) + '/' + subName;
+          dirCounts.set(subPath, (dirCounts.get(subPath) || 0) + 1);
+        }
+      });
+
+      const items = [];
+      if (dirNorm !== '/') {
+        const parent = dirNorm.replace(/\/[^\/]+\/?$/, '') || '/';
+        items.push({ kind: 'up', source: 'space', path: parent, name: '..' });
+      }
+      Array.from(dirCounts.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .forEach(([subPath, count]) => {
+          const name = subPath.split('/').pop();
+          items.push({
+            kind: 'dir',
+            source: 'space',
+            path: subPath,
+            name: name + '/',
+            count,
+          });
+        });
+      immediateFiles
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .forEach(f => items.push(f));
+
+      renderRangerList(items);
+      if (highlightChildPath) {
+        const idx = items.findIndex(it => it.path === highlightChildPath);
+        if (idx >= 0) setRangerIndex(idx);
+      }
+    }
+
     function setRangerListHeader() {
       ideUpdateStatus();
       const title = document.getElementById('rangerListTitle');
@@ -9926,7 +9995,14 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       } else {
         if (title) title.textContent = 'Files in VFS';
         if (newBtn) newBtn.classList.remove('hidden');
-        if (crumb) { crumb.classList.add('hidden'); crumb.innerHTML = ''; }
+        if (crumb) {
+          crumb.classList.remove('hidden');
+          const parts = _normSpaceDir(spaceVfsCwd).split('/').filter(Boolean);
+          let acc = '';
+          const bits = [`<button class="hover:text-slate-200" data-crumb="/">/</button>`];
+          parts.forEach(p => { acc += '/' + p; bits.push(`<span>/</span><button class="hover:text-slate-200" data-crumb="${rangerEsc(acc)}">${rangerEsc(p)}</button>`); });
+          crumb.innerHTML = bits.join('');
+        }
       }
     }
 
@@ -9943,7 +10019,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       el.innerHTML = items.map((it, i) => {
         const sel = it.kind === 'file' && rangerView && rangerView.source === it.source && rangerView.path === it.path;
         const bg = sel ? 'bg-purple-950/80 text-purple-200 font-bold border-l-2 border-purple-400' : 'hover:bg-slate-900 text-slate-300';
-        const size = it.kind === 'file' && it.size != null ? rangerFmtSize(it.size) : (it.kind === 'dir' ? '›' : '');
+        const size = it.kind === 'file' && it.size != null
+          ? rangerFmtSize(it.size)
+          : (it.kind === 'dir' ? (it.count != null ? `${it.count} ›` : '›') : '');
         return `<div role="option" data-idx="${i}" title="${rangerEsc(it.path || it.name)}" class="ranger-row px-2 py-1.5 cursor-pointer flex items-center justify-between gap-2 transition ${bg}">
               <div class="flex items-center gap-1.5 min-w-0 flex-1"><span class="shrink-0">${rangerIcon(it)}</span><span class="tc-truncate min-w-0">${rangerEsc(it.name)}</span></div>
               <span class="text-[9px] text-slate-500 shrink-0 font-mono">${rangerEsc(size)}</span>
@@ -9971,12 +10049,22 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     function activateRangerItem(it) {
       if (!it) return;
       if (it.kind === 'up') return rangerGoUp();
-      if (it.kind === 'dir') return navigateDrive(it.path);
+      if (it.kind === 'dir') {
+        if (it.source === 'space') return navigateSpaceVfs(it.path);
+        return navigateDrive(it.path);
+      }
       if (it.source === 'space') return openAgentSpaceFile(it.path);
       return openDriveFile(it.path);
     }
 
     function rangerGoUp() {
+      if (rangerMode === 'space') {
+        const cur = _normSpaceDir(spaceVfsCwd);
+        if (cur === '/') return;
+        const parent = cur.replace(/\/[^\/]+\/?$/, '') || '/';
+        navigateSpaceVfs(parent, cur);
+        return;
+      }
       if (rangerMode !== 'drive' || !driveState.cwd || driveState.cwd === '/') return;
       const from = driveState.cwd;
       const parent = from.replace(/\/[^\/]+\/?$/, '') || '/';
@@ -9986,7 +10074,12 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     (function initRangerListEvents() {
       const el = document.getElementById('spaceFileList');
       const crumb = document.getElementById('rangerBreadcrumb');
-      if (crumb) crumb.addEventListener('click', ev => { const b = ev.target.closest('[data-crumb]'); if (b) navigateDrive(b.dataset.crumb); });
+      if (crumb) crumb.addEventListener('click', ev => {
+        const b = ev.target.closest('[data-crumb]');
+        if (!b) return;
+        if (rangerMode === 'space') navigateSpaceVfs(b.dataset.crumb);
+        else navigateDrive(b.dataset.crumb);
+      });
       if (!el) return;
       el.addEventListener('click', ev => {
         const row = ev.target.closest('.ranger-row'); if (!row) return;
@@ -9994,14 +10087,14 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         activateRangerItem(rangerItems[i]);
       });
       el.addEventListener('keydown', ev => {
-        if (!rangerItems.length && ev.key !== 'ArrowLeft' && ev.key !== 'Backspace') return;
+        if (!rangerItems.length && ev.key !== 'ArrowLeft' && ev.key !== 'Backspace' && ev.key !== 'h') return;
         const n = rangerItems.length;
-        if (ev.key === 'ArrowDown') { ev.preventDefault(); setRangerIndex(Math.min(n - 1, rangerIndex + 1)); }
-        else if (ev.key === 'ArrowUp') { ev.preventDefault(); setRangerIndex(Math.max(0, rangerIndex - 1)); }
+        if (ev.key === 'ArrowDown' || ev.key === 'j') { ev.preventDefault(); setRangerIndex(Math.min(n - 1, rangerIndex + 1)); }
+        else if (ev.key === 'ArrowUp' || ev.key === 'k') { ev.preventDefault(); setRangerIndex(Math.max(0, rangerIndex - 1)); }
         else if (ev.key === 'Home') { ev.preventDefault(); setRangerIndex(0); }
         else if (ev.key === 'End') { ev.preventDefault(); setRangerIndex(n - 1); }
-        else if (ev.key === 'Enter' || ev.key === 'ArrowRight') { ev.preventDefault(); activateRangerItem(rangerItems[rangerIndex]); }
-        else if (ev.key === 'ArrowLeft' || ev.key === 'Backspace') { ev.preventDefault(); rangerGoUp(); }
+        else if (ev.key === 'Enter' || ev.key === 'ArrowRight' || ev.key === 'l') { ev.preventDefault(); activateRangerItem(rangerItems[rangerIndex]); }
+        else if (ev.key === 'ArrowLeft' || ev.key === 'Backspace' || ev.key === 'h') { ev.preventDefault(); rangerGoUp(); }
       });
     })();
 
