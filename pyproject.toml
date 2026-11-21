@@ -15,6 +15,10 @@ dependencies = [
 [project.optional-dependencies]
 # Needed by server.py for passkey (WebAuthn) sign-in.
 server = ["webauthn>=2.2,<4", "cryptography"]
+# Decentralized LAN mDNS discovery (AI-237).
+p2p = ["zeroconf>=0.131.0"]
+# Off-grid disaster mesh (mDNS + Reticulum Network Stack, AI-236).
+disaster = ["zeroconf>=0.131.0", "rns>=0.8.0"]
 
 [project.scripts]
 tincan = "iot_federated_agent_memory.tincan_cli:main"
