@@ -4658,6 +4658,30 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": str(ve)}, 400)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/model-prefs":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                from iot_federated_agent_memory.model_prefs import (
+                    default_prefs_path,
+                    resolve_harness_env,
+                    save_model_prefs,
+                )
+
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                saved = save_model_prefs(data, registry=account_registry)
+                harnesses = {
+                    hid: resolve_harness_env(hid, prefs=saved, include_secrets=False)
+                    for hid in ("bash", "claude-code", "codex", "opencode", "aider", "goose", "dsx", "antigravity")
+                }
+                self._send_json({
+                    "status": "saved",
+                    "prefs_path": default_prefs_path(),
+                    "preferences": saved,
+                    "harness_env_preview": harnesses,
+                }, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 400)
         elif parsed.path == "/api/admin/economy-dials":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
@@ -6664,6 +6688,23 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     prompt_chars = 0
                 telemetry["preflight"] = estimate_preflight(model_q, prompt_chars=prompt_chars, router=router)
             self._send_json(telemetry, 200)
+        elif parsed.path == "/api/model-prefs":
+            from iot_federated_agent_memory.model_prefs import (
+                default_prefs_path,
+                load_model_prefs,
+                resolve_harness_env,
+            )
+
+            prefs = load_model_prefs(registry=account_registry)
+            harnesses = {
+                hid: resolve_harness_env(hid, prefs=prefs, include_secrets=False)
+                for hid in ("bash", "claude-code", "codex", "opencode", "aider", "goose", "dsx", "antigravity")
+            }
+            self._send_json({
+                "prefs_path": default_prefs_path(),
+                "preferences": prefs,
+                "harness_env_preview": harnesses,
+            }, 200)
         elif parsed.path == "/api/tokens/summary":
             query = parse_qs(parsed.query)
             session_acc = self._session_account()

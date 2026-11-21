@@ -1068,18 +1068,10 @@ def _build_harness_exec_argv(target: Dict[str, Any], task_args: str) -> Tuple[Li
 
 
 def _harness_extra_env(target: Dict[str, Any]) -> Dict[str, str]:
-    """Derive OpenRouter bridge defaults from server keys when native vendor keys are absent."""
-    extra: Dict[str, str] = {}
-    or_key = os.environ.get("OPENROUTER_API_KEY")
-    if target["id"] == "claude-code" and or_key and not os.environ.get("ANTHROPIC_API_KEY"):
-        extra["ANTHROPIC_BASE_URL"] = os.environ.get("ANTHROPIC_BASE_URL") or "https://openrouter.ai/api"
-        extra["ANTHROPIC_AUTH_TOKEN"] = or_key
-        extra["ANTHROPIC_API_KEY"] = ""
-    elif target["id"] == "goose" and or_key:
-        if not os.environ.get("GOOSE_PROVIDER"):
-            extra["GOOSE_PROVIDER"] = "openrouter"
-        if not os.environ.get("GOOSE_MODEL"):
-            extra["GOOSE_MODEL"] = "google/gemini-2.5-flash"
+    """Derive NanoGPT / OpenRouter bridge defaults from saved model preferences + server keys."""
+    from .model_prefs import resolve_harness_env
+
+    extra = resolve_harness_env(target.get("id", "bash"), base_env=os.environ, include_secrets=True)
     return extra
 
 

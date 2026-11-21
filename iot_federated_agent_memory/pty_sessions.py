@@ -41,9 +41,12 @@ def prepare_tui_command(
     """Resolve interactive TUI argv, extra env, and canonical app id for a harness or shell."""
     clean = (app_id or "bash").strip().lower()
     if clean in ("bash", "sh", "shell", "zsh"):
+        from .model_prefs import resolve_harness_env
+
         shell_bin = shutil.which("bash") or shutil.which("zsh") or shutil.which("sh") or "/bin/sh"
         flag = "-i" if os.path.basename(shell_bin) in ("bash", "zsh") else "-i"
-        return [shell_bin, flag], {}, os.path.basename(shell_bin)
+        shell_extra = resolve_harness_env(clean, base_env=os.environ, include_secrets=True)
+        return [shell_bin, flag], shell_extra, os.path.basename(shell_bin)
 
     target = resolve_harness(clean)
     if not target:
@@ -60,29 +63,38 @@ def prepare_tui_command(
     base = harness_base_argv(target)
     extra = _harness_extra_env(target)
     or_key = os.environ.get("OPENROUTER_API_KEY")
+    nano_key = os.environ.get("NANOGPT_API_KEY")
+    from .model_prefs import resolve_harness_model_flag
+
+    pref_model = resolve_harness_model_flag(target["id"], base_env=os.environ)
 
     if target["id"] == "claude-code":
         argv = [*base, "--permission-mode", "acceptEdits"]
-        if or_key and not os.environ.get("ANTHROPIC_API_KEY"):
-            argv.extend(["--model", os.environ.get("CLAUDE_MODEL") or "anthropic/claude-sonnet-5.5"])
+        if (or_key or nano_key) and not os.environ.get("ANTHROPIC_API_KEY"):
+            argv.extend(["--model", os.environ.get("CLAUDE_MODEL") or pref_model or "anthropic/claude-sonnet-5.5"])
         if space_context_text:
             argv.extend(["--append-system-prompt", space_context_text[:6000]])
     elif target["id"] == "opencode":
         argv = [*base]
-        if or_key:
-            argv.extend(["--model", os.environ.get("OPENCODE_MODEL") or "openrouter/openai/gpt-4o-mini"])
+        if or_key or nano_key:
+            argv.extend(["--model", os.environ.get("OPENCODE_MODEL") or pref_model or "openrouter/openai/gpt-4o-mini"])
     elif target["id"] == "dsx":
         argv = [*base]
     elif target["id"] == "codex":
         argv = [*base, "--dangerously-bypass-approvals-and-sandbox"]
-        if or_key and not os.environ.get("OPENAI_API_KEY"):
-            argv.extend(codex_openrouter_flags())
+        if (or_key or nano_key) and not os.environ.get("OPENAI_API_KEY"):
+            if extra.get("OPENAI_BASE_URL", "").startswith("https://nano-gpt.com") and pref_model:
+                argv.extend(["-m", pref_model])
+            elif or_key:
+                argv.extend(codex_openrouter_flags())
     elif target["id"] == "goose":
         argv = [*base, "session"]
     elif target["id"] == "gemini-cli":
         argv = [*base, "--skip-trust", "--approval-mode", "yolo"]
     elif target["id"] == "aider":
         argv = [*base, "--yes-always", "--no-auto-commits", "--no-git"]
+        if extra.get("AIDER_MODEL"):
+            argv.extend(["--model", extra["AIDER_MODEL"]])
     elif target["id"] == "antigravity":
         argv = [*base, "--mode", "accept-edits"]
     else:
@@ -152,6 +164,14 @@ class PTYSession:
         # Write ephemeral space & Context Palace briefing into sandbox HOME & agent instruction files without polluting .space.
         tincan_meta_dir = os.path.join(self.tmpdir, ".tincan")
         os.makedirs(tincan_meta_dir, exist_ok=True)
+        try:
+            from .model_prefs import load_model_prefs
+            import json as _json
+
+            with open(os.path.join(tincan_meta_dir, "model_prefs.json"), "w", encoding="utf-8") as mpf:
+                _json.dump(load_model_prefs(), mpf, indent=2)
+        except Exception:
+            pass
         ctx_file = os.path.join(tincan_meta_dir, "SPACE_CONTEXT.md")
         if space_context_text:
             with open(ctx_file, "w", encoding="utf-8") as cf:

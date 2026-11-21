@@ -845,6 +845,7 @@ def render_token_vault_window_html() -> str:
             <span id="tvRateBasisText" class="tv-mono-xs tv-muted">NanoGPT + OpenRouter credits · Local Ollama always 0 CR</span>
           </div>
           <div class="tv-subbar-group">
+            <button type="button" id="tvPreviewUserBtn" class="hidden tv-pill tv-pill--sm" onclick="window.TinCanTokenVault && window.TinCanTokenVault.toggleUserPreview()">Preview as User</button>
             <button type="button" id="tvOpenAdminTreasuryBtn" class="hidden tv-pill tv-pill--solid tv-pill--sm" onclick="toggleWindow('win-admin-treasury'); window.TinCanAdminTreasury && window.TinCanAdminTreasury.refresh()">Admin Treasury →</button>
             <button type="button" id="tvExportCsvBtn" class="tv-pill tv-pill--sm" onclick="window.TinCanTokenVault && window.TinCanTokenVault.exportCsv()">Export Receipts</button>
             <button type="button" id="tvRefreshBtn" class="tv-pill tv-pill--sm" onclick="refreshBillingWindow()">↻ Refresh</button>
@@ -1090,6 +1091,7 @@ TOKEN_VAULT_JS = r"""
       const state = {
         lastSummary: null,
         ledgerRows: [],
+        previewAsUser: false,
       };
 
       const el = (id) => (typeof document !== 'undefined' ? document.getElementById(id) : null);
@@ -1246,18 +1248,26 @@ TOKEN_VAULT_JS = r"""
 
         const isAdmin = Boolean(summary.is_admin || String(summary.role_tier || '').toLowerCase() === 'admin');
         const canOpenTreasury = Boolean(summary.can_open_admin_treasury || isAdmin || summary.peer_id);
+        const showAdminChrome = canOpenTreasury && !state.previewAsUser;
         const roleTier = String(summary.role_tier || 'free').toUpperCase();
         const roleBadge = el('tvRoleBadge');
         if (roleBadge) {
-          roleBadge.textContent = isAdmin ? 'PERSONAL WALLET · ADMIN' : `PERSONAL WALLET · ${roleTier}`;
+          roleBadge.textContent = state.previewAsUser
+            ? 'PERSONAL WALLET · USER PREVIEW'
+            : (isAdmin ? 'PERSONAL WALLET · ADMIN' : `PERSONAL WALLET · ${roleTier}`);
+        }
+        const previewBtn = el('tvPreviewUserBtn');
+        if (previewBtn) {
+          if (previewBtn.classList) previewBtn.classList.toggle('hidden', !canOpenTreasury);
+          previewBtn.textContent = state.previewAsUser ? '← Back to Admin' : 'Preview as User';
         }
         const adminBtn = el('tvOpenAdminTreasuryBtn');
         if (adminBtn && adminBtn.classList) {
-          adminBtn.classList.toggle('hidden', !canOpenTreasury);
+          adminBtn.classList.toggle('hidden', !showAdminChrome);
         }
         const dialBar = el('tvMarginDialBar');
         if (dialBar && dialBar.classList) {
-          dialBar.classList.toggle('hidden', !canOpenTreasury);
+          dialBar.classList.toggle('hidden', !showAdminChrome);
         }
 
         const econValEl = el('tvUnitEconVal');
@@ -1463,6 +1473,14 @@ TOKEN_VAULT_JS = r"""
         }
       }
 
+      function toggleUserPreview() {
+        state.previewAsUser = !state.previewAsUser;
+        if (state.lastSummary) {
+          renderSummary(state.lastSummary);
+        }
+        return state.previewAsUser;
+      }
+
       function init() {
         if (typeof window !== 'undefined') {
           window.refreshBillingWindow = refresh;
@@ -1515,6 +1533,7 @@ TOKEN_VAULT_JS = r"""
         previewMarginDial,
         setMarginPreset,
         applyMarginDial,
+        toggleUserPreview,
       };
     })();
 """
