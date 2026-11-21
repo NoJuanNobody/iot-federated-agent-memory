@@ -31,7 +31,15 @@ from iot_federated_agent_memory.scale import IoTFederatedMemoryScale
 from iot_federated_agent_memory.webrtc_relay import WebRTCSignalingRelay
 from iot_federated_agent_memory.ai_gateway import DynamicAIGatewayRouter, filter_gateway_models
 from iot_federated_agent_memory.ai_gateway_telemetry import collect_gateway_telemetry, estimate_preflight
-from iot_federated_agent_memory.token_ledger import build_token_summary
+from iot_federated_agent_memory.token_ledger import (
+    DEFAULT_MARKUP_MULTIPLIER,
+    MAX_MARKUP_MULTIPLIER,
+    MIN_MARKUP_MULTIPLIER,
+    build_token_summary,
+    clamp_markup_multiplier,
+    compute_gross_margin_pct,
+    multiplier_from_target_margin_pct,
+)
 from iot_federated_agent_memory.space_notes import EditPlanError, SpaceNotesEditor
 from iot_federated_agent_memory.tincan_relay import TinCanBlindRelay
 from iot_federated_agent_memory.video_playlist import RelayVideoPlaylist
@@ -2284,6 +2292,147 @@ AD_DAILY_REWARD_CAP = int(os.environ.get("TINCAN_AD_DAILY_CAP", "5"))
 AD_MIN_WATCH_FRACTION = 0.9
 _ad_views = {}  # view_token -> {peer_id, sponsor_id, started, duration, reward_tokens, reward_usd}
 _ad_views_lock = threading.Lock()
+_credit_markup_multiplier = clamp_markup_multiplier(
+    os.environ.get("TINCAN_CREDIT_MARKUP", DEFAULT_MARKUP_MULTIPLIER)
+)
+_credit_markup_lock = threading.Lock()
+_economy_dials_loaded = False
+_ad_reward_credits = int(os.environ.get("TINCAN_AD_REWARD_CREDITS", "25"))
+_daily_ad_cap_live = AD_DAILY_REWARD_CAP
+_cloud_routing_paused = False
+_free_signup_credits = int(os.environ.get("TINCAN_FREE_SIGNUP_CREDITS", "50"))
+
+
+def _ensure_economy_dials_loaded() -> None:
+    """Hydrate persisted admin economy dials once from SQLite (fault-tolerant)."""
+    global _economy_dials_loaded, _credit_markup_multiplier, _ad_reward_credits
+    global _daily_ad_cap_live, _cloud_routing_paused, _free_signup_credits
+    if _economy_dials_loaded:
+        return
+    try:
+        reg = globals().get("account_registry")
+        if reg is None or not hasattr(reg, "get_economy_setting"):
+            return
+        saved_markup = reg.get_economy_setting("credit_markup")
+        if saved_markup is not None:
+            _credit_markup_multiplier = clamp_markup_multiplier(saved_markup)
+        saved_ad_cr = reg.get_economy_setting("ad_reward_credits")
+        if saved_ad_cr is not None:
+            _ad_reward_credits = max(0, min(5000, int(float(saved_ad_cr))))
+        saved_cap = reg.get_economy_setting("daily_ad_cap")
+        if saved_cap is not None:
+            _daily_ad_cap_live = max(0, min(50, int(float(saved_cap))))
+        saved_paused = reg.get_economy_setting("cloud_routing_paused")
+        if saved_paused is not None:
+            _cloud_routing_paused = str(saved_paused).strip().lower() in ("1", "true", "yes", "on")
+        saved_free = reg.get_economy_setting("free_signup_credits")
+        if saved_free is not None:
+            _free_signup_credits = max(0, min(10000, int(float(saved_free))))
+        _economy_dials_loaded = True
+    except Exception:
+        pass
+
+
+def get_credit_markup_multiplier() -> float:
+    """Return the active credit markup multiplier (e.g. 1.25x -> 20% gross margin, 1.43x -> 30%)."""
+    with _credit_markup_lock:
+        _ensure_economy_dials_loaded()
+        return _credit_markup_multiplier
+
+
+def set_credit_markup_multiplier(value: Any) -> float:
+    """Update and persist the active credit markup multiplier, clamped to [MIN, MAX]."""
+    global _credit_markup_multiplier
+    clamped = clamp_markup_multiplier(value)
+    with _credit_markup_lock:
+        _credit_markup_multiplier = clamped
+        reg = globals().get("account_registry")
+        if reg is not None and hasattr(reg, "set_economy_setting"):
+            try:
+                reg.set_economy_setting("credit_markup", clamped)
+            except Exception:
+                pass
+        return _credit_markup_multiplier
+
+
+def get_ad_reward_credits() -> int:
+    with _credit_markup_lock:
+        _ensure_economy_dials_loaded()
+        return _ad_reward_credits
+
+
+def set_ad_reward_credits(value: Any) -> int:
+    global _ad_reward_credits
+    clamped = max(0, min(5000, int(round(float(value)))))
+    with _credit_markup_lock:
+        _ad_reward_credits = clamped
+        reg = globals().get("account_registry")
+        if reg is not None and hasattr(reg, "set_economy_setting"):
+            try:
+                reg.set_economy_setting("ad_reward_credits", clamped)
+            except Exception:
+                pass
+        return _ad_reward_credits
+
+
+def get_daily_ad_cap() -> int:
+    with _credit_markup_lock:
+        _ensure_economy_dials_loaded()
+        return _daily_ad_cap_live
+
+
+def set_daily_ad_cap(value: Any) -> int:
+    global _daily_ad_cap_live
+    clamped = max(0, min(50, int(round(float(value)))))
+    with _credit_markup_lock:
+        _daily_ad_cap_live = clamped
+        reg = globals().get("account_registry")
+        if reg is not None and hasattr(reg, "set_economy_setting"):
+            try:
+                reg.set_economy_setting("daily_ad_cap", clamped)
+            except Exception:
+                pass
+        return _daily_ad_cap_live
+
+
+def is_cloud_routing_paused() -> bool:
+    with _credit_markup_lock:
+        _ensure_economy_dials_loaded()
+        return _cloud_routing_paused
+
+
+def set_cloud_routing_paused(paused: bool) -> bool:
+    global _cloud_routing_paused
+    flag = bool(paused)
+    with _credit_markup_lock:
+        _cloud_routing_paused = flag
+        reg = globals().get("account_registry")
+        if reg is not None and hasattr(reg, "set_economy_setting"):
+            try:
+                reg.set_economy_setting("cloud_routing_paused", "1" if flag else "0")
+            except Exception:
+                pass
+        return _cloud_routing_paused
+
+
+def get_free_signup_credits() -> int:
+    with _credit_markup_lock:
+        _ensure_economy_dials_loaded()
+        return _free_signup_credits
+
+
+def set_free_signup_credits(value: Any) -> int:
+    global _free_signup_credits
+    clamped = max(0, min(10000, int(round(float(value)))))
+    with _credit_markup_lock:
+        _free_signup_credits = clamped
+        reg = globals().get("account_registry")
+        if reg is not None and hasattr(reg, "set_economy_setting"):
+            try:
+                reg.set_economy_setting("free_signup_credits", clamped)
+            except Exception:
+                pass
+        return _free_signup_credits
 SIGNON_QUEST_KEYS = ("sealed_courier", "brain_arena_match", "arena_vote", "coop_action", "sandboxed_run")
 _mint_requests: List[Dict[str, Any]] = []
 _mint_requests_lock = threading.Lock()
@@ -3469,9 +3618,25 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         return account_registry.resolve_session(token) if token else None
 
     def _is_admin_request(self) -> bool:
-        """Verify X-Admin-Key header using constant-time digest comparison."""
+        """Verify X-Admin-Key header (constant-time) OR signed-in admin role_tier."""
         admin_key = self.headers.get("X-Admin-Key", "")
-        return bool(TINCAN_ADMIN_KEY and admin_key and hmac.compare_digest(admin_key, TINCAN_ADMIN_KEY))
+        if TINCAN_ADMIN_KEY and admin_key and hmac.compare_digest(admin_key, TINCAN_ADMIN_KEY):
+            return True
+        session_acc = self._session_account()
+        if isinstance(session_acc, dict) and str(session_acc.get("role_tier") or "").strip().lower() == "admin":
+            return True
+        return False
+
+    def _is_registered_or_admin(self, peer_id: str = "") -> bool:
+        """Allow any registered account (or X-Admin-Key) to access the Treasury panel."""
+        if self._is_admin_request():
+            return True
+        if self._session_account() is not None:
+            return True
+        pid = (peer_id or "").strip()
+        if pid and account_registry.get_account_by_peer(pid) is not None:
+            return True
+        return False
 
     def _session_cookie_headers(self, account_peer_id: str):
         token = account_registry.create_session(account_peer_id)
@@ -3558,6 +3723,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 peer_id=account["peer_id"], prompt_tokens=p_toks, completion_tokens=c_toks,
                 total_tokens=t_toks, cost_usd=cost, model=model_alias,
                 arena_match_id=match_id, arena_side=side,
+                markup_multiplier=get_credit_markup_multiplier(),
             )
         except ArenaBillingError as ae:
             self._arena_error(ae)
@@ -3669,7 +3835,21 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                         prompt = "Hello from TinCan 2 / IoT Federated Mesh!"
                     messages = [{"role": "user", "content": prompt}]
                 acct = account_registry.get_account_by_peer(peer_id)
-                if acct and acct.get("token_balance", 0) <= 0:
+                _m_low = str(model_alias or "").strip().lower()
+                _is_local_req = (
+                    _m_low.startswith(("ollama/", "owlchat/", "trussed/", "local/", "openai-compat/"))
+                    or _m_low in ("ollama-brain", "owlchat-brain", "trussed-brain", "local-brain")
+                )
+                if is_cloud_routing_paused() and not _is_local_req and not self._is_admin_request():
+                    self._send_json(
+                        {
+                            "error": "Cloud AI routing is temporarily paused by the operator. Switch to Local Ollama (0 CR) to continue.",
+                            "cloud_routing_paused": True,
+                        },
+                        503,
+                    )
+                    return
+                if acct and acct.get("token_balance", 0) <= 0 and not _is_local_req and str(acct.get("role_tier") or "") != "admin":
                     self._send_json({"error": "Insufficient tokens: balance is 0. Top up to continue."}, 402)
                     return
                 # Per-thread workspace: mint a UUID-4 hex id on first turn, or
@@ -3764,6 +3944,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                         # Charge the balance down to zero for the final request; the
                         # pre-dispatch check above refuses the next one at 402.
                         allow_overage=True,
+                        markup_multiplier=get_credit_markup_multiplier(),
                     )
                     completion["billing"] = billing_receipt
                 except Exception as b_err:
@@ -4477,6 +4658,101 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": str(ve)}, 400)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/admin/economy-dials":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                if not self._is_registered_or_admin(data.get("peer_id") or ""):
+                    self._send_json({"error": "Forbidden: register an account or provide X-Admin-Key"}, 403)
+                    return
+                if data.get("target_margin_pct") is not None:
+                    set_credit_markup_multiplier(multiplier_from_target_margin_pct(data.get("target_margin_pct")))
+                elif data.get("markup_multiplier") is not None:
+                    set_credit_markup_multiplier(data.get("markup_multiplier"))
+                if data.get("ad_reward_credits") is not None:
+                    set_ad_reward_credits(data.get("ad_reward_credits"))
+                if data.get("daily_ad_cap") is not None:
+                    set_daily_ad_cap(data.get("daily_ad_cap"))
+                if data.get("free_signup_credits") is not None:
+                    set_free_signup_credits(data.get("free_signup_credits"))
+                if data.get("cloud_routing_paused") is not None:
+                    set_cloud_routing_paused(bool(data.get("cloud_routing_paused")))
+                m = get_credit_markup_multiplier()
+                self._send_json({
+                    "status": "updated",
+                    "markup_multiplier": m,
+                    "markup_pct": round((m - 1.0) * 100.0, 1),
+                    "gross_margin_pct": compute_gross_margin_pct(m),
+                    "ad_reward_credits": get_ad_reward_credits(),
+                    "daily_ad_cap": get_daily_ad_cap(),
+                    "free_signup_credits": get_free_signup_credits(),
+                    "cloud_routing_paused": is_cloud_routing_paused(),
+                }, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 400)
+        elif parsed.path == "/api/admin/cloud-routing":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                if not self._is_registered_or_admin(data.get("peer_id") or ""):
+                    self._send_json({"error": "Forbidden: register an account or provide X-Admin-Key"}, 403)
+                    return
+                if "paused" in data:
+                    paused = set_cloud_routing_paused(bool(data.get("paused")))
+                else:
+                    paused = set_cloud_routing_paused(not is_cloud_routing_paused())
+                self._send_json({"status": "updated", "cloud_routing_paused": paused}, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 400)
+        elif parsed.path == "/api/admin/users/role":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                if not self._is_registered_or_admin(data.get("actor_peer_id") or data.get("peer_id") or ""):
+                    self._send_json({"error": "Forbidden: register an account or provide X-Admin-Key"}, 403)
+                    return
+                target_peer = (data.get("peer_id") or "").strip()
+                role_tier = (data.get("role_tier") or "").strip().lower()
+                updated_acc = account_registry.set_role_tier(target_peer, role_tier)
+                self._send_json({
+                    "status": "updated",
+                    "peer_id": updated_acc["peer_id"],
+                    "role_tier": updated_acc.get("role_tier", role_tier),
+                }, 200)
+            except ValueError as ve:
+                self._send_json({"error": str(ve)}, 400)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/tokens/markup":
+            if TINCAN_ADMIN_KEY and not self._is_admin_request():
+                self._send_json({"error": "Forbidden: admin key required to adjust credit margin dial"}, 403)
+                return
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                if data.get("target_margin_pct") is not None:
+                    new_mult = set_credit_markup_multiplier(
+                        multiplier_from_target_margin_pct(data.get("target_margin_pct"))
+                    )
+                elif data.get("markup_multiplier") is not None:
+                    new_mult = set_credit_markup_multiplier(data.get("markup_multiplier"))
+                else:
+                    self._send_json({"error": "Provide markup_multiplier or target_margin_pct"}, 400)
+                    return
+                self._send_json({
+                    "status": "updated",
+                    "markup_multiplier": new_mult,
+                    "markup_pct": round((new_mult - 1.0) * 100.0, 1),
+                    "gross_margin_pct": compute_gross_margin_pct(new_mult),
+                    "min": MIN_MARKUP_MULTIPLIER,
+                    "max": MAX_MARKUP_MULTIPLIER,
+                }, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 400)
         elif parsed.path == "/api/billing/checkout":
             # Client may *request* a purchase; it only gets a Stripe-hosted payment link back.
             content_length = int(self.headers.get("Content-Length", 0))
@@ -4557,7 +4833,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 if not peer_id or not account_registry.get_account_by_peer(peer_id):
                     self._send_json({"error": "Register an account to earn ad rewards"}, 400)
                     return
-                if account_registry.count_credit_events(peer_id, "ad_reward", time.time() - 86400) >= AD_DAILY_REWARD_CAP:
+                if account_registry.count_credit_events(peer_id, "ad_reward", time.time() - 86400) >= get_daily_ad_cap():
                     self._send_json({"error": "Daily ad reward limit reached"}, 429)
                     return
                 token = secrets.token_urlsafe(24)
@@ -4568,7 +4844,7 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     _ad_views[token] = {
                         "peer_id": peer_id, "sponsor_id": sponsor_id, "started": now,
                         "duration": max(1, int(creative.duration_seconds)),
-                        "reward_tokens": creative.reward_tokens, "reward_usd": creative.reward_usd,
+                        "reward_tokens": get_ad_reward_credits(), "reward_usd": creative.reward_usd,
                     }
                 self._send_json({"view_token": token, "min_seconds": creative.duration_seconds}, 200)
             except Exception as e:
@@ -6403,14 +6679,69 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                 acct_summary = candidate if (isinstance(candidate, dict) and "error" not in candidate) else session_acc
             analytics_data = router.get_analytics(include_live_billing=False) if hasattr(router, "get_analytics") else {}
             sponsor_state = sponsor_manager.get_state() if hasattr(sponsor_manager, "get_state") else {}
+            is_admin = self._is_admin_request()
+            role_tier = str((acct_summary or {}).get("role_tier") or ("admin" if is_admin else "free")).strip().lower()
             payload = build_token_summary(
                 account=acct_summary,
                 analytics=analytics_data,
                 sponsor_state=sponsor_state,
-                daily_ad_cap=AD_DAILY_REWARD_CAP,
+                daily_ad_cap=get_daily_ad_cap(),
+                markup_multiplier=get_credit_markup_multiplier(),
+                ad_reward_credits=get_ad_reward_credits(),
+                role_tier=role_tier,
+                is_admin=is_admin,
+                cloud_routing_paused=is_cloud_routing_paused(),
             )
             payload["rodin"] = _get_hyper3d_billing(router)
+            payload["can_open_admin_treasury"] = bool(is_admin or acct_summary is not None)
             self._send_json(payload, 200)
+        elif parsed.path == "/api/admin/treasury":
+            query = parse_qs(parsed.query)
+            req_peer = (query.get("peer_id", [None])[0] or "").strip()
+            if not self._is_registered_or_admin(req_peer):
+                self._send_json({"error": "Forbidden: register an account or provide X-Admin-Key"}, 403)
+                return
+            m = get_credit_markup_multiplier()
+            nano_bill = router.get_nanogpt_billing(force_refresh=False) if hasattr(router, "get_nanogpt_billing") else {}
+            or_bill = router.get_openrouter_billing(force_refresh=False) if hasattr(router, "get_openrouter_billing") else {}
+            rodin_bill = _get_hyper3d_billing(router)
+            stripe_rev = account_registry.get_stripe_revenue_summary(days=30)
+            with _mint_requests_lock:
+                pending_reqs = [r for r in reversed(_mint_requests) if r.get("status") == "pending"]
+            audit_rows = account_registry.get_global_audit_ledger(limit=50)
+            self._send_json({
+                "admin_authenticated": True,
+                "cloud_routing_paused": is_cloud_routing_paused(),
+                "pools": {
+                    "nanogpt": nano_bill,
+                    "openrouter": or_bill,
+                    "rodin": rodin_bill,
+                },
+                "stripe_30d": stripe_rev,
+                "dials": {
+                    "markup_multiplier": m,
+                    "markup_pct": round((m - 1.0) * 100.0, 1),
+                    "gross_margin_pct": compute_gross_margin_pct(m),
+                    "ad_reward_credits": get_ad_reward_credits(),
+                    "daily_ad_cap": get_daily_ad_cap(),
+                    "free_signup_credits": get_free_signup_credits(),
+                    "min_markup": MIN_MARKUP_MULTIPLIER,
+                    "max_markup": MAX_MARKUP_MULTIPLIER,
+                },
+                "pending_mint_requests": pending_reqs,
+                "audit_ledger": audit_rows,
+            }, 200)
+        elif parsed.path == "/api/tokens/markup":
+            m = get_credit_markup_multiplier()
+            self._send_json({
+                "markup_multiplier": m,
+                "markup_pct": round((m - 1.0) * 100.0, 1),
+                "gross_margin_pct": compute_gross_margin_pct(m),
+                "min": MIN_MARKUP_MULTIPLIER,
+                "max": MAX_MARKUP_MULTIPLIER,
+                "admin_authenticated": self._is_admin_request(),
+                "admin_key_required": bool(TINCAN_ADMIN_KEY),
+            }, 200)
         elif parsed.path == "/api/tokens/mint-requests":
             query = parse_qs(parsed.query)
             peer_filter = (query.get("peer_id", [None])[0] or "").strip()

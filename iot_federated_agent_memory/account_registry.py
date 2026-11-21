@@ -114,6 +114,19 @@ class PeerAccountRegistry:
                 cursor.execute("ALTER TABLE accounts ADD COLUMN consent_pii INTEGER DEFAULT 1")
             if "consent_timestamp" not in columns:
                 cursor.execute("ALTER TABLE accounts ADD COLUMN consent_timestamp REAL DEFAULT 0.0")
+            if "role_tier" not in columns:
+                cursor.execute("ALTER TABLE accounts ADD COLUMN role_tier TEXT DEFAULT 'free'")
+
+            # Persistent runtime economy controls (admin-adjustable dials & kill switches)
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS economy_settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    updated_at REAL NOT NULL
+                )
+                """
+            )
 
             # Extra devices (browser peer_ids) signed in to an account. The account's
             # own peer_id stays the primary key of `accounts`, so existing lookups,
@@ -390,6 +403,98 @@ class PeerAccountRegistry:
             cursor.execute("SELECT * FROM accounts ORDER BY created_at DESC")
             return [dict(row) for row in cursor.fetchall()]
 
+    VALID_ROLE_TIERS = ("free", "student", "builder", "admin", "sponsor")
+
+    def set_role_tier(self, peer_id: str, role_tier: str) -> Dict:
+        """Assign a formal RBAC role tier to an existing peer account."""
+        tier = (role_tier or "").strip().lower()
+        if tier not in self.VALID_ROLE_TIERS:
+            raise ValueError(f"Invalid role_tier '{role_tier}'. Choose one of {self.VALID_ROLE_TIERS}.")
+        peer_id = self.resolve_account_peer_id(peer_id)
+        account = self.get_account_by_peer(peer_id)
+        if not account:
+            raise ValueError(f"Account for peer '{peer_id}' not found.")
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE accounts SET role_tier = ? WHERE peer_id = ?",
+                (tier, peer_id),
+            )
+            conn.commit()
+        return self.get_account_by_peer(peer_id)
+
+    def get_economy_setting(self, key: str, default: Optional[str] = None) -> Optional[str]:
+        """Read a persisted admin economy setting by key."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT value FROM economy_settings WHERE key = ?",
+                (str(key),),
+            ).fetchone()
+            return str(row[0]) if row else default
+
+    def set_economy_setting(self, key: str, value: object) -> str:
+        """Persist an admin economy setting by key."""
+        str_val = str(value)
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO economy_settings (key, value, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = excluded.updated_at
+                """,
+                (str(key), str_val, time.time()),
+            )
+            conn.commit()
+        return str_val
+
+    def get_global_audit_ledger(self, limit: int = 50) -> List[Dict]:
+        """Return cross-peer token ledger rows joined with peer role_tier for admin audit."""
+        lim = max(1, min(200, int(limit)))
+        with self._connect() as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                """
+                SELECT tl.*, COALESCE(a.role_tier, 'free') AS role_tier, COALESCE(a.username, '') AS username
+                FROM token_ledger tl
+                LEFT JOIN accounts a ON a.peer_id = tl.peer_id
+                ORDER BY tl.timestamp DESC
+                LIMIT ?
+                """,
+                (lim,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_stripe_revenue_summary(self, days: int = 30) -> Dict:
+        """Summarize Stripe credit pack revenue and net margin over the last N days."""
+        since_ts = time.time() - (max(1, int(days)) * 86400)
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT COUNT(*) AS cnt, COALESCE(SUM(amount_usd), 0.0) AS gross_usd,
+                       COALESCE(SUM(tokens), 0) AS total_tokens,
+                       MAX(timestamp) AS last_ts
+                FROM credit_events
+                WHERE kind = 'purchase' AND timestamp >= ?
+                """,
+                (since_ts,),
+            ).fetchone()
+            cnt = int(row[0] or 0) if row else 0
+            gross = float(row[1] or 0.0) if row else 0.0
+            total_toks = int(row[2] or 0) if row else 0
+            last_ts = float(row[3] or 0.0) if (row and row[3]) else 0.0
+            stripe_fees = round((gross * 0.029) + (cnt * 0.30), 4) if cnt > 0 else 0.0
+            net_after_stripe = round(max(0.0, gross - stripe_fees), 4)
+            return {
+                "days": int(days),
+                "purchase_count": cnt,
+                "gross_usd": round(gross, 4),
+                "stripe_fees_usd": stripe_fees,
+                "net_after_stripe_usd": net_after_stripe,
+                "credits_sold": total_toks,
+                "last_purchase_at": last_ts,
+            }
+
     def top_up_credits(self, peer_id: str, amount_usd: float = 0.0, tokens: int = 0) -> Dict:
         """Top up token balance and/or credit USD for an account."""
         peer_id = self.resolve_account_peer_id(peer_id)
@@ -455,6 +560,7 @@ class PeerAccountRegistry:
         allow_overage: bool = True,
         arena_match_id: Optional[str] = None,
         arena_side: Optional[str] = None,
+        markup_multiplier: float = 1.0,
     ) -> Dict:
         """Bill a peer account for AI model token consumption.
 
@@ -463,11 +569,13 @@ class PeerAccountRegistry:
         auto-provisioned, tagged ``kind='arena'`` in token_ledger with both
         models and the match id, and the side's cost is stored on the match.
         """
+        mult = max(1.0, min(2.0, float(markup_multiplier or 1.0)))
+        billed_cost_usd = round(max(0.0, float(cost_usd or 0.0) * mult), 6)
         if arena_match_id:
             return self.bill_arena_side(
                 account_peer_id=peer_id, match_id=arena_match_id, side=arena_side or "",
                 model=model, prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
-                total_tokens=total_tokens, cost_usd=cost_usd,
+                total_tokens=total_tokens, cost_usd=billed_cost_usd,
             )
         peer_id = self.resolve_account_peer_id(peer_id)
         account = self.get_account_by_peer(peer_id)
@@ -489,9 +597,9 @@ class PeerAccountRegistry:
             )
 
         new_balance = max(0, current_balance - total_tokens)
-        new_credit_usd = max(0.0, round(account["credit_balance_usd"] - cost_usd, 6))
+        new_credit_usd = max(0.0, round(account["credit_balance_usd"] - billed_cost_usd, 6))
         new_total_tokens = account["total_tokens_used"] + total_tokens
-        new_total_billed = round(account["total_billed_usd"] + cost_usd, 6)
+        new_total_billed = round(account["total_billed_usd"] + billed_cost_usd, 6)
         now = time.time()
 
         with self._connect() as conn:
@@ -515,7 +623,7 @@ class PeerAccountRegistry:
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (peer_id, prompt_tokens, completion_tokens, total_tokens, cost_usd, model, now),
+                (peer_id, prompt_tokens, completion_tokens, total_tokens, billed_cost_usd, model, now),
             )
             conn.commit()
 
@@ -524,7 +632,9 @@ class PeerAccountRegistry:
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
             "tokens_billed": total_tokens,
-            "cost_usd": cost_usd,
+            "cost_usd": billed_cost_usd,
+            "upstream_cost_usd": round(max(0.0, float(cost_usd or 0.0)), 6),
+            "markup_multiplier": mult,
             "model": model,
             "remaining_token_balance": new_balance,
             "remaining_credit_usd": new_credit_usd,

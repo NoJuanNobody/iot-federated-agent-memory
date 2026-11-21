@@ -201,6 +201,38 @@ TOKEN_VAULT_CSS = r"""
   text-overflow: ellipsis;
 }
 
+/* Credit Margin Dial (Operator Control) */
+#win-billing .tv-dial-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  background: var(--tv-card);
+  border: var(--tv-hair);
+  border-radius: 12px;
+}
+#win-billing .tv-dial-controls {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 280px;
+}
+#win-billing .tv-dial-slider {
+  flex: 1 1 140px;
+  min-width: 110px;
+  accent-color: var(--tv-ink);
+  cursor: pointer;
+}
+#win-billing .tv-dial-presets {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
 /* Main 2-column grid */
 #win-billing .tv-main-grid {
   display: grid;
@@ -809,11 +841,12 @@ def render_token_vault_window_html() -> str:
         <!-- Telemetry Header Bar -->
         <div class="tv-subbar">
           <div class="tv-subbar-group">
-            <span class="tv-badge tv-badge--ink">LEDGER VERIFIED</span>
-            <span id="tvRateBasisText" class="tv-mono-xs tv-muted">Stripe pack credits + cost_usd metering</span>
+            <span id="tvRoleBadge" class="tv-badge tv-badge--ink">PERSONAL WALLET</span>
+            <span id="tvRateBasisText" class="tv-mono-xs tv-muted">NanoGPT + OpenRouter credits · Local Ollama always 0 CR</span>
           </div>
           <div class="tv-subbar-group">
-            <button type="button" id="tvExportCsvBtn" class="tv-pill tv-pill--sm" onclick="window.TinCanTokenVault && window.TinCanTokenVault.exportCsv()">Export CSV</button>
+            <button type="button" id="tvOpenAdminTreasuryBtn" class="hidden tv-pill tv-pill--solid tv-pill--sm" onclick="toggleWindow('win-admin-treasury'); window.TinCanAdminTreasury && window.TinCanAdminTreasury.refresh()">Admin Treasury →</button>
+            <button type="button" id="tvExportCsvBtn" class="tv-pill tv-pill--sm" onclick="window.TinCanTokenVault && window.TinCanTokenVault.exportCsv()">Export Receipts</button>
             <button type="button" id="tvRefreshBtn" class="tv-pill tv-pill--sm" onclick="refreshBillingWindow()">↻ Refresh</button>
           </div>
         </div>
@@ -853,6 +886,24 @@ def render_token_vault_window_html() -> str:
             <div id="tvUnitEconSub" class="tv-kpi-sub">Billed by cost_usd (no 1:1 burn)</div>
           </div>
         </div>
+
+        <!-- Operator Credit Margin Dial (Admin-only visibility) -->
+        <section id="tvMarginDialBar" class="tv-dial-bar hidden" aria-label="Credit Margin Dial">
+          <div class="tv-subbar-group">
+            <span class="tv-sec-title">Credit Margin Dial</span>
+            <span id="tvMarginDialReadout" class="tv-badge tv-badge--pos">1.25x · 20.0% gross margin</span>
+          </div>
+          <div class="tv-dial-controls">
+            <input id="tvMarginDialSlider" class="tv-dial-slider" type="range" min="1.00" max="2.00" step="0.01" value="1.25" aria-label="Credit markup multiplier" oninput="window.TinCanTokenVault && window.TinCanTokenVault.previewMarginDial(this.value)" />
+            <div class="tv-dial-presets">
+              <button type="button" class="tv-pill tv-pill--sm" onclick="window.TinCanTokenVault && window.TinCanTokenVault.setMarginPreset(1.00)">1.00x (0%)</button>
+              <button type="button" class="tv-pill tv-pill--sm" onclick="window.TinCanTokenVault && window.TinCanTokenVault.setMarginPreset(1.25)">1.25x (20%)</button>
+              <button type="button" class="tv-pill tv-pill--sm" onclick="window.TinCanTokenVault && window.TinCanTokenVault.setMarginPreset(1.30)">1.30x (23%)</button>
+              <button type="button" class="tv-pill tv-pill--sm" onclick="window.TinCanTokenVault && window.TinCanTokenVault.setMarginPreset(1.43)">1.43x (30%)</button>
+            </div>
+            <button type="button" id="tvMarginDialApplyBtn" class="tv-pill tv-pill--solid tv-pill--sm" onclick="window.TinCanTokenVault && window.TinCanTokenVault.applyMarginDial()">Apply</button>
+          </div>
+        </section>
 
         <!-- Middle 2-Column Layout: Stripe Packs + Rate Card | Sponsor Compute Subsidy -->
         <div class="tv-main-grid">
@@ -1193,10 +1244,30 @@ TOKEN_VAULT_JS = r"""
         if (arbValEl) arbValEl.innerText = `+${maxDayCr.toLocaleString()} CR/day`;
         if (arbSubEl) arbSubEl.innerText = `${cap} ads × ${rewardCr.toLocaleString()} CR · ${Math.round(marginPct)}% net margin`;
 
+        const isAdmin = Boolean(summary.is_admin || String(summary.role_tier || '').toLowerCase() === 'admin');
+        const canOpenTreasury = Boolean(summary.can_open_admin_treasury || isAdmin || summary.peer_id);
+        const roleTier = String(summary.role_tier || 'free').toUpperCase();
+        const roleBadge = el('tvRoleBadge');
+        if (roleBadge) {
+          roleBadge.textContent = isAdmin ? 'PERSONAL WALLET · ADMIN' : `PERSONAL WALLET · ${roleTier}`;
+        }
+        const adminBtn = el('tvOpenAdminTreasuryBtn');
+        if (adminBtn && adminBtn.classList) {
+          adminBtn.classList.toggle('hidden', !canOpenTreasury);
+        }
+        const dialBar = el('tvMarginDialBar');
+        if (dialBar && dialBar.classList) {
+          dialBar.classList.toggle('hidden', !canOpenTreasury);
+        }
+
         const econValEl = el('tvUnitEconVal');
         const econSubEl = el('tvUnitEconSub');
+        const grossMarginPct = summary.gross_margin_pct != null
+          ? Number(summary.gross_margin_pct)
+          : (markup > 1 ? ((markup - 1) / markup) * 100 : 0);
         if (econValEl) econValEl.innerText = `${markup.toFixed(2)}x Markup`;
-        if (econSubEl) econSubEl.innerText = `Billed by ${summary.billing_mode || 'cost_usd'} (no 1:1 burn)`;
+        if (econSubEl) econSubEl.innerText = `${grossMarginPct.toFixed(1)}% gross margin · billed by ${summary.billing_mode || 'cost_usd'}`;
+        previewMarginDial(markup);
 
         const capBar = el('tokenAdCapBar');
         const capLbl = el('tokenAdCapLabel');
@@ -1341,6 +1412,57 @@ TOKEN_VAULT_JS = r"""
         return csvText;
       }
 
+      function previewMarginDial(rawVal) {
+        const m = Math.max(1.0, Math.min(2.0, Number(rawVal || 1.25)));
+        const gross = m > 1.0 ? ((m - 1.0) / m) * 100.0 : 0.0;
+        const slider = el('tvMarginDialSlider');
+        const readout = el('tvMarginDialReadout');
+        if (slider && Math.abs(Number(slider.value) - m) > 0.001) {
+          slider.value = m.toFixed(2);
+        }
+        if (readout) {
+          readout.textContent = `${m.toFixed(2)}x · ${gross.toFixed(1)}% gross margin`;
+        }
+        return m;
+      }
+
+      async function setMarginPreset(mult) {
+        previewMarginDial(mult);
+        return applyMarginDial(mult);
+      }
+
+      async function applyMarginDial(explicitMult) {
+        if (typeof fetch !== 'function') return null;
+        const slider = el('tvMarginDialSlider');
+        const target = previewMarginDial(explicitMult != null ? explicitMult : (slider ? slider.value : 1.25));
+        const headers = { 'Content-Type': 'application/json' };
+        try {
+          if (typeof localStorage !== 'undefined' && localStorage) {
+            const adminKey = localStorage.getItem('tincan_admin_key') || '';
+            if (adminKey) headers['X-Admin-Key'] = adminKey;
+          }
+        } catch (e) {}
+        const applyBtn = el('tvMarginDialApplyBtn');
+        if (applyBtn) applyBtn.disabled = true;
+        try {
+          const resp = await fetch('/api/tokens/markup', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ markup_multiplier: target }),
+          });
+          const data = await resp.json().catch(() => ({}));
+          if (resp.ok) {
+            await refresh();
+          } else if (data && data.error) {
+            const readout = el('tvMarginDialReadout');
+            if (readout) readout.textContent = data.error;
+          }
+          return data;
+        } finally {
+          if (applyBtn) applyBtn.disabled = false;
+        }
+      }
+
       function init() {
         if (typeof window !== 'undefined') {
           window.refreshBillingWindow = refresh;
@@ -1390,6 +1512,9 @@ TOKEN_VAULT_JS = r"""
         renderSummary,
         renderLedgerRows,
         exportCsv,
+        previewMarginDial,
+        setMarginPreset,
+        applyMarginDial,
       };
     })();
 """

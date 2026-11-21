@@ -3357,7 +3357,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     // Window Manager: Draggable, Resizable, Focus, Minimize, Maximize, Pop Out, Multi-Instance
     let highestZ = 45;
-    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-call', 'win-comms', 'win-quests', 'win-moderator', 'win-billing', 'win-board', 'win-network', 'win-agentspace', 'win-workstation', 'win-browser', 'win-localhost', 'win-copilot', 'win-ai-home', 'win-nodes'];
+    const allWindows = ['win-terminal', 'win-tv', 'win-arena', 'win-call', 'win-comms', 'win-quests', 'win-moderator', 'win-billing', 'win-admin-treasury', 'win-board', 'win-network', 'win-agentspace', 'win-workstation', 'win-browser', 'win-localhost', 'win-copilot', 'win-ai-home', 'win-nodes'];
     const poppedOutWindows = new Set();
 
     function switchNetTab(tabName) {
@@ -11368,8 +11368,9 @@ MESH_OS_HTML_UI = MESH_OS_HTML_UI.replace("<!--TC_NODES_WINDOW-->", render_node_
 from .ai_home_shell import apply_ai_home_shell  # noqa: E402
 from .copilot_ui import apply_copilot_ui  # noqa: E402
 from .token_vault_ui import apply_token_vault_ui  # noqa: E402
+from .admin_treasury_ui import apply_admin_treasury_ui  # noqa: E402
 
-MESH_OS_HTML_UI = apply_ai_home_shell(apply_copilot_ui(apply_token_vault_ui(MESH_OS_HTML_UI)))
+MESH_OS_HTML_UI = apply_ai_home_shell(apply_copilot_ui(apply_admin_treasury_ui(apply_token_vault_ui(MESH_OS_HTML_UI))))
 
 # Zen startup shell (calm feed + launcher), injected so the classic markup above stays untouched.
 from .zen_shell import apply_zen_shell  # noqa: E402

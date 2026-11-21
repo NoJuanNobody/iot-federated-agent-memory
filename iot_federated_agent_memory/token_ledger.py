@@ -108,8 +108,34 @@ FRONTIER_BASELINE_USD_PER_1K = 0.009
 ESTIMATED_TOKENS_PER_LOCAL_TURN = 1500
 DEFAULT_AD_PAYOUT_USD = 0.05
 DEFAULT_AD_COMPUTE_COST_USD = 0.002
-DEFAULT_AD_REWARD_TOKENS = 5000
+DEFAULT_AD_REWARD_TOKENS = 25
 DEFAULT_MARKUP_MULTIPLIER = 1.25
+MIN_MARKUP_MULTIPLIER = 1.0
+MAX_MARKUP_MULTIPLIER = 2.0
+
+
+def clamp_markup_multiplier(value: Any, default: float = DEFAULT_MARKUP_MULTIPLIER) -> float:
+    """Clamp a credit markup multiplier safely into [MIN_MARKUP_MULTIPLIER, MAX_MARKUP_MULTIPLIER]."""
+    raw = _safe_float(value, default)
+    if raw <= 0:
+        raw = default
+    return round(min(MAX_MARKUP_MULTIPLIER, max(MIN_MARKUP_MULTIPLIER, raw)), 4)
+
+
+def compute_gross_margin_pct(multiplier: Any) -> float:
+    """Convert a cost markup multiplier (e.g. 1.25x -> 20.0%, 1.43x -> 30.1%) to gross margin %."""
+    m = clamp_markup_multiplier(multiplier)
+    if m <= 1.0:
+        return 0.0
+    return round(((m - 1.0) / m) * 100.0, 1)
+
+
+def multiplier_from_target_margin_pct(margin_pct: Any) -> float:
+    """Convert a desired gross margin % (0..50%) to its equivalent cost markup multiplier."""
+    pct = max(0.0, min(50.0, _safe_float(margin_pct, 20.0)))
+    if pct <= 0.0:
+        return MIN_MARKUP_MULTIPLIER
+    return clamp_markup_multiplier(1.0 / (1.0 - (pct / 100.0)))
 
 _LOCAL_GATEWAYS = frozenset({"ollama", "owlchat", "trussed", "local", "openai-compat", "fau", "byok"})
 _LOCAL_PREFIXES = ("ollama/", "owlchat/", "trussed/", "local/", "openai-compat/")
@@ -242,7 +268,7 @@ def _extract_local_usage(analytics: Dict[str, Any]) -> Tuple[int, int, float]:
     return local_turns, local_tokens, local_usd_saved
 
 
-def _normalize_invoice_row(inv: Dict[str, Any]) -> Dict[str, Any]:
+def _normalize_invoice_row(inv: Dict[str, Any], markup_multiplier: float = DEFAULT_MARKUP_MULTIPLIER) -> Dict[str, Any]:
     """Normalize a PeerAccountRegistry token_ledger invoice into a unified ledger row."""
     ts = max(0.0, _safe_float(inv.get("timestamp"), 0.0))
     model = str(inv.get("model") or "unknown")
@@ -250,6 +276,9 @@ def _normalize_invoice_row(inv: Dict[str, Any]) -> Dict[str, Any]:
     match_id = str(inv.get("match_id") or "")
     tokens = max(0, _safe_int(inv.get("total_tokens"), 0))
     cost_usd = round(max(0.0, _safe_float(inv.get("cost_usd"), 0.0)), 6)
+    mult = clamp_markup_multiplier(markup_multiplier)
+    markup_delta = max(0.0, mult - 1.0)
+    markup_pct_int = int(round(markup_delta * 100.0))
 
     if _is_local_target(model=model, alias=model) and cost_usd == 0.0:
         workflow = "tincan ask --local"
@@ -261,7 +290,7 @@ def _normalize_invoice_row(inv: Dict[str, Any]) -> Dict[str, Any]:
         workflow = "rodin 3d mesh"
         gateway = "hyper3d-v2"
         credits_net = -tokens
-        margin_usd = round(cost_usd * 0.25, 4)
+        margin_usd = round(cost_usd * markup_delta, 4)
         margin_label = f"+${margin_usd:.4f} (rodin)" if cost_usd > 0 else "POOLED"
         status = "billed"
     elif kind == "arena":
@@ -269,15 +298,15 @@ def _normalize_invoice_row(inv: Dict[str, Any]) -> Dict[str, Any]:
         workflow = f"arena duel{suffix}"
         gateway = model
         credits_net = -tokens
-        margin_usd = round(cost_usd * (DEFAULT_MARKUP_MULTIPLIER - 1.0), 4)
-        margin_label = f"+${margin_usd:.4f} (+25%)" if cost_usd > 0 else "SIMULATED"
+        margin_usd = round(cost_usd * markup_delta, 4)
+        margin_label = f"+${margin_usd:.4f} (+{markup_pct_int}%)" if cost_usd > 0 else "SIMULATED"
         status = "billed"
     else:
         workflow = f"gateway {kind}"
         gateway = model
         credits_net = -tokens
-        margin_usd = round(cost_usd * (DEFAULT_MARKUP_MULTIPLIER - 1.0), 4)
-        margin_label = f"+${margin_usd:.4f} (+25%)" if cost_usd > 0 else "0 CR"
+        margin_usd = round(cost_usd * markup_delta, 4)
+        margin_label = f"+${margin_usd:.4f} (+{markup_pct_int}%)" if cost_usd > 0 else "0 CR"
         status = "billed"
 
     return {
@@ -297,7 +326,7 @@ def _normalize_invoice_row(inv: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _normalize_routing_row(entry: Dict[str, Any]) -> Dict[str, Any]:
+def _normalize_routing_row(entry: Dict[str, Any], markup_multiplier: float = DEFAULT_MARKUP_MULTIPLIER) -> Dict[str, Any]:
     """Normalize a DynamicAIGatewayRouter routing_log dict into a unified ledger row."""
     ts = max(0.0, _safe_float(entry.get("timestamp"), 0.0))
     alias = str(entry.get("alias") or entry.get("fallback_to") or "gateway")
@@ -307,6 +336,9 @@ def _normalize_routing_row(entry: Dict[str, Any]) -> Dict[str, Any]:
     cost_usd = round(max(0.0, _safe_float(raw_cost, 0.0)), 6)
     tokens = max(0, _safe_int(entry.get("tokens") or entry.get("total_tokens"), 0))
     status = str(entry.get("status") or "routed")
+    mult = clamp_markup_multiplier(markup_multiplier)
+    markup_delta = max(0.0, mult - 1.0)
+    markup_pct_int = int(round(markup_delta * 100.0))
 
     if _is_local_target(lab, model, alias):
         workflow = "tincan ask --local"
@@ -317,14 +349,14 @@ def _normalize_routing_row(entry: Dict[str, Any]) -> Dict[str, Any]:
         workflow = f"rodin ({alias})"
         gateway = "hyper3d-v2"
         credits_net = -tokens if tokens > 0 else 0
-        margin_usd = round(cost_usd * (DEFAULT_MARKUP_MULTIPLIER - 1.0), 4)
+        margin_usd = round(cost_usd * markup_delta, 4)
         margin_label = f"+${margin_usd:.4f}" if cost_usd > 0 else "ROUTED"
     else:
         workflow = f"route {alias}" if status != "fallback" else f"fallback -> {entry.get('fallback_to') or alias}"
         gateway = model if "/" in model else f"{lab}/{model}"
         credits_net = -tokens if tokens > 0 else 0
-        margin_usd = round(cost_usd * (DEFAULT_MARKUP_MULTIPLIER - 1.0), 4)
-        margin_label = f"+${margin_usd:.4f} (+25%)" if cost_usd > 0 else status.upper()
+        margin_usd = round(cost_usd * markup_delta, 4)
+        margin_label = f"+${margin_usd:.4f} (+{markup_pct_int}%)" if cost_usd > 0 else status.upper()
 
     return {
         "timestamp": ts,
@@ -347,17 +379,18 @@ def _merge_ledger_rows(
     invoices: Optional[Iterable[Any]],
     routing_log: Optional[Iterable[Any]],
     limit: int = 25,
+    markup_multiplier: float = DEFAULT_MARKUP_MULTIPLIER,
 ) -> List[Dict[str, Any]]:
     """Combine account invoices and gateway routing log entries safely, newest first."""
     rows: List[Dict[str, Any]] = []
     if isinstance(invoices, list):
         for inv in invoices:
             if isinstance(inv, dict):
-                rows.append(_normalize_invoice_row(inv))
+                rows.append(_normalize_invoice_row(inv, markup_multiplier=markup_multiplier))
     if isinstance(routing_log, list):
         for entry in routing_log:
             if isinstance(entry, dict):
-                rows.append(_normalize_routing_row(entry))
+                rows.append(_normalize_routing_row(entry, markup_multiplier=markup_multiplier))
 
     rows.sort(key=lambda r: r.get("timestamp", 0.0), reverse=True)
     return rows[: max(1, limit)]
@@ -368,6 +401,11 @@ def build_token_summary(
     analytics: Optional[Dict[str, Any]] = None,
     sponsor_state: Optional[Dict[str, Any]] = None,
     daily_ad_cap: int = 5,
+    markup_multiplier: Optional[float] = None,
+    ad_reward_credits: Optional[int] = None,
+    role_tier: Optional[str] = None,
+    is_admin: bool = False,
+    cloud_routing_paused: bool = False,
 ) -> Dict[str, Any]:
     """Serialize unit economics, sponsor ad arbitrage, rate card, and ledger rows.
 
@@ -420,12 +458,29 @@ def build_token_summary(
     ad_net_margin_usd = round(max(0.0, ad_payout_usd - ad_compute_cost_usd), 4)
     ad_margin_pct = round((ad_net_margin_usd / ad_payout_usd) * 100.0, 2) if ad_payout_usd > 0 else 0.0
 
-    reward_tok_raw = active_sponsor.get("reward_tokens") if isinstance(active_sponsor, dict) else None
+    reward_tok_raw = (
+        ad_reward_credits
+        if ad_reward_credits is not None
+        else (active_sponsor.get("reward_tokens") if isinstance(active_sponsor, dict) else None)
+    )
     ad_reward_tokens = max(0, _safe_int(reward_tok_raw, DEFAULT_AD_REWARD_TOKENS))
     ad_earned_today_tokens = ad_views_today * ad_reward_tokens
     ad_daily_max_tokens = cap * ad_reward_tokens
+    effective_role = str(role_tier or acct.get("role_tier") or "free").strip().lower()
+    est_nanogpt_chats = int(round(credits_balance / 0.2)) if credits_balance > 0 else 0
+    est_openrouter_chats = int(round(credits_balance / 10.0)) if credits_balance > 0 else 0
 
-    ledger_rows = _merge_ledger_rows(acct.get("recent_invoices"), an.get("recent_routing_log"))
+    active_markup = clamp_markup_multiplier(
+        markup_multiplier if markup_multiplier is not None else DEFAULT_MARKUP_MULTIPLIER
+    )
+    markup_pct = round((active_markup - 1.0) * 100.0, 1)
+    gross_margin_pct = compute_gross_margin_pct(active_markup)
+
+    ledger_rows = _merge_ledger_rows(
+        acct.get("recent_invoices"),
+        an.get("recent_routing_log"),
+        markup_multiplier=active_markup,
+    )
 
     hyper3d_raw = an.get("hyper3d") if isinstance(an.get("hyper3d"), dict) else {}
     rodin_summary = {
@@ -436,10 +491,22 @@ def build_token_summary(
         "key_label": str(hyper3d_raw.get("key_label") or "pooled-rodin"),
     }
 
+    dynamic_rate_card = []
+    for rate in SERVICE_RATE_CARD:
+        item = dict(rate)
+        if item.get("id") == "open_weight":
+            item["margin_label"] = f"{active_markup:.2f}x markup"
+        dynamic_rate_card.append(item)
+
     return {
         "peer_id": str(acct.get("peer_id") or ""),
+        "role_tier": effective_role,
+        "is_admin": bool(is_admin or effective_role == "admin"),
+        "cloud_routing_paused": bool(cloud_routing_paused),
         "credits_balance": credits_balance,
         "balance_usd": balance_usd,
+        "est_nanogpt_chats": est_nanogpt_chats,
+        "est_openrouter_chats": est_openrouter_chats,
         "total_tokens_used": total_tokens_used,
         "total_billed_usd": total_billed_usd,
         "local_turns": local_turns,
@@ -456,11 +523,15 @@ def build_token_summary(
         "ad_reward_tokens": ad_reward_tokens,
         "ad_earned_today_tokens": ad_earned_today_tokens,
         "ad_daily_max_tokens": ad_daily_max_tokens,
-        "markup_multiplier": DEFAULT_MARKUP_MULTIPLIER,
+        "markup_multiplier": active_markup,
+        "markup_pct": markup_pct,
+        "gross_margin_pct": gross_margin_pct,
+        "markup_min": MIN_MARKUP_MULTIPLIER,
+        "markup_max": MAX_MARKUP_MULTIPLIER,
         "billing_mode": "cost_usd",
         "active_sponsor": dict(active_sponsor) if active_sponsor else None,
         "pack_catalog": [dict(pack) for pack in TOKEN_PACK_CATALOG.values()],
-        "rate_card": [dict(rate) for rate in SERVICE_RATE_CARD],
+        "rate_card": dynamic_rate_card,
         "ledger_rows": ledger_rows,
         "rodin": rodin_summary,
     }

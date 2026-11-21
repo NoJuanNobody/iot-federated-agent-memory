@@ -36,7 +36,7 @@ class SponsorCreative:
     video_url: str
     video_id: str
     duration_seconds: int = 10
-    reward_tokens: int = 5000
+    reward_tokens: int = 25
     reward_usd: float = 0.05
     category: str = "direct_partner"
 
@@ -57,7 +57,7 @@ DEFAULT_SPONSORS: List[SponsorCreative] = [
         video_url="/videos/7705963225849892126.mp4",
         video_id="7705963225849892126",
         duration_seconds=10,
-        reward_tokens=5000,
+        reward_tokens=25,
         reward_usd=0.05,
     ),
     SponsorCreative(
@@ -71,7 +71,7 @@ DEFAULT_SPONSORS: List[SponsorCreative] = [
         video_url="/videos/7705677376465767711.mp4",
         video_id="7705677376465767711",
         duration_seconds=10,
-        reward_tokens=5000,
+        reward_tokens=25,
         reward_usd=0.05,
     ),
     SponsorCreative(
@@ -85,7 +85,7 @@ DEFAULT_SPONSORS: List[SponsorCreative] = [
         video_url="/videos/7704099297763003678.mp4",
         video_id="7704099297763003678",
         duration_seconds=10,
-        reward_tokens=5000,
+        reward_tokens=25,
         reward_usd=0.05,
     ),
     SponsorCreative(
@@ -99,7 +99,7 @@ DEFAULT_SPONSORS: List[SponsorCreative] = [
         video_url="/videos/7705963225849892126.mp4",
         video_id="7705963225849892126",
         duration_seconds=10,
-        reward_tokens=5000,
+        reward_tokens=25,
         reward_usd=0.05,
     ),
     SponsorCreative(
@@ -113,7 +113,7 @@ DEFAULT_SPONSORS: List[SponsorCreative] = [
         video_url="/videos/7705963225849892126.mp4",
         video_id="7705963225849892126",
         duration_seconds=10,
-        reward_tokens=5000,
+        reward_tokens=25,
         reward_usd=0.05,
     ),
 ]
@@ -377,7 +377,7 @@ class SponsorAdManager:
                             video_url=it.get("embed_url", f"/videos/{it.get('video_id')}.mp4"),
                             video_id=it.get("video_id", "ad"),
                             duration_seconds=min(10, max(1, int(it.get("duration_seconds", 10)))),
-                            reward_tokens=5000,
+                            reward_tokens=25,
                             reward_usd=0.05,
                             category="community_video",
                         )

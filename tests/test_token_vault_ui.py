@@ -604,3 +604,58 @@ vm.runInNewContext({json.dumps(TOKEN_VAULT_JS)}, sandbox);
         check=False,
     )
     assert vm_proc.returncode == 0, f"Node VM harness failed:\n{vm_proc.stderr}\n{vm_proc.stdout}"
+
+
+def test_credit_margin_dial_math_server_and_ui(tmp_path):
+    from iot_federated_agent_memory.account_registry import PeerAccountRegistry
+    from iot_federated_agent_memory.token_ledger import (
+        clamp_markup_multiplier,
+        compute_gross_margin_pct,
+        multiplier_from_target_margin_pct,
+    )
+
+    assert clamp_markup_multiplier(0.5) == 1.0
+    assert clamp_markup_multiplier(5.0) == 2.0
+    assert compute_gross_margin_pct(1.25) == pytest.approx(20.0)
+    assert compute_gross_margin_pct(1.43) == pytest.approx(30.1)
+    assert multiplier_from_target_margin_pct(30.0) == pytest.approx(1.4286, abs=1e-3)
+
+    prev = server.get_credit_markup_multiplier()
+    try:
+        updated = server.set_credit_markup_multiplier(1.43)
+        assert updated == pytest.approx(1.43)
+        assert server.get_credit_markup_multiplier() == pytest.approx(1.43)
+        summary = build_token_summary(markup_multiplier=updated)
+        assert summary["markup_multiplier"] == pytest.approx(1.43)
+        assert summary["gross_margin_pct"] == pytest.approx(30.1)
+    finally:
+        server.set_credit_markup_multiplier(prev)
+
+    reg = PeerAccountRegistry(db_path=str(tmp_path / "dial.db"))
+    reg.register_account(
+        peer_id="tc:dialtest",
+        full_name="Dial Test",
+        phone_number="+15550001111",
+        email="dial@mesh.local",
+        initial_tokens=1000,
+        initial_credit_usd=10.0,
+    )
+    receipt = reg.bill_tokens(
+        peer_id="tc:dialtest",
+        prompt_tokens=100,
+        completion_tokens=100,
+        total_tokens=200,
+        cost_usd=1.0,
+        model="openrouter/claude",
+        markup_multiplier=1.43,
+    )
+    assert receipt["upstream_cost_usd"] == pytest.approx(1.0)
+    assert receipt["cost_usd"] == pytest.approx(1.43)
+    assert receipt["remaining_credit_usd"] == pytest.approx(8.57)
+
+    html = render_token_vault_window_html()
+    assert 'id="tvMarginDialBar"' in html
+    assert 'id="tvMarginDialSlider"' in html
+    assert 'id="tvMarginDialReadout"' in html
+    assert 'id="tvMarginDialApplyBtn"' in html
+    assert "setMarginPreset(1.43)" in html
