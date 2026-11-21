@@ -22,7 +22,7 @@ ZEN_HEAD = r"""
       }
       var q = new URLSearchParams(location.search);
       var singleRoutes = ['/tv', '/call', '/comms', '/chat', '/copilot', '/ai', '/home', '/arena', '/terminal', '/billing', '/tokens', '/board', '/cyberspace',
-                          '/space', '/files', '/finder', '/agentspace', '/workstation', '/3dstudio', '/quests', '/rewards', '/network'];
+                          '/space', '/files', '/finder', '/agentspace', '/workstation', '/3dstudio', '/quests', '/rewards', '/network', '/browser', '/localhost', '/moderator'];
       if (q.get('classic') === '1' || q.get('window') || singleRoutes.indexOf(location.pathname) !== -1) return;
       document.documentElement.classList.add('zen-boot');
     })();
@@ -30,16 +30,16 @@ ZEN_HEAD = r"""
   <style>
     :root {
       --zen-sumi: #ecf1e6;
-      --zen-sumi-2: #ecf1e6;
+      --zen-sumi-2: #e3eadb;
       --zen-washi: #111111;
       --zen-washi-2: rgba(17, 17, 17, 0.7);
-      --zen-washi-3: rgba(17, 17, 17, 0.5);
+      --zen-washi-3: rgba(17, 17, 17, 0.55);
       --zen-tick: rgba(17, 17, 17, 0.38);
-      --zen-line: #111111;
-      --zen-kaki: #111111;
+      --zen-line: rgba(17, 17, 17, 0.22);
+      --zen-kaki: #d0703f;
       --zen-ease: cubic-bezier(0.16, 1, 0.3, 1);
-      --zen-mincho: -apple-system, BlinkMacSystemFont, "Aeonik", "Inter", sans-serif;
-      --zen-gothic: -apple-system, BlinkMacSystemFont, "Aeonik", "Inter", sans-serif;
+      --zen-mincho: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+      --zen-gothic: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
     }
 
     html.zen-boot .mesh-window,
@@ -274,52 +274,69 @@ ZEN_HEAD = r"""
       #zenFrame, #zenLauncher, .zen-chrome, #zenTools button { transition-duration: 1ms !important; }
     }
 
-    /* ---------- TinCan Dark Mode (Monochrome Black & White) ---------- */
+    /* ---------- TinCan Dark Mode (DESIGN.md Ink & Paper: Sumi / Washi / Persimmon) ---------- */
+    html[data-theme="dark"],
+    body.tc-dark {
+      --zen-sumi: #0e0d0b;
+      --zen-sumi-2: #17150f;
+      --zen-washi: #ece6da;
+      --zen-washi-2: rgba(236, 230, 218, 0.66);
+      --zen-washi-3: rgba(236, 230, 218, 0.60);
+      --zen-tick: rgba(236, 230, 218, 0.38);
+      --zen-line: rgba(236, 230, 218, 0.14);
+      --zen-kaki: #d0703f;
+    }
     html[data-theme="dark"] body.zen,
     body.zen.tc-dark {
-      background: #050505 !important;
-      color: #f5f5f5 !important;
+      background: #0e0d0b !important;
+      color: #ece6da !important;
     }
     html[data-theme="dark"] #zenStage,
-    body.tc-dark #zenStage { background: #050505 !important; }
+    body.tc-dark #zenStage { background: #0e0d0b !important; }
     html[data-theme="dark"] #zenClipTag,
-    body.tc-dark #zenClipTag { background: #000000; color: #f5f5f5; border-color: #ffffff; }
+    body.tc-dark #zenClipTag { background: #17150f; color: #ece6da; border-color: rgba(236, 230, 218, 0.14); }
     html[data-theme="dark"] #zenMark,
-    body.tc-dark #zenMark { color: #f5f5f5; }
+    body.tc-dark #zenMark { color: #ece6da; }
     html[data-theme="dark"] #zenMark svg path,
-    body.tc-dark #zenMark svg path { stroke: #f5f5f5; }
+    body.tc-dark #zenMark svg path { stroke: #ece6da; }
     html[data-theme="dark"] #zenMark svg circle,
-    body.tc-dark #zenMark svg circle { fill: #ffffff; }
+    body.tc-dark #zenMark svg circle { fill: #d0703f; }
     html[data-theme="dark"] #zenMark .zen-hint,
     body.tc-dark #zenMark .zen-hint,
     html[data-theme="dark"] #zenCaption .zen-meta,
     body.tc-dark #zenCaption .zen-meta,
     html[data-theme="dark"] #zenSound,
-    body.tc-dark #zenSound { color: #a3a3a3; }
+    body.tc-dark #zenSound { color: rgba(236, 230, 218, 0.66); }
     html[data-theme="dark"] #zenQuick button,
     body.tc-dark #zenQuick button {
-      color: #f5f5f5;
-      background: rgba(14, 14, 14, 0.85);
-      border-color: #2e2e2e;
+      color: #ece6da;
+      background: rgba(23, 21, 15, 0.85);
+      border-color: rgba(236, 230, 218, 0.14);
     }
     html[data-theme="dark"] #zenQuick button:hover,
     body.tc-dark #zenQuick button:hover {
-      background: #ffffff;
-      color: #000000;
-      border-color: #ffffff;
+      background: #ece6da;
+      color: #0e0d0b;
+      border-color: #ece6da;
     }
     html[data-theme="dark"] #zenJoin,
     body.tc-dark #zenJoin {
-      background: #ffffff;
-      color: #000000;
-      border-color: #ffffff;
+      background: #17150f;
+      color: #ece6da;
+      border-color: rgba(236, 230, 218, 0.28);
+    }
+    html[data-theme="dark"] #zenJoin:hover,
+    body.tc-dark #zenJoin:hover {
+      background: #ece6da;
+      color: #0e0d0b;
+      border-color: #ece6da;
     }
     html[data-theme="dark"] #zenLauncher,
     body.tc-dark #zenLauncher {
-      background: rgba(8, 8, 8, 0.94);
+      background: rgba(14, 13, 11, 0.94);
     }
     html[data-theme="dark"] #zenSearch,
-    body.tc-dark #zenSearch { color: #f5f5f5; caret-color: #ffffff; }
+    body.tc-dark #zenSearch { color: #ece6da; caret-color: #d0703f; }
     html[data-theme="dark"] #zenTools .zl-desc,
     body.tc-dark #zenTools .zl-desc,
     html[data-theme="dark"] #zenHint,
@@ -327,13 +344,13 @@ ZEN_HEAD = r"""
     html[data-theme="dark"] #zenStatus,
     body.tc-dark #zenStatus,
     html[data-theme="dark"] #zenLauncher .zl-foot,
-    body.tc-dark #zenLauncher .zl-foot { color: #a3a3a3; }
+    body.tc-dark #zenLauncher .zl-foot { color: rgba(236, 230, 218, 0.60); }
     html[data-theme="dark"] #zenTools button:hover .zl-desc,
     body.tc-dark #zenTools button:hover .zl-desc,
     html[data-theme="dark"] #zenTools button[aria-selected="true"] .zl-desc,
-    body.tc-dark #zenTools button[aria-selected="true"] .zl-desc { color: #f5f5f5; }
+    body.tc-dark #zenTools button[aria-selected="true"] .zl-desc { color: #ece6da; }
     html[data-theme="dark"] #zenTools button[aria-selected="true"] .zl-act,
-    body.tc-dark #zenTools button[aria-selected="true"] .zl-act { background: #ffffff; color: #000000; border-color: #ffffff; }
+    body.tc-dark #zenTools button[aria-selected="true"] .zl-act { background: #ece6da; color: #0e0d0b; border-color: #ece6da; }
   </style>
 """
 
@@ -412,7 +429,8 @@ ZEN_BODY = r"""
       // ---- Tools ---------------------------------------------------------------
       const TOOLS = [
         { id: 'win-tv', name: 'Watch party', desc: 'The collection together, with reactions', gate: 'join a watch party' },
-        { id: 'chat', name: 'Talk', desc: 'Room chat, channels, people & video calls', gate: 'talk in the room' },
+        { id: 'chat', name: 'Talk', desc: 'Room chat, channels, people & encrypted comms', gate: 'talk in the room' },
+        { id: 'win-call', name: 'Call', desc: 'Sub-80ms WebRTC video, voice & 60fps desktop screenshare', gate: 'start a call' },
         { id: 'win-board', name: 'Board', desc: 'Omni-bar, AI suggestions, curated feed & activity threads', gate: 'open the board' },
         { id: 'win-agentspace', name: 'Workstation', desc: 'User, Topic & Sandbox VFS workspace, code runs & 3D Studio', gate: 'open your workstation' },
         { id: 'win-copilot', name: 'AI Copilot', desc: 'Multi-gateway router, Context Palace & .space diffs', gate: 'use the AI copilot' },
@@ -424,7 +442,9 @@ ZEN_BODY = r"""
         { id: 'win-network', name: 'Network', desc: "Who's here, peers and the leaderboard", gate: 'see the network' },
         { id: 'win-quests', name: 'Quests', desc: 'Quests, XP and rankings', gate: 'start quests' },
         { id: 'win-billing', name: 'Tokens & Ads', desc: 'Watch Home Screen ads to earn AI deliverable credits (no subscriptions)', gate: 'earn AI credits' },
-        { id: 'win-moderator', name: 'Moderate', desc: 'Admin controls', gate: 'moderate', admin: true },
+        { id: 'win-browser', name: 'Browser', desc: 'Built-in web browser pane inside Mesh OS', gate: 'open the browser' },
+        { id: 'win-localhost', name: 'Localhost', desc: 'Preview local dev servers inside Mesh OS', gate: 'open localhost preview' },
+        { id: 'win-moderator', name: 'Moderate & Treasury', desc: 'Admin controls & treasury governance', gate: 'moderate', admin: true },
       ];
       const isAdmin = () => {
         const b = $('dockModBtn');
@@ -793,8 +813,12 @@ ZEN_BODY = r"""
         { cmd: '/arena', tool: 'win-arena', desc: 'AI models, routing and duels' },
         { cmd: '/board', tool: 'win-board', desc: 'Topics, threads and the knowledge graph' },
         { cmd: '/talk', tool: 'chat', desc: 'Room chat, voice and video calls' },
+        { cmd: '/call', tool: 'win-call', desc: 'Live WebRTC video, voice & screenshare' },
+        { cmd: '/browser', tool: 'win-browser', desc: 'Built-in web browser pane' },
+        { cmd: '/localhost', tool: 'win-localhost', desc: 'Preview local dev servers' },
         { cmd: '/tokens', tool: 'win-billing', desc: 'Balance, store and sponsors' },
         { cmd: '/quests', tool: 'win-quests', desc: 'Quests, XP and rankings' },
+        { cmd: '/theme', theme: true, desc: 'Toggle light (Celadon) / dark (Ink & Paper) or /theme system' },
         { cmd: '/help', help: true, desc: 'Show what the prefixes do' },
       ];
       const HELP_TEXT = 'Search tools      type a name, enter opens it\n' +
@@ -982,9 +1006,19 @@ ZEN_BODY = r"""
           return [cmdItem('Run', line, 'Run in your space', gated('run commands', () => doShell(line)))];
         }
         if (first === '/') {
-          const word = ql.split(/\s+/)[0];
-          return SLASH.filter((c) => c.cmd.startsWith(word)).map((c) => cmdItem(c.help ? 'Help' : 'Open', c.cmd, c.desc, () => {
+          const parts = ql.split(/\s+/);
+          const word = parts[0];
+          const arg = parts[1] || '';
+          return SLASH.filter((c) => c.cmd.startsWith(word)).map((c) => cmdItem(c.help ? 'Help' : (c.theme ? 'Theme' : 'Open'), c.cmd, c.desc, () => {
             if (c.help) { showOut(HELP_TEXT.split('\n')); $('zenSearch').value = ''; sel = 0; renderTools(); return; }
+            if (c.theme) {
+              if (window.TinCanTheme) {
+                if (arg === 'light' || arg === 'dark' || arg === 'system') window.TinCanTheme.set(arg);
+                else window.TinCanTheme.toggle();
+              }
+              closeLauncher();
+              return;
+            }
             openTool(TOOLS.find((t) => t.id === c.tool));
           }, { complete: c.cmd }));
         }
@@ -1070,6 +1104,18 @@ ZEN_BODY = r"""
         if (restoreFocus && lastFocus && lastFocus.focus) lastFocus.focus();
         if (!anyWindowOpen()) playQuietly();
       }
+      window.TinCanZen = {
+        openLauncher,
+        closeLauncher,
+        toggleLauncher() {
+          if (body.classList.contains('zen-launcher')) closeLauncher();
+          else openLauncher();
+        },
+        openToolById(id) {
+          const t = TOOLS.find((x) => x.id === id);
+          if (t) openTool(t);
+        },
+      };
       $('zenMark').addEventListener('click', () => (body.classList.contains('zen-launcher') ? closeLauncher() : openLauncher()));
       $('zenLauncher').addEventListener('click', (e) => { if (e.target === $('zenLauncher')) closeLauncher(); });
       window.zenWatchHomeAd = function () {

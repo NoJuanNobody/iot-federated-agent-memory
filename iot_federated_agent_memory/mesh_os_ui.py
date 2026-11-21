@@ -3177,6 +3177,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       else if (window.location.pathname === '/ai' || window.location.pathname === '/home') singleWindowParam = 'win-ai-home';
       else if (window.location.pathname === '/rewards' || window.location.pathname === '/quests') singleWindowParam = 'win-quests';
       else if (window.location.pathname === '/network') singleWindowParam = 'win-network';
+      else if (window.location.pathname === '/moderator') singleWindowParam = 'win-moderator';
       else if (window.location.pathname === '/nodes' || window.location.pathname.startsWith('/nodes/') || window.location.pathname === '/gemini-node-studio') singleWindowParam = 'win-nodes';
     }
     if (singleWindowParam && !singleWindowParam.startsWith('win-')) {
@@ -4173,8 +4174,43 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     // Account Setup, Username Prompt & Onboarding Engine (Mandatory Non-Negotiable Gate)
     // =========================================================================
     const REGISTRATION_EPOCH = 'epoch_20261109_v3_strict_pii';
+    let _isLocalNodeSession = false;
+
+    function isLocalLoopbackHost() {
+      const h = (window.location.hostname || '').toLowerCase();
+      return h === '127.0.0.1' || h === 'localhost' || h === '::1';
+    }
+
+    // Passwordless local-node identity hydration (AI-246 / AI-249):
+    // When running against a local node (`tincan os` or TinCan Desktop), hydrate
+    // from `/api/local/identity` so every tool works offline with zero registration gate.
+    if (isLocalLoopbackHost()) {
+      fetch('/api/local/identity', { headers: { Accept: 'application/json' } })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((info) => {
+          if (!info || !info.local_node) return;
+          _isLocalNodeSession = true;
+          const alias = String(info.alias || 'local-peer').replace(/^@+/, '') || 'local-peer';
+          if (!localStorage.getItem('tincan_registration_epoch')) {
+            localStorage.setItem('tincan_registration_epoch', REGISTRATION_EPOCH);
+            localStorage.setItem('tincan_fullname', alias);
+            localStorage.setItem('tincan_username', alias);
+            localStorage.setItem('tincan_email', `${alias}@local.tincan`);
+            localStorage.setItem('tincan_phone', 'local-node');
+            localStorage.setItem('tincan_consent_pii', 'true');
+          }
+          if (info.tc_address) localStorage.setItem('tincan_local_tc_address', info.tc_address);
+          localStorage.setItem('tincan_local_node_mode', '1');
+          const modal = document.getElementById('accountSetupModal');
+          if (modal) modal.classList.add('hidden');
+        })
+        .catch(() => {});
+    }
 
     function isIdentityVerified() {
+      if (_isLocalNodeSession || (isLocalLoopbackHost() && localStorage.getItem('tincan_local_node_mode') === '1')) {
+        return true;
+      }
       return (
         localStorage.getItem('tincan_registration_epoch') === REGISTRATION_EPOCH &&
         Boolean((localStorage.getItem('tincan_fullname') || '').trim()) &&

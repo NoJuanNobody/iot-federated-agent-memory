@@ -649,23 +649,35 @@ CELADON_BODY_JS = r"""
       // TinCanTheme: Dark Mode (Monochrome Black & White) + Always-Dark Terminal
       // =====================================================================
       const THEME_STORAGE_KEY = 'tincan_theme';
+      function detectSystemTheme() {
+        try {
+          if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+            return 'light';
+          }
+          if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            return 'dark';
+          }
+        } catch (e) {}
+        return 'dark';
+      }
       function resolveInitialTheme() {
         try {
           const q = new URLSearchParams(window.location.search || '');
           const qTheme = (q.get('theme') || '').toLowerCase();
           if (qTheme === 'dark' || qTheme === 'light') return qTheme;
+          if (qTheme === 'system') return detectSystemTheme();
           const saved = (localStorage.getItem(THEME_STORAGE_KEY) || '').toLowerCase();
           if (saved === 'dark' || saved === 'light') return saved;
         } catch (e) {}
-        return 'dark';
+        return detectSystemTheme();
       }
       function syncThemeButtons(mode) {
         const isDark = mode === 'dark';
         const nextPressed = isDark ? 'true' : 'false';
         const nextLabel = isDark ? '\u263E Dark' : '\u2600 Light';
         const nextTitle = isDark
-          ? 'Dark Mode Active (click for Celadon Light; Terminal stays dark)'
-          : 'Celadon Light Mode (click for Monochrome B&W Dark Mode)';
+          ? 'Ink & Paper Dark Mode Active (click for Celadon Light; Terminal stays dark)'
+          : 'Celadon Light Mode Active (click for Ink & Paper Dark Mode)';
         document.querySelectorAll('[data-tc-theme-toggle]').forEach((btn) => {
           if (btn.getAttribute('aria-pressed') !== nextPressed) {
             btn.setAttribute('aria-pressed', nextPressed);
@@ -699,7 +711,12 @@ CELADON_BODY_JS = r"""
           return document.documentElement.getAttribute('data-theme') || resolveInitialTheme();
         },
         set(mode) {
-          return applyTheme(mode, true);
+          const clean = String(mode || '').toLowerCase();
+          if (clean === 'system') {
+            try { localStorage.removeItem(THEME_STORAGE_KEY); } catch (e) {}
+            return applyTheme(detectSystemTheme(), false);
+          }
+          return applyTheme(clean, true);
         },
         toggle() {
           const next = (this.get() === 'dark') ? 'light' : 'dark';
@@ -710,6 +727,17 @@ CELADON_BODY_JS = r"""
         },
       };
       applyTheme(resolveInitialTheme(), false);
+      try {
+        const mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+        if (mq && typeof mq.addEventListener === 'function') {
+          mq.addEventListener('change', (ev) => {
+            const saved = (localStorage.getItem(THEME_STORAGE_KEY) || '').toLowerCase();
+            if (saved !== 'dark' && saved !== 'light') {
+              applyTheme(ev.matches ? 'dark' : 'light', false);
+            }
+          });
+        }
+      } catch (e) {}
 
       // Every window: the active one gets the focus ring, the rest step back.
       function focusFirstVisible() {

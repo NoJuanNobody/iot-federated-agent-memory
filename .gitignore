@@ -16,3 +16,5 @@ iot_federated_agent_memory/arena_context/
 .env
 .env.*
 !.env.example
+
+tincan-desktop/target/
