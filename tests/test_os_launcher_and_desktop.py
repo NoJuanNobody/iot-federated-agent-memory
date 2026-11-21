@@ -179,3 +179,22 @@ def test_desktop_tauri_shell_has_no_hardcoded_user_paths():
     assert "Theme: Follow System" in main_rs
     assert "Theme: Light (Celadon)" in main_rs
     assert "Theme: Dark (Ink & Paper)" in main_rs
+    assert "on_new_window" in main_rs
+
+
+def test_terminal_tui_renders_all_mesh_os_tabs():
+    from iot_federated_agent_memory.tui import App
+
+    app = App("http://127.0.0.1:1", "overview", 0, None, "256", False, is_local=True)
+    for tab in ("overview", "apps", "board", "workstation", "quests"):
+        app.view = tab
+        rendered = app.frame(110, 32, 0.0, None).render("256")
+        assert "TinCan Mesh OS" in rendered
+    app.view = "apps"
+    apps_frame = app.frame(110, 32, 0.0, None).render("256")
+    assert "board" in apps_frame and "workstation" in apps_frame and "node-studio" in apps_frame
+    app.cmd_open = True
+    app.cmd_query = "board"
+    cmd_frame = app.frame(110, 32, 0.0, None).render("256")
+    assert "/board" in cmd_frame
+

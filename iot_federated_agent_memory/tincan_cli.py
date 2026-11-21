@@ -469,9 +469,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     # Upgrades only run when the operator explicitly invokes `tincan upgrade`.
 
     if not args.command:
-        # Default bare command: launch the interactive screensaver / live mesh TUI
+        # Default bare command: launch the interactive TinCan Mesh OS terminal shell
         from .tui import main as tui_main
-        return tui_main(["--screensaver", "--relay", args.relay])
+        return tui_main(["--view", "overview"])
+
+    if args.command == "start":
+        from .tui import main as tui_main
+        return tui_main(["--view", "overview"])
+
+    if args.command == "screensaver":
+        from .tui import main as tui_main
+        return tui_main(["--screensaver"])
 
     if args.command == "brew":
         from .tincan_brew import generate_homebrew_formula, handle_brew_command
