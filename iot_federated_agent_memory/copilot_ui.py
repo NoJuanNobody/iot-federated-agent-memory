@@ -254,8 +254,10 @@ COPILOT_CSS = r"""
 }
 #win-copilot.maximized .cp-body,
 #win-copilot.popout-fullscreen .cp-body {
-  height: 100%;
-  max-height: none;
+  height: calc(100% - 42px);
+  max-height: calc(100vh - 48px);
+  min-height: 0;
+  overflow: hidden;
 }
 #win-copilot .cp-grid {
   flex: 1 1 auto;
@@ -703,15 +705,21 @@ COPILOT_CSS = r"""
   min-width: 0;
 }
 #win-copilot .cp-stream {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
+  flex: 1 1 0%;
+  min-height: 160px;
+  max-height: 100%;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding-right: 2px;
+  padding-right: 4px;
 }
 #win-copilot .cp-msg {
+  flex: 0 0 auto;
   border: var(--cp-hair);
   border-radius: 12px;
   padding: 10px 12px;
@@ -741,6 +749,12 @@ COPILOT_CSS = r"""
   color: var(--cp-ink);
   white-space: pre-wrap;
   word-break: break-word;
+  overflow-wrap: anywhere;
+  max-height: 55vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 2px;
 }
 #win-copilot .cp-diff-box {
   background: var(--cp-card);
@@ -898,6 +912,7 @@ COPILOT_CSS = r"""
     overflow-y: visible;
   }
   #win-copilot .cp-main { overflow: visible; }
+  #win-copilot .cp-stream { max-height: 52vh; overflow-y: auto !important; }
 }
 @container cpbody (max-width: 820px) {
   #win-copilot .cp-body { overflow-y: auto; }
@@ -911,6 +926,7 @@ COPILOT_CSS = r"""
     overflow-y: visible;
   }
   #win-copilot .cp-main { overflow: visible; }
+  #win-copilot .cp-stream { max-height: 52vh; overflow-y: auto !important; }
 }
 
 /* Monochrome Black & White Dark Mode (html[data-theme="dark"] / body.tc-dark) */
