@@ -1,0 +1,65 @@
+{
+  "measured_at_utc": "2026-11-21T22:01:39.162796+00:00",
+  "environment": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "python_version": "3.15.2"
+  },
+  "workload": {
+    "target_keys": 200,
+    "keys_synced_node_a": 200,
+    "keys_synced_node_b": 200,
+    "entities_count": 190,
+    "relations_count": 69,
+    "decisions_count": 8,
+    "conflicts_detected": 3,
+    "ed25519_signatures_enforced": true,
+    "merkle_parity": true,
+    "merkle_root": "4307a7aeffdc4a0d20eb6faa50bfff97c99c85db0c5a47722d5d96ed3dc24818"
+  },
+  "memory": {
+    "rss_before_mb": 32.312,
+    "rss_after_mb": 51.469,
+    "current_rss_mb": 51.469,
+    "peak_rss_mb": 51.469,
+    "rss_delta_mb": 19.156
+  },
+  "cpu": {
+    "cpu_time_ms": 1055.859,
+    "user_cpu_ms": 1033.505,
+    "system_cpu_ms": 22.367,
+    "wall_time_ms": 1079.15
+  },
+  "disk": {
+    "slim_modules_count": 8,
+    "slim_modules_bytes": 121266,
+    "slim_modules_kb": 118.42,
+    "full_server_and_package_bytes": 3884205,
+    "full_server_and_package_kb": 3793.17,
+    "code_footprint_reduction_pct": 96.88,
+    "module_sizes_bytes": {
+      "iot_federated_agent_memory/crdt_types.py": 14357,
+      "iot_federated_agent_memory/merkle_tree.py": 7441,
+      "iot_federated_agent_memory/tincan_core.py": 25652,
+      "iot_federated_agent_memory/crdt_mesh.py": 35662,
+      "iot_federated_agent_memory/p2p_transport.py": 13577,
+      "iot_federated_agent_memory/mdns_discovery.py": 12912,
+      "iot_federated_agent_memory/agent_kg_crdt.py": 8258,
+      "local_p2p_mesh.py": 3407
+    }
+  },
+  "network": {
+    "transport": "MultiPeerUDPTransport (AF_INET/SOCK_DGRAM loopback)",
+    "network_bytes_sent": 2316391,
+    "network_bytes_received": 2316391,
+    "packets_sent": 2228,
+    "packets_received": 2228,
+    "sar_messages_sent": 383,
+    "sar_messages_reassembled": 383,
+    "merkle_sync_bytes_exchanged": 128,
+    "node_a_bytes_sent": 1195966,
+    "node_a_bytes_received": 1120425,
+    "node_b_bytes_sent": 1120425,
+    "node_b_bytes_received": 1195966
+  }
+}

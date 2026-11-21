@@ -1,0 +1,13 @@
+protocol,nodes,total_keys,divergent_keys,convergence_rounds,convergence_time_ms,bytes_per_sync,total_mesh_bytes,conflicts_detected,lost_writes
+tincan_merkle_crdt,3,200,9,3,120.0,5289,47607,1,0
+naive_full_state_gossip,3,200,9,3,1666.32,64430,579870,0,1
+central_server_sync,3,200,9,2,134.78,32215,193290,0,1
+tincan_merkle_crdt,5,200,9,4,160.0,4868,97371,1,0
+naive_full_state_gossip,5,200,9,4,2221.76,64430,1288600,0,1
+central_server_sync,5,200,9,2,142.55,32215,322150,0,1
+tincan_merkle_crdt,10,200,9,5,200.0,4442,222120,1,0
+naive_full_state_gossip,10,200,9,5,2777.2,64430,3221500,0,1
+central_server_sync,10,200,9,2,165.55,32215,644300,0,1
+tincan_merkle_crdt,25,200,9,6,240.0,3589,538453,1,0
+naive_full_state_gossip,25,200,9,6,3332.64,64430,9664500,0,1
+central_server_sync,25,200,9,2,232.95,32215,1610750,0,1
