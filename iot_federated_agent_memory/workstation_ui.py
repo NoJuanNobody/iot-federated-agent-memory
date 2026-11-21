@@ -622,6 +622,32 @@ def _workstation_css() -> str:
         }
         #win-workstation .ws-ctx-row:last-child { border-bottom: 0; }
         #win-workstation .ws-ctx-row:hover { background: var(--ws-card); }
+        #win-workstation .ws-ctx-row.is-cursor:not(.is-selected) {
+          background: rgba(16, 122, 71, 0.12);
+          outline: 1px solid var(--ws-pos);
+        }
+        #win-workstation .ws-crumb-trail {
+          display: inline-flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 3px;
+          min-width: 0;
+        }
+        #win-workstation .ws-crumb-btn {
+          border: 0;
+          background: transparent;
+          color: var(--ws-ink);
+          font-family: var(--ws-mono);
+          font-size: 10px;
+          font-weight: 700;
+          padding: 1px 4px;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+        #win-workstation .ws-crumb-btn:hover {
+          background: var(--ws-ink);
+          color: var(--ws-bg);
+        }
         #win-workstation .ws-ctx-row.is-selected {
           background: var(--ws-ink);
           color: var(--ws-bg);
@@ -1306,6 +1332,8 @@ def _workstation_js() -> str:
             openrouter: FALLBACK_MODELS.openrouter.slice(),
           },
           spaceFiles: [],
+          spacePath: '/',
+          rangerCursor: 0,
           drivePath: '/',
           driveDirs: [],
           driveFiles: [],
@@ -1773,56 +1801,212 @@ def _workstation_js() -> str:
           }
         }
 
+        function _wsNormDir(p) {
+          const clean = '/' + String(p || '/').replace(/^\/+|\/+$/g, '');
+          return clean === '/' ? '/' : clean;
+        }
+
+        function _wsParentDir(p) {
+          const norm = _wsNormDir(p);
+          if (norm === '/') return '/';
+          const parts = norm.split('/').filter(Boolean);
+          parts.pop();
+          return parts.length ? ('/' + parts.join('/')) : '/';
+        }
+
+        function _wsFileIcon(path, kind) {
+          if (kind === 'up') return '↰';
+          if (kind === 'dir') return '📁';
+          const ext = String(path || '').split('.').pop().toLowerCase();
+          if (['mp3', 'wav', 'ogg', 'm4a', 'flac'].includes(ext)) return '🎵';
+          if (['mp4', 'webm', 'mov'].includes(ext)) return '🎬';
+          if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext)) return '🖼';
+          if (['glb', 'gltf', 'spz', 'ply', 'obj'].includes(ext)) return '🧊';
+          if (ext === 'py') return '🐍';
+          if (['js', 'ts', 'tsx', 'jsx'].includes(ext)) return '⚡';
+          if (['json', 'yaml', 'yml', 'toml'].includes(ext)) return '🔧';
+          if (['md', 'txt'].includes(ext)) return '📝';
+          return '📄';
+        }
+
+        function _wsFmtSize(bytes) {
+          const n = Number(bytes || 0);
+          if (!n) return '';
+          if (n < 1024) return n + 'B';
+          if (n < 1024 * 1024) return (n / 1024).toFixed(1) + 'K';
+          return (n / (1024 * 1024)).toFixed(1) + 'M';
+        }
+
+        function _buildSpaceDirEntries(files, currentDir) {
+          const dirNorm = _wsNormDir(currentDir);
+          const prefix = dirNorm === '/' ? '/' : (dirNorm + '/');
+          const subDirCounts = new Map();
+          const immediateFiles = [];
+
+          (files || []).forEach((f) => {
+            const rawPath = '/' + String((f && f.path) || '').replace(/^\/+/, '');
+            if (!rawPath.startsWith(prefix)) return;
+            const rel = rawPath.slice(prefix.length);
+            if (!rel) return;
+            const slashIdx = rel.indexOf('/');
+            if (slashIdx === -1) {
+              immediateFiles.push({
+                source: 'space',
+                path: rawPath,
+                kind: 'file',
+                label: rel,
+                size: f.size_bytes,
+              });
+            } else {
+              const subName = rel.slice(0, slashIdx);
+              const subPath = (dirNorm === '/' ? '' : dirNorm) + '/' + subName;
+              subDirCounts.set(subPath, (subDirCounts.get(subPath) || 0) + 1);
+            }
+          });
+
+          const out = [];
+          if (dirNorm !== '/') {
+            out.push({
+              source: 'space',
+              path: _wsParentDir(dirNorm),
+              kind: 'up',
+              label: '.. (up)',
+              tag: 'up',
+            });
+          }
+          Array.from(subDirCounts.entries())
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .forEach(([subPath, count]) => {
+              const name = subPath.split('/').pop();
+              out.push({
+                source: 'space',
+                path: subPath,
+                kind: 'dir',
+                label: name + '/',
+                tag: count + (count === 1 ? ' item' : ' items'),
+              });
+            });
+          immediateFiles
+            .sort((a, b) => a.label.localeCompare(b.label))
+            .forEach((f) => out.push(f));
+          return out;
+        }
+
+        function renderRangerCrumbs() {
+          const bar = el('wsRangerCrumbs');
+          if (!bar) return;
+          const activeDir = state.ctxFilter === 'drive' ? _wsNormDir(state.drivePath) : _wsNormDir(state.spacePath);
+          const src = state.ctxFilter === 'drive' ? 'drive' : 'space';
+          const parts = activeDir.split('/').filter(Boolean);
+          const segs = ['<button type="button" class="ws-crumb-btn" data-crumb-src="' + src + '" data-crumb-path="/">/</button>'];
+          let acc = '';
+          parts.forEach((seg) => {
+            acc += '/' + seg;
+            segs.push('<span class="ws-muted-xs">›</span>');
+            segs.push('<button type="button" class="ws-crumb-btn" data-crumb-src="' + src + '" data-crumb-path="' + esc(acc) + '">' + esc(seg) + '</button>');
+          });
+          bar.innerHTML =
+            '<div class="ws-crumb-trail">' + segs.join('') + '</div>' +
+            '<span class="ws-muted-xs" title="Ranger keys: j/k move · l/Enter open · h/Backspace up">j/k · h/l</span>';
+          bar.querySelectorAll('.ws-crumb-btn').forEach((btn) => {
+            btn.onclick = () => selectContextItem(btn.dataset.crumbSrc, 'dir', btn.dataset.crumbPath);
+          });
+        }
+
         function renderContextList() {
           const box = el('wsContextList');
           const selBadge = el('wsSelectedCtxPath');
           if (selBadge) selBadge.textContent = state.selectedPath || 'none';
+          renderRangerCrumbs();
           if (!box) return;
 
           const items = [];
           if (state.ctxFilter === 'all' || state.ctxFilter === 'space') {
-            (state.spaceFiles || []).forEach((f) => {
-              items.push({ source: 'space', path: f.path, kind: 'file', size: f.size_bytes });
+            _buildSpaceDirEntries(state.spaceFiles || [], state.spacePath || '/').forEach((entry) => {
+              items.push(entry);
             });
           }
           if (state.ctxFilter === 'all' || state.ctxFilter === 'drive') {
             if (state.drivePath && state.drivePath !== '/') {
-              const parts = state.drivePath.split('/').filter(Boolean);
-              parts.pop();
-              const parentPath = '/' + parts.join('/');
-              items.push({ source: 'drive', path: parentPath || '/', kind: 'up', label: '.. (up)' });
+              items.push({ source: 'drive', path: _wsParentDir(state.drivePath), kind: 'up', label: '.. (drive up)', tag: 'drive' });
             }
             (state.driveDirs || []).forEach((d) => {
-              items.push({ source: 'drive', path: d.path, kind: 'dir', label: d.name + '/' });
+              items.push({ source: 'drive', path: d.path, kind: 'dir', label: d.name + '/', tag: 'drive dir' });
             });
             (state.driveFiles || []).forEach((f) => {
-              items.push({ source: 'drive', path: f.path, kind: 'file', size: f.size_bytes });
+              const nm = String(f.path || '').split('/').pop() || f.path;
+              items.push({ source: 'drive', path: f.path, kind: 'file', label: nm, size: f.size_bytes, tag: 'drive' });
             });
           }
 
+          state._rangerItems = items;
           if (!items.length) {
-            box.innerHTML = '<div class="ws-muted-xs" style="padding:8px;">No context files found in this view.</div>';
+            box.innerHTML = '<div class="ws-muted-xs" style="padding:8px;">Empty folder. Press h or click / to go up.</div>';
             return;
           }
+          if (state.rangerCursor >= items.length) state.rangerCursor = Math.max(0, items.length - 1);
 
-          box.innerHTML = items.map((it) => {
+          box.innerHTML = items.map((it, idx) => {
             const active = (it.source === state.selectedSource && it.path === state.selectedPath && it.kind === 'file') ? ' is-selected' : '';
+            const focused = idx === state.rangerCursor ? ' is-cursor' : '';
+            const icon = _wsFileIcon(it.path, it.kind);
             const label = it.label || it.path;
-            const tag = it.kind === 'dir' ? 'dir' : (it.kind === 'up' ? 'up' : it.source);
-            return '<button type="button" role="option" class="ws-ctx-row' + active + '" data-src="' + esc(it.source) + '" data-kind="' + esc(it.kind) + '" data-path="' + esc(it.path) + '">' +
-              '<span class="ws-truncate">' + esc(label) + '</span>' +
+            const sizeStr = it.kind === 'file' ? _wsFmtSize(it.size) : '';
+            const tag = it.tag || (it.kind === 'dir' ? 'dir' : (it.kind === 'up' ? 'up' : (sizeStr || it.source)));
+            return '<button type="button" role="option" class="ws-ctx-row' + active + focused + '" data-idx="' + idx + '" data-src="' + esc(it.source) + '" data-kind="' + esc(it.kind) + '" data-path="' + esc(it.path) + '">' +
+              '<span class="ws-truncate">' + icon + ' ' + esc(label) + '</span>' +
               '<span class="ws-ctx-src">' + esc(tag) + '</span>' +
               '</button>';
           }).join('');
 
           box.querySelectorAll('.ws-ctx-row').forEach((btn) => {
-            btn.onclick = () => selectContextItem(btn.dataset.src, btn.dataset.kind, btn.dataset.path);
+            btn.onclick = () => {
+              state.rangerCursor = Number(btn.dataset.idx || 0);
+              selectContextItem(btn.dataset.src, btn.dataset.kind, btn.dataset.path);
+            };
           });
+
+          if (!box._rangerKeysBound) {
+            box._rangerKeysBound = true;
+            box.addEventListener('keydown', (ev) => {
+              const list = state._rangerItems || [];
+              if (!list.length) return;
+              if (ev.key === 'j' || ev.key === 'ArrowDown') {
+                ev.preventDefault();
+                state.rangerCursor = Math.min(list.length - 1, (state.rangerCursor || 0) + 1);
+                renderContextList();
+              } else if (ev.key === 'k' || ev.key === 'ArrowUp') {
+                ev.preventDefault();
+                state.rangerCursor = Math.max(0, (state.rangerCursor || 0) - 1);
+                renderContextList();
+              } else if (ev.key === 'l' || ev.key === 'ArrowRight' || ev.key === 'Enter') {
+                ev.preventDefault();
+                const cur = list[state.rangerCursor || 0];
+                if (cur) selectContextItem(cur.source, cur.kind, cur.path);
+              } else if (ev.key === 'h' || ev.key === 'ArrowLeft' || ev.key === 'Backspace') {
+                ev.preventDefault();
+                if (state.ctxFilter === 'drive') {
+                  if (state.drivePath && state.drivePath !== '/') {
+                    selectContextItem('drive', 'up', _wsParentDir(state.drivePath));
+                  }
+                } else if (state.spacePath && state.spacePath !== '/') {
+                  selectContextItem('space', 'up', _wsParentDir(state.spacePath));
+                }
+              }
+            });
+          }
         }
 
         async function selectContextItem(source, kind, path) {
+          if (source === 'space' && (kind === 'dir' || kind === 'up')) {
+            state.spacePath = _wsNormDir(path || '/');
+            state.rangerCursor = 0;
+            renderContextList();
+            return;
+          }
           if (source === 'drive' && (kind === 'dir' || kind === 'up')) {
             state.drivePath = path || '/';
+            state.rangerCursor = 0;
             await fetchDriveLs();
             return;
           }
@@ -3566,7 +3750,8 @@ def render_workstation_window_html() -> str:
                 <button type="button" class="ws-pill" data-ws-ctx-filter="space">.space</button>
                 <button type="button" class="ws-pill" data-ws-ctx-filter="drive">Drive</button>
               </div>
-              <div id="wsContextList" class="ws-ctx-list" role="listbox" aria-label="Space and Drive context files">
+              <div id="wsRangerCrumbs" class="ws-ranger-crumbs" style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:4px 8px;border:1px solid rgba(17,17,17,0.16);border-radius:8px;font-family:var(--ws-mono);font-size:10px;"></div>
+              <div id="wsContextList" class="ws-ctx-list" role="listbox" tabindex="0" aria-label="Space and Drive context files">
                 <div class="ws-muted-xs" style="padding: 8px;">Loading .space &amp; Drive files…</div>
               </div>
             </section>
