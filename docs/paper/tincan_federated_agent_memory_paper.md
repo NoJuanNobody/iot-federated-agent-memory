@@ -20,9 +20,11 @@ We evaluate TinCan's Python implementation using a reproducible hybrid simulatio
 
 ## 1. Introduction
 
-Software development and edge automation are shifting from a single AI assistant running in a cloud browser to teams of specialized AI agents running locally on user hardware. Consider a realistic pair-programming setup: one coding agent runs on a developer's laptop modifying backend modules, while a second testing agent runs on a separate workstation or a low-power Linux board writing regression tests and tracking bugs. For these agents to work together effectively, they must share a consistent picture of the project—which files exist, how modules depend on one another, which bugs are open, and which architectural decisions have been made.
+In *The Third Industrial Revolution* and the accompanying VICE documentary *The Third Industrial Revolution: A Radical New Sharing Economy* [13], economic theorist Jeremy Rifkin argues that modern infrastructure is undergoing a historic architectural shift: *"The revolution here is from hierarchical to lateral power. That's the power shift."* As communication, energy, and edge computing converge into an Internet of Things (IoT), Rifkin describes the result as *"a distributed nervous system that will allow everyone on the planet at low cost to engage directly with each other"*—a platform *"designed to be distributed, not centralised"* that *"works best when it is collaborative, open and transparent, rather than closed and proprietary"* [13].
 
-Building that shared memory for edge devices is surprisingly hard because four practical goals pull against each other:
+Software development and edge automation reflect this same transition: instead of a single AI assistant inside a cloud browser, teams of specialized AI agents now run locally across user devices—for example, a backend coding agent on a developer's laptop collaborating with a testing agent on a second workstation or Raspberry Pi. Yet ironically, most multi-agent tools still route shared memory through a centralized, hierarchical cloud server, contradicting the lateral peer-to-peer model that makes edge IoT resilient.
+
+Building true lateral shared memory for edge agents is hard because four practical goals pull against each other:
 
 1. **Offline availability:** Edge devices frequently lose internet access—on airplanes, in basements, during storms, or on air-gapped networks. If shared memory lives only on a central cloud server, a wide-area network (WAN) outage immediately stops local agents from syncing with each other even when they are on the same Wi-Fi network.
 2. **Low bandwidth:** Edge links—such as Wi-Fi, cellular hotspots, or off-grid radios—have limited bandwidth and frequent packet drops. Sending the entire memory database back and forth on every sync wastes airtime and slows down recovery after a disconnect.
@@ -266,7 +268,7 @@ To verify the full end-to-end stack over real operating-system sockets, we execu
 
 ## 5. Summary and Conclusions
 
-This paper presented **TinCan**, an offline-first, cryptographically authenticated shared memory system for decentralized edge AI agents. By combining conflict-preserving CRDTs (`ORSet`, `MVRegister`, and per-field HLC `LWWMap`), an incremental 16-way `PrefixMerkleTree` ($d=3$), domain-separated Ed25519 signatures with a pinned `TrustStore`, and a zero-relay UDP/SAR/STUN/multicast transport layer packaged into a 118.42 KB slim edge module set, TinCan enables autonomous agents to collaborate without cloud relays and without silently overwriting each other's work.
+This paper presented **TinCan**, an offline-first, cryptographically authenticated shared memory system that brings Jeremy Rifkin's vision of lateral, peer-to-peer *"distributed nervous system"* infrastructure [13] to decentralized edge AI agents. By combining conflict-preserving CRDTs (`ORSet`, `MVRegister`, and per-field HLC `LWWMap`), an incremental 16-way `PrefixMerkleTree` ($d=3$), domain-separated Ed25519 signatures with a pinned `TrustStore`, and a zero-relay UDP/SAR/STUN/multicast transport layer packaged into a 118.42 KB slim edge module set, TinCan enables agents to collaborate without cloud relays or silent write loss.
 
 In our reproducible hybrid evaluation (seed 42), TinCan reduced per-sync bandwidth by **94.43%** at $N = 25$ (3,589 B vs. 64,430 B for naive full-state gossip), maintained **100% convergence** under **30% simulated packet loss** (250.0 ms vs. 2,125.0 ms for naive gossip and 4,290.0 ms for central-server sync), and achieved **0 lost writes** across partitions (versus **84 lost writes** on LWW baselines) while surfacing all **42 concurrent conflicts**.
 
@@ -307,3 +309,5 @@ To keep our claims strictly grounded in what has been verified so far, we note f
 [11] W. Shi, J. Cao, Q. Zhang, Y. Li, and L. Xu, "Edge Computing: Vision and Challenges," *IEEE Internet of Things J.*, vol. 3, no. 5, pp. 637–646, Oct. 2016.
 
 [12] M. Qvist, "Reticulum Network Stack: Cryptography-Based Networking Stack for Building Unstoppable Networks with LoRa, Packet Radio, WiFi and Everything in Between," *Reticulum Technical Specification*, 2022. https://reticulum.network/
+
+[13] J. Rifkin, *The Third Industrial Revolution: How Lateral Power Is Transforming Energy, the Economy, and the World*, New York, NY, USA: Palgrave Macmillan, 2011; and VICE Media, *The Third Industrial Revolution: A Radical New Sharing Economy* [Documentary film], featuring J. Rifkin, 2018.
