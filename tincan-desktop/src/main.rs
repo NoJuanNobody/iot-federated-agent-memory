@@ -5,12 +5,16 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::webview::NewWindowResponse;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 use url::Url;
+
+static POPOUT_COUNTER: AtomicUsize = AtomicUsize::new(1);
 
 const FALLBACK_RELAY_URL: &str = "https://iot-federated-agent-memory-production.up.railway.app";
 
@@ -146,6 +150,75 @@ fn resolve_node_base_url() -> String {
         .to_string()
 }
 
+fn title_for_url(url: &Url) -> String {
+    if let Some((_, win_val)) = url.query_pairs().find(|(k, _)| k == "window") {
+        let clean = win_val.trim().trim_start_matches("win-");
+        if let Some(spec) = APP_TOOLS.iter().find(|t| t.slug == clean || t.route.trim_start_matches('/') == clean) {
+            return format!("TinCan — {}", spec.title);
+        }
+        if !clean.is_empty() {
+            return format!("TinCan — {}", clean);
+        }
+    }
+    let path = url.path().trim_end_matches('/');
+    if let Some(spec) = APP_TOOLS.iter().find(|t| t.route == path) {
+        return format!("TinCan — {}", spec.title);
+    }
+    "TinCan Mesh OS".to_string()
+}
+
+fn spawn_managed_window(
+    app: &AppHandle,
+    label: String,
+    title: String,
+    url: Url,
+    width: f64,
+    height: f64,
+) {
+    let app_for_new_win = app.clone();
+    let builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(url))
+        .title(&title)
+        .inner_size(width, height)
+        .min_inner_size(640.0, 460.0)
+        .resizable(true)
+        .center()
+        .on_new_window(move |target_url, features| {
+            let handle = app_for_new_win.clone();
+            let (pw, ph) = features
+                .size()
+                .map(|s| (s.width.max(720.0), s.height.max(520.0)))
+                .unwrap_or((1120.0, 760.0));
+            let handle_inner = handle.clone();
+            let _ = handle.run_on_main_thread(move || {
+                let n = POPOUT_COUNTER.fetch_add(1, Ordering::Relaxed);
+                let pop_label = format!("popout-{}", n);
+                let pop_title = title_for_url(&target_url);
+                spawn_managed_window(&handle_inner, pop_label, pop_title, target_url, pw, ph);
+            });
+            NewWindowResponse::Deny
+        });
+
+    if let Ok(win) = builder.build() {
+        let app_clone = app.clone();
+        let label_clone = label.clone();
+        win.on_window_event(move |event| {
+            if let WindowEvent::Resized(size) = event {
+                let st = app_clone.state::<DesktopState>();
+                if let Ok(mut map) = st.window_geoms.lock() {
+                    map.insert(
+                        label_clone.clone(),
+                        SavedWindowGeom {
+                            width: f64::from(size.width),
+                            height: f64::from(size.height),
+                        },
+                    );
+                    save_window_geoms(&map);
+                };
+            }
+        });
+    }
+}
+
 fn open_or_focus_tool_window(app: &AppHandle, spec: &AppToolSpec) {
     let label = if spec.slug == "desktop" {
         "main".to_string()
@@ -174,32 +247,7 @@ fn open_or_focus_tool_window(app: &AppHandle, spec: &AppToolSpec) {
     };
 
     let title = format!("TinCan — {}", spec.title);
-    let builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(parsed_url))
-        .title(&title)
-        .inner_size(w, h)
-        .min_inner_size(640.0, 460.0)
-        .resizable(true)
-        .center();
-
-    if let Ok(win) = builder.build() {
-        let app_clone = app.clone();
-        let label_clone = label.clone();
-        win.on_window_event(move |event| {
-            if let WindowEvent::Resized(size) = event {
-                let st = app_clone.state::<DesktopState>();
-                if let Ok(mut map) = st.window_geoms.lock() {
-                    map.insert(
-                        label_clone.clone(),
-                        SavedWindowGeom {
-                            width: f64::from(size.width),
-                            height: f64::from(size.height),
-                        },
-                    );
-                    save_window_geoms(&map);
-                };
-            }
-        });
-    }
+    spawn_managed_window(app, label, title, parsed_url, w, h);
 }
 
 fn trigger_cmd_k(app: &AppHandle) {
@@ -300,10 +348,15 @@ fn main() {
             let menu = build_native_menu(app.handle())?;
             app.set_menu(menu)?;
 
-            if let Some(main_win) = app.get_webview_window("main") {
-                if let Ok(url) = Url::parse(&base_url) {
-                    let _ = main_win.navigate(url);
-                }
+            if let Ok(url) = Url::parse(&base_url) {
+                spawn_managed_window(
+                    app.handle(),
+                    "main".to_string(),
+                    "TinCan Mesh OS".to_string(),
+                    url,
+                    1280.0,
+                    820.0,
+                );
             }
             Ok(())
         })
