@@ -1,0 +1,60 @@
+# syntax=docker/dockerfile:1.7
+#
+# TinCan Slim Edge Node Image (AI-244)
+# Minimal Python 3.11-slim runtime for constrained edge devices (Raspberry Pi,
+# low-RAM Linux SBCs, air-gapped field laptops). Installs ONLY PyNaCl for
+# Ed25519/X25519 cryptography and optional zeroconf for mDNS LAN discovery.
+# Zero dev toolchain, zero Node/Rust/Playwright, zero WebAuthn/server bloat.
+#
+# Build examples:
+#   docker build -f Dockerfile.edge -t tincan-edge:latest .
+#   docker build -f Dockerfile.edge --build-arg INSTALL_ZEROCONF=0 -t tincan-edge:multicast .
+#
+# Run example (host networking recommended for mDNS / UDP multicast LAN discovery):
+#   docker run --rm --network host tincan-edge:latest --node-id pi-edge-01 --port 45454
+
+ARG PYTHON_IMAGE=python:3.11-slim
+FROM ${PYTHON_IMAGE}
+
+ARG INSTALL_ZEROCONF=1
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONPATH=/app
+
+# Install only PyNaCl (ships prebuilt manylinux/aarch64 wheels with bundled libsodium)
+# and optional zeroconf for _tincan-mesh._udp.local. mDNS discovery.
+RUN pip install --no-cache-dir "PyNaCl>=1.5.0" \
+ && if [ "${INSTALL_ZEROCONF}" = "1" ]; then \
+      pip install --no-cache-dir "zeroconf>=0.131.0"; \
+    fi
+
+WORKDIR /app
+
+# Copy ONLY the slim CRDT + P2P edge module set (no server.py, UI, or WebAuthn modules).
+RUN mkdir -p /app/iot_federated_agent_memory \
+ && printf '"""Slim TinCan edge CRDT + P2P mesh package."""\n' > /app/iot_federated_agent_memory/__init__.py
+
+COPY iot_federated_agent_memory/crdt_types.py \
+     iot_federated_agent_memory/merkle_tree.py \
+     iot_federated_agent_memory/tincan_core.py \
+     iot_federated_agent_memory/crdt_mesh.py \
+     iot_federated_agent_memory/p2p_transport.py \
+     iot_federated_agent_memory/mdns_discovery.py \
+     iot_federated_agent_memory/agent_kg_crdt.py \
+     /app/iot_federated_agent_memory/
+
+COPY local_p2p_mesh.py /app/local_p2p_mesh.py
+
+# Run as an unprivileged edge user.
+RUN useradd --create-home --shell /usr/sbin/nologin tincan \
+ && chown -R tincan:tincan /app
+
+USER tincan
+
+# UDP mesh transport (45454), mDNS (5353), and zero-dep multicast beacon (5354).
+EXPOSE 45454/udp 5353/udp 5354/udp
+
+ENTRYPOINT ["python3", "/app/local_p2p_mesh.py"]
+CMD ["--port", "45454", "--backend", "auto"]
