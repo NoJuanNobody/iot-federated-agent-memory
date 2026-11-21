@@ -26,10 +26,10 @@ Software development and edge automation reflect this same transition: instead o
 
 Building true lateral shared memory for edge agents is hard because four practical goals pull against each other:
 
-1. **Offline availability:** Edge devices frequently lose internet access—on airplanes, in basements, during storms, or on air-gapped networks. If shared memory lives only on a central cloud server, a wide-area network (WAN) outage immediately stops local agents from syncing with each other even when they are on the same Wi-Fi network.
-2. **Low bandwidth:** Edge links—such as Wi-Fi, cellular hotspots, or off-grid radios—have limited bandwidth and frequent packet drops. Sending the entire memory database back and forth on every sync wastes airtime and slows down recovery after a disconnect.
-3. **No silent data loss:** When two agents work independently during a disconnect and later reconnect, simple "last-write-wins" (LWW) rules pick whichever record has a newer clock timestamp and quietly throw away the other agent's changes. If Agent A updates a file's patch status while Agent B updates that same file's test status, whole-record LWW destroys one of those updates without warning.
-4. **Trust without a central server:** Without a central server checking logins, any compromised device on a local network could forge fake updates, tamper with messages in transit, or poison an agent's memory.
+1. **Offline availability:** Edge devices frequently lose internet access; if shared memory lives only in the cloud, a WAN outage stops adjacent local agents from syncing.
+2. **Low bandwidth:** Edge wireless and radio links have tight bandwidth and packet drops, so broadcasting the full database on every sync wastes airtime.
+3. **No silent data loss:** When offline agents edit different fields of the same record, whole-record "last-write-wins" (LWW) silently erases one agent's work.
+4. **Trust without a central server:** Without a central login server, a compromised LAN device could forge or tamper with updates unless every message is cryptographically verified.
 
 This paper introduces **TinCan**, a decentralized, offline-first shared memory system designed specifically for edge AI agents. Rather than relying on a central relay or naive full-state broadcasting, TinCan combines four proven building blocks into a compact, pure-Python architecture:
 
@@ -38,7 +38,7 @@ This paper introduces **TinCan**, a decentralized, offline-first shared memory s
 - **Per-message cryptographic verification (`TinCanIdentity` and `TrustStore`):** Every node owns an Ed25519 signing keypair. Every delta is signed before transmission and verified against a list of trusted peer keys before it can touch local clocks or memory.
 - **Zero-relay transport and slim edge packaging:** TinCan separates its memory layer from networking through a pluggable transport interface supporting multi-peer UDP with automatic packet splitting/reassembly (SAR), STUN NAT hole-punching for internet peering, dual mDNS/UDP-multicast local discovery, and an optional adapter for the off-grid Reticulum Network Stack. The core runtime fits in **118.42 KB** of Python code packaged into a minimal `Dockerfile.edge` container.
 
-The rest of this paper is organized as follows. Section 2 reviews related work in CRDTs, Merkle trees, logical clocks, peer-to-peer networking, federated learning, LLM agent memory, and edge/delay-tolerant networking. Section 3 explains the problem setup and TinCan's design in plain, verifiable detail—including its consistency rules, Merkle sync protocol, security threat model, transport stack, knowledge graph schema, and edge deployment packaging. Section 4 presents our evaluation methodology and results across scalability, packet loss, network partitions, and a live loopback UDP pair-programming demo, clearly distinguishing executed code from simulated network baselines. Section 5 summarizes our conclusions, candidly documents current experimental limitations, and outlines next steps for physical hardware field testing.
+The rest of this paper is organized as follows. Section 2 surveys CRDTs, Merkle trees, logical clocks, P2P networking, federated learning, LLM memory, and edge/off-grid systems. Section 3 details TinCan's consistency model, Merkle sync, threat model, transport stack, knowledge graph schema, and edge packaging. Section 4 presents our hybrid evaluation results and live loopback UDP demo. Section 5 concludes with limitations and next field-testing steps.
 
 ---
 
