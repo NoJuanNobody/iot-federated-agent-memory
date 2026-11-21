@@ -3246,7 +3246,7 @@ HTML_UI = MESH_OS_HTML_UI
 SINGLE_WINDOW_ROUTES = frozenset({
     "/tv", "/call", "/comms", "/chat", "/copilot", "/ai", "/home", "/arena", "/terminal", "/billing", "/tokens",
     "/board", "/cyberspace", "/space", "/files", "/finder", "/agentspace",
-    "/quests", "/rewards", "/network", "/workstation", "/3dstudio", "/browser", "/localhost",
+    "/quests", "/rewards", "/network", "/workstation", "/3dstudio", "/browser", "/localhost", "/moderator",
 })
 
 
@@ -6260,6 +6260,36 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         if ARENA_CONTEXT_API.handle_get(self, parsed):
             return
         clean_path = parsed.path.rstrip("/") if parsed.path != "/" else "/"
+        if clean_path == "/windows":
+            from iot_federated_agent_memory.os_launcher import build_windows_payload
+            host_hdr = self.headers.get("Host") or f"127.0.0.1:{PORT}"
+            scheme = "https" if (self.headers.get("X-Forwarded-Proto") == "https") else "http"
+            is_local = os.environ.get("TINCAN_LOCAL_NODE", "").strip() in ("1", "true", "yes")
+            payload = build_windows_payload(
+                base_url=f"{scheme}://{host_hdr}",
+                node_mode="local" if is_local else "relay",
+                node_id=os.environ.get("TINCAN_LOCAL_NODE_ID") or crdt_node.local_node_id,
+                tc_address=os.environ.get("TINCAN_LOCAL_TC_ADDRESS", ""),
+            )
+            self._send_json(payload, 200)
+            return
+        if clean_path == "/api/local/identity":
+            is_local = os.environ.get("TINCAN_LOCAL_NODE", "").strip() in ("1", "true", "yes")
+            if is_local:
+                tc_addr = os.environ.get("TINCAN_LOCAL_TC_ADDRESS", "")
+                alias = os.environ.get("TINCAN_LOCAL_ALIAS") or os.environ.get("USER") or "local-peer"
+                node_id = os.environ.get("TINCAN_LOCAL_NODE_ID") or crdt_node.local_node_id
+                self._send_json({
+                    "local_node": True,
+                    "offline_ready": True,
+                    "passwordless": True,
+                    "tc_address": tc_addr,
+                    "alias": alias,
+                    "node_id": node_id,
+                }, 200)
+            else:
+                self._send_json({"local_node": False, "offline_ready": False}, 200)
+            return
         if clean_path in SINGLE_WINDOW_ROUTES:
             # Single-window routes: the shell reads location.pathname and opens that window.
             self._send_shell_html()
@@ -7394,7 +7424,8 @@ if __name__ == "__main__":
     import atexit
     import signal
 
-    server = HTTPServer(("0.0.0.0", PORT), MeshGatewayHandler)
+    bind_host = os.environ.get("TINCAN_HOST", "0.0.0.0").strip() or "0.0.0.0"
+    server = HTTPServer((bind_host, PORT), MeshGatewayHandler)
     atexit.register(_graceful_shutdown_persistence, True)
 
     def _on_termination_signal(signum, _frame):

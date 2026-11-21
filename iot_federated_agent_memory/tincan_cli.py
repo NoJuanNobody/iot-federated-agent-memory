@@ -194,6 +194,23 @@ def main(argv: Optional[List[str]] = None) -> int:
     serve_parser.add_argument("--port", type=int, default=8080, help="Port to listen on (default: 8080)")
     serve_parser.add_argument("--db", default=":memory:", help="SQLite database path (default: :memory:)")
 
+    # os (AI-246: launch local Mesh OS node & browser app window)
+    os_parser = subparsers.add_parser("os", help="Start the local offline-ready TinCan Mesh OS node and open it in a browser app window")
+    os_parser.add_argument("--port", type=int, default=0, help="Preferred loopback port on 127.0.0.1 (0 = auto free port)")
+    os_parser.add_argument("--data-dir", default=None, help="Local node data directory (default: ~/.tincan/node_data)")
+    os_parser.add_argument("--status", action="store_true", help="Show status of the local TinCan OS node")
+    os_parser.add_argument("--stop", action="store_true", help="Stop the running local TinCan OS node")
+    os_parser.add_argument("--no-open", action="store_true", help="Start the local node without opening a browser window")
+    os_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # open (AI-246: open a specific Mesh OS app window against the local node)
+    open_parser = subparsers.add_parser("open", help="Open a specific TinCan Mesh OS app (board, space, terminal, arena, node-studio, ...) in its own window")
+    open_parser.add_argument("app", nargs="?", default=None, help="App slug or alias (omit to open full desktop)")
+    open_parser.add_argument("--list", action="store_true", help="List all available app window slugs and routes")
+    open_parser.add_argument("--url", default=None, help="Override base URL instead of auto-starting the local node")
+    open_parser.add_argument("--no-open", action="store_true", help="Resolve URL without launching a browser window")
+    open_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
     # playlist
     pl_parser = subparsers.add_parser("playlist", help="Manage the Relay Video Channel & Collection Playlist")
     pl_parser.add_argument("action", nargs="?", default="list", choices=["list", "add", "remove"], help="Action (list, add, remove)")
@@ -452,9 +469,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     # Upgrades only run when the operator explicitly invokes `tincan upgrade`.
 
     if not args.command:
-        # Default bare command: launch the interactive screensaver / live mesh TUI
+        # Default bare command: launch the interactive TinCan Mesh OS terminal shell
         from .tui import main as tui_main
-        return tui_main(["--screensaver", "--relay", args.relay])
+        return tui_main(["--view", "overview"])
+
+    if args.command == "start":
+        from .tui import main as tui_main
+        return tui_main(["--view", "overview"])
+
+    if args.command == "screensaver":
+        from .tui import main as tui_main
+        return tui_main(["--screensaver"])
 
     if args.command == "brew":
         from .tincan_brew import generate_homebrew_formula, handle_brew_command
@@ -497,6 +522,101 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.command == "mcp":
         client = TinCanMCPClient(relay_url=args.relay, config_dir=args.dir, alias=args.alias)
         run_stdio_server(client)
+        return 0
+
+    if args.command == "os":
+        from .os_launcher import LocalNodeManager, launch_browser_window
+
+        mgr = LocalNodeManager(config_dir=args.dir, data_dir=getattr(args, "data_dir", None))
+        if getattr(args, "status", False):
+            st = mgr.status()
+            if getattr(args, "json", False):
+                print(json.dumps(st, indent=2))
+            elif st.get("running"):
+                print(f"[✓] TinCan OS local node running at {st['url']} (pid={st['pid']}, id={st.get('tc_address', '')})")
+                print(f"    Data dir: {st['data_dir']} | Windows: {st.get('windows_count', 0)}")
+            else:
+                print("[*] TinCan OS local node is not running. Start it with: tincan os")
+            return 0
+
+        if getattr(args, "stop", False):
+            res = mgr.stop()
+            if getattr(args, "json", False):
+                print(json.dumps(res, indent=2))
+            elif res.get("stopped"):
+                print(f"[✓] Stopped TinCan OS local node (pid={res.get('pid')})")
+            else:
+                print("[*] TinCan OS local node was not running.")
+            return 0
+
+        state, started_new = mgr.start(host="127.0.0.1", port=getattr(args, "port", 0))
+        launch_info = launch_browser_window(
+            state.url,
+            width=1280,
+            height=820,
+            app_mode=True,
+            dry_run=bool(getattr(args, "no_open", False)),
+        )
+        out = {
+            "started_new": started_new,
+            "pid": state.pid,
+            "url": state.url,
+            "tc_address": state.tc_address,
+            "node_id": state.node_id,
+            "data_dir": state.data_dir,
+            "launch": launch_info,
+        }
+        if getattr(args, "json", False):
+            print(json.dumps(out, indent=2))
+        else:
+            verb = "Started" if started_new else "Connected to"
+            print(f"[✓] {verb} local TinCan OS node at {state.url} (pid={state.pid})")
+            print(f"    Identity : {state.tc_address} (passwordless local node)")
+            print(f"    Data dir : {state.data_dir}")
+            print(f"    Windows  : tincan open <app>  |  tincan open --list  |  tincan os --stop")
+        return 0
+
+    if args.command == "open":
+        from .os_launcher import LocalNodeManager, WINDOW_CATALOG, launch_browser_window, resolve_window_entry
+
+        mgr = LocalNodeManager(config_dir=args.dir)
+        base_url = getattr(args, "url", None)
+
+        if getattr(args, "list", False):
+            catalog = mgr.fetch_windows(base_url=base_url)
+            if getattr(args, "json", False):
+                print(json.dumps(catalog, indent=2))
+            else:
+                print("Available TinCan Mesh OS windows:")
+                for item in catalog:
+                    aliases = f" (aliases: {', '.join(item.get('aliases', []))})" if item.get("aliases") else ""
+                    print(f"  {item['slug']:13s} {item['route']:14s} — {item['title']}{aliases}")
+            return 0
+
+        if not base_url:
+            state, _ = mgr.start(host="127.0.0.1")
+            base_url = state.url
+
+        catalog = mgr.fetch_windows(base_url=base_url)
+        entry = resolve_window_entry(getattr(args, "app", None), catalog=catalog)
+        if not entry:
+            valid = ", ".join(w["slug"] for w in WINDOW_CATALOG)
+            print(f"[!] Unknown TinCan app '{args.app}'. Available: {valid}", file=sys.stderr)
+            return 2
+
+        target_url = entry.get("url") or f"{base_url.rstrip('/')}{entry['route']}"
+        launch_info = launch_browser_window(
+            target_url,
+            width=int(entry.get("width", 1180)),
+            height=int(entry.get("height", 780)),
+            app_mode=True,
+            dry_run=bool(getattr(args, "no_open", False)),
+        )
+        out = {"app": entry["slug"], "title": entry["title"], "url": target_url, "launch": launch_info}
+        if getattr(args, "json", False):
+            print(json.dumps(out, indent=2))
+        else:
+            print(f"[✓] Opening {entry['title']} -> {target_url}")
         return 0
 
     if args.command == "serve":

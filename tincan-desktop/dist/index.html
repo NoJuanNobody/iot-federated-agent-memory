@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TinCan Mesh OS</title>
+  <style>
+    :root {
+      --bg: #ecf1e6;
+      --fg: #111111;
+      --muted: rgba(17, 17, 17, 0.62);
+      --line: rgba(17, 17, 17, 0.16);
+      --accent: #d0703f;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0e0d0b;
+        --fg: #ece6da;
+        --muted: rgba(236, 230, 218, 0.66);
+        --line: rgba(236, 230, 218, 0.14);
+        --accent: #d0703f;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      height: 100vh;
+      display: grid;
+      place-items: center;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: "Zen Kaku Gothic New", "Hiragino Sans", system-ui, sans-serif;
+    }
+    .card {
+      text-align: center;
+      padding: 2rem 2.5rem;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      max-width: 28rem;
+    }
+    .mark {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-family: "Shippori Mincho", "Hiragino Mincho ProN", serif;
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+    .status {
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="mark">
+      <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <path d="M26.6 10.4A12 12 0 1 0 27.7 19" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+        <circle cx="27.6" cy="14.6" r="1.8" fill="#d0703f"/>
+      </svg>
+      <span>TinCan Mesh OS</span>
+    </div>
+    <p class="status">Starting local node on 127.0.0.1…</p>
+  </div>
+</body>
+</html>
