@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""Two-Machine Direct P2P CRDT Mesh Demo (AI-236, AI-237, AI-240).
+"""Two-Machine Direct P2P CRDT Mesh Demo (LAN or Internet over NAT — AI-236, AI-237, AI-240).
 
-Run on Machine A (e.g., Mac):
+Works over LAN (automatic mDNS/multicast discovery) OR over the open internet
+(RFC 5389 STUN external endpoint discovery + UDP NAT hole-punching + auto return-address learning)
+with ZERO Railway relay in the data path.
+
+Usage:
+    # Machine A:
     python3 scripts/demo_p2p_two_machines.py --node-id mac-a --port 45454
 
-Run on Machine B (e.g., Raspberry Pi or laptop on the same LAN):
-    python3 scripts/demo_p2p_two_machines.py --node-id pi-b --port 45455 --peer <MAC_LAN_IP>:45454
-
-Or omit --peer on both machines to use automatic decentralized LAN discovery (mDNS/multicast).
+    # Machine B (pass Machine A's printed Public or LAN IP:port):
+    python3 scripts/demo_p2p_two_machines.py --node-id remote-b --port 45454 --peer <A_IP>:<A_PORT>
 """
 
 import argparse
@@ -24,11 +27,12 @@ from iot_federated_agent_memory.tincan_core import TinCanIdentity
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="TinCan Direct P2P Two-Machine CRDT Demo")
-    parser.add_argument("--node-id", required=True, help="Unique node ID (e.g. mac-a, pi-b)")
+    parser = argparse.ArgumentParser(description="TinCan Direct P2P Two-Machine CRDT Demo (LAN & Internet)")
+    parser.add_argument("--node-id", required=True, help="Unique node ID (e.g. mac-a, remote-b)")
     parser.add_argument("--port", type=int, default=45454, help="Local UDP port to bind")
-    parser.add_argument("--peer", default="", help="Optional explicit peer host:port (else auto-discover)")
-    parser.add_argument("--duration", type=int, default=30, help="Seconds to run demo")
+    parser.add_argument("--peer", default="", help="Optional peer host:port (LAN or public STUN endpoint)")
+    parser.add_argument("--no-stun", action="store_true", help="Skip STUN public IP discovery (offline LAN)")
+    parser.add_argument("--duration", type=int, default=60, help="Seconds to run demo")
     args = parser.parse_args()
 
     identity = TinCanIdentity.generate()
@@ -36,15 +40,20 @@ def main() -> None:
     transport = MultiPeerUDPTransport(bind_host="0.0.0.0", bind_port=args.port)
     mesh = CRDTMeshGossipSync(args.node_id, transport=transport, identity=identity, trust_store=trust)
 
+    public_ep = None if args.no_stun else transport.discover_public_endpoint()
+
+    explicit_peer = None
     if args.peer:
         host, port_s = args.peer.rsplit(":", 1)
+        explicit_peer = (host, int(port_s))
         transport.add_peer("explicit-peer", host, int(port_s))
+        transport.send_punch(host, int(port_s), local_node_id=args.node_id)
 
     def _on_peer(peer: PeerAnnouncement) -> None:
         transport.add_peer(peer.node_id, peer.host, peer.port)
         if peer.pubkey:
             trust.add_peer(peer.node_id, peer.pubkey)
-        print(f"[discovery] Joined peer {peer.node_id} at {peer.host}:{peer.port}")
+        print(f"[discovery] Joined LAN peer {peer.node_id} at {peer.host}:{peer.port}")
 
     discovery = DecentralizedPeerDiscovery(
         node_id=args.node_id,
@@ -54,14 +63,24 @@ def main() -> None:
     )
     discovery.start()
 
-    print(f"[*] {args.node_id} listening on {detect_lan_ip()}:{transport.bound_port} ({identity.address})")
-    print(f"[*] Zero Railway relay in path. Exchanging signed CRDT deltas for {args.duration}s...")
+    print("=" * 68)
+    print(f"[*] Node ID   : {args.node_id} ({identity.address})")
+    print(f"[*] LAN UDP   : {detect_lan_ip()}:{transport.bound_port}")
+    if public_ep:
+        print(f"[*] Public UDP: {public_ep[0]}:{public_ep[1]}  <-- pass to --peer on remote machine")
+    else:
+        print("[*] Public UDP: (STUN unavailable / offline LAN mode)")
+    print("[*] Zero Railway relay in path. Exchanging signed CRDT deltas...")
+    print("=" * 68)
 
     start = time.time()
     step = 0
     try:
         while (time.time() - start) < args.duration:
             step += 1
+            if explicit_peer:
+                transport.send_punch(explicit_peer[0], explicit_peer[1], local_node_id=args.node_id)
+
             mesh.apply_local_update(
                 f"heartbeat:{args.node_id}",
                 {"step": step, "node": args.node_id, "ts": round(time.time(), 2)},
@@ -72,7 +91,7 @@ def main() -> None:
             print(
                 f"[state] peers={len(transport.peers)} keys={len(mesh.state_store)} "
                 f"merkle_root={mesh.compute_merkle_root()[:12]} "
-                f"bytes_tx={transport.stats.bytes_sent} bytes_rx={transport.stats.bytes_received}"
+                f"tx={transport.stats.bytes_sent}B rx={transport.stats.bytes_received}B"
             )
             time.sleep(2.0)
     finally:

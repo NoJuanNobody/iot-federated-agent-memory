@@ -17,6 +17,8 @@ from iot_federated_agent_memory.mdns_discovery import (
 from iot_federated_agent_memory.p2p_transport import (
     MultiPeerUDPTransport,
     ReticulumTransportChannel,
+    STUN_MAGIC_COOKIE,
+    parse_stun_binding_response,
 )
 from iot_federated_agent_memory.tincan_core import TinCanIdentity
 from scripts.demo_pair_programming_mesh import run_demo
@@ -172,3 +174,33 @@ def test_federated_agent_knowledge_graph_end_to_end_demo():
     assert result["resolved_decision"]["conflict"] is False
     assert result["resolved_decision"]["values"] == [30]
     assert result["udp_bytes_sent"] > 0
+
+
+def test_stun_xor_mapped_parsing_and_udp_hole_punch_peer_learning():
+    import socket
+    import struct
+
+    # 1. Verify RFC 5389 XOR-MAPPED-ADDRESS parsing for 203.0.113.42:51820
+    tx_id = b"\x11" * 12
+    pub_port = 51820
+    pub_ip_int = struct.unpack("!I", socket.inet_aton("203.0.113.42"))[0]
+    xport = pub_port ^ (STUN_MAGIC_COOKIE >> 16)
+    xip = pub_ip_int ^ STUN_MAGIC_COOKIE
+    attr = struct.pack("!HHBBHI", 0x0020, 8, 0, 0x01, xport, xip)
+    pkt = struct.pack("!HHI12s", 0x0101, len(attr), STUN_MAGIC_COOKIE, tx_id) + attr
+
+    assert parse_stun_binding_response(pkt, tx_id) == ("203.0.113.42", 51820)
+    assert parse_stun_binding_response(pkt, b"\x22" * 12) is None
+
+    # 2. Verify UDP punch packet automatically registers sender's return address
+    listener = MultiPeerUDPTransport(bind_host="127.0.0.1", bind_port=0)
+    caller = MultiPeerUDPTransport(bind_host="127.0.0.1", bind_port=0)
+    try:
+        caller.send_punch("127.0.0.1", listener.bound_port, local_node_id="remote-internet-node")
+        time.sleep(0.03)
+        listener.receive()  # drains punch packet
+        assert "remote-internet-node" in listener.peers
+        assert listener.peers["remote-internet-node"] == ("127.0.0.1", caller.bound_port)
+    finally:
+        listener.close()
+        caller.close()

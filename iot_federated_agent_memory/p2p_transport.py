@@ -11,6 +11,7 @@ Implements:
 from __future__ import annotations
 
 import collections
+import os
 import select
 import socket
 import struct
@@ -31,9 +32,49 @@ except ImportError:
 
 PACKET_TYPE_WHOLE = 0x01
 PACKET_TYPE_SAR = 0x02
+PACKET_TYPE_PUNCH = 0x03  # NAT hole-punching / return-address learning datagram
 SAR_HEADER_FMT = "!B3sIHH"  # type(1) + magic "SAR"(3) + msg_id(4) + idx(2) + total(2) = 12 bytes
 SAR_HEADER_SIZE = struct.calcsize(SAR_HEADER_FMT)
 SAR_MAGIC = b"SAR"
+
+STUN_MAGIC_COOKIE = 0x2112A442
+STUN_ATTR_MAPPED_ADDRESS = 0x0001
+STUN_ATTR_XOR_MAPPED_ADDRESS = 0x0020
+DEFAULT_STUN_SERVERS: Tuple[Tuple[str, int], ...] = (
+    ("stun.l.google.com", 19302),
+    ("stun.cloudflare.com", 3478),
+)
+
+
+def parse_stun_binding_response(packet: bytes, expected_tx_id: bytes) -> Optional[Tuple[str, int]]:
+    """Parse an RFC 5389 STUN Binding Success Response and return `(public_ip, public_port)`."""
+    if len(packet) < 20:
+        return None
+    msg_type, msg_len, magic, tx_id = struct.unpack("!HHI12s", packet[:20])
+    if msg_type != 0x0101 or magic != STUN_MAGIC_COOKIE or tx_id != expected_tx_id:
+        return None
+
+    offset = 20
+    end = min(len(packet), 20 + msg_len)
+    while offset + 4 <= end:
+        attr_type, attr_len = struct.unpack("!HH", packet[offset : offset + 4])
+        offset += 4
+        attr_val = packet[offset : offset + attr_len]
+        offset += (attr_len + 3) & ~3  # 4-byte padded
+
+        if attr_type == STUN_ATTR_XOR_MAPPED_ADDRESS and len(attr_val) >= 8:
+            family = attr_val[1]
+            if family == 0x01:  # IPv4
+                xport, xip = struct.unpack("!HI", attr_val[2:8])
+                port = xport ^ (STUN_MAGIC_COOKIE >> 16)
+                ip_int = xip ^ STUN_MAGIC_COOKIE
+                return socket.inet_ntoa(struct.pack("!I", ip_int)), port
+        elif attr_type == STUN_ATTR_MAPPED_ADDRESS and len(attr_val) >= 8:
+            family = attr_val[1]
+            if family == 0x01:  # IPv4
+                port = struct.unpack("!H", attr_val[2:4])[0]
+                return socket.inet_ntoa(attr_val[4:8]), port
+    return None
 
 
 @dataclass
@@ -88,6 +129,49 @@ class MultiPeerUDPTransport(MeshTransportChannel):
 
     def list_peers(self) -> Dict[str, Tuple[str, int]]:
         return dict(self.peers)
+
+    def discover_public_endpoint(
+        self,
+        stun_servers: Tuple[Tuple[str, int], ...] = DEFAULT_STUN_SERVERS,
+        timeout_s: float = 2.0,
+    ) -> Optional[Tuple[str, int]]:
+        """Query RFC 5389 STUN from this exact UDP socket to learn our external NAT IP:port."""
+        for stun_host, stun_port in stun_servers:
+            tx_id = os.urandom(12)
+            req = struct.pack("!HHI12s", 0x0001, 0, STUN_MAGIC_COOKIE, tx_id)
+            try:
+                self.sock.sendto(req, (stun_host, stun_port))
+            except OSError:
+                continue
+            deadline = time.monotonic() + timeout_s
+            while time.monotonic() < deadline:
+                remaining = max(0.05, deadline - time.monotonic())
+                readable, _, _ = select.select([self.sock], [], [], remaining)
+                if not readable:
+                    break
+                try:
+                    raw, addr = self.sock.recvfrom(65535)
+                except OSError:
+                    break
+                parsed = parse_stun_binding_response(raw, tx_id)
+                if parsed is not None:
+                    return parsed
+                # Preserve any non-STUN mesh packet that arrived during the probe
+                self._ingest_datagram(raw, addr)
+        return None
+
+    def send_punch(self, host: str, port: int, local_node_id: str = "") -> bool:
+        """Send a lightweight UDP NAT hole-punch datagram to open outbound pinhole & announce node_id."""
+        if not self.is_connected:
+            return False
+        payload = bytes([PACKET_TYPE_PUNCH]) + local_node_id.encode("utf-8")[:64]
+        try:
+            self.sock.sendto(payload, (str(host), int(port)))
+            self.stats.packets_sent += 1
+            self.stats.bytes_sent += len(payload)
+            return True
+        except OSError:
+            return False
 
     def connect(self) -> None:
         self.is_connected = True
@@ -164,6 +248,11 @@ class MultiPeerUDPTransport(MeshTransportChannel):
         self.stats.bytes_received += len(raw)
 
         ptype = raw[0]
+        if ptype == PACKET_TYPE_PUNCH:
+            peer_id = raw[1:].decode("utf-8", errors="ignore").strip() or f"peer-{addr[0]}:{addr[1]}"
+            self.peers[peer_id] = addr
+            return
+
         if ptype == PACKET_TYPE_WHOLE:
             self._ready_frames.append((raw[1:], addr))
             return
