@@ -1,39 +1,163 @@
-"""Dimension 5: Offline-First CRDT Mesh Gossip & Merkle Delta Sync for Constrained IoT Nodes."""
+"""Dimension 5: Offline-First CRDT Mesh Gossip, Prefix-Merkle Anti-Entropy & Ed25519 Signed Deltas."""
 
 from __future__ import annotations
 
+import base64
 import collections
 import hashlib
 import json
 import socket
 import struct
 import time
-import uuid
 import zlib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
+import nacl.exceptions
+import nacl.signing
+
+from iot_federated_agent_memory.crdt_types import (
+    HLC,
+    HLCTimestamp,
+    LWWMap,
+    MVRegister,
+    ORSet,
+    VectorClock,
+)
+from iot_federated_agent_memory.merkle_tree import MerkleDiffStats, PrefixMerkleTree
+from iot_federated_agent_memory.tincan_core import (
+    TinCanIdentity,
+    address_to_verify_key,
+)
+
 
 FRAME_MAGIC = b"CRDT\x01\x00"  # 6-byte network framing header identifier
 HEADER_SIZE = 46  # 6s (magic) + I (payload_len) + I (crc32) + 32s (sha256 digest)
+DELTA_SIG_DOMAIN = b"TINCAN-CRDT-DELTA-V1\x00"
 
 
 class FrameIntegrityError(Exception):
     """Raised when incoming network frame fails CRC32 checksum, SHA-256 verification, or framing format."""
 
 
+class DeltaAuthenticationError(FrameIntegrityError):
+    """Raised when a CRDT delta fails Ed25519 signature verification or signer trust checks."""
+
+
+class TrustStore:
+    """Manages trusted peer Ed25519 VerifyKeys for authenticated CRDT delta verification (AI-240)."""
+
+    def __init__(self, trust_on_first_use: bool = False):
+        self.trust_on_first_use = trust_on_first_use
+        self._keys: Dict[str, nacl.signing.VerifyKey] = {}
+        self._addresses: Dict[str, str] = {}
+
+    @staticmethod
+    def _coerce_verify_key(
+        key_or_addr: Union[str, bytes, nacl.signing.VerifyKey, TinCanIdentity],
+    ) -> Tuple[nacl.signing.VerifyKey, str]:
+        if isinstance(key_or_addr, TinCanIdentity):
+            return key_or_addr.verify_key, key_or_addr.address
+        if isinstance(key_or_addr, nacl.signing.VerifyKey):
+            return key_or_addr, base64.b64encode(bytes(key_or_addr)).decode("ascii")
+        if isinstance(key_or_addr, bytes):
+            vk = nacl.signing.VerifyKey(key_or_addr)
+            return vk, base64.b64encode(key_or_addr).decode("ascii")
+        if isinstance(key_or_addr, str):
+            if key_or_addr.startswith("tc:"):
+                return address_to_verify_key(key_or_addr), key_or_addr
+            raw = base64.b64decode(key_or_addr.encode("ascii"))
+            return nacl.signing.VerifyKey(raw), key_or_addr
+        raise TypeError(f"Unsupported public key type: {type(key_or_addr).__name__}")
+
+    def add_peer(
+        self,
+        node_id: str,
+        key_or_addr: Union[str, bytes, nacl.signing.VerifyKey, TinCanIdentity],
+    ) -> None:
+        vk, addr = self._coerce_verify_key(key_or_addr)
+        self._keys[node_id] = vk
+        self._addresses[node_id] = addr
+
+    def remove_peer(self, node_id: str) -> None:
+        self._keys.pop(node_id, None)
+        self._addresses.pop(node_id, None)
+
+    def is_trusted(self, node_id: str) -> bool:
+        return node_id in self._keys
+
+    def resolve_verify_key(
+        self, node_id: str, sender_pubkey: Optional[str]
+    ) -> nacl.signing.VerifyKey:
+        if not sender_pubkey:
+            raise DeltaAuthenticationError(f"Delta from '{node_id}' is missing sender_pubkey")
+
+        incoming_vk, _ = self._coerce_verify_key(sender_pubkey)
+        pinned = self._keys.get(node_id)
+        if pinned is not None:
+            if bytes(pinned) != bytes(incoming_vk):
+                raise DeltaAuthenticationError(
+                    f"Key mismatch for node '{node_id}': sender_pubkey does not match pinned trust key"
+                )
+            return pinned
+
+        if self.trust_on_first_use:
+            self._keys[node_id] = incoming_vk
+            self._addresses[node_id] = sender_pubkey
+            return incoming_vk
+
+        raise DeltaAuthenticationError(f"Untrusted peer '{node_id}' (public key not in TrustStore)")
+
+
 @dataclass
 class CRDTDeltaMessage:
     node_id: str
     clock: int
-    operation: str  # "upsert" or "delete"
+    operation: str  # "upsert", "delete", "orset_merge", "mvreg_set", "lwwmap_merge"
     key: str
     value: Dict[str, Any]
     timestamp: float
+    vclock: Optional[Dict[str, int]] = None
+    hlc: Optional[Dict[str, Any]] = None
+    crdt_type: str = "lww"
+    sender_pubkey: Optional[str] = None
+    signature: Optional[str] = None
+
+    def canonical_signing_bytes(self) -> bytes:
+        """Deterministic byte representation signed by Ed25519 (excludes `signature`)."""
+        data = self.to_dict()
+        data.pop("signature", None)
+        canonical = json.dumps(data, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return DELTA_SIG_DOMAIN + canonical
+
+    def sign(self, identity: TinCanIdentity) -> CRDTDeltaMessage:
+        """Sign this delta in-place using the node's Ed25519 TinCanIdentity."""
+        self.sender_pubkey = identity.address
+        sig = identity.signing_key.sign(self.canonical_signing_bytes()).signature
+        self.signature = base64.b64encode(sig).decode("ascii")
+        return self
+
+    def verify(self, verify_key: Optional[nacl.signing.VerifyKey] = None) -> bool:
+        """Verify the Ed25519 signature on this delta."""
+        if not self.signature or not self.sender_pubkey:
+            return False
+        try:
+            vk = verify_key
+            if vk is None:
+                vk, _ = TrustStore._coerce_verify_key(self.sender_pubkey)
+            sig_bytes = base64.b64decode(self.signature.encode("ascii"))
+            vk.verify(self.canonical_signing_bytes(), sig_bytes)
+            return True
+        except (nacl.exceptions.BadSignatureError, ValueError, TypeError):
+            return False
 
     def get_hash(self) -> str:
-        payload = f"{self.node_id}:{self.clock}:{self.key}:{json.dumps(self.value, sort_keys=True)}"
+        payload = (
+            f"{self.node_id}:{self.clock}:{self.crdt_type}:{self.operation}:{self.key}:"
+            f"{json.dumps(self.vclock or {}, sort_keys=True)}:"
+            f"{json.dumps(self.value, sort_keys=True)}"
+        )
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     def to_dict(self) -> Dict[str, Any]:
@@ -48,6 +172,11 @@ class CRDTDeltaMessage:
             key=str(data["key"]),
             value=dict(data.get("value", {})),
             timestamp=float(data["timestamp"]),
+            vclock=dict(data["vclock"]) if data.get("vclock") is not None else None,
+            hlc=dict(data["hlc"]) if data.get("hlc") is not None else None,
+            crdt_type=str(data.get("crdt_type", "lww")),
+            sender_pubkey=data.get("sender_pubkey"),
+            signature=data.get("signature"),
         )
 
     def serialize(self) -> bytes:
@@ -204,7 +333,6 @@ class BLELoRaFrameBufferChannel(MeshTransportChannel):
         if not self.is_connected:
             return False
 
-        # Segment data if payload exceeds MTU - header (8 bytes for chunk framing)
         chunk_header_size = 8  # !IHH: msg_id (4), chunk_index (2), total_chunks (2)
         max_chunk_payload = self.mtu - chunk_header_size
         if max_chunk_payload <= 0:
@@ -246,7 +374,6 @@ class BLELoRaFrameBufferChannel(MeshTransportChannel):
         self._reassembly_buffers[msg_id][chunk_idx] = chunk_data
 
         if len(self._reassembly_buffers[msg_id]) == self._expected_chunks[msg_id]:
-            # All chunks received; reassemble in sequence
             ordered = [self._reassembly_buffers[msg_id][i] for i in range(total_chunks)]
             full_frame = b"".join(ordered)
             self.inbox.append(full_frame)
@@ -363,23 +490,55 @@ class MerkleSyncResult:
     deltas_synced: int
     local_clock: int
     remote_clock: int
+    divergent_keys: Optional[List[str]] = None
+    merkle_stats: Optional[MerkleDiffStats] = None
 
 
 class CRDTMeshGossipSync:
-    """Manages offline-first CRDT gossip state and computes Merkle delta vectors.
-
-    Supports network transport channels, offline delta buffering, last-write-wins (LWW)
-    conflict resolution, and automatic reconnection synchronization with Merkle parity verification.
+    """Offline-first CRDT mesh node with VectorClocks/HLC, OR-Set/MVRegister/LWWMap,
+    PrefixMerkleTree Dynamo-style anti-entropy, and Ed25519 signed delta verification.
     """
 
-    def __init__(self, local_node_id: str, transport: Optional[MeshTransportChannel] = None):
+    def __init__(
+        self,
+        local_node_id: str,
+        transport: Optional[MeshTransportChannel] = None,
+        identity: Optional[TinCanIdentity] = None,
+        trust_store: Optional[TrustStore] = None,
+        require_signatures: Optional[bool] = None,
+        merkle_depth: int = 3,
+    ):
         self.local_node_id = local_node_id
-        self.vector_clock = 0
+        self.vector_clock = 0  # Legacy Lamport counter preserved for backward compatibility
+        self.vclock = VectorClock()
+        self.hlc = HLC(local_node_id)
+
         self.state_store: Dict[str, Dict[str, Any]] = {}
+        self.orsets: Dict[str, ORSet] = {}
+        self.mvregisters: Dict[str, MVRegister] = {}
+        self.lwwmaps: Dict[str, LWWMap] = {}
+        self.merkle_tree = PrefixMerkleTree(depth=merkle_depth)
+
         self.delta_log: List[CRDTDeltaMessage] = []
+        self._deltas_by_key: Dict[str, List[CRDTDeltaMessage]] = {}
         self.offline_queue: List[CRDTDeltaMessage] = []
         self.seen_delta_hashes: Set[str] = set()
         self.key_metadata: Dict[str, Tuple[float, int, str]] = {}  # key -> (timestamp, clock, node_id)
+        self.key_vclocks: Dict[str, VectorClock] = {}
+
+        # Telemetry counters for evaluation harness (AI-242)
+        self.conflicts_detected: int = 0
+        self.rejected_deltas: int = 0
+
+        # Cryptographic identity & peer trust store (AI-240)
+        self.identity: Optional[TinCanIdentity] = identity
+        self.trust_store: Optional[TrustStore] = trust_store
+        if require_signatures is None:
+            self.require_signatures = (identity is not None) or (trust_store is not None)
+        else:
+            self.require_signatures = require_signatures
+        if self.identity is not None and self.trust_store is not None:
+            self.trust_store.add_peer(self.local_node_id, self.identity)
 
         self.transport: Optional[MeshTransportChannel] = transport
         self.is_online: bool = transport.is_connected if transport else True
@@ -389,33 +548,31 @@ class CRDTMeshGossipSync:
         self.transport = transport
         self.is_online = transport.is_connected
 
-    def apply_local_update(
-        self, key: str, value: Dict[str, Any], operation: str = "upsert"
-    ) -> CRDTDeltaMessage:
-        """Apply a local modification, advance clock, and broadcast or buffer into offline queue."""
-        self.vector_clock += 1
-        ts = time.time()
-        delta = CRDTDeltaMessage(
-            node_id=self.local_node_id,
-            clock=self.vector_clock,
-            operation=operation,
-            key=key,
-            value=value,
-            timestamp=ts,
-        )
+    @staticmethod
+    def _hash_value(value: Any) -> str:
+        return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+    def _update_merkle_for_key(self, key: str) -> None:
+        if key in self.orsets:
+            self.merkle_tree.upsert(key, self.orsets[key].state_hash())
+        elif key in self.mvregisters:
+            self.merkle_tree.upsert(key, self.mvregisters[key].state_hash())
+        elif key in self.lwwmaps:
+            self.merkle_tree.upsert(key, self.lwwmaps[key].state_hash())
+        elif key in self.state_store:
+            self.merkle_tree.upsert(key, self._hash_value(self.state_store[key]))
+        else:
+            self.merkle_tree.delete(key)
+
+    def _emit_delta(self, delta: CRDTDeltaMessage) -> CRDTDeltaMessage:
+        if self.identity is not None:
+            delta.sign(self.identity)
 
         delta_hash = delta.get_hash()
         self.seen_delta_hashes.add(delta_hash)
-        self.key_metadata[key] = (ts, self.vector_clock, self.local_node_id)
-
-        if operation == "delete":
-            self.state_store.pop(key, None)
-        else:
-            self.state_store[key] = value
-
         self.delta_log.append(delta)
+        self._deltas_by_key.setdefault(delta.key, []).append(delta)
 
-        # Broadcast if online and transport is functional, else buffer in offline queue
         if self.is_online and self.transport and self.transport.is_connected:
             try:
                 frame = delta.serialize()
@@ -426,23 +583,172 @@ class CRDTMeshGossipSync:
                 self.offline_queue.append(delta)
         else:
             self.offline_queue.append(delta)
-
         return delta
 
-    def compute_merkle_root(self) -> str:
-        """Deterministic Merkle root calculated from sorted sha256 digests of state_store items."""
-        concatenated = "".join(
-            sorted(
-                [
-                    f"{k}:{hashlib.sha256(json.dumps(v, sort_keys=True).encode()).hexdigest()}"
-                    for k, v in self.state_store.items()
-                ]
-            )
+    def _advance_clocks(self) -> Tuple[int, Dict[str, int], HLCTimestamp]:
+        self.vector_clock += 1
+        self.vclock.increment(self.local_node_id)
+        hlc_ts = self.hlc.tick()
+        return self.vector_clock, self.vclock.to_dict(), hlc_ts
+
+    def apply_local_update(
+        self, key: str, value: Dict[str, Any], operation: str = "upsert"
+    ) -> CRDTDeltaMessage:
+        """Apply a local LWW key/value modification, advance clocks, and broadcast or buffer."""
+        clock, vc_dict, hlc_ts = self._advance_clocks()
+        ts = time.time()
+        delta = CRDTDeltaMessage(
+            node_id=self.local_node_id,
+            clock=clock,
+            operation=operation,
+            key=key,
+            value=value,
+            timestamp=ts,
+            vclock=vc_dict,
+            hlc=hlc_ts.to_dict(),
+            crdt_type="lww",
         )
-        return hashlib.sha256(concatenated.encode("utf-8")).hexdigest()
+
+        self.key_metadata[key] = (ts, clock, self.local_node_id)
+        self.key_vclocks[key] = VectorClock.from_dict(vc_dict)
+
+        if operation == "delete":
+            self.state_store.pop(key, None)
+        else:
+            self.state_store[key] = value
+        self._update_merkle_for_key(key)
+        return self._emit_delta(delta)
+
+    def apply_orset_add(self, key: str, element: Any) -> CRDTDeltaMessage:
+        """Add an element to an add-wins OR-Set CRDT under `key`."""
+        clock, vc_dict, hlc_ts = self._advance_clocks()
+        orset = self.orsets.setdefault(key, ORSet())
+        orset.add(element, self.local_node_id, self.vclock.get(self.local_node_id))
+        self.state_store[key] = {"elements": orset.elements()}
+        self._update_merkle_for_key(key)
+        delta = CRDTDeltaMessage(
+            node_id=self.local_node_id,
+            clock=clock,
+            operation="orset_merge",
+            key=key,
+            value=orset.to_dict(),
+            timestamp=time.time(),
+            vclock=vc_dict,
+            hlc=hlc_ts.to_dict(),
+            crdt_type="orset",
+        )
+        return self._emit_delta(delta)
+
+    def apply_orset_remove(self, key: str, element: Any) -> CRDTDeltaMessage:
+        """Remove currently observed dots for `element` from the OR-Set under `key`."""
+        clock, vc_dict, hlc_ts = self._advance_clocks()
+        orset = self.orsets.setdefault(key, ORSet())
+        orset.remove(element)
+        self.state_store[key] = {"elements": orset.elements()}
+        self._update_merkle_for_key(key)
+        delta = CRDTDeltaMessage(
+            node_id=self.local_node_id,
+            clock=clock,
+            operation="orset_merge",
+            key=key,
+            value=orset.to_dict(),
+            timestamp=time.time(),
+            vclock=vc_dict,
+            hlc=hlc_ts.to_dict(),
+            crdt_type="orset",
+        )
+        return self._emit_delta(delta)
+
+    def apply_mvregister_set(self, key: str, value: Any) -> CRDTDeltaMessage:
+        """Set a Multi-Value Register under `key`, preserving concurrent siblings."""
+        clock, vc_dict, hlc_ts = self._advance_clocks()
+        reg = self.mvregisters.setdefault(key, MVRegister())
+        reg.set(value, VectorClock.from_dict(vc_dict), self.local_node_id)
+        self.state_store[key] = {"values": reg.values(), "conflict": reg.has_conflict()}
+        self._update_merkle_for_key(key)
+        delta = CRDTDeltaMessage(
+            node_id=self.local_node_id,
+            clock=clock,
+            operation="mvreg_merge",
+            key=key,
+            value=reg.to_dict(),
+            timestamp=time.time(),
+            vclock=vc_dict,
+            hlc=hlc_ts.to_dict(),
+            crdt_type="mvreg",
+        )
+        return self._emit_delta(delta)
+
+    def apply_lwwmap_set(self, key: str, field_name: str, value: Any) -> CRDTDeltaMessage:
+        """Set a single field on a per-field HLC LWWMap under `key`."""
+        clock, vc_dict, hlc_ts = self._advance_clocks()
+        lmap = self.lwwmaps.setdefault(key, LWWMap())
+        lmap.set_field(field_name, value, hlc_ts)
+        self.state_store[key] = lmap.as_dict()
+        self._update_merkle_for_key(key)
+        delta = CRDTDeltaMessage(
+            node_id=self.local_node_id,
+            clock=clock,
+            operation="lwwmap_merge",
+            key=key,
+            value=lmap.to_dict(),
+            timestamp=time.time(),
+            vclock=vc_dict,
+            hlc=hlc_ts.to_dict(),
+            crdt_type="lwwmap",
+        )
+        return self._emit_delta(delta)
+
+    def apply_lwwmap_delete(self, key: str, field_name: str) -> CRDTDeltaMessage:
+        """Delete a single field on a per-field HLC LWWMap under `key`."""
+        clock, vc_dict, hlc_ts = self._advance_clocks()
+        lmap = self.lwwmaps.setdefault(key, LWWMap())
+        lmap.delete_field(field_name, hlc_ts)
+        self.state_store[key] = lmap.as_dict()
+        self._update_merkle_for_key(key)
+        delta = CRDTDeltaMessage(
+            node_id=self.local_node_id,
+            clock=clock,
+            operation="lwwmap_merge",
+            key=key,
+            value=lmap.to_dict(),
+            timestamp=time.time(),
+            vclock=vc_dict,
+            hlc=hlc_ts.to_dict(),
+            crdt_type="lwwmap",
+        )
+        return self._emit_delta(delta)
+
+    def compute_merkle_root(self) -> str:
+        """Deterministic root hash from the prefix-bucketed PrefixMerkleTree."""
+        return self.merkle_tree.root_hash()
+
+    def _verify_delta_signature(self, delta: CRDTDeltaMessage) -> None:
+        """Enforce Ed25519 signature + TrustStore verification when enabled."""
+        if not self.require_signatures and not delta.signature:
+            return
+        if not delta.signature or not delta.sender_pubkey:
+            self.rejected_deltas += 1
+            raise DeltaAuthenticationError(
+                f"Unsigned delta from '{delta.node_id}' rejected (require_signatures=True)"
+            )
+        verify_key: Optional[nacl.signing.VerifyKey] = None
+        if self.trust_store is not None:
+            try:
+                verify_key = self.trust_store.resolve_verify_key(delta.node_id, delta.sender_pubkey)
+            except DeltaAuthenticationError:
+                self.rejected_deltas += 1
+                raise
+        if not delta.verify(verify_key=verify_key):
+            self.rejected_deltas += 1
+            raise DeltaAuthenticationError(
+                f"Invalid Ed25519 signature on delta from '{delta.node_id}' for key '{delta.key}'"
+            )
 
     def merge_remote_delta(self, delta: CRDTDeltaMessage) -> bool:
-        """Merge remote delta with idempotent deduplication and deterministic LWW register resolution."""
+        """Verify signature, deduplicate, merge causality clocks, and apply CRDT semilattice join."""
+        self._verify_delta_signature(delta)
+
         delta_hash = delta.get_hash()
         if delta_hash in self.seen_delta_hashes:
             return False
@@ -450,20 +756,62 @@ class CRDTMeshGossipSync:
         self.seen_delta_hashes.add(delta_hash)
         self.vector_clock = max(self.vector_clock, delta.clock)
 
-        # LWW conflict resolution: compare (timestamp, clock, node_id)
-        current_meta = self.key_metadata.get(delta.key)
-        incoming_meta = (delta.timestamp, delta.clock, delta.node_id)
+        if delta.vclock:
+            incoming_vc = VectorClock.from_dict(delta.vclock)
+            self.vclock.merge(incoming_vc)
+        else:
+            incoming_vc = None
 
-        should_apply = current_meta is None or incoming_meta >= current_meta
+        if delta.hlc:
+            self.hlc.receive(delta.hlc)
 
-        if should_apply:
-            self.key_metadata[delta.key] = incoming_meta
-            if delta.operation == "delete":
-                self.state_store.pop(delta.key, None)
-            else:
-                self.state_store[delta.key] = delta.value
+        if delta.crdt_type == "orset":
+            incoming_set = ORSet.from_dict(delta.value)
+            local_set = self.orsets.setdefault(delta.key, ORSet())
+            local_set.merge(incoming_set)
+            self.state_store[delta.key] = {"elements": local_set.elements()}
+        elif delta.crdt_type == "mvreg":
+            incoming_reg = MVRegister.from_dict(delta.value)
+            local_reg = self.mvregisters.setdefault(delta.key, MVRegister())
+            had_conflict = local_reg.has_conflict()
+            now_conflict = local_reg.merge(incoming_reg)
+            if now_conflict and not had_conflict:
+                self.conflicts_detected += 1
+            self.state_store[delta.key] = {
+                "values": local_reg.values(),
+                "conflict": local_reg.has_conflict(),
+            }
+        elif delta.crdt_type == "lwwmap":
+            incoming_map = LWWMap.from_dict(delta.value)
+            local_map = self.lwwmaps.setdefault(delta.key, LWWMap())
+            local_map.merge(incoming_map)
+            self.state_store[delta.key] = local_map.as_dict()
+        else:
+            # Legacy LWW register with concurrent-write detection via VectorClock
+            prev_vc = self.key_vclocks.get(delta.key)
+            if prev_vc is not None and incoming_vc is not None and prev_vc.is_concurrent_with(incoming_vc):
+                self.conflicts_detected += 1
 
+            current_meta = self.key_metadata.get(delta.key)
+            incoming_meta = (delta.timestamp, delta.clock, delta.node_id)
+            should_apply = current_meta is None or incoming_meta >= current_meta
+
+            if should_apply:
+                self.key_metadata[delta.key] = incoming_meta
+                if incoming_vc is not None:
+                    self.key_vclocks[delta.key] = (
+                        prev_vc.merged(incoming_vc) if prev_vc is not None else incoming_vc
+                    )
+                if delta.operation == "delete":
+                    self.state_store.pop(delta.key, None)
+                else:
+                    self.state_store[delta.key] = delta.value
+            elif incoming_vc is not None and prev_vc is not None:
+                self.key_vclocks[delta.key] = prev_vc.merged(incoming_vc)
+
+        self._update_merkle_for_key(delta.key)
         self.delta_log.append(delta)
+        self._deltas_by_key.setdefault(delta.key, []).append(delta)
         return True
 
     def disconnect(self) -> None:
@@ -473,21 +821,14 @@ class CRDTMeshGossipSync:
             self.transport.disconnect()
 
     def reconnect(self, peer: Optional[CRDTMeshGossipSync] = None) -> MerkleSyncResult:
-        """Restore connectivity, flush buffered offline deltas across transport,
-
-        and synchronize state vectors with Merkle parity verification.
-        """
+        """Restore connectivity, flush buffered offline deltas, and reconcile via Merkle anti-entropy."""
         self.is_online = True
         if self.transport:
             self.transport.connect()
 
-        # 1. Flush offline queue frames
         flushed_count = self.flush_offline_queue()
-
-        # 2. Process any incoming transport frames
         self.process_incoming_transport()
 
-        # 3. Direct or transport-assisted Merkle parity sync
         if peer is not None:
             return self.sync_with_peer(peer)
 
@@ -521,8 +862,8 @@ class CRDTMeshGossipSync:
         self.offline_queue = remaining
         return flushed
 
-    def process_incoming_transport(self) -> List[CRDTDeltaMessage]:
-        """Poll transport for serialized network frames, verify CRC/SHA-256 integrity, and merge."""
+    def process_incoming_transport(self, ignore_auth_errors: bool = False) -> List[CRDTDeltaMessage]:
+        """Poll transport for serialized network frames, verify integrity + Ed25519 signature, and merge."""
         if not self.transport or not self.transport.is_connected:
             return []
 
@@ -532,25 +873,44 @@ class CRDTMeshGossipSync:
             if not frame_bytes:
                 break
             delta = CRDTDeltaMessage.deserialize(frame_bytes)
-            if self.merge_remote_delta(delta):
-                merged.append(delta)
+            try:
+                if self.merge_remote_delta(delta):
+                    merged.append(delta)
+            except DeltaAuthenticationError:
+                if not ignore_auth_errors:
+                    raise
 
         return merged
 
+    def estimate_full_state_bytes(self) -> int:
+        """Estimate serialized byte size of full state transfer (baseline for AI-239 / AI-242)."""
+        return len(json.dumps(self.state_store, sort_keys=True, separators=(",", ":")).encode("utf-8"))
+
     def sync_with_peer(self, peer: CRDTMeshGossipSync) -> MerkleSyncResult:
-        """Bidirectionally reconcile delta vectors between two mesh nodes and verify Merkle parity."""
-        # 1. Deltas in self missing from peer
-        to_peer = [d for d in self.delta_log if d.get_hash() not in peer.seen_delta_hashes]
-        # 2. Deltas in peer missing from self
-        to_self = [d for d in peer.delta_log if d.get_hash() not in self.seen_delta_hashes]
+        """Dynamo-style Merkle tree anti-entropy: walk prefix trees to isolate divergent keys
+        and transfer ONLY deltas for those divergent keys.
+        """
+        full_bytes = self.estimate_full_state_bytes() + peer.estimate_full_state_bytes()
+        divergent_keys, diff_stats = self.merkle_tree.diff_with(
+            peer.merkle_tree, full_state_bytes=full_bytes
+        )
 
         synced_count = 0
-        for d in to_peer:
-            if peer.merge_remote_delta(d):
-                synced_count += 1
-        for d in to_self:
-            if self.merge_remote_delta(d):
-                synced_count += 1
+        delta_bytes_sent = 0
+
+        for key in sorted(divergent_keys):
+            for d in self._deltas_by_key.get(key, []):
+                if d.get_hash() not in peer.seen_delta_hashes:
+                    delta_bytes_sent += len(d.serialize())
+                    if peer.merge_remote_delta(d):
+                        synced_count += 1
+            for d in peer._deltas_by_key.get(key, []):
+                if d.get_hash() not in self.seen_delta_hashes:
+                    delta_bytes_sent += len(d.serialize())
+                    if self.merge_remote_delta(d):
+                        synced_count += 1
+
+        diff_stats.merkle_bytes_exchanged += delta_bytes_sent
 
         local_root = self.compute_merkle_root()
         remote_root = peer.compute_merkle_root()
@@ -563,4 +923,6 @@ class CRDTMeshGossipSync:
             deltas_synced=synced_count,
             local_clock=self.vector_clock,
             remote_clock=peer.vector_clock,
+            divergent_keys=sorted(divergent_keys),
+            merkle_stats=diff_stats,
         )
