@@ -79,7 +79,9 @@ from iot_federated_agent_memory.pages_proxy import (
     serve_space_pages,
 )
 from iot_federated_agent_memory.cyberspace_board import CyberspaceBoardEngine
-from iot_federated_agent_memory.crdt_mesh import CRDTMeshGossipSync, CRDTDeltaMessage
+from iot_federated_agent_memory.crdt_mesh import CRDTMeshGossipSync, CRDTDeltaMessage, TrustStore
+from iot_federated_agent_memory.agent_kg_crdt import FederatedAgentKnowledgeGraph
+from iot_federated_agent_memory.tincan_core import TinCanIdentity
 from iot_federated_agent_memory.edge_telemetry import (
     EdgeTelemetryIngestor,
     HMACVendingMachine,
@@ -2482,7 +2484,15 @@ cyberspace_board = CyberspaceBoardEngine(
     webrtc_relay=relay,
     seed=False,
 )
-crdt_node = CRDTMeshGossipSync(local_node_id="relay-primary")
+crdt_identity = TinCanIdentity.generate()
+crdt_trust_store = TrustStore(trust_on_first_use=True)
+crdt_kg = FederatedAgentKnowledgeGraph(
+    agent_id="relay-primary",
+    identity=crdt_identity,
+    trust_store=crdt_trust_store,
+    require_signatures=False,  # preserve backward compatibility for unsigned HTTP gossip callers
+)
+crdt_node = crdt_kg.mesh
 vending_machine = HMACVendingMachine()
 mqtt_adapter = MQTTTelemetryClientAdapter(
     vending_machine=vending_machine,
@@ -4257,6 +4267,12 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     window_id=data.get("window_id", "desktop"),
                     display_name=display_name or peer_id,
                     room=data.get("room", "main"),
+                    nx=data.get("nx"),
+                    ny=data.get("ny"),
+                    screen_x=data.get("screen_x"),
+                    screen_y=data.get("screen_y"),
+                    clicking=bool(data.get("clicking", False)),
+                    color=data.get("color"),
                 )
                 self._send_json({"status": "ok", "cursor": cursor}, 200)
             except Exception as e:
@@ -6100,6 +6116,37 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
                     "merkle_root": crdt_node.compute_merkle_root(),
                     "vector_clock": crdt_node.vector_clock,
                     "state_count": len(crdt_node.state_store),
+                    "conflicts": crdt_kg.list_conflicts(),
+                    "compacted_deltas": crdt_node.compacted_deltas,
+                }, 200)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+        elif parsed.path == "/api/crdt/kg":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8")) if post_data else {}
+                action = str(data.get("action", "snapshot"))
+                if action == "upsert_entity":
+                    crdt_kg.upsert_entity(
+                        str(data["entity_id"]),
+                        str(data.get("entity_type", "file")),
+                        dict(data.get("fields", data.get("attributes", {}))),
+                    )
+                elif action == "add_edge":
+                    crdt_kg.add_relation(str(data["src"]), str(data["predicate"]), str(data["dst"]))
+                elif action in ("propose_decision", "resolve_decision"):
+                    crdt_kg.propose_decision(str(data["topic"]), data.get("choice"))
+                elif action == "compact":
+                    crdt_node.compact_key_deltas()
+                self._send_json({
+                    "status": "ok",
+                    "node_id": crdt_node.local_node_id,
+                    "identity": crdt_identity.address,
+                    "merkle_root": crdt_node.compute_merkle_root(),
+                    "conflicts": crdt_kg.list_conflicts(),
+                    "compacted_deltas": crdt_node.compacted_deltas,
+                    "snapshot": crdt_kg.context_snapshot(),
                 }, 200)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)

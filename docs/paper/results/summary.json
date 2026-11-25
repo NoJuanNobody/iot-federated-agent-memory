@@ -1,19 +1,21 @@
 {
   "seed": 42,
   "headline_metrics": {
-    "n25_tincan_bytes_per_sync": 3589,
+    "n25_tincan_bytes_per_sync": 3603,
     "n25_naive_gossip_bytes_per_sync": 64430,
-    "n25_bandwidth_reduction_pct": 94.43,
+    "n25_bandwidth_reduction_pct": 94.41,
     "partition_lost_writes_tincan": 0,
     "partition_lost_writes_baselines": 84,
     "partition_conflicts_detected_tincan": 42
   },
   "artifacts": [
+    "edge_footprint.json",
     "exp1_scalability.csv",
     "exp2_packet_loss.csv",
     "exp3_partition_conflicts.csv",
     "fig_bytes_vs_nodes.svg",
     "fig_convergence_vs_loss.svg",
-    "fig_lost_writes_vs_partition.svg"
+    "fig_lost_writes_vs_partition.svg",
+    "summary.json"
   ]
 }

@@ -29,15 +29,17 @@ from iot_federated_agent_memory.tincan_core import TinCanIdentity
 def main() -> None:
     parser = argparse.ArgumentParser(description="TinCan Direct P2P Two-Machine CRDT Demo (LAN & Internet)")
     parser.add_argument("--node-id", required=True, help="Unique node ID (e.g. mac-a, remote-b)")
+    parser.add_argument("--bind", default="0.0.0.0", help="Local interface IP to bind (e.g. Wi-Fi IP or iPhone USB IP)")
     parser.add_argument("--port", type=int, default=45454, help="Local UDP port to bind")
     parser.add_argument("--peer", default="", help="Optional peer host:port (LAN or public STUN endpoint)")
     parser.add_argument("--no-stun", action="store_true", help="Skip STUN public IP discovery (offline LAN)")
+    parser.add_argument("--no-discovery", action="store_true", help="Disable LAN mDNS/multicast (force direct WAN/NAT path)")
     parser.add_argument("--duration", type=int, default=60, help="Seconds to run demo")
     args = parser.parse_args()
 
     identity = TinCanIdentity.generate()
     trust = TrustStore(trust_on_first_use=True)
-    transport = MultiPeerUDPTransport(bind_host="0.0.0.0", bind_port=args.port)
+    transport = MultiPeerUDPTransport(bind_host=args.bind, bind_port=args.port)
     mesh = CRDTMeshGossipSync(args.node_id, transport=transport, identity=identity, trust_store=trust)
 
     public_ep = None if args.no_stun else transport.discover_public_endpoint()
@@ -55,17 +57,20 @@ def main() -> None:
             trust.add_peer(peer.node_id, peer.pubkey)
         print(f"[discovery] Joined LAN peer {peer.node_id} at {peer.host}:{peer.port}")
 
-    discovery = DecentralizedPeerDiscovery(
-        node_id=args.node_id,
-        mesh_port=transport.bound_port,
-        pubkey=identity.address,
-        on_peer_discovered=_on_peer,
-    )
-    discovery.start()
+    discovery = None
+    if not args.no_discovery:
+        discovery = DecentralizedPeerDiscovery(
+            node_id=args.node_id,
+            mesh_port=transport.bound_port,
+            pubkey=identity.address,
+            on_peer_discovered=_on_peer,
+        )
+        discovery.start()
 
     print("=" * 68)
     print(f"[*] Node ID   : {args.node_id} ({identity.address})")
-    print(f"[*] LAN UDP   : {detect_lan_ip()}:{transport.bound_port}")
+    bind_display = args.bind if args.bind != "0.0.0.0" else detect_lan_ip()
+    print(f"[*] Local UDP : {bind_display}:{transport.bound_port}")
     if public_ep:
         print(f"[*] Public UDP: {public_ep[0]}:{public_ep[1]}  <-- pass to --peer on remote machine")
     else:
@@ -95,7 +100,8 @@ def main() -> None:
             )
             time.sleep(2.0)
     finally:
-        discovery.stop()
+        if discovery is not None:
+            discovery.stop()
         transport.close()
 
 

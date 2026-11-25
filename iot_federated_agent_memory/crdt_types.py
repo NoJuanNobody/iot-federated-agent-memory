@@ -217,6 +217,38 @@ class ORSet:
         self._tombstones.update(other._tombstones)
         return self
 
+    def gc_tombstones(self, causal_horizon: Dict[str, int]) -> int:
+        """Garbage-collect causally stable tombstones whose dot counter <= causal_horizon[node_id].
+
+        Only call with a causal stability vector (minimum observed clock across all active peers)
+        so pruned tombstones can never be resurrected by an in-flight delayed delta.
+        Returns the number of tombstones pruned.
+        """
+        pruned: Set[str] = set()
+        for dot in self._tombstones:
+            if ":" not in dot:
+                continue
+            node_id, counter_s = dot.rsplit(":", 1)
+            try:
+                counter = int(counter_s)
+            except ValueError:
+                continue
+            if counter <= causal_horizon.get(node_id, 0):
+                pruned.add(dot)
+
+        if not pruned:
+            return 0
+
+        self._tombstones -= pruned
+        empty_keys: List[str] = []
+        for elem_key, dots in self._adds.items():
+            dots -= pruned
+            if not dots:
+                empty_keys.append(elem_key)
+        for elem_key in empty_keys:
+            self._adds.pop(elem_key, None)
+        return len(pruned)
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "crdt_type": "orset",

@@ -291,12 +291,38 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       z-index: 50;
     }
 
-    /* Multiplayer Cursors */
+    /* Multiplayer Cursors & Screen-Share Pointers */
     .remote-cursor {
       position: absolute;
+      top: 0;
+      left: 0;
       pointer-events: none;
-      transition: transform 0.12s linear;
+      transition: transform 0.06s linear;
       z-index: 999;
+      will-change: transform;
+    }
+    @keyframes cursorPingRipple {
+      0% { transform: translate(-50%, -50%) scale(0.35); opacity: 0.95; }
+      100% { transform: translate(-50%, -50%) scale(2.4); opacity: 0; }
+    }
+    .cursor-click-ripple {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border-radius: 9999px;
+      border: 2.5px solid currentColor;
+      pointer-events: none;
+      animation: cursorPingRipple 0.55s ease-out forwards;
+      z-index: 1000;
+    }
+    .screen-remote-pointer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      transition: left 0.05s linear, top 0.05s linear;
+      z-index: 30;
+      transform: translate(-3px, -3px);
     }
 
     /* Custom Scrollbar */
@@ -857,6 +883,20 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         </div>
       </div>
 
+      <!-- Local LAN Guest Join (auto-shown only on plain HTTP private Wi-Fi IPs where Safari blocks Passkeys) -->
+      <div id="lanGuestJoinPanel" class="hidden p-3 bg-emerald-950/60 rounded-xl border border-emerald-500/50 space-y-2 font-mono text-[11px]">
+        <div class="text-emerald-300 font-bold flex items-center gap-1.5">
+          <span>📡</span> <span>Local Wi-Fi Testing Mode (No HTTPS / Passkey Needed)</span>
+        </div>
+        <p class="text-slate-300">Safari disables Passkeys on local HTTP Wi-Fi addresses. Join this local Mac mesh immediately as a LAN guest:</p>
+        <div class="flex gap-2">
+          <input id="lanGuestHandleInput" type="text" placeholder="iphone_guest" class="flex-1 px-3 py-2 rounded-lg bg-slate-950 border border-emerald-700 text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none" />
+          <button type="button" id="lanGuestJoinBtn" onclick="joinAsLocalLanGuest()" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition active:scale-95 whitespace-nowrap">
+            Join LAN Guest
+          </button>
+        </div>
+      </div>
+
       <!-- Passwordless sign-in: passkey (Face ID / fingerprint) or one-time email code -->
       <div id="passkeySignInPanel" class="p-3 bg-slate-950 rounded-xl border border-cyan-500/40 space-y-2 font-mono text-[11px]">
         <div class="flex items-center justify-between gap-2">
@@ -1393,15 +1433,18 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         </div>
 
         <!-- Call Action Buttons -->
-        <div class="flex flex-wrap gap-1.5 text-xs font-mono">
+        <div class="flex flex-wrap items-center gap-1.5 text-xs font-mono">
           <button onclick="startCall('video')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded transition active:scale-95">
             🎥 Video + Voice
           </button>
           <button onclick="startCall('voice')" class="px-2.5 py-1 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded transition active:scale-95">
             🎙️ Voice Call
           </button>
-          <button onclick="startScreenShare()" class="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded transition active:scale-95">
-            🖥️ Screen Share
+          <button id="shareScreenBtn" onclick="startScreenShare()" class="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded transition active:scale-95">
+            🖥️ Share Screen
+          </button>
+          <button id="stopScreenBtn" onclick="stopScreenShare()" class="hidden px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded transition active:scale-95">
+            ⏹ Stop Screen
           </button>
           <button id="muteBtn" onclick="toggleMute()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded border border-slate-700 transition">
             🔇 Mute Mic
@@ -1409,23 +1452,40 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           <button id="camBtn" onclick="toggleCamera()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded border border-slate-700 transition">
             📷 Toggle Cam
           </button>
+          <span id="cursorSyncBadge" class="px-2 py-0.5 rounded bg-slate-900 text-cyan-300 border border-slate-700 text-[10px]" title="Live peer cursor synchronization transport">
+            🖱️ Cursors: LAN
+          </span>
           <button onclick="hangupCall()" class="px-2.5 py-1 bg-rose-700 hover:bg-rose-600 text-white font-semibold rounded transition ml-auto active:scale-95">
             ⏹ End
           </button>
         </div>
 
-        <!-- Video Viewports -->
+        <!-- Shared Screen Stage (Simultaneous with Camera Feeds + Interactive Co-Browsing Pointer Overlay) -->
+        <div id="screenShareStage" class="hidden space-y-1">
+          <div class="flex items-center justify-between text-[10px] font-mono text-cyan-300">
+            <span id="screenSharerLabel">🖥️ Live Shared Screen — hover or click to point for peer</span>
+            <button type="button" onclick="toggleScreenFullscreen()" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200">
+              ⛶ Fullscreen
+            </button>
+          </div>
+          <div id="screenShareContainer" class="relative bg-black rounded-lg border border-cyan-600/60 overflow-hidden aspect-video flex items-center justify-center">
+            <video id="remoteScreenVideo" autoplay playsinline class="w-full h-full object-contain"></video>
+            <div id="screenPointerOverlay" class="absolute inset-0 z-20 cursor-crosshair"></div>
+          </div>
+        </div>
+
+        <!-- Bidirectional Camera Viewports (Always visible alongside Shared Screen) -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div class="relative bg-black rounded-lg border border-slate-800 overflow-hidden aspect-video flex items-center justify-center">
             <video id="localVideo" autoplay playsinline muted class="w-full h-full object-cover"></video>
             <div class="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-black/75 rounded text-[10px] font-mono text-emerald-300 border border-emerald-900">
-              Local (<span id="localPeerLabel">you</span>)
+              You (<span id="localPeerLabel">you</span>)
             </div>
           </div>
           <div class="relative bg-black rounded-lg border border-slate-800 overflow-hidden aspect-video flex items-center justify-center">
             <video id="remoteVideo" autoplay playsinline class="w-full h-full object-cover"></video>
             <div class="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-black/75 rounded text-[10px] font-mono text-cyan-300 border border-cyan-900">
-              Remote (<span id="remotePeerLabel">waiting for peer...</span>)
+              Peer Cam (<span id="remotePeerLabel">waiting for peer...</span>)
             </div>
           </div>
         </div>
@@ -4336,6 +4396,55 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       return Boolean(window.PublicKeyCredential && navigator.credentials && window.isSecureContext);
     }
 
+    function isPrivateLanHttp() {
+      if (window.isSecureContext) return false;
+      const h = (window.location.hostname || '').toLowerCase();
+      return (
+        h.startsWith('10.') ||
+        h.startsWith('192.168.') ||
+        /^172\.(1[6-9]|2\d|3[0-1])\./.test(h) ||
+        h.endsWith('.local') ||
+        h === 'localhost' ||
+        h === '127.0.0.1'
+      );
+    }
+
+    function initLanGuestPanel() {
+      const panel = document.getElementById('lanGuestJoinPanel');
+      if (panel && isPrivateLanHttp()) {
+        panel.classList.remove('hidden');
+      }
+    }
+
+    async function joinAsLocalLanGuest() {
+      const inp = document.getElementById('lanGuestHandleInput');
+      const raw = ((inp && inp.value) || '').trim() || 'lan_guest';
+      const handle = cleanHandle(raw) || 'lan_guest';
+      applySignedInAccount({
+        full_name: raw,
+        username: handle,
+        email: handle + '@lan.local',
+        phone_number: '',
+        role: 'Local LAN Guest'
+      });
+      try {
+        await postJson('/api/peers/announce', {
+          peer_id: myPeerId,
+          display_name: handle,
+          role: 'Local LAN Guest'
+        });
+      } catch (e) {}
+      if (typeof sfxEnabled !== 'undefined' && sfxEnabled && typeof playXpChime === 'function') {
+        try { playXpChime(); } catch (e) {}
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initLanGuestPanel);
+    } else {
+      initLanGuestPanel();
+    }
+
     function showPasskeyStatus(text, kind = 'info') {
       const el = document.getElementById('passkeyStatus');
       if (!el) return;
@@ -5197,57 +5306,227 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     }
 
     // =========================================================================
-    // Multiplayer Cursor Telemetry (Throttled, Visibility & Identity-Gated)
+    // Multiplayer Cursor Telemetry (WebRTC P2P DataChannel <20ms + HTTP Fallback)
     // =========================================================================
-    let lastCursorSend = 0;
+    const CURSOR_PALETTE = ['#22d3ee', '#34d399', '#f472b6', '#fbbf24', '#a78bfa', '#fb7185', '#38bdf8', '#4ade80'];
+    function getPeerCursorColor(peerId) {
+      let h = 0;
+      const s = String(peerId || 'peer');
+      for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+      return CURSOR_PALETTE[Math.abs(h) % CURSOR_PALETTE.length];
+    }
+
+    function escapeCursorHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    }
+
+    function spawnClickRipple(container, px, py, color) {
+      if (!container) return;
+      const ring = document.createElement('div');
+      ring.className = 'cursor-click-ripple';
+      ring.style.left = px + 'px';
+      ring.style.top = py + 'px';
+      ring.style.color = color || '#22d3ee';
+      container.appendChild(ring);
+      setTimeout(() => { try { ring.remove(); } catch (e) {} }, 600);
+    }
+
+    let lastCursorHttpSend = 0;
+    let lastCursorDcSend = 0;
     let lastCursorX = -1;
     let lastCursorY = -1;
-    window.addEventListener('mousemove', (e) => {
-      if (document.hidden || !isIdentityVerified()) return;
+    let lastScreenPointerX = null;
+    let lastScreenPointerY = null;
+    const livePeerCursors = {};
+
+    function broadcastCursorPayload(payload, forceHttp = false) {
       const now = Date.now();
-      const dx = Math.abs(e.clientX - lastCursorX);
-      const dy = Math.abs(e.clientY - lastCursorY);
-      if (now - lastCursorSend > 280 && (dx >= 4 || dy >= 4)) {
-        lastCursorSend = now;
-        lastCursorX = e.clientX;
-        lastCursorY = e.clientY;
+      // 1. Sub-20ms P2P path via WebRTC DataChannel when open
+      if (typeof cursorChannel !== 'undefined' && cursorChannel && cursorChannel.readyState === 'open') {
+        if (forceHttp || now - lastCursorDcSend >= 33) {
+          lastCursorDcSend = now;
+          try { cursorChannel.send(JSON.stringify(payload)); } catch (e) {}
+        }
+      }
+      // 2. Reliable HTTP fallback (works before call starts & over plain LAN HTTP)
+      if (forceHttp || now - lastCursorHttpSend >= 180) {
+        lastCursorHttpSend = now;
         fetch('/api/mesh/cursor', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            peer_id: myPeerId,
-            display_name: getVerifiedDisplayName(),
-            x: e.clientX,
-            y: e.clientY,
-            room: currentRoom
-          })
+          body: JSON.stringify(payload)
         }).catch(() => {});
       }
+    }
+
+    function buildCursorPacket(clientX, clientY, clicking = false, screenX = null, screenY = null) {
+      const w = Math.max(1, window.innerWidth || 1);
+      const h = Math.max(1, window.innerHeight || 1);
+      const pkt = {
+        type: screenX !== null ? 'screen_pointer' : 'workspace_cursor',
+        peer_id: myPeerId,
+        display_name: getVerifiedDisplayName(),
+        x: Math.round(clientX),
+        y: Math.round(clientY),
+        nx: Number((clientX / w).toFixed(4)),
+        ny: Number((clientY / h).toFixed(4)),
+        clicking: Boolean(clicking),
+        color: getPeerCursorColor(myPeerId),
+        room: currentRoom
+      };
+      if (screenX !== null && screenY !== null) {
+        pkt.screen_x = Number(Math.max(0, Math.min(1, screenX)).toFixed(4));
+        pkt.screen_y = Number(Math.max(0, Math.min(1, screenY)).toFixed(4));
+      }
+      return pkt;
+    }
+
+    window.addEventListener('pointermove', (e) => {
+      if (document.hidden || !isIdentityVerified()) return;
+      const dx = Math.abs(e.clientX - lastCursorX);
+      const dy = Math.abs(e.clientY - lastCursorY);
+      if (dx < 3 && dy < 3) return;
+      lastCursorX = e.clientX;
+      lastCursorY = e.clientY;
+      broadcastCursorPayload(buildCursorPacket(e.clientX, e.clientY, false, lastScreenPointerX, lastScreenPointerY), false);
     });
+
+    window.addEventListener('pointerdown', (e) => {
+      if (document.hidden || !isIdentityVerified()) return;
+      lastCursorX = e.clientX;
+      lastCursorY = e.clientY;
+      broadcastCursorPayload(buildCursorPacket(e.clientX, e.clientY, true, lastScreenPointerX, lastScreenPointerY), true);
+    });
+
+    function initScreenPointerOverlay() {
+      const overlay = document.getElementById('screenPointerOverlay');
+      if (!overlay || overlay.dataset.bound === '1') return;
+      overlay.dataset.bound = '1';
+      overlay.addEventListener('pointermove', (e) => {
+        if (!isIdentityVerified()) return;
+        const rect = overlay.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+        const sx = (e.clientX - rect.left) / rect.width;
+        const sy = (e.clientY - rect.top) / rect.height;
+        lastScreenPointerX = sx;
+        lastScreenPointerY = sy;
+        broadcastCursorPayload(buildCursorPacket(e.clientX, e.clientY, false, sx, sy), false);
+      });
+      overlay.addEventListener('pointerleave', () => {
+        lastScreenPointerX = null;
+        lastScreenPointerY = null;
+      });
+      overlay.addEventListener('pointerdown', (e) => {
+        if (!isIdentityVerified()) return;
+        const rect = overlay.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+        const sx = (e.clientX - rect.left) / rect.width;
+        const sy = (e.clientY - rect.top) / rect.height;
+        lastScreenPointerX = sx;
+        lastScreenPointerY = sy;
+        spawnClickRipple(overlay, e.clientX - rect.left, e.clientY - rect.top, getPeerCursorColor(myPeerId));
+        broadcastCursorPayload(buildCursorPacket(e.clientX, e.clientY, true, sx, sy), true);
+      });
+    }
+
+    function renderRemoteScreenPointer(peerId, c) {
+      const overlay = document.getElementById('screenPointerOverlay');
+      if (!overlay) return;
+      const elId = 'scur-' + peerId;
+      let el = document.getElementById(elId);
+      if (c.screen_x === undefined || c.screen_x === null || c.screen_y === undefined || c.screen_y === null) {
+        if (el) el.remove();
+        return;
+      }
+      const color = c.color || getPeerCursorColor(peerId);
+      if (!el) {
+        el = document.createElement('div');
+        el.id = elId;
+        el.className = 'screen-remote-pointer';
+        el.innerHTML = `
+          <svg class="w-4 h-4 drop-shadow" style="color:${color}" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M4 0l16 12-7 2-3 8z"/>
+          </svg>
+          <span class="text-[10px] bg-slate-950/90 px-1.5 py-0.5 rounded font-mono ml-2 -mt-1 inline-block whitespace-nowrap border" style="color:${color};border-color:${color}">
+            ${escapeCursorHtml(c.display_name || peerId)}
+          </span>
+        `;
+        overlay.appendChild(el);
+      }
+      el.style.left = (c.screen_x * 100).toFixed(2) + '%';
+      el.style.top = (c.screen_y * 100).toFixed(2) + '%';
+      if (c.clicking) {
+        const rect = overlay.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          spawnClickRipple(overlay, c.screen_x * rect.width, c.screen_y * rect.height, color);
+        }
+      }
+    }
+
+    function renderSingleRemoteCursor(peerId, c) {
+      if (!peerId || peerId === myPeerId) return;
+      const layer = document.getElementById('multiplayerCursorsLayer');
+      if (!layer) return;
+      const color = c.color || getPeerCursorColor(peerId);
+      let el = document.getElementById('cur-' + peerId);
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'cur-' + peerId;
+        el.className = 'remote-cursor';
+        el.innerHTML = `
+          <svg class="w-4 h-4 drop-shadow" style="color:${color}" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M4 0l16 12-7 2-3 8z"/>
+          </svg>
+          <span class="text-[10px] bg-slate-900/90 px-1.5 py-0.5 rounded font-mono ml-3 -mt-2 inline-block whitespace-nowrap border" style="color:${color};border-color:${color}">
+            ${escapeCursorHtml(c.display_name || peerId)}
+          </span>
+        `;
+        layer.appendChild(el);
+      }
+      const px = (typeof c.nx === 'number' && !isNaN(c.nx))
+        ? Math.round(c.nx * Math.max(1, window.innerWidth))
+        : Number(c.x || 0);
+      const py = (typeof c.ny === 'number' && !isNaN(c.ny))
+        ? Math.round(c.ny * Math.max(1, window.innerHeight))
+        : Number(c.y || 0);
+      el.style.transform = `translate(${px}px, ${py}px)`;
+      if (c.clicking) {
+        spawnClickRipple(layer, px, py, color);
+      }
+      renderRemoteScreenPointer(peerId, c);
+      livePeerCursors[peerId] = { ...c, _seenAt: Date.now() };
+    }
 
     function renderMultiplayerCursors(cursors) {
       const layer = document.getElementById('multiplayerCursorsLayer');
       if (!layer) return;
-
+      const activeIds = new Set();
       Object.entries(cursors || {}).forEach(([peerId, c]) => {
         if (peerId === myPeerId) return;
-        let el = document.getElementById('cur-' + peerId);
-        if (!el) {
-          el = document.createElement('div');
-          el.id = 'cur-' + peerId;
-          el.className = 'remote-cursor';
-          el.innerHTML = `
-            <svg class="w-4 h-4 text-cyan-400 drop-shadow" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M4 0l16 12-7 2-3 8z"/>
-            </svg>
-            <span class="text-[10px] bg-slate-900/90 text-cyan-300 border border-cyan-800 px-1.5 py-0.5 rounded font-mono ml-3 -mt-2 inline-block whitespace-nowrap">
-              ${c.display_name || peerId}
-            </span>
-          `;
-          layer.appendChild(el);
-        }
-        el.style.transform = `translate(${c.x}px, ${c.y}px)`;
+        activeIds.add(peerId);
+        // Do not overwrite fresher P2P DataChannel position (<600ms old) with stale HTTP poll
+        const prev = livePeerCursors[peerId];
+        if (prev && prev._fromDc && (Date.now() - prev._seenAt) < 600) return;
+        renderSingleRemoteCursor(peerId, c);
       });
+      // Prune disconnected/stale peer cursors (>20s without update)
+      const now = Date.now();
+      Array.from(layer.querySelectorAll('.remote-cursor')).forEach((el) => {
+        const pid = (el.id || '').replace(/^cur-/, '');
+        const rec = livePeerCursors[pid];
+        if (!activeIds.has(pid) && (!rec || (now - rec._seenAt) > 20000)) {
+          el.remove();
+          const sel = document.getElementById('scur-' + pid);
+          if (sel) sel.remove();
+          delete livePeerCursors[pid];
+        }
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initScreenPointerOverlay);
+    } else {
+      initScreenPointerOverlay();
     }
 
     // =========================================================================
@@ -5693,10 +5972,18 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     };
 
     // =========================================================================
-    // Core WebRTC Signaling & Media Engine (Preserved)
+    // Core WebRTC Signaling, Dual Camera+Screen Media & P2P Cursor DataChannel
     // =========================================================================
     let pc = null;
-    let localStream = null;
+    let localStream = null;         // Backward-compatible alias for localCameraStream
+    let localCameraStream = null;
+    let localScreenStream = null;
+    let remoteCameraStream = null;
+    let remoteScreenStream = null;
+    let cursorChannel = null;
+    let remoteStreamRoles = { camera_stream_id: null, screen_stream_id: null };
+    let pendingIceCandidates = [];
+    const acceptedCallPeers = new Set();
     let lastSignalSeq = 0;
     let pollTimer = null;
     let isMuted = false;
@@ -5705,14 +5992,78 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
     const rtcConfig = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' }
       ]
     };
 
     function setCallStatus(text, tone = 'slate') {
       const badge = document.getElementById('callStatusBadge');
+      if (!badge) return;
       badge.innerText = text;
       badge.className = `px-2 py-0.5 rounded border text-[11px] font-mono bg-${tone}-950 text-${tone}-300 border-${tone}-800`;
+    }
+
+    function setCursorSyncBadge(mode) {
+      const el = document.getElementById('cursorSyncBadge');
+      if (!el) return;
+      if (mode === 'p2p') {
+        el.innerText = '🖱️ Cursors: P2P <20ms';
+        el.className = 'px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 text-[10px]';
+      } else {
+        el.innerText = '🖱️ Cursors: LAN';
+        el.className = 'px-2 py-0.5 rounded bg-slate-900 text-cyan-300 border border-slate-700 text-[10px]';
+      }
+    }
+
+    function showScreenStage(stream, labelText) {
+      const stage = document.getElementById('screenShareStage');
+      const vid = document.getElementById('remoteScreenVideo');
+      const lbl = document.getElementById('screenSharerLabel');
+      if (!stage || !vid) return;
+      vid.srcObject = stream;
+      vid.muted = (stream === localScreenStream);
+      if (lbl && labelText) lbl.innerText = labelText;
+      stage.classList.remove('hidden');
+      initScreenPointerOverlay();
+    }
+
+    function hideScreenStageIfIdle() {
+      if (remoteScreenStream || localScreenStream) return;
+      const stage = document.getElementById('screenShareStage');
+      const vid = document.getElementById('remoteScreenVideo');
+      if (vid) vid.srcObject = null;
+      if (stage) stage.classList.add('hidden');
+    }
+
+    function toggleScreenFullscreen() {
+      const container = document.getElementById('screenShareContainer');
+      if (!container) return;
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      } else if (container.requestFullscreen) {
+        container.requestFullscreen().catch(() => {});
+      }
+    }
+
+    function attachCursorDataChannel(ch) {
+      if (!ch) return;
+      cursorChannel = ch;
+      ch.onopen = () => setCursorSyncBadge('p2p');
+      ch.onclose = () => {
+        if (cursorChannel === ch) cursorChannel = null;
+        setCursorSyncBadge('lan');
+      };
+      ch.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (!msg || !msg.peer_id || msg.peer_id === myPeerId) return;
+          if (msg.type === 'workspace_cursor' || msg.type === 'screen_pointer') {
+            msg._fromDc = true;
+            renderSingleRemoteCursor(msg.peer_id, msg);
+          }
+        } catch (e) {}
+      };
     }
 
     function copyInviteLink() {
@@ -5731,23 +6082,78 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       });
     }
 
-    function ensurePeerConnection() {
-      if (pc) return pc;
+    async function sendStreamMeta(to = '*') {
+      await sendSignal('stream_meta', {
+        camera_stream_id: localCameraStream ? localCameraStream.id : null,
+        screen_stream_id: localScreenStream ? localScreenStream.id : null
+      }, to);
+    }
+
+    async function flushPendingIceCandidates() {
+      if (!pc || !pc.remoteDescription) return;
+      const queued = pendingIceCandidates.splice(0, pendingIceCandidates.length);
+      for (const cand of queued) {
+        try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch (e) {}
+      }
+    }
+
+    function ensurePeerConnection(createDataChannel = false) {
+      if (pc) {
+        if (createDataChannel && !cursorChannel) {
+          try {
+            attachCursorDataChannel(pc.createDataChannel('tincan-cursors', { ordered: false, maxRetransmits: 0 }));
+          } catch (e) {}
+        }
+        return pc;
+      }
       pc = new RTCPeerConnection(rtcConfig);
       pc.onicecandidate = (ev) => {
         if (ev.candidate) {
           sendSignal('candidate', { candidate: ev.candidate });
         }
       };
-      pc.ontrack = (ev) => {
-        const remoteVideo = document.getElementById('remoteVideo');
-        if (ev.streams && ev.streams[0]) {
-          remoteVideo.srcObject = ev.streams[0];
-          setCallStatus('Connected (Live Media)', 'emerald');
+      pc.ondatachannel = (ev) => {
+        if (ev.channel && ev.channel.label === 'tincan-cursors') {
+          attachCursorDataChannel(ev.channel);
         }
       };
-      if (localStream) {
-        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+      if (createDataChannel) {
+        try {
+          attachCursorDataChannel(pc.createDataChannel('tincan-cursors', { ordered: false, maxRetransmits: 0 }));
+        } catch (e) {}
+      }
+      pc.ontrack = (ev) => {
+        const stream = (ev.streams && ev.streams[0]) || new MediaStream([ev.track]);
+        const remoteVideo = document.getElementById('remoteVideo');
+        const isScreenStream = (
+          (remoteStreamRoles.screen_stream_id && stream.id === remoteStreamRoles.screen_stream_id) ||
+          (ev.track.kind === 'video' && remoteCameraStream && remoteCameraStream.id !== stream.id && stream.id !== remoteStreamRoles.camera_stream_id)
+        );
+        if (isScreenStream) {
+          remoteScreenStream = stream;
+          const peerName = (document.getElementById('remotePeerLabel') || {}).innerText || 'Peer';
+          showScreenStage(stream, `🖥️ ${peerName}'s Shared Screen — hover or click to point`);
+          ev.track.onended = () => {
+            if (remoteScreenStream && remoteScreenStream.id === stream.id) {
+              remoteScreenStream = null;
+              if (localScreenStream) {
+                showScreenStage(localScreenStream, '🖥️ Your Shared Screen (Peer pointers appear here)');
+              } else {
+                hideScreenStageIfIdle();
+              }
+            }
+          };
+        } else {
+          remoteCameraStream = stream;
+          if (remoteVideo) remoteVideo.srcObject = stream;
+        }
+        setCallStatus('Connected (Live Media)', 'emerald');
+      };
+      if (localCameraStream) {
+        localCameraStream.getTracks().forEach(track => pc.addTrack(track, localCameraStream));
+      }
+      if (localScreenStream) {
+        localScreenStream.getTracks().forEach(track => pc.addTrack(track, localScreenStream));
       }
       return pc;
     }
@@ -5761,16 +6167,36 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       startCall('video');
     }
 
+    async function renegotiateCall(to = '*') {
+      ensurePeerConnection(true);
+      await sendStreamMeta(to);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await sendSignal('offer', {
+        sdp: pc.localDescription,
+        camera_stream_id: localCameraStream ? localCameraStream.id : null,
+        screen_stream_id: localScreenStream ? localScreenStream.id : null
+      }, to);
+    }
+
     async function startCall(mode = 'video') {
       if (!requireVerifiedIdentity('join a live WebRTC call')) return;
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setCallStatus('Camera/Mic require HTTPS or localhost (cursors still work on LAN)', 'amber');
+        return;
+      }
       try {
         const room = document.getElementById('roomInput').value.trim() || 'main';
         setCallStatus('Requesting mic/cam...', 'amber');
-        localStream = await navigator.mediaDevices.getUserMedia({
+        if (localCameraStream) {
+          localCameraStream.getTracks().forEach(t => t.stop());
+        }
+        localCameraStream = await navigator.mediaDevices.getUserMedia({
           video: mode === 'video',
           audio: true
         });
-        document.getElementById('localVideo').srcObject = localStream;
+        localStream = localCameraStream;
+        document.getElementById('localVideo').srcObject = localCameraStream;
 
         await fetch('/api/webrtc/register', {
           method: 'POST',
@@ -5781,14 +6207,16 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             room,
             has_video: mode === 'video',
             has_audio: true,
-            has_screen: false
+            has_screen: Boolean(localScreenStream)
           })
         });
 
-        ensurePeerConnection();
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        await sendSignal('offer', { sdp: pc.localDescription });
+        ensurePeerConnection(true);
+        const existingTracks = new Set(pc.getSenders().map(s => s.track).filter(Boolean));
+        localCameraStream.getTracks().forEach(track => {
+          if (!existingTracks.has(track)) pc.addTrack(track, localCameraStream);
+        });
+        await renegotiateCall('*');
         setCallStatus('Calling room ' + room + '...', 'cyan');
         if (!pollTimer) pollTimer = setInterval(pollSignals, 1200);
       } catch (err) {
@@ -5798,11 +6226,29 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
 
     async function startScreenShare() {
       if (!requireVerifiedIdentity('share your screen in a room')) return;
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        setCallStatus('Screen Share requires HTTPS or localhost on desktop browser', 'amber');
+        return;
+      }
       try {
         const room = document.getElementById('roomInput').value.trim() || 'main';
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-        localStream = screenStream;
-        document.getElementById('localVideo').srcObject = screenStream;
+        if (localScreenStream) {
+          localScreenStream.getTracks().forEach(t => t.stop());
+        }
+        localScreenStream = screenStream;
+        const stopBtn = document.getElementById('stopScreenBtn');
+        if (stopBtn) stopBtn.classList.remove('hidden');
+
+        // Keep local camera running on #localVideo; show local screen preview on stage if no remote screen
+        if (!remoteScreenStream) {
+          showScreenStage(localScreenStream, '🖥️ Your Shared Screen — peer pointers will appear here');
+        }
+
+        const videoTrack = screenStream.getVideoTracks()[0];
+        if (videoTrack) {
+          videoTrack.onended = () => { stopScreenShare(); };
+        }
 
         await fetch('/api/webrtc/register', {
           method: 'POST',
@@ -5811,54 +6257,95 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             peer_id: myPeerId,
             display_name: getVerifiedDisplayName() + ' (Screen)',
             room,
-            has_video: true,
+            has_video: Boolean(localCameraStream),
             has_audio: true,
             has_screen: true
           })
         });
 
-        ensurePeerConnection();
-        const videoTrack = screenStream.getVideoTracks()[0];
-        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-        if (sender && videoTrack) {
-          await sender.replaceTrack(videoTrack);
-        } else {
-          screenStream.getTracks().forEach(t => pc.addTrack(t, screenStream));
-        }
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        await sendSignal('offer', { sdp: pc.localDescription });
-        setCallStatus('Sharing Screen in ' + room, 'cyan');
+        ensurePeerConnection(true);
+        // Add screen tracks ALONGSIDE camera tracks (never overwrite camera!)
+        screenStream.getTracks().forEach(t => pc.addTrack(t, screenStream));
+        await renegotiateCall('*');
+        setCallStatus(localCameraStream ? 'Camera + Screen Active in ' + room : 'Sharing Screen in ' + room, 'cyan');
         if (!pollTimer) pollTimer = setInterval(pollSignals, 1200);
       } catch (err) {
         setCallStatus('Screenshare error: ' + err.message, 'rose');
       }
     }
 
+    async function stopScreenShare() {
+      if (!localScreenStream) return;
+      const oldStream = localScreenStream;
+      localScreenStream = null;
+      const stopBtn = document.getElementById('stopScreenBtn');
+      if (stopBtn) stopBtn.classList.add('hidden');
+
+      if (pc) {
+        const oldTracks = new Set(oldStream.getTracks());
+        pc.getSenders().forEach(sender => {
+          if (sender.track && oldTracks.has(sender.track)) {
+            try { pc.removeTrack(sender); } catch (e) {}
+          }
+        });
+      }
+      oldStream.getTracks().forEach(t => t.stop());
+      if (remoteScreenStream) {
+        const peerName = (document.getElementById('remotePeerLabel') || {}).innerText || 'Peer';
+        showScreenStage(remoteScreenStream, `🖥️ ${peerName}'s Shared Screen — hover or click to point`);
+      } else {
+        hideScreenStageIfIdle();
+      }
+      if (pc) {
+        try { await renegotiateCall('*'); } catch (e) {}
+      }
+      setCallStatus(localCameraStream ? 'Connected (Camera Active)' : 'Screen Share Stopped', 'emerald');
+    }
+
     function toggleMute() {
-      if (!localStream) return;
+      const stream = localCameraStream || localStream;
+      if (!stream) return;
       isMuted = !isMuted;
-      localStream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
+      stream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
       document.getElementById('muteBtn').innerText = isMuted ? '🔊 Unmute Mic' : '🔇 Mute Mic';
     }
 
     function toggleCamera() {
-      if (!localStream) return;
+      const stream = localCameraStream || localStream;
+      if (!stream) return;
       isCamOff = !isCamOff;
-      localStream.getVideoTracks().forEach(t => { t.enabled = !isCamOff; });
+      stream.getVideoTracks().forEach(t => { t.enabled = !isCamOff; });
       document.getElementById('camBtn').innerText = isCamOff ? '📷 Cam On' : '📷 Toggle Cam';
     }
 
     async function hangupCall() {
       const room = document.getElementById('roomInput').value.trim() || 'main';
-      if (localStream) {
-        localStream.getTracks().forEach(t => t.stop());
-        localStream = null;
+      if (localCameraStream) {
+        localCameraStream.getTracks().forEach(t => t.stop());
+        localCameraStream = null;
       }
+      if (localScreenStream) {
+        localScreenStream.getTracks().forEach(t => t.stop());
+        localScreenStream = null;
+      }
+      localStream = null;
+      remoteCameraStream = null;
+      remoteScreenStream = null;
+      remoteStreamRoles = { camera_stream_id: null, screen_stream_id: null };
+      pendingIceCandidates = [];
+      acceptedCallPeers.clear();
+      if (cursorChannel) {
+        try { cursorChannel.close(); } catch (e) {}
+        cursorChannel = null;
+      }
+      setCursorSyncBadge('lan');
       if (pc) {
         pc.close();
         pc = null;
       }
+      const stopBtn = document.getElementById('stopScreenBtn');
+      if (stopBtn) stopBtn.classList.add('hidden');
+      hideScreenStageIfIdle();
       document.getElementById('localVideo').srcObject = null;
       document.getElementById('remoteVideo').srcObject = null;
       document.getElementById('remotePeerLabel').innerText = 'waiting for peer...';
@@ -5885,34 +6372,59 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           grid.innerHTML = data.peers.map(p => `
             <div class="p-2 bg-slate-800/60 rounded border border-slate-700 flex justify-between items-center text-xs font-mono">
               <span class="text-white">${p.display_name}</span>
-              <span class="bg-emerald-900 text-emerald-300 px-1.5 py-0.5 rounded text-[10px]">${p.has_screen ? 'SCREEN' : (p.has_video ? 'VIDEO+VOICE' : 'VOICE')} · UDP:${p.udp_port}</span>
+              <span class="bg-emerald-900 text-emerald-300 px-1.5 py-0.5 rounded text-[10px]">${p.has_screen && p.has_video ? 'CAM+SCREEN' : (p.has_screen ? 'SCREEN' : (p.has_video ? 'VIDEO+VOICE' : 'VOICE'))} · UDP:${p.udp_port}</span>
             </div>
           `).join('');
         }
         for (const sig of (data.signals || [])) {
           document.getElementById('remotePeerLabel').innerText = sig.from;
-          if (sig.type === 'offer' && sig.payload && sig.payload.sdp) {
-            // Peripheral & Connection Consent Guard: Never auto-answer an incoming WebRTC offer
-            // without explicit human consent.
-            const accepted = window.confirm(`Incoming WebRTC call offer from '${sig.from}'. Accept connection? (Your camera/mic remain OFF unless you explicitly enable them)`);
-            if (!accepted) {
-              setCallStatus('Declined offer from ' + sig.from, 'amber');
-              continue;
+          if (sig.type === 'stream_meta' && sig.payload) {
+            remoteStreamRoles = {
+              camera_stream_id: sig.payload.camera_stream_id || null,
+              screen_stream_id: sig.payload.screen_stream_id || null
+            };
+          } else if (sig.type === 'offer' && sig.payload && sig.payload.sdp) {
+            if (sig.payload.camera_stream_id !== undefined || sig.payload.screen_stream_id !== undefined) {
+              remoteStreamRoles = {
+                camera_stream_id: sig.payload.camera_stream_id || remoteStreamRoles.camera_stream_id,
+                screen_stream_id: sig.payload.screen_stream_id || remoteStreamRoles.screen_stream_id
+              };
             }
-            ensurePeerConnection();
+            // Peripheral & Connection Consent Guard: Require explicit human consent on initial call,
+            // while allowing seamless mid-call renegotiation (e.g., adding Screen Share) for accepted peers.
+            if (!acceptedCallPeers.has(sig.from)) {
+              const accepted = window.confirm(`Incoming WebRTC call offer from '${sig.from}'. Accept connection? (Your camera/mic remain OFF unless you explicitly enable them)`);
+              if (!accepted) {
+                setCallStatus('Declined offer from ' + sig.from, 'amber');
+                continue;
+              }
+              acceptedCallPeers.add(sig.from);
+            }
+            ensurePeerConnection(false);
             await pc.setRemoteDescription(new RTCSessionDescription(sig.payload.sdp));
+            await flushPendingIceCandidates();
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             await sendSignal('answer', { sdp: pc.localDescription }, sig.from);
             setCallStatus('Connected with ' + sig.from, 'emerald');
           } else if (sig.type === 'answer' && sig.payload && sig.payload.sdp && pc) {
+            acceptedCallPeers.add(sig.from);
             await pc.setRemoteDescription(new RTCSessionDescription(sig.payload.sdp));
+            await flushPendingIceCandidates();
             setCallStatus('Connected with ' + sig.from, 'emerald');
-          } else if (sig.type === 'candidate' && sig.payload && sig.payload.candidate && pc) {
-            try {
-              await pc.addIceCandidate(new RTCIceCandidate(sig.payload.candidate));
-            } catch (e) {}
+          } else if (sig.type === 'candidate' && sig.payload && sig.payload.candidate) {
+            if (pc && pc.remoteDescription) {
+              try {
+                await pc.addIceCandidate(new RTCIceCandidate(sig.payload.candidate));
+              } catch (e) {}
+            } else {
+              pendingIceCandidates.push(sig.payload.candidate);
+            }
           } else if (sig.type === 'hangup') {
+            remoteCameraStream = null;
+            remoteScreenStream = null;
+            acceptedCallPeers.delete(sig.from);
+            hideScreenStageIfIdle();
             document.getElementById('remoteVideo').srcObject = null;
             document.getElementById('remotePeerLabel').innerText = 'peer hung up';
             setCallStatus('Peer disconnected', 'amber');

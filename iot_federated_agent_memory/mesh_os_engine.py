@@ -354,23 +354,40 @@ class TinCanMeshOSEngine:
         window_id: str = "desktop",
         display_name: Optional[str] = None,
         room: str = "main",
+        nx: Optional[float] = None,
+        ny: Optional[float] = None,
+        screen_x: Optional[float] = None,
+        screen_y: Optional[float] = None,
+        clicking: bool = False,
+        color: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Update live spatial cursor presence for a peer in a room."""
+        """Update live spatial cursor presence (workspace + screen-share pointer) for a peer."""
         now = time.time()
         with self._lock:
             name = (
                 display_name
                 or (self.peers[peer_id]["display_name"] if peer_id in self.peers else peer_id)
             )
-            cursor_info = {
+            cursor_info: Dict[str, Any] = {
                 "peer_id": peer_id,
                 "display_name": name,
                 "x": float(x),
                 "y": float(y),
                 "window_id": window_id,
                 "room": room,
+                "clicking": bool(clicking),
                 "updated_at": now,
             }
+            if nx is not None:
+                cursor_info["nx"] = max(0.0, min(1.0, float(nx)))
+            if ny is not None:
+                cursor_info["ny"] = max(0.0, min(1.0, float(ny)))
+            if screen_x is not None:
+                cursor_info["screen_x"] = max(0.0, min(1.0, float(screen_x)))
+            if screen_y is not None:
+                cursor_info["screen_y"] = max(0.0, min(1.0, float(screen_y)))
+            if color:
+                cursor_info["color"] = str(color)[:24]
             self.cursors[peer_id] = cursor_info
 
             if peer_id in self.peers:
