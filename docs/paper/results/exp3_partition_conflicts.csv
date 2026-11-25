@@ -1,13 +1,13 @@
 protocol,nodes,partition_ops_per_node,partition_duration_s,conflicts_detected,lost_writes,recovery_bytes,local_sync_available_during_partition
-tincan_merkle_crdt,5,2,30,2,0,58534,True
+tincan_merkle_crdt,5,2,30,2,0,25696,True
 naive_full_state_gossip,5,2,30,0,4,4376,True
 central_server_sync,5,2,30,0,4,4376,False
-tincan_merkle_crdt,5,5,75,5,0,152759,True
+tincan_merkle_crdt,5,5,75,5,0,41256,True
 naive_full_state_gossip,5,5,75,0,10,8744,True
 central_server_sync,5,5,75,0,10,8744,False
-tincan_merkle_crdt,5,10,150,10,0,354475,True
+tincan_merkle_crdt,5,10,150,10,0,67629,True
 naive_full_state_gossip,5,10,150,0,20,16024,True
 central_server_sync,5,10,150,0,20,16024,False
-tincan_merkle_crdt,5,25,375,25,0,1292891,True
+tincan_merkle_crdt,5,25,375,25,0,146982,True
 naive_full_state_gossip,5,25,375,0,50,38944,True
 central_server_sync,5,25,375,0,50,38944,False

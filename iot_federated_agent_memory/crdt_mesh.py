@@ -15,6 +15,7 @@ from dataclasses import dataclass, asdict
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import nacl.exceptions
+import nacl.secret
 import nacl.signing
 
 from iot_federated_agent_memory.crdt_types import (
@@ -32,7 +33,8 @@ from iot_federated_agent_memory.tincan_core import (
 )
 
 
-FRAME_MAGIC = b"CRDT\x01\x00"  # 6-byte network framing header identifier
+FRAME_MAGIC = b"CRDT\x01\x00"  # 6-byte cleartext network framing header identifier
+ENC_FRAME_MAGIC = b"CRDE\x01\x00"  # 6-byte XSalsa20-Poly1305 AEAD encrypted framing header
 HEADER_SIZE = 46  # 6s (magic) + I (payload_len) + I (crc32) + 32s (sha256 digest)
 DELTA_SIG_DOMAIN = b"TINCAN-CRDT-DELTA-V1\x00"
 
@@ -179,25 +181,38 @@ class CRDTDeltaMessage:
             signature=data.get("signature"),
         )
 
-    def serialize(self) -> bytes:
-        """Frame delta message into network bytes with CRC32 checksum and SHA-256 digest."""
+    def serialize(self, encrypt_key: Optional[bytes] = None) -> bytes:
+        """Frame delta message into network bytes with CRC32 checksum and SHA-256 digest.
+
+        When `encrypt_key` (32-byte shared mesh key) is provided, the JSON payload is
+        encrypted with PyNaCl `SecretBox` (XSalsa20-Poly1305 AEAD) under `ENC_FRAME_MAGIC`.
+        """
         payload_bytes = json.dumps(self.to_dict(), sort_keys=True).encode("utf-8")
+        magic = FRAME_MAGIC
+        if encrypt_key is not None:
+            if len(encrypt_key) != nacl.secret.SecretBox.KEY_SIZE:
+                raise ValueError(f"encrypt_key must be {nacl.secret.SecretBox.KEY_SIZE} bytes")
+            payload_bytes = bytes(nacl.secret.SecretBox(encrypt_key).encrypt(payload_bytes))
+            magic = ENC_FRAME_MAGIC
+
         payload_len = len(payload_bytes)
         crc32_val = zlib.crc32(payload_bytes) & 0xFFFFFFFF
         sha256_digest = hashlib.sha256(payload_bytes).digest()
 
-        header = struct.pack("!6sII32s", FRAME_MAGIC, payload_len, crc32_val, sha256_digest)
+        header = struct.pack("!6sII32s", magic, payload_len, crc32_val, sha256_digest)
         return header + payload_bytes
 
     @classmethod
-    def deserialize(cls, frame_bytes: bytes) -> CRDTDeltaMessage:
-        """Deserialize network frame, verifying magic header, CRC32, and SHA-256 checksums."""
+    def deserialize(
+        cls, frame_bytes: bytes, decrypt_key: Optional[bytes] = None
+    ) -> CRDTDeltaMessage:
+        """Deserialize network frame, verifying magic header, CRC32, SHA-256, and optional AEAD decryption."""
         if len(frame_bytes) < HEADER_SIZE:
             raise FrameIntegrityError(f"Frame length {len(frame_bytes)} is less than header size {HEADER_SIZE}")
 
         magic, payload_len, expected_crc32, expected_sha256 = struct.unpack("!6sII32s", frame_bytes[:HEADER_SIZE])
 
-        if magic != FRAME_MAGIC:
+        if magic not in (FRAME_MAGIC, ENC_FRAME_MAGIC):
             raise FrameIntegrityError(f"Invalid frame magic: {magic!r}, expected {FRAME_MAGIC!r}")
 
         payload_bytes = frame_bytes[HEADER_SIZE : HEADER_SIZE + payload_len]
@@ -213,6 +228,16 @@ class CRDTDeltaMessage:
         actual_sha256 = hashlib.sha256(payload_bytes).digest()
         if actual_sha256 != expected_sha256:
             raise FrameIntegrityError("SHA-256 verification failed: digest mismatch")
+
+        if magic == ENC_FRAME_MAGIC:
+            if decrypt_key is None:
+                raise DeltaAuthenticationError("Encrypted CRDT frame received without decrypt_key")
+            try:
+                payload_bytes = nacl.secret.SecretBox(decrypt_key).decrypt(payload_bytes)
+            except Exception as e:
+                raise DeltaAuthenticationError(f"Failed to decrypt encrypted CRDT frame: {e}")
+        elif decrypt_key is not None:
+            raise DeltaAuthenticationError("Unencrypted CRDT frame rejected when mesh encryption is required")
 
         try:
             data = json.loads(payload_bytes.decode("utf-8"))
@@ -507,8 +532,11 @@ class CRDTMeshGossipSync:
         trust_store: Optional[TrustStore] = None,
         require_signatures: Optional[bool] = None,
         merkle_depth: int = 3,
+        mesh_secret: Optional[bytes] = None,
     ):
         self.local_node_id = local_node_id
+        self.mesh_secret: Optional[bytes] = mesh_secret
+        self.compacted_deltas: int = 0
         self.vector_clock = 0  # Legacy Lamport counter preserved for backward compatibility
         self.vclock = VectorClock()
         self.hlc = HLC(local_node_id)
@@ -575,7 +603,7 @@ class CRDTMeshGossipSync:
 
         if self.is_online and self.transport and self.transport.is_connected:
             try:
-                frame = delta.serialize()
+                frame = delta.serialize(encrypt_key=self.mesh_secret)
                 sent = self.transport.send(frame)
                 if not sent:
                     self.offline_queue.append(delta)
@@ -842,16 +870,97 @@ class CRDTMeshGossipSync:
             remote_clock=self.vector_clock,
         )
 
+    def _build_compacted_delta_for_key(self, key: str) -> Optional[CRDTDeltaMessage]:
+        """Build a single state-delta representing the current merged CRDT state for `key`."""
+        existing = self._deltas_by_key.get(key, [])
+        if not existing:
+            return None
+        latest = existing[-1]
+        if key in self.orsets:
+            crdt_type, op, val = "orset", "orset_merge", self.orsets[key].to_dict()
+        elif key in self.mvregisters:
+            crdt_type, op, val = "mvreg", "mvreg_merge", self.mvregisters[key].to_dict()
+        elif key in self.lwwmaps:
+            crdt_type, op, val = "lwwmap", "lwwmap_merge", self.lwwmaps[key].to_dict()
+        elif key in self.state_store:
+            crdt_type, op, val = "lww", "upsert", dict(self.state_store[key])
+        else:
+            crdt_type, op, val = "lww", "delete", {}
+
+        # If signatures are required and we have no local identity, keep the latest already-signed delta
+        if self.require_signatures and self.identity is None:
+            return latest
+
+        delta = CRDTDeltaMessage(
+            node_id=self.local_node_id,
+            clock=max(self.vector_clock, latest.clock),
+            operation=op,
+            key=key,
+            value=val,
+            timestamp=latest.timestamp,
+            vclock=self.vclock.to_dict(),
+            hlc=self.hlc.current().to_dict(),
+            crdt_type=crdt_type,
+        )
+        if self.identity is not None:
+            delta.sign(self.identity)
+        return delta
+
+    def compact_key_deltas(self, key: Optional[str] = None) -> int:
+        """Compact per-key delta history into 1 state-delta per key, eliminating heavy-partition replay bloat.
+
+        Returns the number of redundant deltas removed.
+        """
+        keys = [key] if key is not None else list(self._deltas_by_key.keys())
+        removed = 0
+        for k in keys:
+            deltas = self._deltas_by_key.get(k, [])
+            if len(deltas) <= 1:
+                continue
+            compacted = self._build_compacted_delta_for_key(k)
+            if compacted is None:
+                continue
+            removed += len(deltas) - 1
+            self._deltas_by_key[k] = [compacted]
+            self.seen_delta_hashes.add(compacted.get_hash())
+        self.compacted_deltas += removed
+        return removed
+
+    def gc_orset_tombstones(self, causal_horizon: Dict[str, int]) -> int:
+        """Prune causally stable tombstones across all OR-Sets and refresh affected Merkle leaves."""
+        total = 0
+        for key, orset in self.orsets.items():
+            pruned = orset.gc_tombstones(causal_horizon)
+            if pruned:
+                total += pruned
+                self.state_store[key] = {"elements": orset.elements()}
+                self._update_merkle_for_key(key)
+        return total
+
     def flush_offline_queue(self) -> int:
-        """Transmit all deltas buffered in the offline queue."""
+        """Compact redundant offline deltas per key and transmit buffered deltas."""
         if not self.transport or not self.transport.is_connected:
             return 0
+
+        # Per-key compaction of offline queue before transmission
+        if len(self.offline_queue) > 1:
+            compacted_queue: List[CRDTDeltaMessage] = []
+            seen_keys: Set[str] = set()
+            for delta in reversed(self.offline_queue):
+                if delta.key in seen_keys:
+                    self.compacted_deltas += 1
+                    continue
+                seen_keys.add(delta.key)
+                compacted = self._build_compacted_delta_for_key(delta.key) or delta
+                compacted_queue.append(compacted)
+            compacted_queue.reverse()
+            self.offline_queue = compacted_queue
 
         flushed = 0
         remaining = []
         for delta in self.offline_queue:
             try:
-                frame = delta.serialize()
+                frame = delta.serialize(encrypt_key=self.mesh_secret)
                 if self.transport.send(frame):
                     flushed += 1
                 else:
@@ -872,8 +981,8 @@ class CRDTMeshGossipSync:
             frame_bytes = self.transport.receive()
             if not frame_bytes:
                 break
-            delta = CRDTDeltaMessage.deserialize(frame_bytes)
             try:
+                delta = CRDTDeltaMessage.deserialize(frame_bytes, decrypt_key=self.mesh_secret)
                 if self.merge_remote_delta(delta):
                     merged.append(delta)
             except DeltaAuthenticationError:
@@ -888,7 +997,7 @@ class CRDTMeshGossipSync:
 
     def sync_with_peer(self, peer: CRDTMeshGossipSync) -> MerkleSyncResult:
         """Dynamo-style Merkle tree anti-entropy: walk prefix trees to isolate divergent keys
-        and transfer ONLY deltas for those divergent keys.
+        and transfer ONLY compacted deltas for those divergent keys.
         """
         full_bytes = self.estimate_full_state_bytes() + peer.estimate_full_state_bytes()
         divergent_keys, diff_stats = self.merkle_tree.diff_with(
@@ -899,14 +1008,16 @@ class CRDTMeshGossipSync:
         delta_bytes_sent = 0
 
         for key in sorted(divergent_keys):
+            self.compact_key_deltas(key)
+            peer.compact_key_deltas(key)
             for d in self._deltas_by_key.get(key, []):
                 if d.get_hash() not in peer.seen_delta_hashes:
-                    delta_bytes_sent += len(d.serialize())
+                    delta_bytes_sent += len(d.serialize(encrypt_key=self.mesh_secret))
                     if peer.merge_remote_delta(d):
                         synced_count += 1
             for d in peer._deltas_by_key.get(key, []):
                 if d.get_hash() not in self.seen_delta_hashes:
-                    delta_bytes_sent += len(d.serialize())
+                    delta_bytes_sent += len(d.serialize(encrypt_key=peer.mesh_secret))
                     if self.merge_remote_delta(d):
                         synced_count += 1
 

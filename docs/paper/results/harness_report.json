@@ -1,0 +1,37 @@
+{
+  "timestamp": "2026-11-24T17:51:19.398218+00:00",
+  "results": {
+    "T-01": {
+      "passed": true,
+      "elapsed_ms": 4165.8,
+      "notes": "Automated core + fuzz suite: 28 passed in 4.05s"
+    },
+    "T-04": {
+      "passed": true,
+      "elapsed_ms": 1162.2,
+      "notes": "Live server subprocess E2E passed: 1 passed in 1.04s"
+    },
+    "T-05": {
+      "passed": true,
+      "elapsed_ms": 258.4,
+      "bytes_sent": null,
+      "notes": "Two-agent UDP demo converged with conflict flagged & resolved"
+    },
+    "T-08": {
+      "passed": true,
+      "elapsed_ms": 1996.8,
+      "ram_mb": 38.793,
+      "notes": "Docker 128MB cap passed; image=217.07 MB, peak RSS=38.793 MB"
+    },
+    "T-06-docker": {
+      "passed": true,
+      "elapsed_ms": 1352.9,
+      "notes": "Two Docker edge containers auto-discovered over bridge multicast (physical 2-Mac Wi-Fi still recommended)"
+    },
+    "T-09": {
+      "passed": true,
+      "elapsed_ms": 6414.3,
+      "notes": "Real tc netem 10%/20%/30% packet loss converged; Railway RTT=549.7 ms"
+    }
+  }
+}

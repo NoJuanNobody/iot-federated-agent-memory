@@ -24,11 +24,11 @@
 <text x="645.0" y="352" text-anchor="middle" font-size="11">25</text>
 <text x="365.0" y="386" text-anchor="middle" font-size="12" font-weight="bold">Number of Edge Nodes (N)</text>
 <text x="20" y="192.0" text-anchor="middle" font-size="12" font-weight="bold" transform="rotate(-90 20 192.0)">Kilobytes per Sync (KB)</text>
-<polyline fill="none" stroke="#111111" stroke-width="2.2" points="85.0,311.5 135.9,313.1 263.2,314.8 645.0,318.1"/>
-<circle cx="85.0" cy="311.5" r="4" fill="#111111"/>
-<circle cx="135.9" cy="313.1" r="4" fill="#111111"/>
+<polyline fill="none" stroke="#111111" stroke-width="2.2" points="85.0,311.6 135.9,313.3 263.2,314.8 645.0,318.0"/>
+<circle cx="85.0" cy="311.6" r="4" fill="#111111"/>
+<circle cx="135.9" cy="313.3" r="4" fill="#111111"/>
 <circle cx="263.2" cy="314.8" r="4" fill="#111111"/>
-<circle cx="645.0" cy="318.1" r="4" fill="#111111"/>
+<circle cx="645.0" cy="318.0" r="4" fill="#111111"/>
 <polyline fill="none" stroke="#555555" stroke-width="2.2" stroke-dasharray="6,4" points="85.0,82.0 135.9,82.0 263.2,82.0 645.0,82.0"/>
 <rect x="81.5" y="78.5" width="7" height="7" fill="#ffffff" stroke="#555555" stroke-width="1.8"/>
 <rect x="132.4" y="78.5" width="7" height="7" fill="#ffffff" stroke="#555555" stroke-width="1.8"/>

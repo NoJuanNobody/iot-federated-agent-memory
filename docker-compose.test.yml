@@ -1,0 +1,32 @@
+# TinCan Multi-Container Local P2P Test Stack (T-06 LAN Auto-Discovery & T-08 Slim Edge)
+#
+# Usage:
+#   docker compose -f docker-compose.test.yml up --build --abort-on-container-exit
+#   docker compose -f docker-compose.test.yml down -v
+
+services:
+  peer-a:
+    build:
+      context: .
+      dockerfile: Dockerfile.edge
+    image: tincan-edge:latest
+    command: ["--node-id", "docker-peer-a", "--port", "45454", "--backend", "multicast"]
+    mem_limit: 128m
+    cpus: 0.5
+    networks:
+      - tincan-lan
+
+  peer-b:
+    build:
+      context: .
+      dockerfile: Dockerfile.edge
+    image: tincan-edge:latest
+    command: ["--node-id", "docker-peer-b", "--port", "45454", "--backend", "multicast"]
+    mem_limit: 128m
+    cpus: 0.5
+    networks:
+      - tincan-lan
+
+networks:
+  tincan-lan:
+    driver: bridge
