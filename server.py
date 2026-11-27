@@ -3800,12 +3800,169 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             return proxy_localhost_port(self, "PATCH", parsed.path, parsed.query)
         self._send_json({"error": "Method not allowed"}, 405)
 
+    _SHARED_RELAY_EXACT_PATHS = (
+        "/api/webrtc/register",
+        "/api/webrtc/signal",
+        "/api/webrtc/signals",
+        "/api/webrtc/leave",
+        "/api/streams",
+        "/api/mesh/state",
+        "/api/mesh/sync",
+        "/api/mesh/cursor",
+        "/api/mesh/leaderboard",
+        "/api/mesh/watchparty",
+        "/api/mesh/react",
+        "/api/mesh/quest",
+        "/api/mesh/kick",
+        "/api/tincan/send",
+        "/api/tincan/inbox",
+        "/api/tincan/status",
+    )
+    _SHARED_RELAY_PREFIXES = ("/api/board/",)
+
+    @classmethod
+    def _get_upstream_relay_url(cls) -> Optional[str]:
+        if os.environ.get("TINCAN_LOCAL_NODE", "").strip().lower() not in ("1", "true", "yes"):
+            return None
+        if os.environ.get("TINCAN_OFFLINE", "").strip().lower() in ("1", "true", "yes"):
+            return None
+        upstream = (os.environ.get("TINCAN_UPSTREAM_RELAY") or "").strip().rstrip("/")
+        if not upstream or upstream.lower() in ("none", "local", "off", "0"):
+            return None
+        if not upstream.startswith(("http://", "https://")):
+            return None
+        return upstream
+
+    @classmethod
+    def _should_proxy_to_upstream(cls, path: str) -> bool:
+        if path in cls._SHARED_RELAY_EXACT_PATHS:
+            return True
+        return any(path.startswith(pfx) for pfx in cls._SHARED_RELAY_PREFIXES)
+
+    def _proxy_to_upstream_relay(self, method: str, parsed, body: Optional[bytes] = None) -> bool:
+        upstream = self._get_upstream_relay_url()
+        if not upstream:
+            return False
+        target_url = f"{upstream}{parsed.path}"
+        if parsed.query:
+            target_url = f"{target_url}?{parsed.query}"
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": "tincan-local-node/2.2",
+        }
+        if body is not None:
+            headers["Content-Type"] = self.headers.get("Content-Type") or "application/json"
+        admin_tok = self.headers.get("X-TinCan-Admin-Token")
+        if admin_tok:
+            headers["X-TinCan-Admin-Token"] = admin_tok
+        req = urllib.request.Request(target_url, data=body, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=3.5) as resp:
+                resp_body = resp.read()
+                self.send_response(resp.status)
+                self.send_header("Content-Type", resp.headers.get("Content-Type") or "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("X-TinCan-Proxied", "upstream-relay")
+                self.send_header("Content-Length", str(len(resp_body)))
+                self.end_headers()
+                self._write_body(resp_body)
+                return True
+        except urllib.error.HTTPError as he:
+            try:
+                err_body = he.read()
+            except Exception:
+                err_body = json.dumps({"error": str(he)}).encode("utf-8")
+            self.send_response(he.code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("X-TinCan-Proxied", "upstream-relay")
+            self.send_header("Content-Length", str(len(err_body)))
+            self.end_headers()
+            self._write_body(err_body)
+            return True
+        except Exception:
+            # Offline or upstream unreachable — gracefully fall back to local handler
+            return False
+
+    @staticmethod
+    def _build_unified_online_peers(room: Optional[str] = None, stale_after: float = 60.0):
+        now = time.time()
+        streams = relay.get_room_peers(room) if room else relay.get_active_streams()
+        merged: Dict[str, Dict[str, Any]] = {}
+        for s in streams:
+            pid = str(s.get("peer_id") or "").strip()
+            if not pid:
+                continue
+            entry = dict(s)
+            entry["is_online"] = bool(s.get("is_online", True))
+            merged[pid] = entry
+
+        with mesh_os._lock:
+            cursors_snapshot = list(mesh_os.cursors.values())
+
+        for c in cursors_snapshot:
+            pid = str(c.get("peer_id") or "").strip()
+            if not pid:
+                continue
+            if room and c.get("room", "main") != room:
+                continue
+            updated_at = float(c.get("updated_at") or 0.0)
+            if updated_at > 0.0 and (now - updated_at) > stale_after:
+                continue
+            if pid in merged:
+                existing = merged[pid]
+                existing["last_seen"] = max(float(existing.get("last_seen") or 0.0), updated_at)
+                if not existing.get("display_name") or existing["display_name"] == pid:
+                    existing["display_name"] = c.get("display_name") or pid
+                if c.get("window_id"):
+                    existing["window_id"] = c["window_id"]
+                if c.get("color"):
+                    existing["color"] = c["color"]
+                existing["is_online"] = True
+            else:
+                merged[pid] = {
+                    "peer_id": pid,
+                    "display_name": c.get("display_name") or pid,
+                    "room": c.get("room") or room or "main",
+                    "udp_address": "redacted",
+                    "udp_port": 0,
+                    "connected_at": updated_at or now,
+                    "last_seen": updated_at or now,
+                    "active_stream": True,
+                    "has_video": False,
+                    "has_audio": False,
+                    "has_screen": False,
+                    "has_live_media": False,
+                    "is_online": True,
+                    "window_id": c.get("window_id") or "desktop",
+                    "color": c.get("color") or "",
+                }
+
+        online_list = sorted(
+            merged.values(),
+            key=lambda p: (
+                1 if p.get("has_live_media") else 0,
+                float(p.get("last_seen") or 0.0),
+            ),
+            reverse=True,
+        )
+        return online_list, merged
+
     def do_POST(self):
         parsed = urlparse(self.path)
         if parsed.path.startswith("/localhost/"):
             return proxy_localhost_port(self, "POST", parsed.path, parsed.query)
         if ARENA_CONTEXT_API.handle_post(self, parsed):
             return
+        if self._should_proxy_to_upstream(parsed.path):
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_body = self.rfile.read(content_length) if content_length > 0 else b""
+            if self._proxy_to_upstream_relay("POST", parsed, body=post_body):
+                return
+            # Restore buffered body for local fallback if upstream is offline
+            import io
+            self.rfile = io.BytesIO(post_body)
+            self.headers["Content-Length"] = str(len(post_body))
         if parsed.path == "/api/tincan/send":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
@@ -6347,6 +6504,9 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
         if parsed.path.startswith("/localhost/"):
             proxy_localhost_port(self, getattr(self, "command", "GET"), parsed.path, parsed.query)
             return
+        if self._should_proxy_to_upstream(parsed.path):
+            if self._proxy_to_upstream_relay("GET", parsed):
+                return
         if clean_path in ("/nodes", "/nodes/timeline", "/nodes/gateway", "/gemini-node-studio"):
             query = parse_qs(parsed.query)
             modality = _normalize_node_modality(query.get("modality", ["image"])[0])
@@ -6427,7 +6587,11 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             query = parse_qs(parsed.query)
             room = query.get("room", ["main"])[0]
             state = mesh_os.get_state(room=room)
+            online_peers, peers_map = self._build_unified_online_peers(room=room)
             state["active_webrtc_streams"] = relay.get_active_streams()
+            state["online_peers"] = online_peers
+            state["peers"] = peers_map
+            state["peers_count"] = len(online_peers)
             self._send_json(state, 200)
         elif parsed.path == "/api/mesh/sync":
             query = parse_qs(parsed.query)
@@ -6440,7 +6604,11 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             except ValueError:
                 since_seq = 0
             state = mesh_os.get_state(room=room)
+            online_peers, peers_map = self._build_unified_online_peers(room=room)
             state["active_webrtc_streams"] = relay.get_active_streams()
+            state["online_peers"] = online_peers
+            state["peers"] = peers_map
+            state["peers_count"] = len(online_peers)
             signals_payload = (
                 relay.poll_signals(receiver_id=peer_id, room=room, since_seq=since_seq)
                 if peer_id
@@ -6729,12 +6897,38 @@ class MeshGatewayHandler(BaseHTTPRequestHandler):
             self._send_json({"reported_artifacts": reported_artifacts, "count": len(reported_artifacts)}, 200)
         elif parsed.path == "/api/status":
             audit = scale.evaluate_current_and_future()
+            online_peers, _ = self._build_unified_online_peers(room=None)
+            active_streams = relay.get_active_streams()
+            upstream_relay = self._get_upstream_relay_url()
+            upstream_connected = False
+            if upstream_relay:
+                try:
+                    req = urllib.request.Request(
+                        f"{upstream_relay}/api/status",
+                        headers={"Accept": "application/json", "User-Agent": "tincan-local-node/2.2"},
+                    )
+                    with urllib.request.urlopen(req, timeout=2.0) as resp:
+                        if resp.status == 200:
+                            up_data = json.loads(resp.read().decode("utf-8"))
+                            upstream_connected = True
+                            up_streams = up_data.get("active_webrtc_streams") or []
+                            up_online = up_data.get("online_peers") or up_streams
+                            if up_streams:
+                                active_streams = up_streams
+                            if up_online:
+                                online_peers = up_online
+                except Exception:
+                    pass
             self._send_json({
                 "status": "online",
                 "service": "iot-federated-agent-memory",
                 "readiness_tier": audit["readiness_tier"],
                 "composite_score": audit["composite_iot_scale_score"],
-                "active_webrtc_streams": relay.get_active_streams(),
+                "active_webrtc_streams": active_streams,
+                "online_peers": online_peers,
+                "peers_count": len(online_peers),
+                "upstream_relay": upstream_relay,
+                "upstream_connected": upstream_connected,
                 "ai_providers": {k: v.available_credits for k, v in router.providers.items()},
                 "tincan_relay": tincan_relay.get_stats(),
                 "mesh_os": {

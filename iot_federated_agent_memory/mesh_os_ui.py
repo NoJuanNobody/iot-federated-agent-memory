@@ -4263,6 +4263,9 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           localStorage.setItem('tincan_local_node_mode', '1');
           const modal = document.getElementById('accountSetupModal');
           if (modal) modal.classList.add('hidden');
+          if (typeof registerPresenceHeartbeat === 'function') {
+            registerPresenceHeartbeat(true);
+          }
         })
         .catch(() => {});
     }
@@ -5691,7 +5694,10 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         document.getElementById('osXpText').innerText = `${squadXp.toLocaleString()} / ${targetXp.toLocaleString()} XP`;
 
         const streamsArr = Array.isArray(state.active_webrtc_streams) ? state.active_webrtc_streams : [];
-        const onlinePeers = streamsArr.filter(s => s && s.is_online !== false);
+        const unifiedArr = Array.isArray(state.online_peers) && state.online_peers.length > 0
+          ? state.online_peers
+          : streamsArr;
+        const onlinePeers = unifiedArr.filter(s => s && s.is_online !== false);
         window.latestOnlinePeers = onlinePeers;
         const count = (state.peers_count !== undefined && state.peers_count !== null)
           ? Number(state.peers_count)
@@ -5810,7 +5816,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
                     <button onclick="pingNetworkPeer('${escapeHtml(peerId)}', '${escapeHtml(label)}')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition active:scale-95">📡 Ping</button>
                     <button onclick="openPeerMessage('${escapeHtml(peerId)}', '${escapeHtml(label)}')" class="px-2 py-0.5 rounded bg-indigo-950/80 hover:bg-indigo-900 text-indigo-200 border border-indigo-800 transition active:scale-95">✉️ Message</button>
                     ${!isLocal ? `<button onclick="startDirectCall('${escapeHtml(peerId)}')" class="px-2 py-0.5 rounded bg-emerald-900/80 hover:bg-emerald-800 text-emerald-200 border border-emerald-700 transition active:scale-95">📞 Call</button>` : ''}
-                    ${hasMedia ? `<button onclick="toggleWindow('win-comms')" class="px-2 py-0.5 rounded bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-800 transition active:scale-95">📺 View Stream</button>` : ''}
+                    ${hasMedia && !isLocal ? `<button onclick="joinPeerStream('${escapeHtml(peerId)}')" class="px-2 py-0.5 rounded bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-800 transition active:scale-95">📺 View Screen</button>` : ''}
                   </div>
                 </div>
               `;
@@ -5946,6 +5952,40 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         }
       } catch (e) {}
     }
+
+    let _lastPresenceHeartbeat = 0;
+    async function registerPresenceHeartbeat(force = false) {
+      if (!isIdentityVerified()) return;
+      const now = Date.now();
+      if (!force && now - _lastPresenceHeartbeat < 20000) return;
+      _lastPresenceHeartbeat = now;
+      const room = (document.getElementById('roomInput') && document.getElementById('roomInput').value.trim()) || currentRoom || 'main';
+      const displayName = getVerifiedDisplayName();
+      try {
+        await fetch('/api/webrtc/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            peer_id: myPeerId,
+            display_name: displayName,
+            room,
+            has_video: Boolean(typeof localCameraStream !== 'undefined' && localCameraStream),
+            has_audio: Boolean((typeof localCameraStream !== 'undefined' && localCameraStream) || (typeof localScreenStream !== 'undefined' && localScreenStream)),
+            has_screen: Boolean(typeof localScreenStream !== 'undefined' && localScreenStream),
+          }),
+        });
+      } catch (e) {}
+    }
+    window.registerPresenceHeartbeat = registerPresenceHeartbeat;
+    setInterval(() => registerPresenceHeartbeat(false), 25000);
+    setTimeout(() => registerPresenceHeartbeat(true), 600);
+    window.addEventListener('pagehide', () => {
+      try {
+        const room = (document.getElementById('roomInput') && document.getElementById('roomInput').value.trim()) || currentRoom || 'main';
+        const blob = new Blob([JSON.stringify({ peer_id: myPeerId, room })], { type: 'application/json' });
+        if (navigator.sendBeacon) navigator.sendBeacon('/api/webrtc/leave', blob);
+      } catch (e) {}
+    });
 
     setInterval(() => pollMeshState(false), 4000);
     pollMeshState(true);
@@ -6158,13 +6198,31 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       return pc;
     }
 
-    function startDirectCall(peerId) {
-      toggleWindow('win-call');
+    async function joinPeerStream(peerId) {
+      if (!requireVerifiedIdentity('view a peer stream')) return;
+      const win = document.getElementById('win-call');
+      if (win && win.classList.contains('hidden')) toggleWindow('win-call');
       const roomEl = document.getElementById('roomInput');
-      if (roomEl && peerId && !roomEl.value.trim()) {
-        roomEl.value = 'main';
+      if (roomEl && !roomEl.value.trim()) roomEl.value = currentRoom || 'main';
+      if (peerId) acceptedCallPeers.add(peerId);
+      await registerPresenceHeartbeat(true);
+      ensurePeerConnection(false);
+      await sendSignal('request_offer', { requester: getVerifiedDisplayName() }, peerId || '*');
+      setCallStatus('Requesting live stream from ' + (peerId || 'room') + '...', 'cyan');
+      if (!pollTimer) pollTimer = setInterval(() => pollSignals(false), 1200);
+      pollSignals(true);
+    }
+    window.joinPeerStream = joinPeerStream;
+
+    function startDirectCall(peerId) {
+      const win = document.getElementById('win-call');
+      if (win && win.classList.contains('hidden')) toggleWindow('win-call');
+      const roomEl = document.getElementById('roomInput');
+      if (roomEl && !roomEl.value.trim()) {
+        roomEl.value = currentRoom || 'main';
       }
-      startCall('video');
+      if (peerId) acceptedCallPeers.add(peerId);
+      startCall('video', peerId || '*');
     }
 
     async function renegotiateCall(to = '*') {
@@ -6179,7 +6237,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       }, to);
     }
 
-    async function startCall(mode = 'video') {
+    async function startCall(mode = 'video', targetPeer = '*') {
       if (!requireVerifiedIdentity('join a live WebRTC call')) return;
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         setCallStatus('Camera/Mic require HTTPS or localhost (cursors still work on LAN)', 'amber');
@@ -6198,7 +6256,7 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         localStream = localCameraStream;
         document.getElementById('localVideo').srcObject = localCameraStream;
 
-        await fetch('/api/webrtc/register', {
+        const regRes = await fetch('/api/webrtc/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -6210,15 +6268,20 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
             has_screen: Boolean(localScreenStream)
           })
         });
+        if (!regRes.ok) {
+          const errJson = await regRes.json().catch(() => ({}));
+          setCallStatus('Register failed: ' + (errJson.error || regRes.status), 'rose');
+          return;
+        }
 
         ensurePeerConnection(true);
         const existingTracks = new Set(pc.getSenders().map(s => s.track).filter(Boolean));
         localCameraStream.getTracks().forEach(track => {
           if (!existingTracks.has(track)) pc.addTrack(track, localCameraStream);
         });
-        await renegotiateCall('*');
+        await renegotiateCall(targetPeer || '*');
         setCallStatus('Calling room ' + room + '...', 'cyan');
-        if (!pollTimer) pollTimer = setInterval(pollSignals, 1200);
+        if (!pollTimer) pollTimer = setInterval(() => pollSignals(false), 1200);
       } catch (err) {
         setCallStatus('Media error: ' + err.message, 'rose');
       }
@@ -6357,8 +6420,12 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
       setCallStatus('Call Ended', 'slate');
     }
 
+    let _hiddenSignalTick = 0;
     async function pollSignals(force = false) {
-      if (!force && document.hidden && !pc) return;
+      if (!force && document.hidden && !pc) {
+        _hiddenSignalTick++;
+        if (_hiddenSignalTick % 3 !== 0) return;
+      }
       try {
         const room = document.getElementById('roomInput').value.trim() || 'main';
         const res = await fetch(`/api/webrtc/signals?peer_id=${encodeURIComponent(myPeerId)}&room=${encodeURIComponent(room)}&since_seq=${lastSignalSeq}`);
@@ -6372,13 +6439,18 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
           grid.innerHTML = data.peers.map(p => `
             <div class="p-2 bg-slate-800/60 rounded border border-slate-700 flex justify-between items-center text-xs font-mono">
               <span class="text-white">${p.display_name}</span>
-              <span class="bg-emerald-900 text-emerald-300 px-1.5 py-0.5 rounded text-[10px]">${p.has_screen && p.has_video ? 'CAM+SCREEN' : (p.has_screen ? 'SCREEN' : (p.has_video ? 'VIDEO+VOICE' : 'VOICE'))} · UDP:${p.udp_port}</span>
+              <span class="bg-emerald-900 text-emerald-300 px-1.5 py-0.5 rounded text-[10px]">${p.has_screen && p.has_video ? 'CAM+SCREEN' : (p.has_screen ? 'SCREEN' : (p.has_video ? 'VIDEO+VOICE' : (p.has_audio ? 'VOICE' : 'ONLINE')))} · UDP:${p.udp_port}</span>
             </div>
           `).join('');
         }
         for (const sig of (data.signals || [])) {
           document.getElementById('remotePeerLabel').innerText = sig.from;
-          if (sig.type === 'stream_meta' && sig.payload) {
+          if (sig.type === 'request_offer') {
+            if (localCameraStream || localScreenStream || pc) {
+              acceptedCallPeers.add(sig.from);
+              await renegotiateCall(sig.from);
+            }
+          } else if (sig.type === 'stream_meta' && sig.payload) {
             remoteStreamRoles = {
               camera_stream_id: sig.payload.camera_stream_id || null,
               screen_stream_id: sig.payload.screen_stream_id || null
@@ -6656,13 +6728,31 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
         const merged = new Map();
         if (meshRes && meshRes.ok) {
           const st = await meshRes.json();
-          const peersObj = (st && st.peers) || {};
-          for (const [pid, info] of Object.entries(peersObj)) {
+          const liveList = Array.isArray(st && st.online_peers)
+            ? st.online_peers
+            : [
+                ...(Array.isArray(st && st.active_webrtc_streams) ? st.active_webrtc_streams : []),
+                ...(Array.isArray(st && st.cursors) ? st.cursors : []),
+              ];
+          for (const info of liveList) {
+            const pid = String((info && info.peer_id) || '').trim();
             if (!pid) continue;
             merged.set(pid, {
               peer_id: pid,
               label: (info && (info.display_name || info.name || info.username)) || pid,
-              online: true,
+              online: info.is_online !== false,
+              has_media: Boolean(info.has_live_media || info.has_video || info.has_screen || info.has_audio),
+              role: (info && info.role) || 'Peer',
+            });
+          }
+          const peersObj = (st && st.peers) || {};
+          for (const [pid, info] of Object.entries(peersObj)) {
+            if (!pid || merged.has(pid)) continue;
+            merged.set(pid, {
+              peer_id: pid,
+              label: (info && (info.display_name || info.name || info.username)) || pid,
+              online: info.is_online !== false,
+              has_media: Boolean(info && (info.has_live_media || info.has_video || info.has_screen || info.has_audio)),
               role: (info && info.role) || 'Peer',
             });
           }
@@ -6677,7 +6767,8 @@ MESH_OS_HTML_UI = r"""<!DOCTYPE html>
               merged.set(id, {
                 peer_id: id,
                 label: '@' + handle,
-                online: !!u.verified,
+                online: false,
+                has_media: false,
                 role: u.role || 'Peer',
               });
             }

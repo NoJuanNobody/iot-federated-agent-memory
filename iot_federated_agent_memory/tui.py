@@ -35,6 +35,7 @@ from .logo import LogoImage, draw_title, title_width
 from .os_launcher import (
     LocalNodeManager,
     WINDOW_CATALOG,
+    ensure_local_identity,
     launch_browser_window,
     resolve_window_entry,
 )
@@ -142,6 +143,37 @@ class StatusPoller(threading.Thread):
             lb_resp = _fetch_json(self.relay + "/api/mesh/leaderboard", timeout=2.5)
             id_resp = _fetch_json(self.relay + "/api/local/identity", timeout=2.0)
 
+            # Announce TUI operator presence so web & other TUI peers see this node online
+            try:
+                peer_id = ""
+                display_name = ""
+                if isinstance(id_resp, dict) and id_resp.get("local_node"):
+                    peer_id = str(id_resp.get("tc_address") or id_resp.get("node_id") or "").strip()
+                    display_name = str(id_resp.get("alias") or peer_id).strip()
+                if not peer_id:
+                    ident = ensure_local_identity()
+                    peer_id = str(ident.get("tc_address") or ident.get("node_id") or "").strip()
+                    display_name = str(ident.get("alias") or peer_id).strip()
+                if peer_id:
+                    hb_body = json.dumps({
+                        "peer_id": peer_id,
+                        "display_name": f"{display_name} (TUI)" if display_name and "(TUI)" not in display_name else (display_name or peer_id),
+                        "room": "main",
+                        "has_video": False,
+                        "has_audio": False,
+                        "has_screen": False,
+                    }).encode("utf-8")
+                    hb_req = urllib.request.Request(
+                        self.relay + "/api/webrtc/register",
+                        data=hb_body,
+                        headers={"Content-Type": "application/json", "User-Agent": "tincan-tui/2.2"},
+                        method="POST",
+                    )
+                    with urllib.request.urlopen(hb_req, timeout=2.0):
+                        pass
+            except Exception:
+                pass
+
             topics: List[Dict[str, Any]] = []
             if isinstance(board_resp, dict):
                 topics = list(board_resp.get("topics") or board_resp.get("items") or [])
@@ -178,7 +210,7 @@ def status_summary(snap: Dict[str, Any], is_local: bool = False) -> Tuple[str, R
     prefix = "local node" if is_local else "relay"
     if snap.get("data") and not snap.get("error"):
         d = snap["data"]
-        peers = len(d.get("active_webrtc_streams") or d.get("connected_peers") or [])
+        peers = len(d.get("online_peers") or d.get("active_webrtc_streams") or d.get("connected_peers") or [])
         provs = len(d.get("ai_providers") or {})
         return "%s online \u00b7 %d peers \u00b7 %d providers" % (prefix, peers, provs), GREEN
     if snap.get("error"):
@@ -414,7 +446,7 @@ class Dashboard:
         y += 1
 
         y = self._section(canvas, x0, y, width, "CONNECTED PEERS")
-        peers = data.get("active_webrtc_streams") or data.get("connected_peers") or []
+        peers = data.get("online_peers") or data.get("active_webrtc_streams") or data.get("connected_peers") or []
         if not peers:
             canvas.text(x0, y, "no remote peers connected (local node ready offline)", WASHI_DIM)
             y += 1

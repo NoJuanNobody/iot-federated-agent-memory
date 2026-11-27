@@ -574,6 +574,12 @@ class LocalNodeManager:
         env["TINCAN_LOCAL_TC_ADDRESS"] = identity["tc_address"]
         env["TINCAN_LOCAL_ALIAS"] = identity["alias"]
         env["TINCAN_LOCAL_NODE_ID"] = identity["node_id"]
+        if os.environ.get("TINCAN_OFFLINE", "").strip().lower() not in ("1", "true", "yes"):
+            env.setdefault(
+                "TINCAN_UPSTREAM_RELAY",
+                os.environ.get("TINCAN_RELAY")
+                or "https://iot-federated-agent-memory-production.up.railway.app",
+            )
         env["PYTHONUNBUFFERED"] = "1"
         existing_py = env.get("PYTHONPATH", "")
         env["PYTHONPATH"] = f"{self.repo_root}{os.pathsep}{existing_py}" if existing_py else str(self.repo_root)
